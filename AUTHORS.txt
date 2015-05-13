@@ -1,0 +1,8 @@
+(* OASIS_START *)
+(* DO NOT EDIT (digest: 1a367b994421408c8f83147934c84a34) *)
+
+Authors of graffophone:
+
+* Gaëtan Dubreil
+
+(* OASIS_STOP *)

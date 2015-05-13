@@ -7,6 +7,10 @@
 *.cmx
 *.cmxs
 *.cmxa
+*.docdir
+
+# emacs generated files
+*.ml~
 
 # ocamlbuild working directory
 _build/
