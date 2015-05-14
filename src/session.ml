@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Util
 open Usual
 open SampleFormat
 
@@ -175,8 +176,8 @@ let load filename =
 
 				with Not_found -> trace("talker |"^att.dpn^"| not found")
 			)
-			with Tkr.TagNotFound -> (
-					trace("\nDependence "^att.dpn^" not found!");
+			with Tkr.TagNotFound msg -> (
+					trace(msg^"\nDependence "^att.dpn^" not found!");
 					(*raise Tkr.TagNotFound*)
 				)
 			| x -> traceMagenta(Printexc.to_string x)

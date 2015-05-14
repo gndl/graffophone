@@ -14,20 +14,20 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
+open Util
 
 type t = {
   bits : int; (* bits per sample *)
   rate : int; (* samples per second (in a single channel) *)
   channels : int; (* number of audio channels *)
-  byte_format : Ao.byte_format_t; (* Byte ordering in sample, see constants below *)
-}
+(*  byte_format : Ao.byte_format_t; (* Byte ordering in sample, see constants below *)
+*)}
 
-let sf = {bits = 16; rate = 44100; channels = 2; byte_format = `LITTLE_ENDIAN}
+let sf = {bits = 16; rate = 44100; channels = 2(*; byte_format = `LITTLE_ENDIAN*)}
 
 let bits = sf.bits
 let rate = sf.rate
-let fRate = foi sf.rate
+let fRate = float_of_int sf.rate
 let channels = sf.channels
 
 (*
@@ -35,7 +35,7 @@ let minAudio = min_float -. 1.
 let maxAudio = 1. -. min_float*)
 let minAudio = (-0.999)
 let maxAudio = 0.999
-let maxA = (2. ** foi sf.bits) /. 2. -. 1.
+let maxA = (2. ** float_of_int sf.bits) /. 2. -. 1.
 let minA = 1. -. maxA
 let perRate = 1. /. fRate
 let per2Pi = 1. /. pi2

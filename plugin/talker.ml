@@ -14,17 +14,19 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
+open Util
+
 open SampleFormat
 open Voice
 open Ear
 
-module Bus = EventBus
-
-exception UndefinedTalker
-exception UndefinedVoice
-exception IncompatibleIO
-exception TagNotFound
+exception UnexpectedValue of string
+exception UnexpectedAttribut of string
+exception UnexpectedFormat of string
+exception UndefinedTalker of string
+exception UndefinedVoice of string
+exception IncompatibleIO of string
+exception TagNotFound of string
 
 type valueType_t = Nil
 	| Int of int
@@ -42,8 +44,7 @@ let typeOfValue = function
 	| Nil -> "Nil"
 
 let notifyIncompatibility v expectedType =
-	Bus.notify(Bus.Error("Type "^typeOfValue v^" is incompatible with the expected "^expectedType^" type"));
-	raise UnexpectedValue
+	raise(UnexpectedValue("Type "^typeOfValue v^" is incompatible with the expected "^expectedType^" type"))
 
 let v2i  v = match v with Int i -> i    | _ -> notifyIncompatibility v "Int"
 let v2f  v = match v with Float f -> f  | _ -> notifyIncompatibility v "Float"
@@ -58,14 +59,14 @@ let t2v  t  = Text t
 let fl2v fn = File fn
 
 let stringOfValue = function
-	| Int i -> soi i
-	| Float f -> sof f
+	| Int i -> string_of_int i
+	| Float f -> string_of_float f
 	| String s | Text s | File s -> s
 	| Nil -> ""
 
 let valueOfString s = function
-	| Int _ -> Int (ios s)
-	| Float _ -> Float (fos s)
+	| Int _ -> Int (int_of_string s)
+	| Float _ -> Float (float_of_string s)
 	| String _ -> String s
 	| Text _ -> Text s
 	| File _ -> File s
@@ -104,9 +105,7 @@ class virtual c =
 			~f:(fun d talk -> d || talk.voice.tkr#dependsOf id) self#getTalks
 
 	method getValue = Nil
-	method setValue (v : valueType_t) = (
-		traceRed("Unexpected value for "^self#getName);
-		notifyIncompatibility v "Nil" : unit)
+	method setValue (v : valueType_t) = notifyIncompatibility v "Nil"
 
 	method getStringOfValue = stringOfValue self#getValue
 	method setValueOfString s = self#setValue(valueOfString s self#getValue)
@@ -115,8 +114,7 @@ class virtual c =
 
 
 	method setEar (tag:string) (ear:c Ear.t) = (
-		traceRed("Unexpected attribut "^tag^" for "^self#getName);
-		raise UnexpectedAttribut : unit)
+		raise(UnexpectedAttribut("Unexpected attribut "^tag^" for "^self#getName)) : unit)
 
 (*	method setEarToWord (tag : string) (word : float) =*)
 
@@ -168,7 +166,7 @@ class virtual c =
       		| _ -> false
       	)
   		)
-  	) then (raise TagNotFound : unit)
+  	) then (raise(TagNotFound("Tag "^tag^" not found for "^self#getName^" ears talks")) : unit)
 
 
 	method setEarToVoiceByTag (tag : string) (voice : c Voice.t) =
@@ -206,8 +204,7 @@ class virtual c =
       	)
   		)
   	) then (
-  			traceRed("Tag "^tag^" not found for "^self#getName^" ears talks");
-  			raise TagNotFound : unit)
+  			raise(TagNotFound("Tag "^tag^" not found for "^self#getName^" ears talks")) : unit)
 
 
 	method setEarToValueByIndex (index:int) (value : float) =
@@ -216,7 +213,7 @@ class virtual c =
 		| EWord word -> word.value <- value
 		| ETalk talk -> setTalkValue talk value
 		| EBin bin -> let wTag = binTag bin in bin.src <- Word {value; wTag}
-		| _ -> raise IncompatibleIO
+		| _ -> raise(IncompatibleIO("Incompatible IO of ear "^string_of_int index))
 
 
 	method setEarToVoiceByIndex (index:int) (voice : c Voice.t) =
@@ -224,7 +221,7 @@ class virtual c =
 		match self#getFlatEars.(index) with
 		| ETalk talk -> talk.voice <- voice
 		| EBin bin -> bin.src <- Talk {voice; tTag = binTag bin}
-		| _ -> raise IncompatibleIO
+		| _ -> raise(IncompatibleIO("Incompatible IO of ear "^string_of_int index))
 
 
 	(* ear array *)
@@ -281,8 +278,7 @@ class virtual c =
 		in
 		
 		if not(A.fold_left self#getEars ~init:false ~f:add) then (
-			traceRed("Unexpected bins "^tag^" for "^self#getName);
-			raise UnexpectedAttribut : unit)
+			raise(UnexpectedAttribut("Unexpected bins "^tag^" for "^self#getName)) : unit)
 			
 
 	method supEarByIndex index =
@@ -318,8 +314,7 @@ class virtual c =
 				else r)
 		in
 		match optVoice with Some voice -> voice
-		| None -> traceRed(self#getName^" "^tag^" voice undefined");
-			raise UndefinedVoice
+		| None -> raise(UndefinedVoice(self#getName^" "^tag^" voice undefined"))
 		)
 	: c Voice.t)
 
@@ -432,7 +427,7 @@ let earToTalk = function
 	| ETalk talk -> talk
 	| EBin bin -> (match bin.src with Talk talk -> talk
 		| Word word -> talkerToTalk(new hiddenConstant ~value:word.value ()) word.wTag)
-	| _ -> raise UnexpectedValue 
+	| _ -> raise(UnexpectedValue "Unexpected ear type") 
 
 
 let earsToTalks ears = L.map(fun t -> earToTalk t) ears
@@ -457,4 +452,5 @@ let mkWords ?(tag = defInputTag) () = {words = [||]; wsTag = tag}
 let mkTalks ?(tag = defInputTag) () = {talks = [||]; tsTag = tag}
 
 let mkBins ?(tag = defInputTag) () = { bins = [||]; bsTag = tag}
+
 

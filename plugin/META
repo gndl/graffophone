@@ -1,0 +1,13 @@
+# OASIS_START
+# DO NOT EDIT (digest: 74e6f5d04c9ff5e4cf7d1be9977cce97)
+package "plugin" (
+ version = "0.1"
+ description = "Graffophone plugin library"
+ archive(byte) = "graffophone-plugin.cma"
+ archive(byte, plugin) = "graffophone-plugin.cma"
+ archive(native) = "graffophone-plugin.cmxa"
+ archive(native, plugin) = "graffophone-plugin.cmxs"
+ exists_if = "graffophone-plugin.cma"
+)
+# OASIS_STOP
+

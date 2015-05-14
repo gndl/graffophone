@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: dabde020a2c77d129ecc9c75da640985) *)
+(* DO NOT EDIT (digest: a7973768951235ef7b5e2fc92f48e90e) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -607,7 +607,7 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [];
+     MyOCamlbuildBase.lib_ocaml = [("graffophone-plugin", ["plugin"], [])];
      lib_c = [];
      flags =
        [
@@ -660,7 +660,7 @@ let package_default =
                    ])
             ])
        ];
-     includes = []
+     includes = [("src", ["plugin"])]
   }
   ;;
 

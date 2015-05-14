@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Util
 open Usual
 open Factory
 open Ear
@@ -1040,6 +1041,7 @@ class c = object(self) inherit Tkr.c as super
 end
 
 let make() = (new c)#base
+let handler = Plugin.{kind; category = "Shaper"; make = fun() -> new c}
 end
 
 

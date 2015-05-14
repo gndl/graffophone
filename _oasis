@@ -10,12 +10,21 @@ Plugins:     META (0.4), StdFiles (0.4), DevFiles (0.4)
 PreConfCommand: opam install ao lablgtk
 PreBuildCommand: cd src && lablgladecc2 -embed graffophoneGui.glade > graffophoneGui.ml
 
+Library "graffophone-plugin"
+  FindlibName: plugin
+  FindlibContainers: graffophone
+  Path: plugin
+  BuildTools: ocamlbuild
+  Modules: Talker, Plugin
+#  BuildDepends: 
+  XMETADescription: Graffophone plugin library
+
 Executable graffophone
   Path:       src
   BuildTools: ocamlbuild
   MainIs:     main.ml
   CompiledObject: native
-  BuildDepends: unix, threads, str, bigarray, sndfile, ao, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas
+  BuildDepends: unix, threads, str, bigarray, sndfile, ao, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas, graffophone.plugin
   NativeOpt: -ffast-math -unsafe -inline 10 -noassert
   CCOpt: -O3
 
@@ -24,3 +33,4 @@ SourceRepository master
   Location: https://github.com/gndl/graffophone.git
   Branch: master
   Browser: https://github.com/gndl/graffophone
+  

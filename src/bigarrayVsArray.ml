@@ -96,9 +96,6 @@ end
 
 let make() = (new c)#base
 
-
-let make() = (new c)#base
-
 let register = Factory.addTalkerMaker kind "test" make;
 (*
 let registerPlugin fileName =

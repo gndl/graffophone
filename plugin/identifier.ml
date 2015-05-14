@@ -14,8 +14,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
-
 let incCount count = count := !count + 1; !count
 
 
@@ -29,18 +27,18 @@ class virtual c ?name ?kind count =
 		| Some n ->
 			if n.[String.length n - 1] = '(' then (
 				match kind with
-				| Some k -> mName <- n ^ k ^ " " ^ soi mId ^ ")"
-				| None -> mName <- n ^ soi mId ^ ")"
+				| Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ ")"
+				| None -> mName <- n ^ string_of_int mId ^ ")"
 			)
 			else if n.[String.length n - 1] = '[' then (
 				match kind with
-				| Some k -> mName <- n ^ k ^ " " ^ soi mId ^ "]"
-				| None -> mName <- n ^ soi mId ^ "]"
+				| Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ "]"
+				| None -> mName <- n ^ string_of_int mId ^ "]"
 			)
 			else mName <- n
 		| None -> match kind with
-			| Some k -> mName <- k ^ " " ^ soi mId
-			| None -> () (*mName <- "[" ^ soi mId ^ "]"*)
+			| Some k -> mName <- k ^ " " ^ string_of_int mId
+			| None -> () (*mName <- "[" ^ string_of_int mId ^ "]"*)
 
 	method getId = mId
 	method getName = mName

@@ -14,9 +14,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
-
-
 type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
 	
 let get (cor:t) i = Bigarray.Array1.unsafe_get cor i

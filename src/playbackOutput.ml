@@ -31,7 +31,7 @@ class c ?(name = "Playback Output(") () =
 			let drv = (*Ao.find_driver "pulse"*) Ao.get_default_driver() in
 			try
 				printf "\nOpen default device driver: %s\n" (Ao.driver_name drv);
-				mDevice <- Some (Ao.open_live ~driver:drv ~bits:sf.bits ~rate:sf.rate ~channels:nbChannels ~byte_format:sf.byte_format ())
+				mDevice <- Some (Ao.open_live ~driver:drv ~bits:sf.bits ~rate:sf.rate ~channels:nbChannels ~byte_format:`LITTLE_ENDIAN ())
 			with x -> printf "\nFailed to open device driver: %s\n" (Ao.driver_name drv)
 
 	method write lg channels =

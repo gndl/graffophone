@@ -44,20 +44,6 @@ let iof f = int_of_float f
 let coi i = char_of_int i
 let ioc c = int_of_char c
 
-module A = struct
-	include ArrayLabels
-	
-	let add a e = append a [|e|]
-	
-	let sup a i =
-		let newLen = length a - 1 in
-		
-		if i = 0 then sub a 1 newLen
-		else if i = newLen then sub a 0 newLen
-		else append(sub a 0 i) (sub a (i + 1) (newLen - i))
-		
-end
-		
 (* TRACE *)
 (* Définition de quelques codes de couleurs pour les terminaux ANSI :
 *)
@@ -114,10 +100,7 @@ let writeFileLines filename lines =
 	close_out chan
 	
 
-exception UnexpectedValue
-exception UnexpectedAttribut
-exception UnexpectedFormat
-
+(*
 let declareUnexpectedValue name v =
 	if false then () else (
 		trace("Unexpected value "^v^" for "^name);
@@ -127,7 +110,7 @@ let declareUnexpectedAttribut name t =
 	if false then () else (
 		trace("Unexpected attribut "^t^" for "^name);
 		raise UnexpectedAttribut)
-
+*)
 
 let floatStrongWeight f =
 	

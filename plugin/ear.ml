@@ -14,9 +14,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
-
-
 let defInputTag = "I"
 
 type word_t = {
@@ -61,37 +58,38 @@ let defEar = EWord defWord
 (*let defBin = {src = defSrc}*)
 
 let voicesToTalks voices talksTag =
-	L.mapi ~f:(fun i voice -> {voice; tTag = talksTag ^ " " ^ soi(i + 1)}) voices
+	ListLabels.mapi ~f:(fun i voice ->
+		{voice; tTag = talksTag ^ " " ^ string_of_int(i + 1)}) voices
 
 
 let binTag bin = match bin.src with Word wrd -> wrd.wTag | Talk tlk -> tlk.tTag
 
 
 let countEars ears =
-	A.fold_left ~init:0 ears
+	ArrayLabels.fold_left ~init:0 ears
 		~f:(fun cnt ear -> match ear with
     		| EWord _ | ETalk _ | EBin _ -> cnt + 1
-				| EWords e -> cnt + A.length e.words
-    		| ETalks e -> cnt + A.length e.talks
-    		| EBins e -> cnt + A.length e.bins
+				| EWords e -> cnt + ArrayLabels.length e.words
+    		| ETalks e -> cnt + ArrayLabels.length e.talks
+    		| EBins e -> cnt + ArrayLabels.length e.bins
 		)
 
 
 let flattenEars ears =
 
-	let flatEars = A.make (countEars ears) defEar in
+	let flatEars = ArrayLabels.make (countEars ears) defEar in
 
 	let blit src dstI =
-		let len = A.length src in
-		A.blit ~src ~src_pos:0 ~dst:flatEars ~dst_pos:dstI ~len;
+		let len = ArrayLabels.length src in
+		ArrayLabels.blit ~src ~src_pos:0 ~dst:flatEars ~dst_pos:dstI ~len;
 		dstI + len
 	in
 
-	ignore(A.fold_left ~init:0 ears
+	ignore(ArrayLabels.fold_left ~init:0 ears
 	~f:(fun dstI ear -> match ear with
-		| EWords e -> blit (A.map e.words ~f:(fun n -> EWord n)) dstI
-		| ETalks e -> blit (A.map e.talks ~f:(fun f -> ETalk f)) dstI
-		| EBins e -> blit (A.map e.bins ~f:(fun b -> EBin b)) dstI
+		| EWords e -> blit (ArrayLabels.map e.words ~f:(fun n -> EWord n)) dstI
+		| ETalks e -> blit (ArrayLabels.map e.talks ~f:(fun f -> ETalk f)) dstI
+		| EBins e -> blit (ArrayLabels.map e.bins ~f:(fun b -> EBin b)) dstI
 		| e -> flatEars.(dstI) <- e; dstI + 1
 		)
 	);
@@ -100,22 +98,22 @@ let flattenEars ears =
 
 let earsToSources ears =
 
-	let earsSources = A.make (countEars ears) defSrc in
+	let earsSources = ArrayLabels.make (countEars ears) defSrc in
 
 	let blit src dstI =
-		let len = A.length src in
-		A.blit ~src ~src_pos:0 ~dst:earsSources ~dst_pos:dstI ~len;
+		let len = ArrayLabels.length src in
+		ArrayLabels.blit ~src ~src_pos:0 ~dst:earsSources ~dst_pos:dstI ~len;
 		dstI + len
 	in
 
-	ignore(A.fold_left ~init:0 ears
+	ignore(ArrayLabels.fold_left ~init:0 ears
   	~f:(fun dstI ear -> match ear with
   		| EWord wrd -> earsSources.(dstI) <- Word wrd; dstI + 1
   		| ETalk tlk -> earsSources.(dstI) <- Talk tlk; dstI + 1
   		| EBin bin -> earsSources.(dstI) <- bin.src; dstI + 1
-  		| EWords ews -> blit (A.map ews.words ~f:(fun w -> Word w)) dstI
-  		| ETalks ets -> blit (A.map ets.talks ~f:(fun t -> Talk t)) dstI
-  		| EBins ebs -> blit (A.map ebs.bins ~f:(fun b -> b.src)) dstI
+  		| EWords ews -> blit (ArrayLabels.map ews.words ~f:(fun w -> Word w)) dstI
+  		| ETalks ets -> blit (ArrayLabels.map ets.talks ~f:(fun t -> Talk t)) dstI
+  		| EBins ebs -> blit (ArrayLabels.map ebs.bins ~f:(fun b -> b.src)) dstI
 		)
 	);
 	earsSources
@@ -123,14 +121,14 @@ let earsToSources ears =
 
 let talksOfEars ears =
 
-	A.fold_right ears ~init:[] ~f:(fun ear talks ->
+	ArrayLabels.fold_right ears ~init:[] ~f:(fun ear talks ->
 		match ear with
 		| EWord _ | EWords _ -> talks
 		| ETalk talk -> talk::talks
 		| EBin bin -> (
 			match bin.src with Talk talk -> talk::talks | Word _ -> talks)
-		| ETalks efs -> L.rev_append (A.to_list efs.talks) talks
-		| EBins ebs -> A.fold_right ebs.bins ~init:talks ~f:(fun bin talks ->
+		| ETalks efs -> ListLabels.rev_append (ArrayLabels.to_list efs.talks) talks
+		| EBins ebs -> ArrayLabels.fold_right ebs.bins ~init:talks ~f:(fun bin talks ->
 			match bin.src with Talk talk -> talk::talks | Word _ -> talks)
 	)
 

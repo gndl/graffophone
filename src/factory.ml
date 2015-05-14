@@ -19,9 +19,13 @@ open SampleFormat
 
 module Tkr = Talker
 
-let talkerMakers:(string * (string * (unit -> Tkr.c)))list ref = ref []
+(*let talkerMakers:(string * (string * (unit -> Tkr.c)))list ref = ref []
+*)
+let talkerMakers : (string * Plugin.talkerHandler) list ref = ref []
 
-let addTalkerMaker kind category maker = talkerMakers := (kind, (category, maker)) :: !talkerMakers
+let addTalkerHandler ph = talkerMakers := Plugin.(ph.kind, ph) :: !talkerMakers
+
+let addTalkerMaker kind category make = addTalkerHandler Plugin.{kind; category; make}
 
 let getTalkerMaker kind =
 	try L.assoc kind !talkerMakers
@@ -29,18 +33,18 @@ let getTalkerMaker kind =
 
 
 let makeTalker ?name kind =
-	let (_, maker) = getTalkerMaker kind in 
+	let th = getTalkerMaker kind in 
 (*	let tkr = ((maker name) :> Tkr.c) in
 	A.iter (fun vc -> vc.tkr <- tkr) tkr#getVoices;
 	tkr*)
-	let talker = Tkr.mkTkr(maker ()) in
+	let talker = Tkr.mkTkr(th.make ()) in
 	
 	match name with None -> talker
 	| Some nm -> talker#setName nm; talker
 
 
 let getTalkersInfos() =
-	L.map !talkerMakers ~f:(fun (kind, (category, maker)) -> (kind, category))
+	L.map !talkerMakers ~f:(fun (kind, th) -> Plugin.(kind, th.category))
 	
 	
 let outputMakers:(string * (string -> (string * string * string) list -> Output.c))list ref = ref []

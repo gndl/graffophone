@@ -4,7 +4,7 @@
 #"src/gui": package(lablgtk2), package(lablgtk2.glade), package(lablgtk2.gnomecanvas)
 
 # OASIS_START
-# DO NOT EDIT (digest: c35eee420b88b8e4f182f52489f06e20)
+# DO NOT EDIT (digest: d2bd47b8dedc69ec66b6b67d4ef719fb)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -19,6 +19,8 @@ true: annot, bin_annot
 ".git": not_hygienic
 "_darcs": -traverse
 "_darcs": not_hygienic
+# Library graffophone-plugin
+"plugin/graffophone-plugin.cmxs": use_graffophone-plugin
 # Executable graffophone
 <src/*.ml{,i,y}>: oasis_executable_graffophone_ccopt
 "src/main.native": oasis_executable_graffophone_native
@@ -32,6 +34,7 @@ true: annot, bin_annot
 "src/main.native": package(str)
 "src/main.native": package(threads)
 "src/main.native": package(unix)
+"src/main.native": use_graffophone-plugin
 <src/*.ml{,i,y}>: package(ao)
 <src/*.ml{,i,y}>: package(bigarray)
 <src/*.ml{,i,y}>: package(lablgtk2)
@@ -41,4 +44,5 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: package(str)
 <src/*.ml{,i,y}>: package(threads)
 <src/*.ml{,i,y}>: package(unix)
+<src/*.ml{,i,y}>: use_graffophone-plugin
 # OASIS_STOP
