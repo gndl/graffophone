@@ -19,7 +19,7 @@ open Usual
 open SampleFormat
 open Draft
 open Talker
-open BasicTalkers
+open InnerTalkers
 open Track
 open Output
 open MixingConsole

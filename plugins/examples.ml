@@ -14,28 +14,12 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+let() = Plugin.(handler := {
+	name = "Examples";
+	talkerHandlers = [
+		Inversion.handler;
+		TemporalInversion.handler;
+		BigarrayVsArray.handler
+	]
+})
 
-module L = ListLabels
-
-module A = struct
-	include ArrayLabels
-	
-	let add a e = append a [|e|]
-	
-	let sup a i =
-		let newLen = length a - 1 in
-		
-		if i = 0 then sub a 1 newLen
-		else if i = newLen then sub a 0 newLen
-		else append(sub a 0 i) (sub a (i + 1) (newLen - i))
-		
-end
-		
-
-let pi = 4.0 *. atan 1.0
-let pi2 = 2. *. pi
-
-let mini (x:int) (y:int) = if x < y then x else y
-let maxi (x:int) (y:int) = if x > y then x else y
-let minf (x:float) (y:float) = if x < y then x else y
-let maxf (x:float) (y:float) = if x > y then x else y

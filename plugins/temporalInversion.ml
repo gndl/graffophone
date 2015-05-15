@@ -14,7 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
+open Util
 open SampleFormat
 (*open Array*)
 module Tkr = Talker
@@ -46,12 +46,13 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput grl;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Handling"; make = fun() -> new c}
 
-
+(*
 let registerPlugin fileName =
 	Factory.addTalkerMaker kind "Handling" make;
 	print_string ("Plugin "^fileName^" registered\n");
 	flush stdout;;
 
 Factory.registerPlugin := registerPlugin;
+*)

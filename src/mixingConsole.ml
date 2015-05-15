@@ -16,8 +16,6 @@
 
 open Util
 open Usual
-open BasicTalkers
-
 module SF = SampleFormat
 module Tkr = Talker
 

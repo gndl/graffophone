@@ -17,7 +17,6 @@
 open Printf
 open Usual
 open Talker
-open BasicTalkers
 open Track
 open Output
 open MixingConsole

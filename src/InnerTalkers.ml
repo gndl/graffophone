@@ -29,7 +29,7 @@ class c = object(self) inherit Tkr.hiddenConstant()
 	method isHidden = false
 end
 
-	let make() = (new c)#base
+let handler = Plugin.{kind; category = "Mathematics"; make = fun() -> (new c)#base}
 end
 
 module Sum = struct
@@ -78,7 +78,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput !l;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Mathematics"; make = fun() -> (new c)#base}
 end
 
 
@@ -130,7 +130,7 @@ class c = object(self) inherit Tkr.c as super
 
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Mathematics"; make = fun() -> (new c)#base}
 end
 
 
@@ -152,7 +152,7 @@ class c = object(self) inherit Sum.c as super
 		done;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Mathematics"; make = fun() -> (new c)#base}
 end
 
 
@@ -215,7 +215,7 @@ class c = object(self) inherit Tkr.c as super
 		);
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -300,7 +300,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput (compute mFreq.src);
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -370,7 +370,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput (compute mFreq.src);
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -426,7 +426,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput l;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -468,7 +468,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput l;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -542,7 +542,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput l;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -610,7 +610,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput len;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -678,7 +678,7 @@ class c = object(self) inherit Square.c as super
 		Voice.setLength mOutput l;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Oscillator"; make = fun() -> (new c)#base}
 end
 
 
@@ -716,7 +716,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput (Listen.getLength ir);
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Modulator"; make = fun() -> (new c)#base}
 end
 
 
@@ -748,8 +748,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput grl;
 end
 
-let make() = (new c)#base
-
+let handler = Plugin.{kind; category = "Modulator"; make = fun() -> (new c)#base}
 end
 
 
@@ -853,7 +852,7 @@ class c = object(self) inherit Tkr.c as super
 
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Modulator"; make = fun() -> (new c)#base}
 end
 
 
@@ -891,7 +890,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput grl;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Modulator"; make = fun() -> (new c)#base}
 end
 
 
@@ -932,7 +931,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput grl;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Shaper"; make = fun() -> (new c)#base}
 end
 
 
@@ -986,7 +985,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput drl;
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "Shaper"; make = fun() -> (new c)#base}
 end
 
 
@@ -1040,11 +1039,10 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput drl;
 end
 
-let make() = (new c)#base
-let handler = Plugin.{kind; category = "Shaper"; make = fun() -> new c}
+let handler = Plugin.{kind; category = "Shaper"; make = fun() -> (new c)#base}
 end
 
-
+(*
 let register =
 	Factory.addTalkerMaker Constant.kind "Mathematics" Constant.make;
 	Factory.addTalkerMaker Sum.kind "Mathematics" Sum.make;
@@ -1065,6 +1063,30 @@ let register =
 	Factory.addTalkerMaker Damper.kind "Shaper" Damper.make;
 	Factory.addTalkerMaker Accumulator.kind "Shaper" Accumulator.make;
 	Factory.addTalkerMaker Regulator.kind "Shaper" Regulator.make;
+*)
+let handler = Plugin.{ name = "Inner";
+	talkerHandlers = [
+		Constant.handler;
+		Sum.handler;
+		Product.handler;
+		Average.handler;
+		StaticSine.handler;
+		Sine.handler;
+		AbsSine.handler;
+		BSine.handler;
+		AbsBSine.handler;
+		Square.handler;
+		BSquare.handler;
+		Triangle.handler;
+		Amplifier.handler;
+		AmplitudeModulator.handler;
+		FrequencyModulator.handler;
+		DynamicModulator.handler;
+		Damper.handler;
+		Accumulator.handler;
+		Regulator.handler;
+	]
+}
 
 
  

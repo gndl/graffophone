@@ -20,6 +20,7 @@ let () =
 	
 	Printexc.record_backtrace true;
 	try
+	PluginsManager.loadPlugins ();
 
   let ssnCtrl = new SessionControler.c in
 

@@ -34,7 +34,7 @@ let voice voice ?(copy = true) tick len =
 		voice.tkr#talk voice.port tick len;
 	);
 	let ofs = tick - voice.tick in
-	let l = Usual.mini len (voice.len - ofs) in
+	let l = Util.mini len (voice.len - ofs) in
 	
 	if l < 1 then raise Voice.End;
 	 

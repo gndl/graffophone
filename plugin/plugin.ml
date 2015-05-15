@@ -17,7 +17,7 @@
 type talkerHandler = {
 	kind : string;
 	category : string; 
-	make : unit -> Talker.c
+	make : (unit -> Talker.c)
 }
 
 type handler = {
@@ -25,7 +25,21 @@ type handler = {
 	talkerHandlers : talkerHandler list
 }
 
-let null = {name = "None"; talkerHandlers = []}
+let null = {name = "nullnull"; talkerHandlers = []}
+
+let handler = ref null
+
+let isRegistered() = !handler != null
+
+let getHandler() = !handler
+
+let reset() = handler := null
 
 
-let handler : handler ref = ref null
+let defaultProvideHandler() =
+	print_string ("Plugin did not register\n");
+	flush stdout
+
+let provideHandler = ref defaultProvideHandler
+
+

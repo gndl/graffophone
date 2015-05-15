@@ -14,9 +14,10 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
+open Util
+(*
 open SampleFormat
-
+*)
 module Tkr = Talker
 
 let kind = "inversion"
@@ -37,7 +38,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.checkLength mOutput irl;
 
 		for i = 0 to irl - 1 do
-			let v = Listen.(ir@+i) *. maxA
+			let v = Listen.(ir@+i) *. SampleFormat.maxA
 			in
 			if v = 0. then Voice.set mOutput i 1.
 			else Voice.set mOutput i (minf (1. /. v) 1.)
@@ -47,13 +48,4 @@ class c = object(self) inherit Tkr.c as super
 		Voice.setLength mOutput irl;
 end
 
-let make() = (new c)#base
-
-
-
-let registerPlugin fileName =
-	Factory.addTalkerMaker kind "Mathematics" make;
-	print_string ("Plugin "^fileName^" registered\n");
-	flush stdout;;
-
-Factory.registerPlugin := registerPlugin;
+let handler = Plugin.{kind; category = "Handling"; make = fun() -> new c}

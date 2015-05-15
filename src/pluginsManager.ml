@@ -14,20 +14,37 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Usual
 
 let loadPlugins () =
 	try
-		Dynlink.init ();
+		let open Plugin in
+		(* inner talkers registering *)
+  	L.iter Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
+		traceGreen(InnerTalkers.handler.name^" talkers registered");
 
-		let pluginsDir = "plugins/" in		
-		let suffix = if Dynlink.is_native then ".cmxs" else ".cmo"
+		Factory.addTalkerHandler FileInput.handler;
+
+		(* Plugins talkers registering *)
+		let pluginsDir = "_build/plugins/" in		
+		let suffix = if Dynlink.is_native then ".cmxs" else ".cma"
 		in
 		let loadIfPlugin fileName =
 			if Filename.check_suffix fileName suffix then
 			(
 				Dynlink.loadfile (pluginsDir^fileName);
-				!Factory.registerPlugin fileName;
-				Factory.registerPlugin := Factory.defaultRegisterPlugin;
+				
+				if Plugin.isRegistered() then (
+					
+					let ph = Plugin.getHandler() in
+
+  				L.iter Factory.addTalkerHandler ph.talkerHandlers;
+  				traceGreen("Plugin "^ph.name^" ("^fileName^") registered");
+				)
+				else (
+					traceRed("Plugin "^fileName^" did not register\n");
+				);
+				Plugin.reset();
 			)
 		in
 		Array.iter loadIfPlugin (Sys.readdir pluginsDir);
@@ -35,4 +52,3 @@ let loadPlugins () =
 	with
 		Dynlink.Error e -> print_endline (Dynlink.error_message e)
 
-let _ = loadPlugins ();

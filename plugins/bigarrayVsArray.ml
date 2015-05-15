@@ -14,20 +14,18 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
+open Util
 open SampleFormat
-
-module Tkr = Talker
 
 let kind = "BigarrayVsArray"
 
-class c = object(self) inherit Tkr.c as super
+class c = object(self) inherit Talker.c as super
 
-	val mBA1 = Tkr.mkTalk ()
-	val mBA2 = Tkr.mkTalk ()
+	val mBA1 = Talker.mkTalk ()
+	val mBA2 = Talker.mkTalk ()
 	val mutable mA1 = Array.make SampleFormat.chunkSize 1.
 	val mutable mA2 = Array.make SampleFormat.chunkSize 1.
-	val mOutput = Tkr.mkVoice ()
+	val mOutput = Talker.mkVoice ()
 
 	method getKind = kind
 	method getTalks = [mBA1; mBA2]
@@ -57,7 +55,7 @@ class c = object(self) inherit Tkr.c as super
     	done
   	done;
   
-  	traceBlue("Bigarray : "^sof(Unix.gettimeofday() -. ba1Start));
+  	print_endline("Bigarray : "^string_of_float(Unix.gettimeofday() -. ba1Start));
   
   	let fa1Start = Unix.gettimeofday() in
   
@@ -67,7 +65,7 @@ class c = object(self) inherit Tkr.c as super
     	done
   	done;
   
-  	traceBlue("Array : "^sof(Unix.gettimeofday() -. fa1Start));
+  	print_endline("Array : "^string_of_float(Unix.gettimeofday() -. fa1Start));
 (*  	
   	let fa2 = Array.make len 1. in
   	let ba2 = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout len in
@@ -79,7 +77,7 @@ class c = object(self) inherit Tkr.c as super
     	done
   	done;
   
-  	traceBlue("Array : "^sof(Unix.gettimeofday() -. fa2Start));
+  	print_endline("Array : "^string_of_float(Unix.gettimeofday() -. fa2Start));
   	
   	let ba2Start = Unix.gettimeofday() in
   	
@@ -89,15 +87,24 @@ class c = object(self) inherit Tkr.c as super
     	done
   	done;
   
-  	traceBlue("Bigarray : "^sof(Unix.gettimeofday() -. ba2Start))
+  	print_endline("Bigarray : "^string_of_float(Unix.gettimeofday() -. ba2Start))
 *)
 		
 end
 
-let make() = (new c)#base
+let handler = Plugin.{kind; category = "test"; make = fun() -> new c}
+
+(*
+let make() = let tkr = new c in (tkr :> Talker.c)
+Plugin.(provideHandler := (fun() -> {
+	named = kind;
+	talkerHandlers = [{kind; category = "test"; make = (fun() -> new c)}]
+}))
+*)
+(*
 
 let register = Factory.addTalkerMaker kind "test" make;
-(*
+
 let registerPlugin fileName =
 	Factory.addTalkerMaker kind "System" make;
 	print_string ("Plugin "^fileName^" registered\n");

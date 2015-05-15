@@ -18,7 +18,6 @@ open Util
 open Usual
 open SampleFormat
 open Identifier
-open BasicTalkers
 
 module Tkr = Talker 
 

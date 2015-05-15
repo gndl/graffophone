@@ -19,32 +19,35 @@ open SampleFormat
 
 module Tkr = Talker
 
-(*let talkerMakers:(string * (string * (unit -> Tkr.c)))list ref = ref []
+(*let talkerHandlers:(string * (string * (unit -> Tkr.c)))list ref = ref []
 *)
-let talkerMakers : (string * Plugin.talkerHandler) list ref = ref []
+let talkerHandlers : (string * Plugin.talkerHandler) list ref = ref []
 
-let addTalkerHandler ph = talkerMakers := Plugin.(ph.kind, ph) :: !talkerMakers
-
+let addTalkerHandler th = Plugin.(
+	talkerHandlers := (th.kind, th) :: !talkerHandlers;
+	traceGreen("Talker "^th.kind^" ("^th.category^") registered")
+	)
+(*
 let addTalkerMaker kind category make = addTalkerHandler Plugin.{kind; category; make}
-
-let getTalkerMaker kind =
-	try L.assoc kind !talkerMakers
+*)
+let getTalkerHandler kind =
+	try L.assoc kind !talkerHandlers
 	with Not_found -> (trace(kind^"'s factory not found!"); raise Not_found)
 
 
 let makeTalker ?name kind =
-	let th = getTalkerMaker kind in 
+	let th = getTalkerHandler kind in
 (*	let tkr = ((maker name) :> Tkr.c) in
 	A.iter (fun vc -> vc.tkr <- tkr) tkr#getVoices;
 	tkr*)
-	let talker = Tkr.mkTkr(th.make ()) in
-	
+	let talker = Tkr.mkTkr(Plugin.(th.make ())) in
+
 	match name with None -> talker
 	| Some nm -> talker#setName nm; talker
 
 
 let getTalkersInfos() =
-	L.map !talkerMakers ~f:(fun (kind, th) -> Plugin.(kind, th.category))
+	L.map !talkerHandlers ~f:(fun (kind, th) -> Plugin.(kind, th.category))
 	
 	
 let outputMakers:(string * (string -> (string * string * string) list -> Output.c))list ref = ref []
@@ -56,11 +59,11 @@ let getOutputMaker feature = L.assoc feature !outputMakers
 let makeOutput name feature attributs =
 	(getOutputMaker feature) name attributs
 
-
+(*
 let defaultRegisterPlugin fileName =
 	print_string ("Plugin "^fileName^" did not register\n");
 	flush stdout
 
 let registerPlugin = ref defaultRegisterPlugin
-
+*)
 

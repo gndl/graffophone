@@ -15,16 +15,26 @@ Library "graffophone-plugin"
   FindlibContainers: graffophone
   Path: plugin
   BuildTools: ocamlbuild
-  Modules: Talker, Plugin
+  Modules: Talker, Listen, Plugin
 #  BuildDepends: 
   XMETADescription: Graffophone plugin library
+
+Library "graffophone-plugins"
+  FindlibName: plugins
+  FindlibContainers: graffophone
+  Path: plugins
+  BuildTools: ocamlbuild
+  Modules: Inversion, TemporalInversion, BigarrayVsArray, Examples
+  BuildDepends: graffophone.plugin
+#  DllLib: graffophone.plugin
+  XMETADescription: Graffophone plugin example
 
 Executable graffophone
   Path:       src
   BuildTools: ocamlbuild
   MainIs:     main.ml
   CompiledObject: native
-  BuildDepends: unix, threads, str, bigarray, sndfile, ao, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas, graffophone.plugin
+  BuildDepends: unix, threads, str, dynlink, bigarray, sndfile, ao, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas, graffophone.plugin
   NativeOpt: -ffast-math -unsafe -inline 10 -noassert
   CCOpt: -O3
 

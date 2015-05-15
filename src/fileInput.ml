@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Util
 open Usual
 open Factory
 open SampleFormat
@@ -88,62 +89,4 @@ class c = object(self) inherit Tkr.c as super
 
 end
 
-let make() = (new c)#base
-
-let register = Factory.addTalkerMaker kind "Input" make;
-
-(*
-	method setValue filename =
-		let file = Sndfile.openfile filename in
-		let nbChs = Sndfile.channels file in
-		let frames = Sndfile.frames file
-		in
-		let maxFloatArrayLength = Int64.of_int(maxFloatArrLen) in
-		let lastBufSize = Int64.to_int(Int64.rem frames maxFloatArrayLength)
-		in
-		mNbBufs <- 1 + Int64.to_int(Int64.div frames maxFloatArrayLength);
-
-		let mkBufs i =
-			if i < mNbBufs - 1 then A.make maxFloatArrLen 0.0
-			else A.make lastBufSize 0.0
-		in
-		mChannelsBufs <- A.init nbChs (fun i -> A.init mNbBufs mkBufs);
-		
-		let mkCh p = toEar (defVoice ~tag:("Channel_" ^ soi(p + 1))
-				~port:p ~talker:(toTkr self) ())
-		in
-		mChannels <- A.init nbChs mkCh;
-
-		let data = A.make 100000 0.0 in
-
-		let numBuf = ref 0 and pos = ref 0 and nc = ref 0 in
-		let readCount = ref 0 in
-		readCount := Sndfile.read file data;
-
-		while !readCount > 0 do
-			for i = 0 to !readCount - 1 do
-
-				mChannelsBufs.(!nc).(!numBuf).(!pos) <- data.(i);
-				
-				if !nc = nbChs - 1 then (
-					nc := 0;
-					if !pos = A.length mChannelsBufs.(0).(!numBuf) - 1 then (
-						pos := 0;
-						numBuf := !numBuf + 1;
-					)
-					else pos := !pos + 1;
-				)
-				else nc := !nc + 1;
-			done;
-			readCount := Sndfile.read file data;
-		done;
-
-		Sndfile.close file;
-
-		for n = 0 to nbChs - 1 do
-			!(mChannels.(n)).buf <- mChannelsBufs.(n).(0);
-			!(mChannels.(n)).len <- A.length mChannelsBufs.(n).(0);
-		done;
-
-		mFilename <- filename;
- *)
+let handler = Plugin.{kind; category = "Input"; make = fun() -> (new c)#base}
