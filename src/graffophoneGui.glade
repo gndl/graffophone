@@ -226,7 +226,7 @@
                 </child>
               </widget>
               <packing>
-                <property name="expand">False</property>
+                <property name="expand">True</property>
                 <property name="fill">True</property>
                 <property name="position">0</property>
               </packing>
@@ -248,17 +248,28 @@
                 <property name="position">1</property>
               </packing>
             </child>
+          </widget>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <widget class="GtkHBox" id="hbox1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
             <child>
               <widget class="GtkHandleBox" id="handleboxToolbarAppli">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="snap_edge">left</property>
-                <property name="snap_edge_set">True</property>
                 <child>
                   <widget class="GtkToolbar" id="toolbarAppli">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="toolbar_style">icons</property>
+                    <property name="show_arrow">False</property>
                     <property name="icon_size_set">True</property>
                     <child>
                       <widget class="GtkToolButton" id="newSessionToolbarButton">
@@ -418,14 +429,14 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="pack_type">end</property>
-                <property name="position">2</property>
+                <property name="position">0</property>
               </packing>
             </child>
             <child>
               <widget class="GtkHandleBox" id="handleboxGraphToolbar">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="snap_edge">right</property>
                 <child>
                   <widget class="GtkToolbar" id="toolbarGraph">
                     <property name="visible">True</property>
@@ -477,14 +488,26 @@
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
-                <property name="position">3</property>
+                <property name="position">1</property>
               </packing>
             </child>
           </widget>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
-            <property name="position">0</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <widget class="GtkStatusbar" id="statusbar">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="spacing">2</property>
+          </widget>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
           </packing>
         </child>
         <child>
@@ -492,22 +515,11 @@
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="position">100</property>
+            <property name="position_set">True</property>
             <child>
               <widget class="GtkVBox" id="vboxGraph">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <child>
-                  <widget class="GtkStatusbar" id="statusbar">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="spacing">2</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
                 <child>
                   <widget class="GtkScrolledWindow" id="scrolledwindowGraph">
                     <property name="visible">True</property>
@@ -521,7 +533,7 @@
                   <packing>
                     <property name="expand">True</property>
                     <property name="fill">True</property>
-                    <property name="position">1</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
               </widget>
@@ -547,7 +559,7 @@
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">3</property>
           </packing>
         </child>
       </widget>
