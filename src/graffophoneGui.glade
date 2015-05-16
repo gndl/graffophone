@@ -44,10 +44,6 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <widget class="GtkHandleBox" id="handleboxMenubarAppli">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <child>
                   <widget class="GtkMenuBar" id="menubarAppli">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -223,8 +219,6 @@
                       </widget>
                     </child>
                   </widget>
-                </child>
-              </widget>
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
@@ -232,16 +226,10 @@
               </packing>
             </child>
             <child>
-              <widget class="GtkHandleBox" id="handleboxGraphMenuBar">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <child>
                   <widget class="GtkMenuBar" id="menubarGraph">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </widget>
-                </child>
-              </widget>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
@@ -260,11 +248,6 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <widget class="GtkHandleBox" id="handleboxToolbarAppli">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="snap_edge">left</property>
-                <child>
                   <widget class="GtkToolbar" id="toolbarAppli">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -424,8 +407,6 @@
                       </packing>
                     </child>
                   </widget>
-                </child>
-              </widget>
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
@@ -433,11 +414,6 @@
               </packing>
             </child>
             <child>
-              <widget class="GtkHandleBox" id="handleboxGraphToolbar">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="snap_edge">right</property>
-                <child>
                   <widget class="GtkToolbar" id="toolbarGraph">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -483,8 +459,6 @@
                       </packing>
                     </child>
                   </widget>
-                </child>
-              </widget>
               <packing>
                 <property name="expand">False</property>
                 <property name="fill">True</property>
