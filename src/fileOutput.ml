@@ -14,7 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Printf
+open Util
 open Usual
 open Identifier
 open SampleFormat
@@ -27,25 +27,27 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
 	val mutable mNbChannels = sf.channels
 	val mutable mBuf = A.make (chunkSize * sf.channels) 0.0
 
-		method openOutput nbChannels =
-			mNbChannels <- nbChannels;
-			try
-				let fmt = Sndfile.format Sndfile.MAJOR_WAV Sndfile.MINOR_PCM_16 in
-				let info = (Sndfile.WRITE, fmt, nbChannels, sf.rate) in
-				mFile <- Some(Sndfile.openfile ~info mFilename)
-			with x -> trace ("faile to open file "^mFilename)
+
+	method openOutput nbChannels =
+		mNbChannels <- nbChannels;
+		try
+			let fmt = Sndfile.format Sndfile.MAJOR_WAV Sndfile.MINOR_PCM_16 in
+			let info = (Sndfile.WRITE, fmt, nbChannels, sf.rate) in
+			mFile <- Some(Sndfile.openfile ~info mFilename)
+		with x -> trace ("faile to open file "^mFilename)
+
 
 	method write lg channels =
 		let wrt file =
-			
+
 			let bufSize = lg * mNbChannels in
-			
+
 			if A.length mBuf <> bufSize then mBuf <- A.make bufSize 0.0;
 
 			for numCh = 0 to mNbChannels - 1 do
 				let ch = channels.(numCh) in
 				let p = ref numCh in
-				
+
 				for i = 0 to lg - 1 do
 					mBuf.(!p) <- ch.(i);
 					p := !p + mNbChannels;
@@ -60,10 +62,12 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
 				| Some file -> wrt file
 				| None -> ())
 
+
 	method closeOutput =
 		match mFile with
-			| None -> printf "No file to close"
+			| None -> trace "No file to close"
 			| Some file -> Sndfile.close file
+
 
 	method backup = (Output.kind, "file", [("filename", mFilename)])
 end;;
@@ -74,4 +78,4 @@ let make name attributs =
 	with Not_found -> "" in
 	toO(new c ~filename ~name ())
 
-let register = Factory.addOutputMaker "file" make
+let handler = {feature = "file"; make}

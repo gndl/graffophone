@@ -38,3 +38,8 @@ end
 
 let toO st = (st :> c)
 
+type handler = {
+	feature : string;
+	make : (string -> (string * string * string) list -> c)
+}
+

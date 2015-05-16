@@ -19,14 +19,15 @@ open Usual
 let loadPlugins () =
 	try
 		let open Plugin in
-		(* inner talkers registering *)
+		
+		(* Inner talkers registering *)
   	L.iter Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
 		traceGreen(InnerTalkers.handler.name^" talkers registered");
 
 		Factory.addTalkerHandler FileInput.handler;
 
 		(* Plugins talkers registering *)
-		let pluginsDir = "_build/plugins/" in		
+		let pluginsDir = "_build/plugins/" in
 		let suffix = if Dynlink.is_native then ".cmxs" else ".cma"
 		in
 		let loadIfPlugin fileName =
@@ -49,6 +50,10 @@ let loadPlugins () =
 		in
 		Array.iter loadIfPlugin (Sys.readdir pluginsDir);
 		
+		(* Output registering *)
+		Factory.addOutputMaker FileOutput.handler;
+		Factory.addOutputMaker PlaybackOutput.handler;
+
 	with
 		Dynlink.Error e -> print_endline (Dynlink.error_message e)
 
