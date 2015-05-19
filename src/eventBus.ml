@@ -14,6 +14,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Usual
+
 type notification =
 	| State of State.t
 	| Session
@@ -44,27 +46,18 @@ let observers : (notification -> unit) list ref = ref []
 let addObserver o = observers := o :: !observers
 
 let notify notification = List.iter(fun observe -> observe notification) !observers
-(*
-class c =
-object (self)
-	val mutable mObservers : (notification -> unit) list = []
+let asyncNotificationLock = Mutex.create()
+let asyncNotificationList : notification list ref = ref []
+
+let asyncNotify notif =
+	Mutex.lock asyncNotificationLock;
+	asyncNotificationList := notif::!asyncNotificationList;
+	Mutex.unlock asyncNotificationLock
 	
-	method addObserver o = mObservers <- o::mObservers
-	
-	method notify notification = List.iter(fun observe -> observe notification) mObservers
-end
+let asyncUpdate() =
+	Mutex.lock asyncNotificationLock;
+	L.iter notify !asyncNotificationList;
+	asyncNotificationList := [];
+	Mutex.unlock asyncNotificationLock;
+	true
 
-
-type operation =
-	| Synchronize of (unit -> unit)
-	| SetStartTick of int
-	| SetEndTick of int
-	| CurveZoom of float
-
-let operators : (operation -> unit) list ref = ref []
-
-let addOperator o = operators := o :: !operators
-
-let request operation = List.iter(fun operate -> operate operation) !operators
-
-*)

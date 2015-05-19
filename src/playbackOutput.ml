@@ -67,7 +67,7 @@ class c ?(name = "Playback Output(") () =
 			mStream <- Some stream
 			
 			with Portaudio.Error code -> (
-				Bus.notify(Bus.Error(Portaudio.string_of_error code));
+				Bus.asyncNotify(Bus.Error(Portaudio.string_of_error code));
 				
 				(* If the new device raise an error, we fallback to the previous device *)
 				if device <> mOutputDevice then
@@ -94,7 +94,19 @@ class c ?(name = "Playback Output(") () =
 
 			let genOutBuf = genarray_of_array1 mOutputBuffer
 			in
+			try
 			Portaudio.write_stream_ba stream genOutBuf 0 lg;
+
+			with Portaudio.Error code -> (
+				let msg = "Portaudio.write_stream_ba Error code "^soi code^" : "^Portaudio.string_of_error code
+				in
+				if code = Device.errorCodeOutputUnderflowed then (
+					traceYellow msg;
+				)
+				else (
+					Bus.asyncNotify(Bus.Error msg);
+				)
+			)
 		in
 		match mStream with
 			| Some stream -> wrt stream

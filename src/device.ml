@@ -18,6 +18,7 @@ open Usual
 
 module Bus = EventBus
 
+let errorCodeOutputUnderflowed = -9980
 
 let output = ref 0
 
