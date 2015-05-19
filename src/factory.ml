@@ -49,7 +49,7 @@ let outputMakers:(string * Output.handler)list ref = ref []
 let addOutputMaker handler =
 	outputMakers := Output.(handler.feature, handler) :: !outputMakers
 
-let getOutputMaker feature = Output.(L.assoc feature !outputMakers).make
+let getOutputMaker feature = Output.((L.assoc feature !outputMakers).make)
 
 let makeOutput name feature attributs =
 	(getOutputMaker feature) name attributs

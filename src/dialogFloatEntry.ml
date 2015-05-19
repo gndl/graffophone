@@ -17,7 +17,7 @@
 open Usual
 
 class c initValue callback = object (self)
-	inherit GraffophoneGui.dialogFloatEntry() as super
+	inherit GraffophoneGui.floatEntryDialog() as super
 
 	val mutable mInitValue = initValue
 

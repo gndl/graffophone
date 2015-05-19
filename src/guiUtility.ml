@@ -89,22 +89,22 @@ let aboutDialog() =
 
 	dialog#toplevel#show()
 
-	
+
 let dialogStringEntry initValue callback =
 	
-	let dialog = new GraffophoneGui.dialogStringEntry() in
+	let dialog = new GraffophoneGui.stringEntryDialog() in
 
 	dialog#entryStringEntry#set_text initValue;
 	
 	let closeDialog() = dialog#toplevel#destroy() in
 
-	let _ = dialog#buttonStringEntryOK#connect#clicked(
+	let _ = dialog#stringEntryOkButton#connect#clicked(
 		fun() ->
 			callback dialog#entryStringEntry#text;
 			closeDialog();
 		) in
 
-	ignore(dialog#buttonStringEntryCancel#connect#clicked closeDialog);
+	ignore(dialog#stringEntryCancelButton#connect#clicked closeDialog);
 	ignore(dialog#toplevel#connect#close closeDialog);
 							
 	dialog#toplevel#show()

@@ -43,6 +43,7 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
 	  super#bind ~name:"on_openSessionToolbarButton_clicked" ~callback:self#openSession;
 	  super#bind ~name:"on_saveSessionToolbarButton_clicked" ~callback:pSsnCtrl#saveSession;
 	  super#bind ~name:"on_saveSessionAsToolbarButton_clicked" ~callback:self#saveSessionAs;
+	  super#bind ~name:"on_preferencesToolbarButton_clicked" ~callback:self#showPreferences;
 
 	  super#bind ~name:"on_playButton_clicked" ~callback:self#play;
 (*	  super#bind ~name:"on_pauseButton_clicked" ~callback:self#pause;*)
@@ -52,7 +53,7 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
 	  super#bind ~name:"on_tickSpinButton_input" ~callback:self#tickEntered;
 
 		loopButton#misc#hide();
-		toolbarAppli#set_icon_size`MENU;
+		applicationToolbar#set_icon_size`MENU;
 
 				(* integrete curveView
 		graphCurveVpaned#pack1 ~resize:true ~shrink:true mCurveView#getWidget;
@@ -71,7 +72,7 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
 			fun() -> mCurveView#activate toolbuttonShowCurve#get_active));
 
 		loopTalkerButton#misc#hide();
-		toolbarGraph#set_icon_size`MENU;
+		graphToolbar#set_icon_size`MENU;
 
 		(* Key event connection *)
 		ignore(applicationView#event#connect#key_press ~callback:self#keyPressed);
@@ -97,7 +98,9 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
 			| Some f -> super#applicationView#set_title(f^" : "^appName); pSsnCtrl#saveSessionAs f
 			| None -> ()
 
-		
+	method showPreferences () =
+		let _ = new ControlPanel.c in ()
+
 	method quit () =
 		pSsnCtrl#stop 0;
 		GMain.quit()
@@ -186,7 +189,7 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
   		| State.Stopped -> playButton#set_stock_id `MEDIA_PLAY; traceGreen "stop"
 		)
 		| Bus.CurveAdded
-		| Bus.CurveRemoved -> graphCurveVpaned#set_position 480(*min mCurveView#getHeight 480*);
+		| Bus.CurveRemoved -> graphCurveVpaned#set_position 720(*min mCurveView#getHeight 480*);
 		| Bus.Info msg -> self#showMessage msg `INFO
 		| Bus.Warning msg -> self#showMessage msg `WARNING
 		| Bus.Error msg -> self#showMessage msg `ERROR
