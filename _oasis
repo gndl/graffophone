@@ -7,7 +7,7 @@ Authors:     Gaëtan Dubreil
 LicenseFile: LICENSE
 License:     GPL-3
 Plugins:     META (0.4), StdFiles (0.4), DevFiles (0.4)
-PreConfCommand: opam install ao lablgtk
+PreConfCommand: opam install lablgtk portaudio config-file
 PreBuildCommand: cd src && lablgladecc2 -embed graffophoneGui.glade > graffophoneGui.ml
 
 Library "graffophone-plugin"
@@ -34,7 +34,7 @@ Executable graffophone
   BuildTools: ocamlbuild
   MainIs:     main.ml
   CompiledObject: native
-  BuildDepends: unix, threads, str, dynlink, bigarray, sndfile, ao, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas, graffophone.plugin
+  BuildDepends: unix, threads, str, dynlink, bigarray, lablgtk2, lablgtk2.glade, lablgtk2.gnomecanvas, graffophone.plugin, sndfile, portaudio, config-file
   NativeOpt: -ffast-math -unsafe -inline 10 -noassert
   CCOpt: -O3
 

@@ -23,8 +23,8 @@ let configFileName = (Sys.getenv "HOME")^"/.graffophone.conf"
 (* Playback volume. Its default value is 50% *)
 let volume = new float_cp ~group ["playback"; "volume"] 50. "Playback volume (%)"
 
-(* Playback output device. Its default value is empty *)
-let outputDevice = new string_cp ~group ["playback"; "outputDevice"] "" "Playback output device"
+(* Playback output device name. Its default value is empty *)
+let outputDeviceName = new string_cp ~group ["playback"; "outputDeviceName"] "" "Playback output device"
 
 let files = new list_cp string_wrappers ~group ["library"; "files"] [] "Audio files and folders of the library"
 
@@ -46,8 +46,8 @@ group#read
 let getVolume = volume#get
 let setVolume v = volume#set v
 
-let getOutputDevice = outputDevice#get
-let setOutputDevice v = outputDevice#set v
+let getOutputDeviceName = outputDeviceName#get
+let setOutputDeviceName v = outputDeviceName#set v
 
 
 let addFiles filenameList = files#set(files#get @ filenameList)

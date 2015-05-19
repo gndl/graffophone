@@ -20,6 +20,8 @@ let () =
 	
 	Printexc.record_backtrace true;
 	try
+	Device.initialize();
+
 	PluginsManager.loadPlugins ();
 
   let ssnCtrl = new SessionControler.c in
@@ -30,8 +32,15 @@ let () =
 	ssnCtrl#init();
 	appView#init();
 
-  GtkThread.main ();
-(*	GMain.main ();*)
+	let timeoutHookId = GMain.Timeout.add ~ms:100 ~callback:EventBus.asyncUpdate
+	in
+
+	GtkThread.main ();
+
+	GMain.Timeout.remove timeoutHookId;
+
+	Device.terminate();
+
 	with exc -> (
 		traceMagenta(Printexc.to_string exc);
 		traceYellow(Printexc.get_backtrace())

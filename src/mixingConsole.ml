@@ -74,7 +74,8 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
 		let computeMasterVolume = function
 				| Ear.Word mvc -> ( A.iter (fun c ->
 					for j = 0 to !ol - 1 do
-						c.(j) <- inf SF.minAudio (c.(j) *. mvc.Ear.value) SF.maxAudio done;
+						c.(j) <- inf SF.minAudio (c.(j) *. mvc.Ear.value) SF.maxAudio
+					done;
 					) mChannels;)
 				| Ear.Talk mve -> (
 					let mvr = Listen.talk mve tick !ol ~copy:false in
@@ -82,7 +83,8 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
 
 					A.iter (fun c ->
 						for j = 0 to !ol - 1 do
-							c.(j) <- inf SF.minAudio (c.(j) *. Listen.(mvr @+ j)) SF.maxAudio done;
+							c.(j) <- inf SF.minAudio (c.(j) *. Listen.(mvr @+ j)) SF.maxAudio
+						done;
 					) mChannels;
 				);
 		in

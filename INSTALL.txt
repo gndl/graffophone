@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 399a0370b5a5e0a36828b3905680372b) *)
+(* DO NOT EDIT (digest: 0d08833d13ed5635397ea1a620f0de51) *)
 
 This is the INSTALL file for the graffophone distribution.
 
@@ -13,9 +13,10 @@ In order to compile this package, you will need:
 
 * ocaml (>= 4.01)
 * findlib
-* sndfile for executable graffophone
-* ao for executable graffophone
 * lablgtk2 for executable graffophone
+* sndfile for executable graffophone
+* portaudio for executable graffophone
+* config-file for executable graffophone
 
 Installing
 ==========

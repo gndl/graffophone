@@ -15,60 +15,103 @@
  *)
 
 open Usual
-open Identifier
-open SampleFormat
+open Bigarray
+module SF = SampleFormat
 open Output
 
+module Bus = EventBus
+
+
 class c ?(name = "Playback Output(") () =
-	let channelSize = sf.bits / 8 in
 	object(self) inherit Output.c name
-	val mutable mSampleSize = channelSize * sf.channels
-	val mutable mDevice = None
+
+	val mutable mOutputDevice = 0
+	val mutable mNewOutputDevice = 0
+	val mutable mStream = None
+	val mutable mChannelsCount = 2
+	val mutable mOutputBuffer = Array1.create float32 c_layout (SF.chunkSize * 2)
+
+	initializer
+		mOutputDevice <- Device.getOutput();
+		mNewOutputDevice <- mOutputDevice;
 
 
 	method openOutput nbChannels =
-		mSampleSize <- channelSize * nbChannels;
-		let drv = (*Ao.find_driver "pulse"*) Ao.get_default_driver() in
-		try
-			trace("Open default device driver : "^Ao.driver_name drv);
 
-			mDevice <- Some (Ao.open_live ~driver:drv ~bits:sf.bits ~rate:sf.rate 
-				~channels:nbChannels ~byte_format:`LITTLE_ENDIAN ())
-		with x ->
-			trace("Failed to open device driver : "^Ao.driver_name drv)
+
+		let rec makeOutputStream device =
+			try
+  		let rate = foi(SF.rate) in
+			let bufframes = SF.chunkSize in
+			let channels = mini nbChannels (Device.getMaxOutputChannels device) in
+
+			if channels <> mChannelsCount then (
+				mChannelsCount <- channels;
+				mOutputBuffer <- Array1.create float32 c_layout (SF.chunkSize * channels)
+			);
+
+  		let outparam = Portaudio.{channels; device;
+																sample_format = format_float32; latency = 1.
+				}
+  		in
+			trace("makeOutputStream : channels = "^soi channels^", rate = "^sof rate^", bufframes = "^soi bufframes);
+  		let stream = Portaudio.open_stream None (Some outparam) ~interleaved:true rate bufframes []
+			in
+			Portaudio.start_stream stream;
+			
+			if device <> mOutputDevice || device <> mNewOutputDevice then (
+				mOutputDevice <- device;
+				mNewOutputDevice <- device;
+			);
+			
+			mStream <- Some stream
+			
+			with Portaudio.Error code -> (
+				Bus.notify(Bus.Error(Portaudio.string_of_error code));
+				
+				(* If the new device raise an error, we fallback to the previous device *)
+				if device <> mOutputDevice then
+					makeOutputStream mOutputDevice
+				else
+					raise (Portaudio.Error code)
+			)
+		in
+		makeOutputStream mNewOutputDevice;
 
 
 	method write lg channels =
-		let wrt device =
-			let buf = String.create (lg * mSampleSize) in
+		let wrt stream =
 
-			Array.iteri (fun nch ch -> 
-					for i = 0 to lg - 1 do
-						let sample = iof (ch.(i) *. maxA) in
-						let pfb = coi (sample land 0xff) in
-						let pfr = coi ((sample lsr 8) land 0xff) in
-						let p = mSampleSize * i + nch * channelSize in
+			for numChan = 0 to mChannelsCount - 1 do
+				
+				let chan = channels.(numChan) in
+				
+				for i = 0 to lg - 1 do
+					let outIdx = (i * mChannelsCount) + numChan in
+					mOutputBuffer.{outIdx} <- chan.(i);
+				done;
+			done;
 
-						buf.[p] <- pfb;
-						buf.[p + 1] <- pfr;
-					done;
-				) channels;
-			Ao.play device buf;
+			let genOutBuf = genarray_of_array1 mOutputBuffer
+			in
+			Portaudio.write_stream_ba stream genOutBuf 0 lg;
 		in
-		match mDevice with
-			| Some dvc -> wrt dvc
-			| None -> (self#openOutput (Array.length channels); match mDevice with
-				| Some dvc -> wrt dvc
+		match mStream with
+			| Some stream -> wrt stream
+			| None -> (self#openOutput (Array.length channels); match mStream with
+				| Some stream -> wrt stream
 				| None -> ())
 
 
 	method closeOutput =
-		match mDevice with
-			| None -> trace "No device to close"
-			| Some device -> Ao.close device
+		match mStream with
+			| None -> trace "No stream to close"
+			| Some stream -> Portaudio.close_stream stream
 
 
 	method backup = (Output.kind, "playback", [])
+	
+	
 end
 
 let make name attributs = toO(new c ~name ())
