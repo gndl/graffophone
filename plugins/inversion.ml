@@ -15,9 +15,7 @@
  *)
 
 open Util
-(*
-open SampleFormat
-*)
+
 module Tkr = Talker
 
 let kind = "inversion"
@@ -38,7 +36,7 @@ class c = object(self) inherit Tkr.c as super
 		Voice.checkLength mOutput irl;
 
 		for i = 0 to irl - 1 do
-			let v = Listen.(ir@+i) *. SampleFormat.maxA
+			let v = Listen.(ir@+i)
 			in
 			if v = 0. then Voice.set mOutput i 1.
 			else Voice.set mOutput i (minf (1. /. v) 1.)
