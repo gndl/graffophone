@@ -9,9 +9,9 @@ Building and installing Graffophone
 Compilation
 -----------
 
-Dependencies: ocaml >= 4.00.1, ocamlfind, opam, sndfile, ao, lablgtk2
+Dependencies: ocaml >= 4.00.1, ocamlfind, opam, lablgtk2, config-file, sndfile, portaudio
 
-Note that lablgtk2 and the ocaml bindings of ao will be automatically downloaded at the configure time.
+Note that lablgtk2, config-file and the ocaml bindings of portaudio will be automatically downloaded at the configure time.
 
     $ ./configure
     $ make
