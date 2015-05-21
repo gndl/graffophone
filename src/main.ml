@@ -32,12 +32,7 @@ let () =
 	ssnCtrl#init();
 	appView#init();
 
-	let timeoutHookId = GMain.Timeout.add ~ms:100 ~callback:EventBus.asyncUpdate
-	in
-
 	GtkThread.main ();
-
-	GMain.Timeout.remove timeoutHookId;
 
 	Device.terminate();
 
