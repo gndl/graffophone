@@ -176,6 +176,24 @@
                             <signal name="activate" handler="on_deleteMenuItem_activate" swapped="no"/>
                           </widget>
                         </child>
+                        <child>
+                          <widget class="GtkSeparatorMenuItem" id="separatormenuitem3">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="use_action_appearance">False</property>
+                          </widget>
+                        </child>
+                        <child>
+                          <widget class="GtkImageMenuItem" id="imagemenuitem1">
+                            <property name="label">gtk-preferences</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="use_action_appearance">False</property>
+                            <property name="use_underline">True</property>
+                            <property name="use_stock">True</property>
+                            <signal name="activate" handler="on_preferences_clicked" swapped="no"/>
+                          </widget>
+                        </child>
                       </widget>
                     </child>
                   </widget>
@@ -313,7 +331,7 @@
                     <property name="use_action_appearance">False</property>
                     <property name="use_underline">True</property>
                     <property name="stock_id">gtk-preferences</property>
-                    <signal name="clicked" handler="on_preferencesToolbarButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_preferences_clicked" swapped="no"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>

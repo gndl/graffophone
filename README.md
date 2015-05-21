@@ -1,5 +1,5 @@
 # Graffophone
-A modular audio processor
+Modular audio processing system in OCaml
 
 
 Building and installing Graffophone

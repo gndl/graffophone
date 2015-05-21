@@ -43,7 +43,9 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
 	  super#bind ~name:"on_openSessionToolbarButton_clicked" ~callback:self#openSession;
 	  super#bind ~name:"on_saveSessionToolbarButton_clicked" ~callback:pSsnCtrl#saveSession;
 	  super#bind ~name:"on_saveSessionAsToolbarButton_clicked" ~callback:self#saveSessionAs;
-	  super#bind ~name:"on_preferencesToolbarButton_clicked" ~callback:self#showPreferences;
+
+		(* Shared event connection *)
+		super#bind ~name:"on_preferences_clicked" ~callback:self#showPreferences;
 
 	  super#bind ~name:"on_playButton_clicked" ~callback:self#play;
 (*	  super#bind ~name:"on_pauseButton_clicked" ~callback:self#pause;*)
