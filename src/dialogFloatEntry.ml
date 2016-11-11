@@ -29,7 +29,7 @@ class c initValue callback = object (self)
 		ignore(buttonAdjust#connect#clicked ~callback:self#adjustRange);
 
 		ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
-		
+
 		self#setAdjustment initValue;
 
 		(* in order to remind the c float 32 init value *)

@@ -50,7 +50,7 @@ object (self)
 		mCurvesSW#add_with_viewport mCurvesBox#coerce;
 
   	ignore(mCurvesBox#misc#connect#size_allocate ~callback:(fun area -> (*trace("size_allocate : x "^soi area.x^", y "^soi area.y^", width "^soi area.width^", height "^soi area.height)*)
-			self#onCurvesAreaResizing area.width;));
+			self#onCurvesAreaResizing Gtk.(area.width);));
 
 		pTable#attach ~left:1 ~top:1 ~expand:`BOTH mCurvesSW#coerce;
 (*
