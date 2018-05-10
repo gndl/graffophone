@@ -14,21 +14,27 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Bigarray
+
+open FFmpeg
+open Avutil
+
 open Graffophone_plugin
 open Usual
-open Bigarray
+
 module SF = SampleFormat
 open Output
 
 module Bus = EventBus
+module Converter = Swresample.Make (Swresample.PlanarFloatArray) (Swresample.Frame)
 
 
 class c ?(name = "Playback Output(") () =
   object(self) inherit Output.c name
 
-    val mutable mOutputDevice = 0
-    val mutable mNewOutputDevice = 0
-    val mutable mStream = None
+    val mutable mOutputDevice = ""
+    val mutable mNewOutputDevice = ""
+    val mutable mCtx = None
     val mutable mChannelsCount = 2
     val mutable mOutputBuffer = Array1.create float32 c_layout (SF.chunkSize * 2)
 
@@ -39,91 +45,57 @@ class c ?(name = "Playback Output(") () =
 
     method openOutput nbChannels =
 
-
       let rec makeOutputStream device =
         try
-          let rate = foi(SF.rate) in
-          let bufframes = SF.chunkSize in
-          let channels = mini nbChannels (Device.getMaxOutputChannels device) in
+          let fmt = Device.getOutputIdFormat device in
+          let codec_id = Av.Format.get_audio_codec_id fmt in
 
-          if channels <> mChannelsCount then (
-            mChannelsCount <- channels;
-            mOutputBuffer <- Array1.create float32 c_layout (SF.chunkSize * channels)
-          );
+          let cl = Avutil.Channel_layout.get_default nbChannels in
+          let out_sample_format = Avcodec.Audio.find_best_sample_format codec_id in
 
-          let outparam = Portaudio.{channels; device;
-                                    sample_format = format_float32; latency = 1.
-                                   }
-          in
-          trace("makeOutputStream : channels = "^soi channels^", rate = "^sof rate^", bufframes = "^soi bufframes);
-          let stream = Portaudio.open_stream None (Some outparam) ~interleaved:true rate bufframes []
-          in
-          Portaudio.start_stream stream;
+          let output = Av.open_output_format fmt in
+
+          let conv = Converter.create cl SF.rate cl ~out_sample_format SF.rate in
 
           if device <> mOutputDevice || device <> mNewOutputDevice then (
             mOutputDevice <- device;
             mNewOutputDevice <- device;
           );
 
-          mStream <- Some stream
-
-        with Portaudio.Error code -> (
-            Bus.asyncNotify(Bus.Error(Portaudio.string_of_error code));
+          mCtx <- Some(conv, output);
+        with Avutil.Failure msg -> (
+            Bus.asyncNotify(Bus.Error msg);
 
             (* If the new device raise an error, we fallback to the previous device *)
             if device <> mOutputDevice then
               makeOutputStream mOutputDevice
             else
-              raise (Portaudio.Error code)
+              raise (Avutil.Failure msg)
           )
       in
       makeOutputStream mNewOutputDevice;
 
 
     method write lg channels =
-      let wrt stream =
+      if mCtx = None then self#openOutput (A.length channels);
 
-        for numChan = 0 to mChannelsCount - 1 do
-
-          let chan = channels.(numChan) in
-
-          for i = 0 to lg - 1 do
-            let outIdx = (i * mChannelsCount) + numChan in
-            mOutputBuffer.{outIdx} <- chan.(i);
-          done;
-        done;
-
-        let genOutBuf = genarray_of_array1 mOutputBuffer
-        in
+      match mCtx with
+      | None -> ()
+      | Some(conv, output) ->
+        let planes = if lg = A.length channels.(0) then channels
+          else A.map ~f:(fun plane -> A.sub plane 0 lg) channels in
         try
-          Portaudio.write_stream_ba stream genOutBuf 0 lg;
-
-        with Portaudio.Error code -> (
-            let msg = "Portaudio.write_stream_ba Error code "^soi code^" : "^Portaudio.string_of_error code
-            in
-            if code = Device.errorCodeOutputUnderflowed then (
-              traceYellow msg;
-            )
-            else (
-              Bus.asyncNotify(Bus.Error msg);
-            )
-          )
-      in
-      match mStream with
-      | Some stream -> wrt stream
-      | None -> (self#openOutput (Array.length channels); match mStream with
-        | Some stream -> wrt stream
-        | None -> ())
+          Converter.convert conv planes |> Av.write_audio_frame output;
+        with Avutil.Failure msg -> Bus.asyncNotify(Bus.Error msg)
 
 
     method closeOutput =
-      match mStream with
-      | None -> trace "No stream to close"
-      | Some stream -> Portaudio.close_stream stream
+      match mCtx with
+      | None -> trace "No output to close"
+      | Some(_, output) -> Av.close output
 
 
     method backup = (Output.kind, "playback", [])
-
 
   end
 

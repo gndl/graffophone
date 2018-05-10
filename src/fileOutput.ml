@@ -14,68 +14,71 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open FFmpeg
+
+open Graffophone_plugin
 open Util
 open Usual
 open Identifier
 open SampleFormat
 open Output
 
+module Converter = Swresample.Make (Swresample.PlanarFloatArray) (Swresample.Frame)
+
 class c ?(filename="") ?(name = "Sound File Output (") () =
-	object(self) inherit Output.c name
-	val mutable mFilename = filename
-	val mutable mFile = None
-	val mutable mNbChannels = sf.channels
-	val mutable mBuf = A.make (chunkSize * sf.channels) 0.0
+  object(self) inherit Output.c name
+    val mutable mFilename = filename
+    val mutable mCtx = None
+    val mutable mNbChannels = sf.channels
+    val mutable mBuf = A.make (chunkSize * sf.channels) 0.0
+    val mutable mCodecId = `Flac
+    val mutable mChannelLayout = `Stereo
+    val mutable mSampleRate = sf.rate
 
 
-	method openOutput nbChannels =
-		mNbChannels <- nbChannels;
-		try
-			let fmt = Sndfile.format Sndfile.MAJOR_WAV Sndfile.MINOR_PCM_16 in
-			let info = (Sndfile.WRITE, fmt, nbChannels, sf.rate) in
-			mFile <- Some(Sndfile.openfile ~info mFilename)
-		with x -> trace ("faile to open file "^mFilename)
+    method openOutput nbChannels =
+      mNbChannels <- nbChannels;
+      try
+        let cl = Avutil.Channel_layout.get_default nbChannels in
+        let sample_format = Avcodec.Audio.find_best_sample_format mCodecId in
+
+        let stream = Av.open_output mFilename
+                     |> Av.new_audio_stream ~codec_id:mCodecId
+                       ~channel_layout:mChannelLayout ~sample_format
+                       ~sample_rate:mSampleRate in
+
+        let conv = Converter.to_codec cl sf.rate (Av.get_codec stream) in
+
+        mCtx <- Some(conv, stream);
+      with Failure msg -> trace ("Failed to open file "^mFilename^" : "^msg)
 
 
-	method write lg channels =
-		let wrt file =
+    method write lg channels =
 
-			let bufSize = lg * mNbChannels in
+      if mCtx = None then self#openOutput (A.length channels);
 
-			if A.length mBuf <> bufSize then mBuf <- A.make bufSize 0.0;
+      match mCtx with
+      | None -> ()
+      | Some(conv, stream) ->
+        let planes = if lg = A.length channels.(0) then channels
+          else A.map ~f:(fun plane -> A.sub plane 0 lg) channels in
 
-			for numCh = 0 to mNbChannels - 1 do
-				let ch = channels.(numCh) in
-				let p = ref numCh in
-
-				for i = 0 to lg - 1 do
-					mBuf.(!p) <- ch.(i);
-					p := !p + mNbChannels;
-				done;
-			done;
-
-			ignore(Sndfile.write file mBuf);
-		in
-		match mFile with
-			| Some file -> wrt file
-			| None -> (self#openOutput (A.length channels); match mFile with 
-				| Some file -> wrt file
-				| None -> ())
+        Converter.convert conv planes |> Av.write_frame stream;
 
 
-	method closeOutput =
-		match mFile with
-			| None -> trace "No file to close"
-			| Some file -> Sndfile.close file
+    method closeOutput =
+      match mCtx with
+      | None -> trace "No file to close"
+      | Some(_, stream) -> Av.get_output stream |> Av.close;
 
 
-	method backup = (Output.kind, "file", [("filename", mFilename)])
-end;;
+    method backup = (Output.kind, "file", [("filename", mFilename)])
+  end
 
 let make name attributs =
-	let filename = try
-		let (t, d, _) = List.find (fun (t, d, _) -> t = "filename") attributs in d
-	with Not_found -> "" in
-	toO(new c ~filename ~name ())
+  let filename = try
+      let (t, d, _) = List.find (fun (t, d, _) -> t = "filename") attributs in d
+    with Not_found -> "" in
+  toO(new c ~filename ~name ())
 
 let handler = {feature = "file"; make}

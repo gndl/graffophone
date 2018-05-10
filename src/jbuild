@@ -7,6 +7,6 @@
 
 (executable
  ((name graffophone)
-  (libraries (unix threads dynlink str bigarray lablgtk2 lablgtk2.glade lablgtk2.gnomecanvas portaudio ffmpeg config-file graffophone_plugin graffophone_plugins))
+  (libraries (unix threads dynlink str bigarray lablgtk2 lablgtk2.glade lablgtk2.gnomecanvas ffmpeg config-file graffophone_plugin graffophone_plugins))
 ))
 
