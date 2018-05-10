@@ -23,8 +23,8 @@ class c = object (self)
 
 
 
-	method zoomIn() = ()
-	method zoomOut() = ()
-		
-		
+  method zoomIn() = ()
+  method zoomOut() = ()
+
+
 end

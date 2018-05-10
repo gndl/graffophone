@@ -17,91 +17,91 @@
 open Usual
 
 class c initValue callback = object (self)
-	inherit GraffophoneGui.floatEntryDialog() as super
+  inherit GraffophoneGui.floatEntryDialog() as super
 
-	val mutable mInitValue = initValue
+  val mutable mInitValue = initValue
 
-	initializer
-		spinbuttonFloatEntry#set_adjustment vscaleFloatEntry#adjustment;
+  initializer
+    spinbuttonFloatEntry#set_adjustment vscaleFloatEntry#adjustment;
 
-		ignore(spinbuttonFloatEntry#event#connect#key_release ~callback:self#onKeyPressed);
-		ignore(vscaleFloatEntry#adjustment#connect#value_changed self#vscaleValueChanged);
-		ignore(buttonAdjust#connect#clicked ~callback:self#adjustRange);
+    ignore(spinbuttonFloatEntry#event#connect#key_release ~callback:self#onKeyPressed);
+    ignore(vscaleFloatEntry#adjustment#connect#value_changed self#vscaleValueChanged);
+    ignore(buttonAdjust#connect#clicked ~callback:self#adjustRange);
 
-		ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
+    ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
 
-		self#setAdjustment initValue;
+    self#setAdjustment initValue;
 
-		(* in order to remind the c float 32 init value *)
-		mInitValue <- vscaleFloatEntry#adjustment#value;
-
-
-	method vscaleValueChanged () = trace "> DialogFloatEntry.c#vscaleValueChanged";
-		callback vscaleFloatEntry#adjustment#value true;
-		trace "< DialogFloatEntry.c#vscaleValueChanged";
+    (* in order to remind the c float 32 init value *)
+    mInitValue <- vscaleFloatEntry#adjustment#value;
 
 
-	method adjustRange () = trace "> DialogFloatEntry.c#adjustRange";
-		self#setAdjustment spinbuttonFloatEntry#value;(**)
-	 trace "< DialogFloatEntry.c#adjustRange";
+  method vscaleValueChanged () = trace "> DialogFloatEntry.c#vscaleValueChanged";
+    callback vscaleFloatEntry#adjustment#value true;
+    trace "< DialogFloatEntry.c#vscaleValueChanged";
 
 
-	method setAdjustment value = trace("> DialogFloatEntry.c#setAdjustment "^sof value);
-(**)
-		if value = 0. then (
-			vscaleFloatEntry#adjustment#set_bounds ~lower:(-1.) ~upper:1.
-				~step_incr:0.01 ~page_incr:0.1 ~page_size:0. ();
-		)
-		else (
-  		let r = if value > 0. then 10. else -10. in
-			let valueStrongWeight = floatStrongWeight value in
-
-  		let lower = -.r *. valueStrongWeight in
-  		let upper = r *. valueStrongWeight in
-  		let range = upper -. lower in
-  		let step_incr = range /. 100. in
-  		let page_incr = range /. 10. in
-
-			vscaleFloatEntry#adjustment#set_bounds
-			~lower ~upper ~step_incr ~page_incr ~page_size:0. ();
-		);
-		vscaleFloatEntry#adjustment#set_value value;
-
-		labelUpper#set_text(sof vscaleFloatEntry#adjustment#upper);
-		labelLower#set_text(sof vscaleFloatEntry#adjustment#lower);
-
-		trace("< DialogFloatEntry.c#setAdjustment "^sof value);
+  method adjustRange () = trace "> DialogFloatEntry.c#adjustRange";
+    self#setAdjustment spinbuttonFloatEntry#value;(**)
+    trace "< DialogFloatEntry.c#adjustRange";
 
 
-	method onKeyPressed(ev:GdkEvent.Key.t) =
+  method setAdjustment value = trace("> DialogFloatEntry.c#setAdjustment "^sof value);
+    (**)
+    if value = 0. then (
+      vscaleFloatEntry#adjustment#set_bounds ~lower:(-1.) ~upper:1.
+        ~step_incr:0.01 ~page_incr:0.1 ~page_size:0. ();
+    )
+    else (
+      let r = if value > 0. then 10. else -10. in
+      let valueStrongWeight = floatStrongWeight value in
 
-		let key = GdkEvent.Key.keyval ev in
+      let lower = -.r *. valueStrongWeight in
+      let upper = r *. valueStrongWeight in
+      let range = upper -. lower in
+      let step_incr = range /. 100. in
+      let page_incr = range /. 10. in
 
-		if key = GdkKeysyms._Return then (
+      vscaleFloatEntry#adjustment#set_bounds
+        ~lower ~upper ~step_incr ~page_incr ~page_size:0. ();
+    );
+    vscaleFloatEntry#adjustment#set_value value;
 
-			self#finish ~force:true spinbuttonFloatEntry#value;
-			true
-		)
-		else (
-			trace (sof spinbuttonFloatEntry#value);
-			false
-		)
+    labelUpper#set_text(sof vscaleFloatEntry#adjustment#upper);
+    labelLower#set_text(sof vscaleFloatEntry#adjustment#lower);
 
-
-	method finish ?(force = false) value = trace "> DialogFloatEntry.c#finish";
-			toplevel#destroy();
-
-			if force || value <> mInitValue then (
-				trace("value("^sof value^") <> mInitValue("^sof mInitValue^") -> callback value false");
-				callback value false
-			);
-			trace "< DialogFloatEntry.c#finish";
+    trace("< DialogFloatEntry.c#setAdjustment "^sof value);
 
 
-	method leave (ev:GdkEvent.Crossing.t) =
-	
-		match GdkEvent.Crossing.detail ev with
-		| `INFERIOR -> true
-		| _ -> self#finish vscaleFloatEntry#adjustment#value; true
+  method onKeyPressed(ev:GdkEvent.Key.t) =
+
+    let key = GdkEvent.Key.keyval ev in
+
+    if key = GdkKeysyms._Return then (
+
+      self#finish ~force:true spinbuttonFloatEntry#value;
+      true
+    )
+    else (
+      trace (sof spinbuttonFloatEntry#value);
+      false
+    )
+
+
+  method finish ?(force = false) value = trace "> DialogFloatEntry.c#finish";
+    toplevel#destroy();
+
+    if force || value <> mInitValue then (
+      trace("value("^sof value^") <> mInitValue("^sof mInitValue^") -> callback value false");
+      callback value false
+    );
+    trace "< DialogFloatEntry.c#finish";
+
+
+  method leave (ev:GdkEvent.Crossing.t) =
+
+    match GdkEvent.Crossing.detail ev with
+    | `INFERIOR -> true
+    | _ -> self#finish vscaleFloatEntry#adjustment#value; true
 
 end

@@ -17,26 +17,26 @@
 open Usual
 
 let () =
-	
-	Printexc.record_backtrace true;
-	try
-	Device.initialize();
 
-	PluginsManager.loadPlugins ();
+  Printexc.record_backtrace true;
+  try
+    Device.initialize();
 
-  let ssnCtrl = new SessionControler.c in
+    PluginsManager.loadPlugins ();
 
-	let graphView = new GraphView.c ssnCtrl#graph in
-	let appView = new ApplicationView.c ssnCtrl graphView in
+    let ssnCtrl = new SessionControler.c in
 
-	ssnCtrl#init();
-	appView#init();
+    let graphView = new GraphView.c ssnCtrl#graph in
+    let appView = new ApplicationView.c ssnCtrl graphView in
 
-	GtkThread.main ();
+    ssnCtrl#init();
+    appView#init();
 
-	Device.terminate();
+    GtkThread.main ();
 
-	with exc -> (
-		traceMagenta(Printexc.to_string exc);
-		traceYellow(Printexc.get_backtrace())
-	)
+    Device.terminate();
+
+  with exc -> (
+      traceMagenta(Printexc.to_string exc);
+      traceYellow(Printexc.get_backtrace())
+    )

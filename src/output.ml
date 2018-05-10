@@ -15,6 +15,7 @@
  *)
 
 open Printf
+open Graffophone_plugin
 open Usual
 open Identifier
 open SampleFormat
@@ -25,21 +26,21 @@ let sOutputCount = ref 0
 let kind = "output"
 
 class virtual c name = object(self) inherit
-	Identifier.c ~name ~kind sOutputCount as id
+  Identifier.c ~name ~kind sOutputCount as id
 
-	method virtual openOutput : int -> unit(* -> unit*)
-(*method virtual voice : time   buffer        length  outlength *)  
-(*	method virtual write : int -> float array -> int -> float array array -> int*)
-	method virtual write : int -> float array array -> unit
-	method virtual closeOutput : unit
-(*                           kind     value     tag      dep *)
-	method virtual backup : (string * string * (string * string) list)
+  method virtual openOutput : int -> unit(* -> unit*)
+  (*method virtual voice : time   buffer        length  outlength *)  
+  (*method virtual write : int -> float array -> int -> float array array -> int*)
+  method virtual write : int -> float array array -> unit
+  method virtual closeOutput : unit
+  (*                           kind     value     tag      dep *)
+  method virtual backup : (string * string * (string * string) list)
 end
 
 let toO st = (st :> c)
 
 type handler = {
-	feature : string;
-	make : (string -> (string * string * string) list -> c)
+  feature : string;
+  make : (string -> (string * string * string) list -> c)
 }
 

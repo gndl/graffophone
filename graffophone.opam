@@ -1,0 +1,18 @@
+opam-version: "1.2"
+maintainer: "gndl@users.noreply.github.com"
+authors: ["gndl"]
+homepage: "https://github.com/gndl/graffophone"
+bug-reports: "https://github.com/gndl/graffophone/issues"
+dev-repo: "https://github.com/gndl/graffophone.git"
+
+build: [
+  ["jbuilder" "subst"] {pinned}
+  ["jbuilder" "build" "-p" graffophone "-j" 4]
+]
+
+build-test: ["jbuilder" "runtest" "-p" graffophone]
+
+depends: [
+  "jbuilder" {build & >= "1.0+beta14"}
+  "alcotest" {test}
+]

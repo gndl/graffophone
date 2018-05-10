@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name graffophone_plugins)
+  (libraries(graffophone_plugin))
+  (synopsis "Graffophone plugin example")
+))

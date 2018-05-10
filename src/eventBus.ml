@@ -17,28 +17,28 @@
 open Usual
 
 type notification =
-	| State of State.t
-	| Session
-	| Tick of int
-	| TimeRange of int * int
-	| Pause
-	| End
-	| Volume of float
-	| TalkersRange of (string * string list) list
-	| NewTalker
-	| TalkerChanged
-	| TalkerSelected of int
-	| TalkerUnselected of int
-	| EarSelected of int * int
-	| EarUnselected of int * int
-	| VoiceSelected of int * int
-	| VoiceUnselected of int * int
-	| TalkSelected of int * int
-	| CurveAdded
-	| CurveRemoved
-	| Info of string
-	| Warning of string
-	| Error of string
+  | State of State.t
+  | Session
+  | Tick of int
+  | TimeRange of int * int
+  | Pause
+  | End
+  | Volume of float
+  | TalkersRange of (string * string list) list
+  | NewTalker
+  | TalkerChanged
+  | TalkerSelected of int
+  | TalkerUnselected of int
+  | EarSelected of int * int
+  | EarUnselected of int * int
+  | VoiceSelected of int * int
+  | VoiceUnselected of int * int
+  | TalkSelected of int * int
+  | CurveAdded
+  | CurveRemoved
+  | Info of string
+  | Warning of string
+  | Error of string
 
 
 let observers : (notification -> unit) list ref = ref []
@@ -46,7 +46,7 @@ let observers : (notification -> unit) list ref = ref []
 let addObserver o = observers := o :: !observers
 
 let notify notification =
-	List.iter(fun observe -> observe notification) !observers
+  List.iter(fun observe -> observe notification) !observers
 
 let asyncNotify notif = GtkThread.async notify notif
 

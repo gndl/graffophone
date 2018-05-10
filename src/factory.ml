@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Graffophone_plugin
 open Usual
 open SampleFormat
 
@@ -22,35 +23,35 @@ module Tkr = Talker
 let talkerHandlers : (string * Plugin.talkerHandler) list ref = ref []
 
 let addTalkerHandler th = Plugin.(
-	talkerHandlers := (th.kind, th) :: !talkerHandlers;
-	traceGreen("Talker "^th.kind^" ("^th.category^") registered")
-	)
+    talkerHandlers := (th.kind, th) :: !talkerHandlers;
+    traceGreen("Talker "^th.kind^" ("^th.category^") registered")
+  )
 
 let getTalkerHandler kind =
-	try L.assoc kind !talkerHandlers
-	with Not_found -> (trace(kind^"'s factory not found!"); raise Not_found)
+  try L.assoc kind !talkerHandlers
+  with Not_found -> (trace(kind^"'s factory not found!"); raise Not_found)
 
 
 let makeTalker ?name kind =
-	let th = getTalkerHandler kind in
+  let th = getTalkerHandler kind in
 
-	let talker = Tkr.mkTkr(Plugin.(th.make ())) in
+  let talker = Tkr.mkTkr(Plugin.(th.make ())) in
 
-	match name with None -> talker
-	| Some nm -> talker#setName nm; talker
+  match name with None -> talker
+                | Some nm -> talker#setName nm; talker
 
 
 let getTalkersInfos() =
-	L.map !talkerHandlers ~f:(fun (kind, th) -> Plugin.(kind, th.category))
+  L.map !talkerHandlers ~f:(fun (kind, th) -> Plugin.(kind, th.category))
 
 
 let outputMakers:(string * Output.handler)list ref = ref []
 
 let addOutputMaker handler =
-	outputMakers := Output.(handler.feature, handler) :: !outputMakers
+  outputMakers := Output.(handler.feature, handler) :: !outputMakers
 
 let getOutputMaker feature = Output.((L.assoc feature !outputMakers).make)
 
 let makeOutput name feature attributs =
-	(getOutputMaker feature) name attributs
+  (getOutputMaker feature) name attributs
 

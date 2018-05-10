@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Graffophone_plugin
 open Usual
 open SampleFormat
 
@@ -23,28 +24,28 @@ let kind = "lv2"
 
 class c = object(self) inherit Tkr.c as super
 
-	val mInput = Tkr.mkTalk ()
-	val mOutput = Tkr.mkVoice ()
+  val mInput = Tkr.mkTalk ()
+  val mOutput = Tkr.mkVoice ()
 
-	method getTalks = [mInput]
-	method getKind = kind
-	method getVoices = [|mOutput|]
+  method getTalks = [mInput]
+  method getKind = kind
+  method getVoices = [|mOutput|]
 
-	method talk port tick len =
-		let ir = Listen.talk mInput tick len ~copy:false in
-		let irl = Listen.getLength ir in
+  method talk port tick len =
+    let ir = Listen.talk mInput tick len ~copy:false in
+    let irl = Listen.getLength ir in
 
-		Voice.checkLength mOutput irl;
+    Voice.checkLength mOutput irl;
 
-		for i = 0 to irl - 1 do
-			let v = Listen.(ir @+ i) *. maxA
-			in
-			if v = 0. then Voice.set mOutput i 1.
-			else Voice.set mOutput i (minf (1. /. v) 1.)
-		done;
+    for i = 0 to irl - 1 do
+      let v = Listen.(ir @+ i) *. maxA
+      in
+      if v = 0. then Voice.set mOutput i 1.
+      else Voice.set mOutput i (minf (1. /. v) 1.)
+    done;
 
-		Voice.setTick mOutput tick;
-		Voice.setLength mOutput irl;
+    Voice.setTick mOutput tick;
+    Voice.setLength mOutput irl;
 end
 
 let make() = (new c)#base

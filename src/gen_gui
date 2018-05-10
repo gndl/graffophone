@@ -1,0 +1,1 @@
+lablgladecc2 -embed -hide-default graffophoneGui.glade > graffophoneGui.ml

@@ -34,13 +34,13 @@ let files = new list_cp string_wrappers ~group ["library"; "files"] [] "Audio fi
 let log_file = open_out "graffophone.log";;
 group#read
   ~on_type_error:
-  (fun groupable_cp raw_cp output filename in_channel ->
-     Printf.fprintf log_file
-       "Type error while loading configuration parameter %s from file %s.\n%!"
-       (S.concat "." groupable_cp#get_name) filename;
-     output log_file; (* get more information into log_file *)
-  )
-	configFileName
+    (fun groupable_cp raw_cp output filename in_channel ->
+       Printf.fprintf log_file
+         "Type error while loading configuration parameter %s from file %s.\n%!"
+         (S.concat "." groupable_cp#get_name) filename;
+       output log_file; (* get more information into log_file *)
+    )
+  configFileName
 
 
 let getVolume = volume#get

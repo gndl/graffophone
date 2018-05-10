@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Graffophone_plugin
 open Util
 open Usual
 open SampleFormat
@@ -27,91 +28,91 @@ let kind = "track"
 
 class c = object(self) inherit Tkr.c
 
-	val mInput = Tkr.mkTalk ()
-	val mGain = Tkr.mkBin ~tag:"gain" ~value:1. ()
-	val mChannelsGains = Tkr.mkBins ~tag:"channelGain" ()
+  val mInput = Tkr.mkTalk ()
+  val mGain = Tkr.mkBin ~tag:"gain" ~value:1. ()
+  val mChannelsGains = Tkr.mkBins ~tag:"channelGain" ()
 
-	val mutable mBuf = A.make 256 1.
+  val mutable mBuf = A.make 256 1.
 
-	method getKind = kind
+  method getKind = kind
 
-	method put add tick buf len channels =
+  method put add tick buf len channels =
 
-		let computeGain = function
-			| Ear.Word gainWord -> (
-				let ir = Listen.talk mInput tick len ~copy:false in
-				let irl = Listen.getLength ir in
-				let gain = gainWord.Ear.value in
-				
-				for i = 0 to irl - 1 do
-					buf.(i) <- Listen.(ir @+ i) *. gain
-				done;
-				irl)
-			| Ear.Talk gainTalk -> (
-				let ir = Listen.talk mInput tick len in
-				let gr = Listen.talk gainTalk tick (Listen.getLength ir) ~copy:false in
-				let grl = Listen.getLength gr in
+    let computeGain = function
+      | Ear.Word gainWord -> (
+          let ir = Listen.talk mInput tick len ~copy:false in
+          let irl = Listen.getLength ir in
+          let gain = gainWord.Ear.value in
 
-				for i = 0 to grl - 1 do
-					buf.(i) <- Listen.(ir @+ i) *. Listen.(gr @+ i)
-				done;
-				grl)
-		in
-		let ol = ref(computeGain mGain.Ear.src) in
-		let n = mini (A.length channels) (A.length mChannelsGains.Ear.bins) in
+          for i = 0 to irl - 1 do
+            buf.(i) <- Listen.(ir @+ i) *. gain
+          done;
+          irl)
+      | Ear.Talk gainTalk -> (
+          let ir = Listen.talk mInput tick len in
+          let gr = Listen.talk gainTalk tick (Listen.getLength ir) ~copy:false in
+          let grl = Listen.getLength gr in
 
-		if add then (
-			for i = 0 to n - 1 do
-				let ch = channels.(i) in
-				match mChannelsGains.Ear.bins.(i).Ear.src with
-					| Ear.Word word -> let cg = word.Ear.value in
-					if cg <> 0. then (
-						for j = 0 to !ol - 1 do
-							ch.(j) <- ch.(j) +. cg *. buf.(j) done;)
-					| Ear.Talk cge -> (
-						let cgr = Listen.talk cge tick !ol in
-						let cgrl = Listen.getLength cgr in
+          for i = 0 to grl - 1 do
+            buf.(i) <- Listen.(ir @+ i) *. Listen.(gr @+ i)
+          done;
+          grl)
+    in
+    let ol = ref(computeGain mGain.Ear.src) in
+    let n = mini (A.length channels) (A.length mChannelsGains.Ear.bins) in
 
-						for j = 0 to cgrl - 1 do
-							ch.(j) <- ch.(j) +. Listen.(cgr @+ j) *. buf.(j) done;
-						ol := cgrl;)
-			done;
-	
-			for i = n to A.length channels - 1 do
-				let ch = channels.(i) in
-				for j = 0 to !ol - 1 do
-					ch.(j) <- ch.(j) +. buf.(j) done;
-			done;
-		)
-		else (
-			for i = 0 to n - 1 do
-				let ch = channels.(i) in
-				match mChannelsGains.Ear.bins.(i).Ear.src with
-					| Ear.Word word -> let cg = word.Ear.value in
-					if cg <> 0. then (
-						for j = 0 to !ol - 1 do
-							ch.(j) <- cg *. buf.(j) done;
-					) else A.fill ch 0 !ol 0.;
-					| Ear.Talk cge -> (
-						let cgr = Listen.talk cge tick !ol in
-						let cgrl = Listen.getLength cgr in
+    if add then (
+      for i = 0 to n - 1 do
+        let ch = channels.(i) in
+        match mChannelsGains.Ear.bins.(i).Ear.src with
+        | Ear.Word word -> let cg = word.Ear.value in
+          if cg <> 0. then (
+            for j = 0 to !ol - 1 do
+              ch.(j) <- ch.(j) +. cg *. buf.(j) done;)
+        | Ear.Talk cge -> (
+            let cgr = Listen.talk cge tick !ol in
+            let cgrl = Listen.getLength cgr in
 
-						for j = 0 to cgrl - 1 do
-							ch.(j) <- Listen.(cgr @+ j) *. buf.(j) done;
-						ol := cgrl;)
-			done;
-	
-			for i = n to A.length channels - 1 do
-				let ch = channels.(i) in
-				A.blit buf 0 ch 0 !ol;
-			done;
-		);
-		!ol
+            for j = 0 to cgrl - 1 do
+              ch.(j) <- ch.(j) +. Listen.(cgr @+ j) *. buf.(j) done;
+            ol := cgrl;)
+      done;
+
+      for i = n to A.length channels - 1 do
+        let ch = channels.(i) in
+        for j = 0 to !ol - 1 do
+          ch.(j) <- ch.(j) +. buf.(j) done;
+      done;
+    )
+    else (
+      for i = 0 to n - 1 do
+        let ch = channels.(i) in
+        match mChannelsGains.Ear.bins.(i).Ear.src with
+        | Ear.Word word -> let cg = word.Ear.value in
+          if cg <> 0. then (
+            for j = 0 to !ol - 1 do
+              ch.(j) <- cg *. buf.(j) done;
+          ) else A.fill ch 0 !ol 0.;
+        | Ear.Talk cge -> (
+            let cgr = Listen.talk cge tick !ol in
+            let cgrl = Listen.getLength cgr in
+
+            for j = 0 to cgrl - 1 do
+              ch.(j) <- Listen.(cgr @+ j) *. buf.(j) done;
+            ol := cgrl;)
+      done;
+
+      for i = n to A.length channels - 1 do
+        let ch = channels.(i) in
+        A.blit buf 0 ch 0 !ol;
+      done;
+    );
+    !ol
 
 
-	method getEars = Ear.([|ETalk mInput; EBin mGain; EBins mChannelsGains|])
+  method getEars = Ear.([|ETalk mInput; EBin mGain; EBins mChannelsGains|])
 
-	method backup = (kind, "", self#getEars)
+  method backup = (kind, "", self#getEars)
 end
 
 let make() = new c

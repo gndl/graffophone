@@ -21,16 +21,16 @@ module GTkr = GTalker
 
 
 let separatorProperties = [
-	`FILL_COLOR_RGBA GTkr.boxBorderColor;
-	`WIDTH_PIXELS 1]
+  `FILL_COLOR_RGBA GTkr.boxBorderColor;
+  `WIDTH_PIXELS 1]
 
 
 class c (mixingConsole:MixingConsole.c) canvas = object (self)
-	inherit GTkr.c mixingConsole#base canvas
-	
-	val mutable mGTracks : GTrack.c list = []
-	
-	method getGTracks = mGTracks
+  inherit GTkr.c mixingConsole#base canvas
+
+  val mutable mGTracks : GTrack.c list = []
+
+  method getGTracks = mGTracks
 (*
  _______________
 /     NAME      \
@@ -42,53 +42,53 @@ class c (mixingConsole:MixingConsole.c) canvas = object (self)
 |volume #       |
 \_______________/
 *)
-	method draw ?(pX = 0.) ?(pY = 0.) () =
+  method draw ?(pX = 0.) ?(pY = 0.) () =
 
-		self#drawHeader ~pX ~pY false true false;
-		
-		let topTrackY = self#getHeight +. GTkr.space in
+    self#drawHeader ~pX ~pY false true false;
 
-		let (w, h, gTrks) = L.fold_left mixingConsole#getTracks
-			~init:(self#getWidth +. 20., topTrackY, [])
-			~f:(fun (w, h, gTrks) track ->
-				let gTrk = new GTrack.c track ~group:self#getGroup canvas in
+    let topTrackY = self#getHeight +. GTkr.space in
 
-				gTrk#setWidth w;
+    let (w, h, gTrks) = L.fold_left mixingConsole#getTracks
+        ~init:(self#getWidth +. 20., topTrackY, [])
+        ~f:(fun (w, h, gTrks) track ->
+            let gTrk = new GTrack.c track ~group:self#getGroup canvas in
 
-				gTrk#draw ~pX:(1. -. GTkr.boxRadius) ~pY:h ();
+            gTrk#setWidth w;
 
-				(max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
-		) in
+            gTrk#draw ~pX:(1. -. GTkr.boxRadius) ~pY:h ();
 
-  	self#setWidth(w -. GTkr.boxRadius);
-  	self#setHeight(h +. GTkr.marge -. pY);
-		mGTracks <- gTrks;
+            (max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
+          ) in
 
-		self#drawEarsVoices ~pX ~pY ();
-		self#drawBox ~pX ~pY ();
-		
-		let w = self#getWidth in
-		let points = [|pX; topTrackY; pX +. w; topTrackY|] in
-		
-		ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-		
-		ignore(L.fold_left gTrks ~init:topTrackY
-			~f:(fun y gTkr ->
-				let y = y +. gTkr#getHeight in
-    		let points = [|pX; y; pX +. w; y|] in
-    		
-    		ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-				y
-			));
+    self#setWidth(w -. GTkr.boxRadius);
+    self#setHeight(h +. GTkr.marge -. pY);
+    mGTracks <- gTrks;
+
+    self#drawEarsVoices ~pX ~pY ();
+    self#drawBox ~pX ~pY ();
+
+    let w = self#getWidth in
+    let points = [|pX; topTrackY; pX +. w; topTrackY|] in
+
+    ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
+
+    ignore(L.fold_left gTrks ~init:topTrackY
+             ~f:(fun y gTkr ->
+                 let y = y +. gTkr#getHeight in
+                 let points = [|pX; y; pX +. w; y|] in
+
+                 ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
+                 y
+               ));
 
 end
 
 let make mixingConsole canvas = new c mixingConsole canvas
 
 let makeAt mixingConsole row column canvas =
-	
-	let gMc = new c mixingConsole canvas in
-	
-	gMc#setRow row;
-	gMc#setColumn column;
-	gMc
+
+  let gMc = new c mixingConsole canvas in
+
+  gMc#setRow row;
+  gMc#setColumn column;
+  gMc

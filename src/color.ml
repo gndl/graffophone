@@ -23,24 +23,24 @@ let ofString rgbaString = Int32.of_string rgbaString
 
 
 let ofRgb8 r g b = Int32.(
-	let m = of_int 0xFF in
-	let r = of_int r in
-	let g = of_int g in
-	let b = of_int b in
-	logor
-	(logor (shift_left (logand m r) 24) (shift_left (logand m g) 16))
-	(logor (shift_left (logand m b) 8) m)
-)
+    let m = of_int 0xFF in
+    let r = of_int r in
+    let g = of_int g in
+    let b = of_int b in
+    logor
+      (logor (shift_left (logand m r) 24) (shift_left (logand m g) 16))
+      (logor (shift_left (logand m b) 8) m)
+  )
 
 let gdkRgb c = Int32.(
-	let to16 c = c * 65535 / 255 in
-	let m = of_int 0xFF in
-	let r = to_int(logand m (shift_right_logical c 24)) in
-	let g = to_int(logand m (shift_right_logical c 16)) in
-	let b = to_int(logand m (shift_right_logical c 8)) in
-	(*assert ( r < 255); assert ( g < 255); assert ( b < 255);(**)*)
-	`RGB (to16 r, to16 g, to16 b)
-)
+    let to16 c = c * 65535 / 255 in
+    let m = of_int 0xFF in
+    let r = to_int(logand m (shift_right_logical c 24)) in
+    let g = to_int(logand m (shift_right_logical c 16)) in
+    let b = to_int(logand m (shift_right_logical c 8)) in
+    (*assert ( r < 255); assert ( g < 255); assert ( b < 255);(**)*)
+    `RGB (to16 r, to16 g, to16 b)
+  )
 
 (*
 let gdk c = Gdk.Color.alloc (Gdk.Color.get_system_colormap()) (rgb c)
@@ -50,8 +50,8 @@ let gdk c = Gdk.Color.alloc (Gdk.Rgb.get_cmap()) (gdkRgb c)
 
 
 let gdkRgbOfRgb8 r g b =
-	let to16 c = (c land 0xFF) * 65535 / 255 in
-	`RGB (to16 r, to16 g, to16 b)
+  let to16 c = (c land 0xFF) * 65535 / 255 in
+  `RGB (to16 r, to16 g, to16 b)
 
 let gdkOfRgb8 r g b = Gdk.Color.alloc (Gdk.Rgb.get_cmap()) (gdkRgbOfRgb8 r g b)
 

@@ -1,41 +1,24 @@
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+.PHONY: default build install uninstall test clean
 
-SETUP = ocaml setup.ml
+default: build
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+build:
+	jbuilder build src/graffophone.exe
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+test:
+	jbuilder runtest -f
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+exec:
+	jbuilder exec src/graffophone.exe
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
+install:
+	jbuilder install
 
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	jbuilder uninstall
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
-
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
-
-# OASIS_STOP
+	jbuilder clean
+# Optionally, remove all files/folders ignored by git as defined
+# in .gitignore (-X).
+#git clean -dfXq

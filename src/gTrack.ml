@@ -14,6 +14,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Graffophone_plugin
 open Usual
 
 module Tkr = Talker
@@ -21,15 +22,15 @@ module Trk = Track
 module GTkr = GTalker
 
 let boxProperties = [
-	`FILL_COLOR_RGBA (Color.rgba(Style.boxColor));
-	`OUTLINE_COLOR_RGBA (Color.rgba(Style.delimitationColor));
-	`WIDTH_PIXELS 1]
+  `FILL_COLOR_RGBA (Color.rgba(Style.boxColor));
+  `OUTLINE_COLOR_RGBA (Color.rgba(Style.delimitationColor));
+  `WIDTH_PIXELS 1]
 
 class c (track:Track.c) ?group canvas =
-object (self) inherit GTkr.c (track :> Tkr.c) ?group canvas
-	
-	
-	method getTalker = (track :> Tkr.c)
+  object (self) inherit GTkr.c (track :> Tkr.c) ?group canvas
+
+
+    method getTalker = (track :> Tkr.c)
 (*
  _____________________
 |        NAME         |
@@ -39,36 +40,36 @@ object (self) inherit GTkr.c (track :> Tkr.c) ?group canvas
 |channelGain 2 #      |
 |_____________________|
 *)
-	method draw ?(pX = 0.) ?(pY = 0.) () =
-		
-		self#drawHeader ~pX ~pY false true false;
-		
-		self#drawEarsVoices ~pX:(pX +. GTkr.marge) ~pY:(pY +. GTkr.marge) ();
-		
-		self#setWidth(self#getWidth +. GTkr.space);
-		self#setHeight(self#getHeight +. GTkr.space);
-		
-(*		self#drawBox ~pX ~pY ();*)
-		self#positionTags();
+    method draw ?(pX = 0.) ?(pY = 0.) () =
+
+      self#drawHeader ~pX ~pY false true false;
+
+      self#drawEarsVoices ~pX:(pX +. GTkr.marge) ~pY:(pY +. GTkr.marge) ();
+
+      self#setWidth(self#getWidth +. GTkr.space);
+      self#setHeight(self#getHeight +. GTkr.space);
+
+      (*self#drawBox ~pX ~pY ();*)
+      self#positionTags();
 
 
-	method drawBox ?(pX = 0.) ?(pY = 0.) () =
+    method drawBox ?(pX = 0.) ?(pY = 0.) () =
 
-		let x2 = pX +. mWidth in
-		let y2 = pY +. mHeight in
-		
-  	let box = GnoCanvas.rect ~x1:pX ~y1:pY ~x2 ~y2 ~props:boxProperties mGroup
-  	in
-  	box#lower_to_bottom();
-	
-end
+      let x2 = pX +. mWidth in
+      let y2 = pY +. mHeight in
+
+      let box = GnoCanvas.rect ~x1:pX ~y1:pY ~x2 ~y2 ~props:boxProperties mGroup
+      in
+      box#lower_to_bottom();
+
+  end
 
 let make mixingConsole canvas = new c mixingConsole canvas
 
 let makeAt mixingConsole row column canvas =
-	
-	let gMc = new c mixingConsole canvas in
-	
-	gMc#setRow row;
-	gMc#setColumn column;
-	gMc
+
+  let gMc = new c mixingConsole canvas in
+
+  gMc#setRow row;
+  gMc#setColumn column;
+  gMc

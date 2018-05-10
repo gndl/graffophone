@@ -10,15 +10,9 @@
 *.docdir
 
 # emacs generated files
-*.ml~
+*~
 
-# ocamlbuild working directory
-_build/
-
-# ocamlbuild targets
-*.byte
-*.native
-
-# oasis generated files
-setup.data
-setup.log
+# dune generated files
+_build
+.merlin
+*.install

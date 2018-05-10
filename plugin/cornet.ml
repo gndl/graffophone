@@ -15,24 +15,28 @@
  *)
 
 type t = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
-	
+
 let get (cor:t) i = Bigarray.Array1.unsafe_get cor i
 let set (cor:t) i value = Bigarray.Array1.unsafe_set cor i value
-	
+
 let make len = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout len
-	
+
 let init ?(v = 0.) ?f len =
-	let cor = make len in match f with
-		| Some f -> for i = 0 to len - 1 do set cor i (f i) done; cor
-		| None -> Bigarray.Array1.fill cor v; cor
+
+  let cor = make len in
+
+  match f with
+  | Some f -> for i = 0 to len - 1 do set cor i (f i) done; cor
+  | None -> Bigarray.Array1.fill cor v; cor
+
 
 let sub (cor:t) ofs len = Bigarray.Array1.sub cor ofs len
 let fill (cor:t) ofs len value = Bigarray.Array1.fill(sub cor ofs len)value
 let dim (cor:t) = Bigarray.Array1.dim cor
 
 let blit (src:t) srcOfs (dest:t) destOfs len =
-	let s = sub src srcOfs len in
-	let d = sub dest destOfs len in
-	Bigarray.Array1.blit s d
+  let s = sub src srcOfs len in
+  let d = sub dest destOfs len in
+  Bigarray.Array1.blit s d
 
 

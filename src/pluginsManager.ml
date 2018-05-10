@@ -14,46 +14,47 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
+open Graffophone_plugin
 open Usual
 
 let loadPlugins () =
-	try
-		let open Plugin in
-		
-		(* Inner talkers registering *)
-  	L.iter Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
-		traceGreen(InnerTalkers.handler.name^" talkers registered");
+  try
+    let open Plugin in
 
-		Factory.addTalkerHandler FileInput.handler;
+    (* Inner talkers registering *)
+    L.iter Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
+    traceGreen(InnerTalkers.handler.name^" talkers registered");
 
-		(* Plugins talkers registering *)
-		let pluginsDir = "_build/plugins/" in
-		let suffix = if Dynlink.is_native then ".cmxs" else ".cma"
-		in
-		let loadIfPlugin fileName =
-			if Filename.check_suffix fileName suffix then
-			(
-				Dynlink.loadfile (pluginsDir^fileName);
-				
-				if Plugin.isRegistered() then (
-					
-					let ph = Plugin.getHandler() in
+    Factory.addTalkerHandler FileInput.handler;
 
-  				L.iter Factory.addTalkerHandler ph.talkerHandlers;
-  				traceGreen("Plugin "^ph.name^" ("^fileName^") registered");
-				)
-				else (
-					traceRed("Plugin "^fileName^" did not register\n");
-				);
-				Plugin.reset();
-			)
-		in
-		Array.iter loadIfPlugin (Sys.readdir pluginsDir);
-		
-		(* Output registering *)
-		Factory.addOutputMaker FileOutput.handler;
-		Factory.addOutputMaker PlaybackOutput.handler;
+    (* Plugins talkers registering *)
+    let pluginsDir = "_build/default/plugins/" in
+    let suffix = if Dynlink.is_native then ".cmxs" else ".cma"
+    in
+    let loadIfPlugin fileName =
+      if Filename.check_suffix fileName suffix then
+        (
+          Dynlink.loadfile (pluginsDir^fileName);
 
-	with
-		Dynlink.Error e -> print_endline (Dynlink.error_message e)
+          if Plugin.isRegistered() then (
+
+            let ph = Plugin.getHandler() in
+
+            L.iter Factory.addTalkerHandler ph.talkerHandlers;
+            traceGreen("Plugin "^ph.name^" ("^fileName^") registered");
+          )
+          else (
+            traceRed("Plugin "^fileName^" did not register\n");
+          );
+          Plugin.reset();
+        )
+    in
+    Array.iter loadIfPlugin (Sys.readdir pluginsDir);
+
+    (* Output registering *)
+    Factory.addOutputMaker FileOutput.handler;
+    Factory.addOutputMaker PlaybackOutput.handler;
+
+  with
+    Dynlink.Error e -> print_endline (Dynlink.error_message e)
 
