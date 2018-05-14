@@ -65,7 +65,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_newSessionMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_newSessionMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -76,7 +76,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_openSessionMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_openSessionMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -87,7 +87,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_saveSessionMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_saveSessionMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -98,7 +98,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_saveSessionAsMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_saveSessionAsMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -115,7 +115,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="gtk_main_quit" swapped="no"/>
+                            <signal name="activate" handler="gtk_main_quit"/>
                           </widget>
                         </child>
                       </widget>
@@ -140,7 +140,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_cutMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_cutMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -151,7 +151,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_copyMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_copyMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -162,7 +162,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_pastMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_pastMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -173,7 +173,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_deleteMenuItem_activate" swapped="no"/>
+                            <signal name="activate" handler="on_deleteMenuItem_activate"/>
                           </widget>
                         </child>
                         <child>
@@ -191,7 +191,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="use_underline">True</property>
                             <property name="use_stock">True</property>
-                            <signal name="activate" handler="on_preferences_clicked" swapped="no"/>
+                            <signal name="activate" handler="on_preferences_clicked"/>
                           </widget>
                         </child>
                       </widget>
@@ -229,7 +229,7 @@
                             <property name="use_action_appearance">False</property>
                             <property name="label" translatable="yes">À _propos</property>
                             <property name="use_underline">True</property>
-                            <signal name="activate" handler="on_about_activate" swapped="no"/>
+                            <signal name="activate" handler="on_about_activate"/>
                           </widget>
                         </child>
                       </widget>
@@ -278,7 +278,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-new</property>
-                    <signal name="clicked" handler="on_newSessionToolbarButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_newSessionToolbarButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -291,7 +291,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-open</property>
-                    <signal name="clicked" handler="on_openSessionToolbarButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_openSessionToolbarButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -304,7 +304,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-save</property>
-                    <signal name="clicked" handler="on_saveSessionToolbarButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_saveSessionToolbarButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -317,7 +317,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-save-as</property>
-                    <signal name="clicked" handler="on_saveSessionAsToolbarButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_saveSessionAsToolbarButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -331,7 +331,7 @@
                     <property name="use_action_appearance">False</property>
                     <property name="use_underline">True</property>
                     <property name="stock_id">gtk-preferences</property>
-                    <signal name="clicked" handler="on_preferences_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_preferences_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -353,7 +353,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-media-play</property>
-                    <signal name="clicked" handler="on_playButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_playButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -378,7 +378,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-media-stop</property>
-                    <signal name="clicked" handler="on_stopButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_stopButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -391,7 +391,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-media-previous</property>
-                    <signal name="clicked" handler="on_beginButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_beginButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -404,7 +404,7 @@
                     <property name="can_focus">False</property>
                     <property name="use_action_appearance">False</property>
                     <property name="stock_id">gtk-jump-to</property>
-                    <signal name="clicked" handler="on_playToButton_clicked" swapped="no"/>
+                    <signal name="clicked" handler="on_playToButton_clicked"/>
                   </widget>
                   <packing>
                     <property name="expand">False</property>
@@ -430,7 +430,7 @@
                         <property name="climb_rate">1</property>
                         <property name="digits">2</property>
                         <property name="numeric">True</property>
-                        <signal name="input" handler="on_tickSpinButton_input" swapped="no"/>
+                        <signal name="input" handler="on_tickSpinButton_input"/>
                       </widget>
                     </child>
                   </widget>
@@ -684,7 +684,7 @@
             <property name="adjustment">0 0 100 0.5 10 0</property>
             <property name="digits">4</property>
             <property name="numeric">True</property>
-            <signal name="input" handler="on_spinbuttonFloatEntry_input" swapped="no"/>
+            <signal name="input" handler="on_spinbuttonFloatEntry_input"/>
           </widget>
           <packing>
             <property name="expand">False</property>
@@ -725,8 +725,8 @@
             <property name="can_focus">False</property>
             <property name="inverted">True</property>
             <property name="draw_value">False</property>
-            <signal name="button_release_event" handler="on_vscaleFloatEntry_button_release_event" after="yes" swapped="no"/>
-            <signal name="value_changed" handler="on_vscaleFloatEntry_value_changed" after="yes" swapped="no"/>
+            <signal name="button_release_event" handler="on_vscaleFloatEntry_button_release_event" after="yes"/>
+            <signal name="value_changed" handler="on_vscaleFloatEntry_value_changed" after="yes"/>
           </widget>
           <packing>
             <property name="expand">True</property>
