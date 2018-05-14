@@ -51,7 +51,7 @@ class c ?(name = "Playback Output(") () =
           let codec_id = Av.Format.get_audio_codec_id fmt in
 
           let cl = Avutil.Channel_layout.get_default nbChannels in
-          let out_sample_format = Avcodec.Audio.find_best_sample_format codec_id in
+          let out_sample_format = Avcodec.Audio.find_best_sample_format codec_id `Dbl in
 
           let output = Av.open_output_format fmt in
 
