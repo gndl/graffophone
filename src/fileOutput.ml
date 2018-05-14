@@ -40,7 +40,7 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
       mNbChannels <- nbChannels;
       try
         let cl = Avutil.Channel_layout.get_default nbChannels in
-        let sample_format = Avcodec.Audio.find_best_sample_format mCodecId in
+        let sample_format = Avcodec.Audio.find_best_sample_format mCodecId `Dbl in
 
         let stream = Av.open_output mFilename
                      |> Av.new_audio_stream ~codec_id:mCodecId

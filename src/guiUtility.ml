@@ -113,7 +113,7 @@ let dialogTextEntry initValue callback = dialogStringEntry initValue callback
 
 
 let dialogFloatEntry initValue callback =
-
+trace("dialogFloatEntry "^sof initValue);
   let dialog = new DialogFloatEntry.c initValue callback in
 
   dialog#toplevel#show()
