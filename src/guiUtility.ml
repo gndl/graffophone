@@ -114,7 +114,8 @@ let dialogTextEntry initValue callback = dialogStringEntry initValue callback
 
 let dialogFloatEntry initValue callback =
 trace("dialogFloatEntry "^sof initValue);
-  let dialog = new DialogFloatEntry.c initValue callback in
+let dialog = new DialogBoundedFloatEntry.c 0. initValue 0.
+  (fun _ v _ f -> callback v f) in
 
   dialog#toplevel#show()
 
