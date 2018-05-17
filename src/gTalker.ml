@@ -31,17 +31,18 @@ let valueFont = "-*-*-medium-r-*-*-*-*-*-*-*-*-*-*"
 let tagFont = "-adobe-courier-medium-r-*-*-12-*-*-*-*-*-*-*"
 let tagFontSelected = "-adobe-courier-bold-r-*-*-12-*-*-*-*-*-*-*"
 
-let earColor = "SaddleBrown" (* "Sienna" "Brown" *)
+let earColor = "cyan" (* beige SaddleBrown Sienna Brown *)
 
-let nameProperties = [`FILL_COLOR "black"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
-let kindProperties = [`FILL_COLOR "darkgray"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
-let valueProperties = [`FILL_COLOR "blue"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+(* let nameProperties = [`FILL_COLOR "black"; `SIZE_POINTS fontSize(\*; `NO_FONT*\)] *)
+let nameProperties = [`FILL_COLOR "white"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+let kindProperties = [`FILL_COLOR "lightgray"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+let valueProperties = [`FILL_COLOR "yellow"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
 let earProperties = [`FILL_COLOR earColor; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `FONT tagFont; `NO_FONT*)]
-let voiceProperties = [`FILL_COLOR "darkgreen"; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `NO_FONT*)]
+let voiceProperties = [`FILL_COLOR "lightgreen"; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `NO_FONT*)]
 let selectedEarProperties = [`FILL_COLOR "magenta"; `SIZE_POINTS fontSize; `X_OFFSET (1.); `Y_OFFSET (-1.) (*`FONT tagFontSelected; *)]
 let selectedVoiceProperties = [`FILL_COLOR "magenta"; `SIZE_POINTS fontSize; `X_OFFSET (-1.); `Y_OFFSET (-1.)]
-let addProperties = [`FILL_COLOR "darkgreen"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
-let supProperties = [`FILL_COLOR "black"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+let addProperties = [`FILL_COLOR "lightgreen"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+let supProperties = [`FILL_COLOR "red"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
 
 let boxRadius = 4.
 let boxBorder = 2 * iof boxRadius

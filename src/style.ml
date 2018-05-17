@@ -15,10 +15,15 @@
  *)
 open Graffophone_plugin
 
-let backgroundColor       = Color.ofString "0x2A2A2AFF" (* "Dim Gray" *)
-let delimitationColor     = Color.ofString "0xA9A9A9FF" (* "darkgray" *)
-let boxColor              = Color.ofString "0xEBEBD2FF" (* "beige" *) (*"Wheat" "Tan" "NavajoWhite" "PapayaWhip"*)
-let selectionColor        = Color.ofString "0xE0E0FF0F" (* "light blue" *)
+(* let backgroundColor       = Color.ofString "0x2A2A2AFF" (\* "Dim Gray" *\) *)
+let backgroundColor       = Color.ofString "0x000000FF" (* "black" *)
+(* let delimitationColor     = Color.ofString "0xA9A9A9FF" (\* "darkgray" *\) *)
+let delimitationColor     = Color.ofString "0x505050FF"
+(*let boxColor              = Color.ofString "0xEBEBD2FF" (* "beige" *) "Wheat" "Tan" "NavajoWhite" "PapayaWhip"*)
+let boxColor       = Color.ofString "0x202020FF"
+
+(* let selectionColor        = Color.ofString "0xE0E0FF0F" (\* "light blue" *\) *)
+let selectionColor        = Color.ofString "0xFF8000FF" (* "orange" *)
 let reverseSelectionColor = Color.ofString "0xE0FFE00F" (* "light green" *)
 let flowColor             = Color.ofString "0x00FFFFFF" (* "cyan" *)
 let markerColor           = Color.ofString "0xFF8000FF" (* "orange" *)
