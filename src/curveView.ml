@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -19,10 +19,8 @@ open Usual
 
 module Bus = EventBus
 
-(*let maxWidth = foi GCurve.width*)
 
-
-class c (pSsnCtrl : SessionControler.c) (*pTable : GPack.table*) =
+class c (pSsnCtrl : SessionControler.c) =
   object (self)
     val mutable mLeftTick = 0
     val mutable mLastTickX = 0
@@ -31,35 +29,27 @@ class c (pSsnCtrl : SessionControler.c) (*pTable : GPack.table*) =
     val mutable mPixelsPerTick = 0.0250
 
     val mutable mGCurves = []
-    val pTable = GPack.table ~columns:2 ~rows:2 ~homogeneous:false ~row_spacings:0 ~col_spacings:0 () (*~packing *)
+    val pTable = GPack.table ~columns:2 ~rows:2 ~homogeneous:false ~row_spacings:0 ~col_spacings:0 ()
 
     val mTimeRuler = GRange.ruler `HORIZONTAL ~metric:`PIXELS
-        ~lower:0. ~upper:100. (*~max_size:float*) ~position:0. ()
+        ~lower:0. ~upper:100. ~position:0. ()
     val mCurvesBox = GPack.vbox ~spacing:1 ~border_width:0 ()
     val mCtrlsBox = GPack.vbox ~spacing:1 ~border_width:0 ()
-    val mCurvesSW = GBin.scrolled_window ~placement:`TOP_LEFT
-        ~hpolicy:`NEVER(*AUTOMATIC*) ~vpolicy:`AUTOMATIC ~border_width:0 ()
+    val mCurvesSW = GBin.scrolled_window ~placement:`BOTTOM_LEFT
+        ~hpolicy:`NEVER ~vpolicy:`AUTOMATIC ~border_width:0 ()
     val mutable mActive = false
 
 
     initializer
       Bus.addObserver self#observe;
-(*
-let curvesSW = GBin.scrolled_window ~placement:`TOP_LEFT
-~hpolicy:`NEVER(*AUTOMATIC*) ~vpolicy:`AUTOMATIC ~border_width:0 ()
-in*)
+
       mCurvesSW#add_with_viewport mCurvesBox#coerce;
 
-      ignore(mCurvesBox#misc#connect#size_allocate ~callback:(fun area -> (*trace("size_allocate : x "^soi area.x^", y "^soi area.y^", width "^soi area.width^", height "^soi area.height)*)
+      ignore(mCurvesBox#misc#connect#size_allocate ~callback:(fun area ->
           self#onCurvesAreaResizing Gtk.(area.width);));
 
       pTable#attach ~left:1 ~top:1 ~expand:`BOTH mCurvesSW#coerce;
-(*
-mTimeRuler#misc#set_size_request ~width:GCurve.width ~height:25 ();
-let timeRulerVP = GBin.viewport ~hadjustment:mCurvesSW#hadjustment ~shadow_type:`NONE () in
-timeRulerVP#add mTimeRuler#coerce;
-pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
-*)
+
       let timeAdjustment = mCurvesSW#hadjustment in
 
       ignore(timeAdjustment#connect#changed ~callback:(fun() -> self#setTimeRuler()));
@@ -68,7 +58,7 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
       pTable#attach ~left:1 ~top:0 ~expand:`NONE mTimeRuler#coerce;
 
       let ctrlsSW = GBin.scrolled_window ~vadjustment:mCurvesSW#vadjustment
-          ~placement:`TOP_RIGHT ~hpolicy:`NEVER(*AUTOMATIC*) ~vpolicy:`NEVER ~border_width:0 (*~width:50*) ()
+          ~placement:`BOTTOM_RIGHT ~hpolicy:`NEVER ~vpolicy:`NEVER ~border_width:0 ()
       in
       ctrlsSW#add_with_viewport mCtrlsBox#coerce;
 
@@ -93,25 +83,19 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
       ignore(b2b#connect#clicked(fun() ->
           if mLeftTick > 0 then (
             mLeftTick <- 0;
-            (*b2b#misc#hide(); b2p#misc#hide();*)
             self#drawCurves ~zoom:1.;
           )));
 
       ignore(b2p#connect#clicked(fun() ->
           if mLeftTick > 0 then (
             mLeftTick <- max 0 (mLeftTick - ((mTicksCount * 9) / 10));
-            (*if mLeftTick = 0 then ( b2b#misc#hide(); b2p#misc#hide(); );*)
             self#drawCurves ~zoom:1.;
           )));
 
       ignore(b2n#connect#clicked(fun() ->
-          (*mLeftTick <- mLeftTick + ((mTicksCount * 9) / 10);*)
           mLeftTick <- mLeftTick + mTicksCount;
-          (*b2b#misc#show(); b2p#misc#show();*)
           self#drawCurves ~zoom:1.;
         ));
-
-      (*b2b#misc#hide(); b2p#misc#hide();*)
 
       tb#set_show_arrow false;
       tb#set_icon_size`MENU(*SMALL_TOOLBAR*);
@@ -150,8 +134,6 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
         mCurvesBox#pack ~expand:false gCurve#getCurve;
         mCtrlsBox#pack ~expand:false gCurve#getControls;
 
-        gCurve#init();
-
         ignore(gCurve#getRemoveButton#connect#clicked(self#remove gCurve));
 
         mGCurves <- gCurve::mGCurves;
@@ -159,7 +141,7 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
         self#drawCurve gCurve;
         Bus.notify Bus.CurveAdded;
 
-      with Not_found -> ()
+      with Not_found -> trace("CurveView#addTalkCurve : Talker "^soi tkrId^" not found")
 
 
     method drawCurve gCurve =
@@ -201,7 +183,7 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
     method remove gCurve () =
       mCurvesBox#remove gCurve#getCurve;
       mCtrlsBox#remove gCurve#getControls;
-      mGCurves <- L.filter(fun gc -> gc != gCurve) mGCurves;
+      mGCurves <- L.filter((!=) gCurve) mGCurves;
       Bus.notify Bus.CurveRemoved;
 
 
@@ -232,7 +214,7 @@ pTable#attach ~left:1 ~top:0 ~expand:`X timeRulerVP#coerce;
 
 
     (* observer methods *)
-    method observe =function
+    method observe = function
       | Bus.Tick t -> self#drawTick t
       | Bus.TimeRange (startTick, endTick) ->
         self#setTimeRange startTick endTick;

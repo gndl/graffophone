@@ -5,6 +5,10 @@ default: build
 build:
 	jbuilder build src/graffophone.exe
 
+dbg:
+	jbuilder build src/graffophone.bc
+	cp ./_build/default/src/graffophone.bc .
+
 test:
 	jbuilder runtest -f
 

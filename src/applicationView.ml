@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -191,8 +191,9 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
           | State.Paused -> playButton#set_stock_id `MEDIA_PLAY; traceGreen "pause"
           | State.Stopped -> playButton#set_stock_id `MEDIA_PLAY; traceGreen "stop"
         )
-      | Bus.CurveAdded
-      | Bus.CurveRemoved -> graphCurveVpaned#set_position 720(*min mCurveView#getHeight 480*);
+      | Bus.CurveAdded | Bus.CurveRemoved ->
+      let h = graphCurveVpaned#misc#allocation.height in
+      graphCurveVpaned#set_position (max (h - mCurveView#getHeight) 320);
       | Bus.Info msg -> self#showMessage msg `INFO
       | Bus.Warning msg -> self#showMessage msg `WARNING
       | Bus.Error msg -> self#showMessage msg `ERROR

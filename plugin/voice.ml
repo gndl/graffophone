@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -26,7 +26,7 @@ type 'a t = {
   mutable tick : int;
   mutable len : int;
   mutable cor : Cornet.t;
-	mutable tkr : 'a;
+  mutable tkr : 'a;
   port : port_t;
   vTag : string
 }
@@ -42,7 +42,14 @@ let div voice i v = Cornet.set voice.cor i (Cornet.get voice.cor i /. v)
 let dim voice = Cornet.dim voice.cor
 
 let getTag voice = voice.vTag
-let getIdentity voice = voice.tkr#getName ^ "." ^ voice.vTag
+
+let getIdentity voice =
+  let tkr_id = if String.length voice.tkr#getName > 0 then voice.tkr#getName
+    else voice.tkr#getKind in
+
+  tkr_id ^ "." ^ voice.vTag
+
+
 let getPort voice = voice.port
 let getTalker voice = voice.tkr
 let getTick voice = voice.tick
@@ -55,4 +62,4 @@ let setLength voice v = voice.len <- v
 let setCornet voice v = voice.cor <- v
 
 let checkLength voice len =
-	if Cornet.dim voice.cor < len then voice.cor <- Cornet.make len
+  if Cornet.dim voice.cor < len then voice.cor <- Cornet.make len

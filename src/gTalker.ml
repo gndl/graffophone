@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -122,15 +122,16 @@ type gEar_t = {
 
 type gVoice_t = { voiceItem : GnoCanvas.text; voiceY : float; voiceColor : Color.t}
 
-let editValue pValue pValueAction = match pValue with
+let editValue pValueAction = function
   | Tkr.Float f -> GuiUtility.dialogFloatEntry f
                      (fun f fly -> pValueAction (Tkr.Float f) fly)
   | Tkr.String s -> GuiUtility.dialogStringEntry s
                       (fun s fly -> pValueAction (Tkr.String s) fly)
   | Tkr.Text t -> GuiUtility.dialogTextEntry t
                     (fun t fly -> pValueAction (Tkr.Text t) fly)
-  | Tkr.File _ -> (match GuiUtility.openFile (*gui#toplevel*)() with None -> ()
-                                                                   | Some fn -> pValueAction (Tkr.File fn) false)
+  | Tkr.File _ -> (match GuiUtility.openFile (*gui#toplevel*)() with
+      | None -> ()
+      | Some fn -> pValueAction (Tkr.File fn) false)
   | Tkr.Int i -> GuiUtility.dialogIntEntry i
                    (fun i fly -> pValueAction (Tkr.Int i) fly)
   | Tkr.Nil -> ()
@@ -251,11 +252,11 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
         in
         let (addItem, w) = match earType with
           | GAdd -> (
-            let item = GnoCanvas.text ~text:"+" ~x:w ~y
-                ~props:addProperties ~anchor: `NW mGroup
-            in
-            (Some item, item#text_width +. marge)
-          )
+              let item = GnoCanvas.text ~text:"+" ~x:w ~y
+                  ~props:addProperties ~anchor: `NW mGroup
+              in
+              (Some item, item#text_width +. marge)
+            )
           | _ -> (None, w)
         in
         let (valueItem, w) =
@@ -285,8 +286,8 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
         ) in
 
       let drawTalk ~sup rem tlk = Ear.(
-            drawEar rem ~tag:tlk.tTag ?value:(Talker.getTalkValue tlk) ~sup (GTalk tlk)
-          ) in
+          drawEar rem ~tag:tlk.tTag ?value:(Talker.getTalkValue tlk) ~sup (GTalk tlk)
+        ) in
 
       let drawBin ~sup rem bin = match bin.Ear.src with
         | Ear.Word wrd -> drawWord rem wrd ~sup
@@ -372,14 +373,17 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
     method positionTags () =
       let middle = mWidth /. 2. in
 
-      ignore(match mKindItem with None -> ()
-                                | Some item -> item#move middle 0.);
+      ignore(match mKindItem with
+          | None -> ()
+          | Some item -> item#move middle 0.);
 
-      ignore(match mNameItem with None -> ()
-                                | Some item -> item#move middle 0.);
+      ignore(match mNameItem with
+          | None -> ()
+          | Some item -> item#move middle 0.);
 
-      ignore(match mMainValueItem with None -> ()
-                                     | Some item -> item#move middle 0.);
+      ignore(match mMainValueItem with
+          | None -> ()
+          | Some item -> item#move middle 0.);
 
       A.iter (fun gv -> gv.voiceItem#move ~x:mWidth ~y:0.) mGVoices;
 
@@ -478,93 +482,95 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       ]
       in
 
-      ignore(match mBoxItem with None -> ()
-                               | Some item -> ignore(item#connect#event(fun ie -> match ie with
-                                   | `BUTTON_PRESS ev ->
-                                     let button = GdkEvent.Button.button ev in
+      (match mBoxItem with
+       | None -> ()
+       | Some item -> (item#connect#event(fun ie -> match ie with
+           | `BUTTON_PRESS ev ->
+             let button = GdkEvent.Button.button ev in
 
-                                     if button = 1 then (
-                                       pGraphCtrl#setSelectedTalker talker
-                                     )
-                                     else if button = 3 then (
-                                       GToolbox.popup_menu ~entries:popupMenuEntries ~button
-                                         ~time:(GdkEvent.Button.time ev)
-                                     );
-                                     true
-                                   | _ -> false
-                                 )));
+             if button = 1 then (
+               pGraphCtrl#setSelectedTalker talker
+             )
+             else if button = 3 then (
+               GToolbox.popup_menu ~entries:popupMenuEntries ~button
+                 ~time:(GdkEvent.Button.time ev)
+             );
+             true
+           | _ -> false
+         )) |> ignore) |> ignore;
 
       (* talker name action *)
-      ignore(match mNameItem with None -> ()
-                                | Some item -> ignore(item#connect#event(fun ie -> match ie with
-                                    | `BUTTON_RELEASE ev -> editName(); true
-                                    | _ -> false
-                                  )));
+      (match mNameItem with
+       | None -> ()
+       | Some item -> (item#connect#event(function
+           | `BUTTON_RELEASE ev -> editName(); true
+           | _ -> false
+         )) |> ignore) |> ignore;
 
       (* talker value action *)
-      ignore(match mMainValueItem with None -> ()
-                                     | Some item -> ignore(item#connect#event(fun ie -> match ie with
-                                         | `BUTTON_RELEASE ev ->
-                                           editValue talker#getValue (pGraphCtrl#setTalkerValue talker);
-                                           true
-                                         | _ -> false
-                                       )));
+      (match mMainValueItem with
+       | None -> ()
+       | Some item -> (item#connect#event(function
+           | `BUTTON_RELEASE ev ->
+             talker#getValue |> editValue (pGraphCtrl#setTalkerValue talker);
+             true
+           | _ -> false
+         )) |> ignore) |> ignore;
 
       (* ear action *)
       A.iteri mGEars ~f:(fun index gEar ->
           (* ear action *)
-          ignore(match gEar.earItem with
-              | None -> ()
-              | Some item -> ignore(item#connect#event(fun ie ->
-                  match ie with
-                  | `BUTTON_RELEASE ev -> pGraphCtrl#selectEar talker index;
-                    true
-                  | _ -> false
-                )));
+          (match gEar.earItem with
+           | None -> ()
+           | Some item -> (item#connect#event(function
+               | `BUTTON_RELEASE ev -> pGraphCtrl#selectEar talker index;
+                 true
+               | _ -> false
+             )) |> ignore) |> ignore;
           (* earvalue action *)
-          ignore(match gEar.valueItem with
-              | None -> ()
-              | Some item -> ignore(item#connect#event(fun ie ->
-                  match ie with
-                  | `BUTTON_RELEASE ev ->
+          (match gEar.valueItem with
+           | None -> ()
+           | Some item -> (item#connect#event(fun ie ->
+               match ie with
+               | `BUTTON_RELEASE ev ->
 
-                    if gEar.addItem <> None then
-                      GuiUtility.dialogFloatEntry 0. (fun value fly ->
-                          if not fly then
-                            pGraphCtrl#addTalkerEarToValueByIndex talker gEar.rootIndex value
-                        )
-                    else (
-                      let initValue = match talker#getEarsSources.(index) with
-                        | Ear.Word w -> w.Ear.value
-                        | Ear.Talk tlk -> match Talker.getTalkValue tlk with
-                          | Some f -> f
-                          | None -> 0.
-                      in
-                      GuiUtility.dialogFloatEntry initValue (fun value fly ->
-                          pGraphCtrl#setTalkerEarToValueByIndex talker index value fly
-                        )
-                    );
-                    true
-                  | _ -> false
-                )));
+                 if gEar.addItem <> None then
+                   GuiUtility.dialogFloatEntry 0. (fun value fly ->
+                       if not fly then
+                         pGraphCtrl#addTalkerEarToValueByIndex talker gEar.rootIndex value
+                     )
+                 else (
+                   let initValue = match talker#getEarsSources.(index) with
+                     | Ear.Word w -> w.Ear.value
+                     | Ear.Talk tlk -> match Talker.getTalkValue tlk with
+                       | Some f -> f
+                       | None -> 0.
+                   in
+                   GuiUtility.dialogFloatEntry initValue (fun value fly ->
+                       pGraphCtrl#setTalkerEarToValueByIndex talker index value fly
+                     )
+                 );
+                 true
+               | _ -> false
+             )) |> ignore) |> ignore;
           (* add action *)
-          ignore(match gEar.addItem with
-              | None -> ()
-              | Some item -> ignore(item#connect#event(fun ie ->
-                  match ie with
-                  | `BUTTON_RELEASE ev -> pGraphCtrl#addEar talker gEar.rootIndex;
-                    true
-                  | _ -> false
-                )));
+          (match gEar.addItem with
+           | None -> ()
+           | Some item -> (item#connect#event(fun ie ->
+               match ie with
+               | `BUTTON_RELEASE ev -> pGraphCtrl#addEar talker gEar.rootIndex;
+                 true
+               | _ -> false
+             )) |> ignore) |> ignore;
           (* sup action *)
-          ignore(match gEar.supItem with
-              | None -> ()
-              | Some item -> ignore(item#connect#event(fun ie ->
-                  match ie with
-                  | `BUTTON_RELEASE ev -> pGraphCtrl#supEar talker index;
-                    true
-                  | _ -> false
-                )));
+          (match gEar.supItem with
+           | None -> ()
+           | Some item -> (item#connect#event(fun ie ->
+               match ie with
+               | `BUTTON_RELEASE ev -> pGraphCtrl#supEar talker index;
+                 true
+               | _ -> false
+             )) |> ignore) |> ignore;
         );
 
       (* voice action *)
@@ -581,14 +587,13 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       A.iter mGEars ~f:(fun gEar ->
           match gEar.earType, gEar.connector with
           | GTalk talk, Some connector ->
-            ignore(connector.line#connect#event(fun ie ->
-                match ie with
-                | `BUTTON_RELEASE ev -> pGraphCtrl#selectTalk talk; true
-                | _ -> false
-              ))
+            (connector.line#connect#event(fun ie ->
+                 match ie with
+                 | `BUTTON_RELEASE ev -> pGraphCtrl#selectTalk talk; true
+                 | _ -> false
+               )) |> ignore
           | _ -> ()
         );
-
   end
 
 let make talker canvas = new c talker canvas
