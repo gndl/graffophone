@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -289,7 +289,7 @@ method addNewTalker talker = trace "graphView#addNewTalker"; self#build
   method observe ev =
     try match ev with
       | Bus.Session -> self#build
-      | Bus.TalkerChanged -> self#build
+      | Bus.TalkerChanged | Bus.TalkerRenamed _ -> self#build
       | Bus.TalkerSelected tkrId -> (L.assoc tkrId mGTalkers)#select
       | Bus.TalkerUnselected tkrId -> (L.assoc tkrId mGTalkers)#unselect
       | Bus.EarSelected (tkrId, idx) -> (L.assoc tkrId mGTalkers)#selectEar idx

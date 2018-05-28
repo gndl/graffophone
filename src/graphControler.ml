@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -69,7 +69,7 @@ class c = object (self)
 
   method setTalkerName (tkr:Tkr.c) v =
     tkr#setName v;
-    Bus.notify Bus.TalkerChanged;
+    Bus.notify(Bus.TalkerRenamed tkr#getId);
 
 
   method setTalkerValue (tkr:Tkr.c) v fly =

@@ -19,6 +19,7 @@ open Util
 open Usual
 
 module SF = SampleFormat
+module Bus = EventBus
 
 (*let width = 256*)
 let curveHeight = 101
@@ -36,7 +37,7 @@ class c pVoice (pSsnCtrl : SessionControler.c) =
     val mControls = GPack.hbox ()
 
     val mVoiceColor = Style.makeVoiceGdkColor pVoice
-
+    val mVoiceLabel = GMisc.label ~text:(Voice.getIdentity pVoice) ()
     val mRemoveButton = GButton.tool_button ~stock:`CLOSE ~expand:false ()
     val mValueRuler = GRange.ruler `VERTICAL ~metric:`PIXELS (*INCHES CENTIMETERS*)
         ~lower:(-1.) ~upper:1. (*~max_size:float*) ~position:0. ()
@@ -52,10 +53,11 @@ class c pVoice (pSsnCtrl : SessionControler.c) =
 
 
     initializer
+      Bus.addObserver self#observe;
 
       let ctrlBox = GPack.vbox ~packing:mControls#add () in
 
-      ctrlBox#add(GMisc.label ~text:(Voice.getIdentity pVoice) ())#coerce;
+      ctrlBox#add mVoiceLabel#coerce;
       let tb = GButton.toolbar ~orientation:`VERTICAL ~style:`ICONS ~tooltips:true ()
       in
       tb#insert mRemoveButton;
@@ -310,7 +312,13 @@ Gdk.Draw.rectangle win gc ~x:leftX ~y:(height - margin)
       mSelectedTimeRangeEndX <- endX;
 
 
+      (* observer methods *)
+    method observe = function
+      | Bus.TalkerRenamed tkrId ->
+        if (Voice.getTalker pVoice)#getId = tkrId then
+          mVoiceLabel#set_label(Voice.getIdentity pVoice)
+      | _ -> ()
+
   end
 
 let make voice pSsnCtrl = new c voice pSsnCtrl
-

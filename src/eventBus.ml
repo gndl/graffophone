@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -27,6 +27,7 @@ type notification =
   | TalkersRange of (string * string list) list
   | NewTalker
   | TalkerChanged
+  | TalkerRenamed of int
   | TalkerSelected of int
   | TalkerUnselected of int
   | EarSelected of int * int
