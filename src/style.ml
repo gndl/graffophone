@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -24,7 +24,7 @@ let boxColor       = Color.ofString "0x202020FF"
 
 (* let selectionColor        = Color.ofString "0xE0E0FF0F" (\* "light blue" *\) *)
 let selectionColor        = Color.ofString "0xFF8000FF" (* "orange" *)
-let reverseSelectionColor = Color.ofString "0xE0FFE00F" (* "light green" *)
+let reverseSelectionColor = Color.ofString "0xE0FFE0FF" (* "light green" *)
 let flowColor             = Color.ofString "0x00FFFFFF" (* "cyan" *)
 let markerColor           = Color.ofString "0xFF8000FF" (* "orange" *)
 

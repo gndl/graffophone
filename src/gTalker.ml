@@ -31,13 +31,13 @@ let valueFont = "-*-*-medium-r-*-*-*-*-*-*-*-*-*-*"
 let tagFont = "-adobe-courier-medium-r-*-*-12-*-*-*-*-*-*-*"
 let tagFontSelected = "-adobe-courier-bold-r-*-*-12-*-*-*-*-*-*-*"
 
-let earColor = "cyan" (* beige SaddleBrown Sienna Brown *)
+(* let earColor = "cyan" beige SaddleBrown Sienna Brown *)
 
 (* let nameProperties = [`FILL_COLOR "black"; `SIZE_POINTS fontSize(\*; `NO_FONT*\)] *)
 let nameProperties = [`FILL_COLOR "white"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
 let kindProperties = [`FILL_COLOR "lightgray"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
-let valueProperties = [`FILL_COLOR "yellow"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
-let earProperties = [`FILL_COLOR earColor; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `FONT tagFont; `NO_FONT*)]
+let valueProperties = [`FILL_COLOR "cyan"; `SIZE_POINTS fontSize(*; `NO_FONT*)]
+let earProperties = [`FILL_COLOR "yellow"; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `FONT tagFont; `NO_FONT*)]
 let voiceProperties = [`FILL_COLOR "lightgreen"; `SIZE_POINTS fontSize; `X_OFFSET 0.; `Y_OFFSET 0. (*; `NO_FONT*)]
 let selectedEarProperties = [`FILL_COLOR "magenta"; `SIZE_POINTS fontSize; `X_OFFSET (1.); `Y_OFFSET (-1.) (*`FONT tagFontSelected; *)]
 let selectedVoiceProperties = [`FILL_COLOR "magenta"; `SIZE_POINTS fontSize; `X_OFFSET (-1.); `Y_OFFSET (-1.)]
@@ -107,8 +107,6 @@ let makeEarText (tag, index, ear) = tag ^ " " ^ index
 
 type gearType_t = GWord of Ear.word_t | GTalk of Tkr.talk_t | GAdd
 
-type gConnector = { line : GnoCanvas.line(*; borderLine : GnoCanvas.line*) }
-
 type gEar_t = {
   earItem : GnoCanvas.text option;
   valueItem : GnoCanvas.text option;
@@ -117,7 +115,6 @@ type gEar_t = {
   earY : float;
   earType : gearType_t;
   rootIndex : int;
-  mutable connector : gConnector option
 }
 
 type gVoice_t = { voiceItem : GnoCanvas.text; voiceY : float; voiceColor : Color.t}
@@ -276,7 +273,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
           else (None, w)
         in
         let gEar = { earItem; valueItem; addItem; supItem;
-                     earY = y +. fontSize; earType; rootIndex = ri; connector = None}
+                     earY = y +. fontSize; earType; rootIndex = ri}
         in
         (max mw w, y +. textHeight, gEar::tis, ri)
       in
@@ -399,62 +396,76 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
 
     method drawConnections (gpTalkers : (int * c)list) (canvas : GnoCanvas.canvas) =
 
-      ignore(A.fold_left mGEars ~init:0
-               ~f:(fun index gEar ->
-                   try match gEar.earType with
-                     | GWord wdr -> index + 1
-                     | GTalk talk ->
-                       let tkr = Ear.getTalkTalker talk in
-                       let gTkr = L.assoc tkr#getId gpTalkers in
+      A.fold_left mGEars ~init:0
+        ~f:(fun index gEar ->
+            try match gEar.earType with
+              | GWord wdr -> index + 1
+              | GTalk talk ->
+                let tkr = Ear.getTalkTalker talk in
+                let gTkr = L.assoc tkr#getId gpTalkers in
 
-                       let port = Ear.getTalkPort talk in
+                let port = Ear.getTalkPort talk in
 
-                       if port < A.length gTkr#getGVoices then (
+                if port < A.length gTkr#getGVoices then (
 
-                         let voice = gTkr#getGVoices.(port)  in
+                  let voice = gTkr#getGVoices.(port)  in
 
-                         let (x1, y1) = gTkr#getGroup#i2w ~x:gTkr#getWidth ~y:voice.voiceY in
-                         let (x2, y2) = mGroup#i2w ~x:0. ~y:gEar.earY in
+                  let (x1, y1) = gTkr#getGroup#i2w ~x:gTkr#getWidth ~y:voice.voiceY in
+                  let (x2, y2) = mGroup#i2w ~x:0. ~y:gEar.earY in
 
-                         let tab = boxRadius +. marge in
-                         let points = [|x1; y1; x1 +. tab; y1; x2 -. tab; y2; x2; y2|] in
+                  let tab = boxRadius +. marge in
+                  let props = [`OUTLINE_COLOR_RGBA voice.voiceColor; `WIDTH_PIXELS 2] in
 
-                         let props = [`FILL_COLOR_RGBA voice.voiceColor; `WIDTH_PIXELS 5] in
-                         let line = GnoCanvas.line ~points ~props canvas#root in
-                         line#lower_to_bottom();
-                         gEar.connector <- Some {line};
-(*
-      let borderLine = GnoCanvas.line ~points ~props:connectionBorderProperties canvas#root in
-      let line = GnoCanvas.line ~points ~props:connectionProperties canvas#root in
-      line#lower_to_bottom();
-      borderLine#lower_to_bottom();
-      gEar.connector <- Some {line; borderLine};
-*)
-                       );
-                       index + 1
-                     | GAdd -> index
-                   with Not_found -> index + 1
-                 ))
+                  let bpath = GnomeCanvas.PathDef.new_path ~size:4 () in
+
+                  GnomeCanvas.PathDef.moveto bpath x1 y1;
+                  GnomeCanvas.PathDef.lineto bpath (x1 +. tab) y1;
+
+                  if x2 >= x1 then (
+                    let dx = (x2 -. x1) /. 2. in
+                    GnomeCanvas.PathDef.curveto bpath
+                      (x1 +. dx) y1 (x2 -. dx) y2 (x2 -. tab) y2;
+                  )
+                  else (
+                    let dx = 10. *. tab in
+                    let dy = (y2 -. y1) /. 2. in
+                    GnomeCanvas.PathDef.curveto bpath
+                      (x1 +. dx) (y1 +. dy) (x2 -. dx) (y2 -. dy) (x2 -. tab) y2;
+                  );
+
+                  GnomeCanvas.PathDef.lineto bpath x2 y2;
+
+                  let line = GnoCanvas.bpath ~bpath ~props canvas#root in
+                  line#lower_to_bottom();
+                );
+                index + 1
+              | GAdd -> index
+            with Not_found -> index + 1
+          ) |> ignore
 
 
     method select =
-      ignore(match mBoxItem with None -> ()
-                               | Some item -> item#set selectedBoxProperties)
+      ignore(match mBoxItem with
+            None -> ()
+          | Some item -> item#set selectedBoxProperties)
 
     method unselect =
-      ignore(match mBoxItem with None -> ()
-                               | Some item -> item#set boxProperties)
+      ignore(match mBoxItem with
+            None -> ()
+          | Some item -> item#set boxProperties)
 
     method selectEar index =
       if index >= 0 && index < A.length mGEars then (
-        match mGEars.(index).earItem with None -> ()
-                                        | Some item -> item#set selectedEarProperties
+        match mGEars.(index).earItem with
+          None -> ()
+        | Some item -> item#set selectedEarProperties
       )
 
     method unselectEar index =
       if index >= 0 && index < A.length mGEars then (
-        match mGEars.(index).earItem with None -> ()
-                                        | Some item -> item#set earProperties
+        match mGEars.(index).earItem with
+          None -> ()
+        | Some item -> item#set earProperties
       )
 
     method selectVoice index =
@@ -575,24 +586,16 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
 
       (* voice action *)
       A.iteri mGVoices ~f:(fun index gVoice ->
-          let _ = gVoice.voiceItem#connect#event(fun ie ->
+          gVoice.voiceItem#connect#event(fun ie ->
               match ie with
-              | `BUTTON_RELEASE ev -> pGraphCtrl#selectVoice talker index; true
+              | `BUTTON_RELEASE ev ->
+                if GdkEvent.Button.button ev = 3 then
+                  pGraphCtrl#showVoice talker index
+                else
+                  pGraphCtrl#selectVoice talker index;
+                true
               | _ -> false
-            )
-          in ()
-        );
-
-      (* talk action *)
-      A.iter mGEars ~f:(fun gEar ->
-          match gEar.earType, gEar.connector with
-          | GTalk talk, Some connector ->
-            (connector.line#connect#event(fun ie ->
-                 match ie with
-                 | `BUTTON_RELEASE ev -> pGraphCtrl#selectTalk talk; true
-                 | _ -> false
-               )) |> ignore
-          | _ -> ()
+            ) |> ignore
         );
   end
 
@@ -605,35 +608,3 @@ let makeAt talker row column canvas =
   gTkr#setRow row;
   gTkr#setColumn column;
   gTkr
-
-
-(*
-method drawConnections (gpTalkers : (int * c)list) (canvas : GnoCanvas.canvas) =
-
-  A.iteri ~f:(fun index ear ->
-  try match ear with
-  | Ear.Ear ear ->
-    let tkr = Ear.getEarTalker ear in
-    let gTkr = L.assoc tkr#getId gpTalkers in
-
-    let voice = gTkr#getGVoices.(Ear.getEarPort ear)  in
-    let ear = mGEars.(index) in
-
-    let (x1, y1) = gTkr#getGroup#i2w ~x:gTkr#getWidth ~y:voice.voiceY in
-    let (x2, y2) = mGroup#i2w ~x:0. ~y:ear.earY in
-
-    let tab = boxRadius +. marge in
-    let points = [|x1; y1; x1 +. tab; y1; x2 -. tab; y2; x2; y2|] in
-
-    let borderLine = GnoCanvas.line ~points ~props:connectionBorderProperties canvas#root in
-    let line = GnoCanvas.line ~points ~props:connectionProperties canvas#root in
-
-    line#lower_to_bottom();
-    borderLine#lower_to_bottom();
-
-    ear.connector <- Some {line; borderLine};
-    ()
-  | _ -> ()
-  with Not_found -> ()
-  ) talker#getEars
-*)

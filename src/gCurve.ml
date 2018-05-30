@@ -99,6 +99,7 @@ class c pVoice (pSsnCtrl : SessionControler.c) =
 
     method getRemoveButton = mRemoveButton
 
+    method voiceIsFrom tkrId port = Voice.isFrom tkrId port pVoice
 
     method expose area =
 

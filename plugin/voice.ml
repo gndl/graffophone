@@ -63,3 +63,5 @@ let setCornet voice v = voice.cor <- v
 
 let checkLength voice len =
   if Cornet.dim voice.cor < len then voice.cor <- Cornet.make len
+
+let isFrom tkrId port voice = voice.port = port && voice.tkr#getId = tkrId

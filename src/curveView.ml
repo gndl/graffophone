@@ -141,7 +141,7 @@ class c (pSsnCtrl : SessionControler.c) =
         self#drawCurve gCurve;
         Bus.notify Bus.CurveAdded;
 
-      with Not_found -> trace("CurveView#addTalkCurve : Talker "^soi tkrId^" not found")
+      with Not_found -> traceRed("CurveView#addTalkCurve : Talker "^soi tkrId^" not found")
 
 
     method drawCurve gCurve =
@@ -184,7 +184,18 @@ class c (pSsnCtrl : SessionControler.c) =
       mCurvesBox#remove gCurve#getCurve;
       mCtrlsBox#remove gCurve#getControls;
       mGCurves <- L.filter((!=) gCurve) mGCurves;
-      Bus.notify Bus.CurveRemoved;
+      Bus.notify Bus.CurveRemoved
+
+
+    method toggleTalkCurve tkrId port =
+      try
+        let talkCurves = L.filter(fun gc -> gc#voiceIsFrom tkrId port) mGCurves in
+
+        if talkCurves = [] then self#addTalkCurve tkrId port
+        else
+          L.iter talkCurves ~f:(fun gc -> self#remove gc ())
+
+      with Not_found -> traceRed("CurveView#toggleTalkCurve : Talker "^soi tkrId^" not found")
 
 
     method clear() =
@@ -220,7 +231,7 @@ class c (pSsnCtrl : SessionControler.c) =
         self#setTimeRange startTick endTick;
         self#clear()
       | Bus.State State.Stopped -> self#clear()
-      | Bus.TalkSelected (tkrId, port) -> self#addTalkCurve tkrId port
+      | Bus.TalkSelected (tkrId, port) -> self#toggleTalkCurve tkrId port
       | Bus.Session -> self#empty()
       | _ -> ()
 

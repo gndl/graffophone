@@ -143,12 +143,17 @@ class c = object (self)
       )
 
 
+  method showVoice (talker:Tkr.c) port = trace("showVoice tkr "^soi talker#getId^" port "^soi port);
+    Bus.notify (Bus.TalkSelected(talker#getId, port));
+
+
   method addEar (talker:Tkr.c) (rootIndex:int) =
 
-    match mSelectedVoice with None -> ()
-                            | Some (tkr, idx) ->
-                              talker#addEarToVoiceByIndex rootIndex (tkr#getVoices.(idx));
-                              Bus.notify Bus.TalkerChanged
+    match mSelectedVoice with
+      None -> ()
+    | Some (tkr, idx) ->
+      talker#addEarToVoiceByIndex rootIndex (tkr#getVoices.(idx));
+      Bus.notify Bus.TalkerChanged
 
 
   method supEar (talker:Tkr.c) (index:int) =
@@ -158,16 +163,19 @@ class c = object (self)
 
   method addNewTalker talker =
 
-    ignore(match mSelectedVoice with None -> ()
-                                   | Some (tkr, idx) -> Bus.notify(Bus.VoiceUnselected (tkr#getId, idx)));
+    ignore(match mSelectedVoice
+           with None -> ()
+              | Some (tkr, idx) -> Bus.notify(Bus.VoiceUnselected (tkr#getId, idx)));
 
-    ignore(match mSelectedEar with None -> ()
-                                 | Some (tkr, idx) -> Bus.notify(Bus.EarUnselected (tkr#getId, idx)));
+    ignore(match mSelectedEar
+           with None -> ()
+              | Some (tkr, idx) -> Bus.notify(Bus.EarUnselected (tkr#getId, idx)));
 
-    ignore(match mNewTalker with None -> ()
-                               | Some tkr ->
-                                 mSelectedVoice <- Some (tkr, 0);
-                                 Bus.notify(Bus.VoiceSelected (tkr#getId, 0))
+    ignore(match mNewTalker with
+          None -> ()
+        | Some tkr ->
+          mSelectedVoice <- Some (tkr, 0);
+          Bus.notify(Bus.VoiceSelected (tkr#getId, 0))
       );
 
     mNewTalker <- Some talker;
@@ -178,11 +186,4 @@ class c = object (self)
   method deleteTalker (talker:Tkr.c) = trace("Delete talker "^ talker#getName);
     Session.supTalker talker;
     Bus.notify Bus.TalkerChanged;
-
-
-  method selectTalk (talk:Tkr.talk_t) =
-    let tkr = Ear.getTalkTalker talk in
-    let port = Ear.getTalkPort talk in
-    Bus.notify (Bus.TalkSelected(tkr#getId, port));
-
 end
