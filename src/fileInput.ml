@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -32,9 +32,7 @@ let kind = "fileInput"
 
 class c = object(self) inherit Tkr.c as super
 
-  val mutable mFilename = ""
-  val mutable mChannelsBufs : float array array array = [||]
-  val mutable mNbBufs = 0
+  val mutable mFilename = "Click here to select a file"
   val mutable mChannels = [||]
 
   method getValue = Tkr.fl2v mFilename
@@ -58,16 +56,21 @@ class c = object(self) inherit Tkr.c as super
       let pos = ref 0 in
 
       stream |> Av.iter_frame (fun frame ->
-          Converter.convert conv_ctx frame
-          |> A.iteri ~f:(fun nc plane ->
-              let len = Cornet.dim plane in
-              Cornet.blit plane 0 (Voice.getCornet(mChannels.(nc))) !pos len;
-              pos := !pos + len;
-            )
+          let planes = Converter.convert conv_ctx frame in
+
+          for nc = 0 to nbChs - 1 do
+            let plane = planes.(nc) in
+            let len = Cornet.dim plane in
+            Cornet.blit plane 0 (Voice.getCornet(mChannels.(nc))) !pos len
+          done;
+
+          if A.length planes > 0 then pos := !pos + (Cornet.dim planes.(0));
         );
 
       Av.close file;
       mFilename <- fileName;
+      self#setName(Filename.basename fileName);
+      trace fileName;
     with Avutil.Failure msg -> Bus.notify(Bus.Error(fileName ^ " : " ^ msg));
 
 
