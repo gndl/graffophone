@@ -241,7 +241,6 @@ let createGraph canvas =
 
     canvas#set_scroll_region ~x1:0. ~y1:(-.vPad)
       ~x2:((max w sdW) +. vPad) ~y2:(h +. marge +. sdH +. vPad);
-    (*~x2:(w +. vPad) ~y2:(h +. vPad);*)
 
     !gTalkers
 
@@ -280,10 +279,6 @@ class c (pGraphCtrl : GraphControler.c) = object (self)
 
     L.iter mGTalkers ~f:(fun (id, gTkr) -> gTkr#setActions pGraphCtrl);
 
-(*
-method addNewTalker talker = trace "graphView#addNewTalker"; self#build
-*)
-
 
     (* observer methods *)
   method observe ev =
@@ -296,7 +291,7 @@ method addNewTalker talker = trace "graphView#addNewTalker"; self#build
       | Bus.EarUnselected (tkrId, idx) -> (L.assoc tkrId mGTalkers)#unselectEar idx
       | Bus.VoiceSelected (tkrId, idx) -> (L.assoc tkrId mGTalkers)#selectVoice idx
       | Bus.VoiceUnselected (tkrId, idx) -> (L.assoc tkrId mGTalkers)#unselectVoice idx
-      | Bus.NewTalker -> self#build (*self#addNewTalker pGraphCtrl#getNewTalker*)
+      | Bus.NewTalker -> self#build
       | _ -> ()
     with Not_found -> ()
 

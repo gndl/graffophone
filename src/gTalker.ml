@@ -22,7 +22,6 @@ module Tkr = Talker
 
 let marge = 3.
 let space = marge +. marge
-(*let box contentSize = contentSize +. space*)
 
 let fontSize = 10.
 let nameFont = "-*-*-bold-r-*-*-*-*-*-*-*-*-*-*"
@@ -93,10 +92,6 @@ let selectedBoxProperties = [
 
 let connectionProperties = [`FILL_COLOR_RGBA (Color.rgba(Style.flowColor)); `WIDTH_PIXELS 1; `JOIN_STYLE `ROUND]
 let connectionBorderProperties = [`FILL_COLOR_RGBA (Color.rgba(Style.backgroundColor))(*"gray" "turquoise"*); `WIDTH_PIXELS 3; `JOIN_STYLE `ROUND; `LAST_ARROWHEAD true]
-(*
-let connectionColor = `FILL_COLOR_RGBA 0X00FFFFF
-let connectionBorderColor = `FILL_COLOR_RGBA 0X00FFFFC8
-*)
 
 let textHeight = fontSize +. space
 let boxTop = textHeight +. boxRadius
@@ -133,7 +128,12 @@ let editValue pValueAction = function
                    (fun i fly -> pValueAction (Tkr.Int i) fly)
   | Tkr.Nil -> ()
 
-let formatValue s = if S.length s > 6 then S.sub s 0 6 ^ "..." else s
+
+let formatLabel max_len s =
+  if S.length s > max_len then S.sub s 0 max_len ^ "..." else s
+
+let formatName s = formatLabel 12 s
+let formatValue s = formatLabel 6 s
 
 
 class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
@@ -203,7 +203,9 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
         else pY +. boxRadius;
 
       let mainValueY = if drawName && talker#getName <> "" then (
-          let nameItem = GnoCanvas.text ~text:talker#getName ~y:mBoxTop
+          let text = formatName talker#getName in
+
+          let nameItem = GnoCanvas.text ~text ~y:mBoxTop
               ~props:nameProperties ~anchor: `NORTH mGroup in
 
           mWidth <- nameItem#text_width;
