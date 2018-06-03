@@ -29,7 +29,7 @@ class c (pSsnCtrl : SessionControler.c) =
     val mutable mPixelsPerTick = 0.0250
 
     val mutable mGCurves = []
-    val pTable = GPack.table ~columns:2 ~rows:2 ~homogeneous:false ~row_spacings:0 ~col_spacings:0 ()
+    val mTable = GPack.table ~columns:2 ~rows:2 ~homogeneous:false ~row_spacings:0 ~col_spacings:0 ()
 
     val mTimeRuler = GRange.ruler `HORIZONTAL ~metric:`PIXELS
         ~lower:0. ~upper:100. ~position:0. ()
@@ -48,24 +48,28 @@ class c (pSsnCtrl : SessionControler.c) =
       ignore(mCurvesBox#misc#connect#size_allocate ~callback:(fun area ->
           self#onCurvesAreaResizing Gtk.(area.width);));
 
-      pTable#attach ~left:1 ~top:1 ~expand:`BOTH mCurvesSW#coerce;
+      mTable#attach ~left:1 ~top:1 ~expand:`BOTH mCurvesSW#coerce;
 
       let timeAdjustment = mCurvesSW#hadjustment in
 
       ignore(timeAdjustment#connect#changed ~callback:(fun() -> self#setTimeRuler()));
       ignore(timeAdjustment#connect#value_changed ~callback:(fun() -> self#setTimeRuler()));
 
-      pTable#attach ~left:1 ~top:0 ~expand:`NONE mTimeRuler#coerce;
+      mTable#attach ~left:1 ~top:0 ~expand:`NONE mTimeRuler#coerce;
 
       let ctrlsSW = GBin.scrolled_window ~vadjustment:mCurvesSW#vadjustment
           ~placement:`BOTTOM_RIGHT ~hpolicy:`NEVER ~vpolicy:`NEVER ~border_width:0 ()
       in
       ctrlsSW#add_with_viewport mCtrlsBox#coerce;
 
-      pTable#attach ~left:0 ~top:1 ~expand:`Y ctrlsSW#coerce;
+      mTable#attach ~left:0 ~top:1 ~expand:`Y ctrlsSW#coerce;
 
-      let tb = GButton.toolbar ~orientation:`HORIZONTAL ~style:`ICONS ~tooltips:true ()
+      let tb = GButton.toolbar ~orientation:`HORIZONTAL ~style:`ICONS ~tooltips:true ~border_width:0 ()
       in
+      let bc = GButton.tool_button ~stock:`CLOSE ~packing:tb#insert ~expand:false ()
+      in
+      ignore(bc#connect#clicked(self#empty));
+
       let bzi = GButton.tool_button ~stock:`ZOOM_IN ~packing:tb#insert ~expand:false ()
       in
       ignore(bzi#connect#clicked(fun() -> self#drawCurves ~zoom:2.));
@@ -99,10 +103,10 @@ class c (pSsnCtrl : SessionControler.c) =
 
       tb#set_show_arrow false;
       tb#set_icon_size`MENU(*SMALL_TOOLBAR*);
-      pTable#attach ~left:0 ~top:0 ~expand:`NONE tb#coerce;
+      mTable#attach ~left:0 ~top:0 ~expand:`NONE tb#coerce;
 
 
-    method getWidget = pTable#coerce
+    method getWidget = mTable#coerce
 
     method activate v = mActive <- v
     method isActive = mActive
@@ -139,6 +143,7 @@ class c (pSsnCtrl : SessionControler.c) =
         mGCurves <- gCurve::mGCurves;
         self#setTimeRange pSsnCtrl#getStartTick pSsnCtrl#getEndTick;
         self#drawCurve gCurve;
+        mCurvesSW#vadjustment#set_value mCurvesSW#vadjustment#upper;
         Bus.notify Bus.CurveAdded;
 
       with Not_found -> traceRed("CurveView#addTalkCurve : Talker "^soi tkrId^" not found")
