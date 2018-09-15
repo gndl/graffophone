@@ -15,7 +15,6 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
 module SF = SampleFormat
 module Tkr = Talker
@@ -29,7 +28,7 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
 
     val mutable mTracks = tracks
     val mutable mOutputs: Output.c list = outputs
-    val mutable mChannels = A.make_matrix nbChannels SF.chunkSize 0. 
+    val mutable mChannels = A.make_matrix ~dimx:nbChannels ~dimy:SF.chunkSize 0. 
     val mVolume = Tkr.mkBin ~tag:"volume" ~value:1. ()
     val mutable mTick = 0
     val mutable mProductive = false
@@ -52,13 +51,13 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
       trk
 
     method setOutputs os = mOutputs <- os
-    method setChannels nb = mChannels <- A.make_matrix nb SF.chunkSize 0.
+    method setChannels nb = mChannels <- A.make_matrix ~dimx:nb ~dimy:SF.chunkSize 0.
     method isProductive = mProductive
     method setProductive productive = mProductive <- productive 
 
 
     method openOutput =
-      L.iter (fun o -> o#openOutput (A.length mChannels)) mOutputs;
+      L.iter ~f:(fun o -> o#openOutput (A.length mChannels)) mOutputs;
       mTick <- 0;
       mProductive <- true;
 
@@ -67,13 +66,13 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
       let ol = ref len in
 
       if len > A.length mChannels.(0) then
-        mChannels <- A.make_matrix (A.length mChannels) len 0.;
+        mChannels <- A.make_matrix ~dimx:(A.length mChannels) ~dimy:len 0.;
 
       ol := (L.hd mTracks)#put false tick buf !ol mChannels;
-      L.iter(fun t -> ol := t#put true tick buf !ol mChannels)(L.tl mTracks);
+      L.iter ~f:(fun t -> ol := t#put true tick buf !ol mChannels)(L.tl mTracks);
 
       let computeMasterVolume = function
-        | Ear.Word mvc -> ( A.iter (fun c ->
+        | Ear.Word mvc -> ( A.iter ~f:(fun c ->
             for j = 0 to !ol - 1 do
               c.(j) <- inf SF.minAudio (c.(j) *. mvc.Ear.value) SF.maxAudio
             done;
@@ -82,7 +81,7 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
             let mvr = Listen.talk mve tick !ol ~copy:false in
             ol := Listen.getLength mvr;
 
-            A.iter (fun c ->
+            A.iter ~f:(fun c ->
                 for j = 0 to !ol - 1 do
                   c.(j) <- inf SF.minAudio (c.(j) *. Listen.(mvr @+ j)) SF.maxAudio
                 done;
@@ -91,7 +90,7 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
       in
       computeMasterVolume mVolume.Ear.src;
 
-      L.iter (fun o -> o#write !ol mChannels) mOutputs;
+      L.iter ~f:(fun o -> o#write !ol mChannels) mOutputs;
       !ol
 
 
@@ -102,13 +101,13 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
         let ol = ref ownLen in
 
         if ownLen > A.length mChannels.(0) then
-          mChannels <- A.make_matrix (A.length mChannels) ownLen 0.;
+          mChannels <- A.make_matrix ~dimx:(A.length mChannels) ~dimy:ownLen 0.;
 
         ol := (L.hd mTracks)#put false mTick buf !ol mChannels;
-        L.iter(fun t -> ol := t#put true mTick buf !ol mChannels)(L.tl mTracks);
+        L.iter ~f:(fun t -> ol := t#put true mTick buf !ol mChannels)(L.tl mTracks);
 
         let computeMasterVolume = function
-          | Ear.Word mvc -> ( A.iter (fun c ->
+          | Ear.Word mvc -> ( A.iter ~f:(fun c ->
               for j = 0 to !ol - 1 do
                 c.(j) <- inf SF.minAudio (c.(j) *. mvc.Ear.value) SF.maxAudio done;
             ) mChannels;)
@@ -116,7 +115,7 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
               let mvr = Listen.talk mve mTick !ol ~copy:false in
               ol := Listen.getLength mvr;
 
-              A.iter (fun c ->
+              A.iter ~f:(fun c ->
                   for j = 0 to !ol - 1 do
                     c.(j) <- inf SF.minAudio (c.(j) *. Listen.(mvr @+ j)) SF.maxAudio done;
                 ) mChannels;
@@ -124,14 +123,14 @@ class c ?(tracks = []) ?(outputs = []) ?(nbChannels = SF.channels) () =
         in
         computeMasterVolume mVolume.Ear.src;
 
-        L.iter (fun o -> o#write !ol mChannels) mOutputs;
+        L.iter ~f:(fun o -> o#write !ol mChannels) mOutputs;
         mTick <- mTick + !ol;
         !ol
       );
 
 
     method closeOutput =
-      L.iter (fun o -> o#closeOutput) mOutputs;
+      L.iter ~f:(fun o -> o#closeOutput) mOutputs;
       mProductive <- false;
 (*
 method getTalks = match mVolume with
@@ -139,20 +138,20 @@ method getTalks = match mVolume with
 | Ear.Word _ -> []
 *)
 
-    method getEars = [|Ear.EBin mVolume|]
+    method! getEars = [|Ear.EBin mVolume|]
 
 
     method mixingConsoleBackup =
       let ears = self#getEars in
-      let trks = L.map (fun trk -> (Track.kind, trk)) mTracks in
-      let ops = L.map (fun o -> (Output.kind, o)) mOutputs in
+      let trks = L.map ~f:(fun trk -> (Track.kind, trk)) mTracks in
+      let ops = L.map ~f:(fun o -> (Output.kind, o)) mOutputs in
       (kind, "", ears, trks, ops)
   end
 
 let make name attributs trks ops =
   let rec a2p ts os = function
-    | (t, n, tkn)::tl when t = Track.kind -> a2p ((L.assoc n trks)::ts) os tl
-    | (t, n, tkn)::tl when t = Output.kind -> a2p ts ((L.assoc n ops)::os) tl
+    | (t, n, _)::tl when t = Track.kind -> a2p ((L.assoc n trks)::ts) os tl
+    | (t, n, _)::tl when t = Output.kind -> a2p ts ((L.assoc n ops)::os) tl
     | [] -> (ts, os)
     | _::tl -> a2p ts os tl
   in

@@ -15,7 +15,6 @@
  *)
 
 open Graffophone_plugin
-open Usual
 
 module Tkr = Talker
 module Trk = Track
@@ -30,7 +29,7 @@ class c (track:Track.c) ?group canvas =
   object (self) inherit GTkr.c (track :> Tkr.c) ?group canvas
 
 
-    method getTalker = (track :> Tkr.c)
+    method! getTalker = (track :> Tkr.c)
 (*
  _____________________
 |        NAME         |
@@ -40,11 +39,11 @@ class c (track:Track.c) ?group canvas =
 |channelGain 2 #      |
 |_____________________|
 *)
-    method draw ?(pX = 0.) ?(pY = 0.) () =
+    method! draw _ pY =
 
-      self#drawHeader ~pX ~pY false true false;
+      self#drawHeader pY false true false;
 
-      self#drawEarsVoices ~pX:(pX +. GTkr.marge) ~pY:(pY +. GTkr.marge) ();
+      self#drawEarsVoices (pY +. GTkr.marge);
 
       self#setWidth(self#getWidth +. GTkr.space);
       self#setHeight(self#getHeight +. GTkr.space);
@@ -53,7 +52,7 @@ class c (track:Track.c) ?group canvas =
       self#positionTags();
 
 
-    method drawBox ?(pX = 0.) ?(pY = 0.) () =
+    method! drawBox pX pY =
 
       let x2 = pX +. mWidth in
       let y2 = pY +. mHeight in

@@ -16,7 +16,6 @@
 
 open Util
 
-open SampleFormat
 open Voice
 open Ear
 
@@ -85,12 +84,12 @@ class virtual c =
   in
 
   object(self)
-    inherit Identifier.c sTalkerCount as id
+    inherit Identifier.c sTalkerCount as identifier
     val mutable mGetEarCall = false
     val mutable mFlatEars = [||]
 
     initializer
-      A.iter (fun vc -> vc.tkr <- self#base) self#getVoices
+      A.iter ~f:(fun vc -> vc.tkr <- self#base) self#getVoices
 
 
     method base = (self :> c)
@@ -100,8 +99,8 @@ class virtual c =
 
     (*method isConstant = false*)
 
-    method dependsOf id =
-      L.fold_left ~init:(mId = id)
+    method! dependsOf id =
+      L.fold_left ~init:(identifier#dependsOf id)
         ~f:(fun d talk -> d || talk.voice.tkr#dependsOf id) self#getTalks
 
     method getValue = Nil
@@ -113,7 +112,7 @@ class virtual c =
     method getFloatValue = v2f self#getValue
 
 
-    method setEar (tag:string) (ear:c Ear.t) = (
+    method setEar (tag:string) (_:c Ear.t) = (
       raise(UnexpectedAttribut("Unexpected attribut "^tag^" for "^self#getName)) : unit)
 
     (*method setEarToWord (tag : string) (word : float) =*)
@@ -227,7 +226,7 @@ class virtual c =
     (* ear array *)
     method getEars = (
       mGetEarCall <- true;
-      let ears = L.map (fun f -> ETalk f) self#getTalks in
+      let ears = L.map ~f:(fun f -> ETalk f) self#getTalks in
       mGetEarCall <- false;
       A.of_list ears
       : c Ear.t array)
@@ -322,7 +321,7 @@ class virtual c =
     method getVoices = ([||] : c Voice.t array)
 
     (*method virtual voice : port_t -> int -> int -> unit*)
-    method talk (port:port_t) (tick:int) (len:int) = ()
+    method talk (_:port_t) (_:int) (_:int) = ()
 
     (*                       kind     value                ears *)
     method backup = (self#getKind, self#getStringOfValue, self#getEars)
@@ -330,32 +329,32 @@ class virtual c =
   end
 
 and hiddenConstant ?(value = 1.) () =
-  object(self) inherit c as super
+  object(self) inherit c
     val mutable mOutput = None
 
     method provideOutput =
       match mOutput with
       | Some o -> o
-                       | None ->
-                         let o = {vTag = defOutputTag; port = 0; tick = 0; len = 1;
-                                  tkr = self#base; cor = Cornet.init ~v:value 1}
-                         in
-                         mOutput <- Some o;
-                         o
+      | None ->
+        let o = {vTag = defOutputTag; port = 0; tick = 0; len = 1;
+                 tkr = self#base; cor = Cornet.init ~v:value 1}
+        in
+        mOutput <- Some o;
+        o
 
 
-    method getValue = Float (Voice.get self#provideOutput 0)
+    method! getValue = Float (Voice.get self#provideOutput 0)
 
 
-    method setValue v =
+    method! setValue v =
       let output = self#provideOutput in
       fill output 0 (dim output) (v2f v)
 
     method getKind = "hiddenConstant"
-    method isHidden = true
-    method getVoices = [|self#provideOutput|]
+    method! isHidden = true
+    method! getVoices = [|self#provideOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let output = self#provideOutput in
 
       if output.len < len then (
@@ -408,7 +407,7 @@ let mkVoice ?(tag = defOutputTag) ?(port = 0) ?(tick = 0) ?value ?valInit
   len;
 }
 
-let toVc ?(tag="") ?(port=0) ?(tick=0) ?(value=0.) ?valInit ?(len=1) talker =
+let toVc ?(tag="") ?(port=0) ?(tick=0) ?(value=0.) ?(len=1) talker =
   mkVoice ~tag ~port ~tick ~value ~len ~talker
 
 let mkConstantVoice ?(tag = defInputTag) ?(value = 1.) () =
@@ -431,7 +430,7 @@ let earToTalk = function
   | _ -> raise(UnexpectedValue "Unexpected ear type") 
 
 
-let earsToTalks ears = L.map(fun t -> earToTalk t) ears
+let earsToTalks ears = L.map ~f:(fun t -> earToTalk t) ears
 
 let mkWord ?(tag = defInputTag) ?(value = 0.) () = {value; wTag = tag}
 

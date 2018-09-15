@@ -15,12 +15,9 @@
  *)
 
 open FFmpeg
-open Avutil
 
 open Graffophone_plugin
-open Util
 open Usual
-open Factory
 open SampleFormat
 
 module Bus = EventBus
@@ -30,13 +27,13 @@ module Converter = Swresample.Make (Swresample.Frame) (Swresample.DblPlanarBigAr
 
 let kind = "fileInput"
 
-class c = object(self) inherit Tkr.c as super
+class c = object(self) inherit Tkr.c
 
   val mutable mFilename = "Click here to select a file"
   val mutable mChannels = [||]
 
-  method getValue = Tkr.fl2v mFilename
-  method setValue value = self#setFilename(Tkr.v2fl value)
+  method! getValue = Tkr.fl2v mFilename
+  method! setValue value = self#setFilename(Tkr.v2fl value)
 
   method setFilename fileName =
     try
@@ -52,7 +49,7 @@ class c = object(self) inherit Tkr.c as super
       let mkCh p = Tkr.mkVoice ~tag:("Channel_" ^ soi(p + 1))
           ~port:p ~len ~talker:self#base ()
       in
-      mChannels <- A.init nbChs mkCh;
+      mChannels <- A.init nbChs ~f:mkCh;
       let pos = ref 0 in
 
       stream |> Av.iter_frame (fun frame ->
@@ -75,9 +72,9 @@ class c = object(self) inherit Tkr.c as super
 
 
   method getKind = kind
-  method getVoices = mChannels
+  method! getVoices = mChannels
 
-  method talk port tick len = ()
+  method! talk _ _ _ = ()
 
 end
 

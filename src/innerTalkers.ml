@@ -15,9 +15,7 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
-open Factory
 open Ear
 
 module Tkr = Talker
@@ -25,9 +23,9 @@ module SF = SampleFormat
 
 module Constant = struct
   let kind = "constant"
-  class c = object(self) inherit Tkr.hiddenConstant()
-    method getKind = kind
-    method isHidden = false
+  class c = object inherit Tkr.hiddenConstant()
+    method! getKind = kind
+    method! isHidden = false
   end
 
   let handler = Plugin.{kind; category = "Mathematics"; make = fun() -> (new c)#base}
@@ -36,16 +34,16 @@ end
 module Sum = struct
   let kind = "sum"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInputs = Tkr.mkBins ()
     val mOutput = Tkr.mkVoice ()
 
     method getKind = kind
-    method getEars = [|EBins mInputs|]
-    method getVoices = [|mOutput|]
+    method! getEars = [|EBins mInputs|]
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let nbIn = A.length mInputs.bins in
 
       if nbIn < 1 then raise Voice.End;
@@ -86,16 +84,16 @@ end
 module Product = struct
   let kind = "product"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInputs = Tkr.mkBins ()
     val mOutput = Tkr.mkVoice ()
 
     method getKind = kind
-    method getEars = [|EBins mInputs|]
-    method getVoices = [|mOutput|]
+    method! getEars = [|EBins mInputs|]
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let nbIn = A.length mInputs.bins in
 
       if nbIn < 1 then raise Voice.End;
@@ -138,11 +136,11 @@ end
 module Average = struct
   let kind = "average"
 
-  class c = object(self) inherit Sum.c as super
+  class c = object inherit Sum.c as super
 
-    method getKind = kind
+    method! getKind = kind
 
-    method talk port tick len =
+    method! talk port tick len =
 
       super#talk port tick len;
 
@@ -160,7 +158,7 @@ end
 module StaticSine = struct
   let kind = "staticSinusoidal"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object(self) inherit Tkr.c
 
     val mutable mFreqCoef = 0.
     val mutable mPeriod = 1
@@ -185,15 +183,15 @@ module StaticSine = struct
       );
       Voice.setLength mOutput l;
 
-    method getValue = Tkr.f2v(SF.frequenceOfCoef mFreqCoef)
+    method! getValue = Tkr.f2v(SF.frequenceOfCoef mFreqCoef)
     method takeValue = true
-    method setValue v = self#setFreq (Tkr.v2f v)
+    method! setValue v = self#setFreq (Tkr.v2f v)
 
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
 
       if mLargeOrDecimalPeriod then
         (
@@ -223,7 +221,7 @@ end
 module Sine = struct
   let kind = "sinusoidal"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mFreq = Tkr.mkBin ~tag:"frequence" ()
     val mPhase = Tkr.mkBin ~tag:"phase" ()
@@ -233,12 +231,12 @@ module Sine = struct
     val mutable mLastFreq = 0.
     val mutable mLastAngle = 0.
 
-    method getEars = [|EBin mFreq; EBin mPhase|]
+    method! getEars = [|EBin mFreq; EBin mPhase|]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       Voice.checkLength mOutput len;
 
       let compute = function
@@ -308,18 +306,18 @@ end
 module AbsSine = struct
   let kind = "absSine"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mFreq = Tkr.mkBin ~tag:"frequence" ()
     val mPhase = Tkr.mkBin ~tag:"phase" ()
     val mOutput = Tkr.mkVoice ()
 
-    method getEars = [|EBin mFreq; EBin mPhase|]
+    method! getEars = [|EBin mFreq; EBin mPhase|]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       Voice.checkLength mOutput len;
 
       let compute = function
@@ -378,7 +376,7 @@ end
 module BSine = struct
   let kind = "bsine"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mFreq = Tkr.mkTalk ~tag:"frequence"  ~value:440. ()
     val mPhase = Tkr.mkTalk ~tag:"phase" ~value:0. ()
@@ -390,12 +388,12 @@ module BSine = struct
     val mutable mLastFreq = 0.
     val mutable mLastAngle = 0.
 
-    method getTalks = [mFreq; mPhase; mRoof; mFloor]
+    method! getTalks = [mFreq; mPhase; mRoof; mFloor]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
 
       Voice.checkLength mOutput len;
 
@@ -434,7 +432,7 @@ end
 module AbsBSine = struct
   let kind = "absBsine"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mFreq = Tkr.mkTalk ~tag:"frequence"  ~value:440. ()
     val mPhase = Tkr.mkTalk ~tag:"phase" ~value:0. ()
@@ -442,12 +440,12 @@ module AbsBSine = struct
     val mFloor = Tkr.mkTalk ~tag:"floor" ~value:0. ()
     val mOutput = Tkr.mkVoice ()
 
-    method getTalks = [mFreq; mPhase; mRoof; mFloor]
+    method! getTalks = [mFreq; mPhase; mRoof; mFloor]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
 
       Voice.checkLength mOutput len;
 
@@ -476,7 +474,7 @@ end
 module Square = struct
   let kind = "square"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mAmpli = Tkr.mkTalk ~tag:"amplitude" ()
     val mFreq = Tkr.mkTalk ~tag:"frequence" ()
@@ -486,12 +484,12 @@ module Square = struct
     val mutable mRemainderTick = -1
     val mutable mRemainderLen = 0
 
-    method getTalks = [mAmpli; mFreq; mRatio]
+    method! getTalks = [mAmpli; mFreq; mRatio]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ar = Listen.talk mAmpli tick len in
       let fr = Listen.talk mFreq tick (Listen.getLength ar) in
       let rr = Listen.talk mRatio tick (Listen.getLength fr) ~copy:false in
@@ -550,7 +548,7 @@ end
 module BSquare = struct
   let kind = "bsquare"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mFreq = Tkr.mkTalk ~tag:"frequence"  ~value:440. ()
     val mRatio = Tkr.mkTalk ~tag:"ratio" ~value:0. ()
@@ -560,12 +558,12 @@ module BSquare = struct
     val mutable mRoofTick = 0
     val mutable mFloorTick = -1
 
-    method getTalks = [mFreq; mRatio; mRoof; mFloor]
+    method! getTalks = [mFreq; mRatio; mRoof; mFloor]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
 
       Voice.checkLength mOutput len;
 
@@ -618,13 +616,13 @@ end
 module Triangle = struct
   let kind = "triangle"
 
-  class c = object(self) inherit Square.c as super
+  class c = object inherit Square.c
 
     val mutable mPrevVal = 0.
 
-    method getKind = kind
+    method! getKind = kind
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ar = Listen.talk mAmpli tick len in
       let fr = Listen.talk mFreq tick (Listen.getLength ar) in
       let rr = Listen.talk mRatio tick (Listen.getLength fr) ~copy:false in
@@ -686,7 +684,7 @@ end
 module Amplifier = struct
   let kind = "amplifier"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object(self) inherit Tkr.c
 
     val mutable mGain = 1.
     val mInput = Tkr.mkTalk ()
@@ -695,16 +693,16 @@ module Amplifier = struct
     method getGain = mGain
     method setGain g = mGain <- g
 
-    method getValue = Tkr.f2v mGain
-    method setValue v = self#setGain (Tkr.v2f v)
+    method! getValue = Tkr.f2v mGain
+    method! setValue v = self#setGain (Tkr.v2f v)
 
-    method getTalks = [mInput]
+    method! getTalks = [mInput]
     method getKind = kind
 
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ir = Listen.talk mInput tick len ~copy:false in
 
       Voice.checkLength mOutput (Listen.getLength ir);
@@ -724,18 +722,18 @@ end
 module AmplitudeModulator = struct
   let kind = "amplitudeModulator"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mGain = Tkr.mkTalk ~tag:"gain" ()
     val mOutput = Tkr.mkVoice ()
 
-    method getTalks = [mInput; mGain]
+    method! getTalks = [mInput; mGain]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ir = Listen.talk mInput tick len in
       let gr = Listen.talk mGain tick (Listen.getLength ir) ~copy:false in
       let grl = Listen.getLength gr in
@@ -756,21 +754,21 @@ end
 module FrequencyModulator = struct
   let kind = "frequencyModulator"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mFreq = Tkr.mkTalk ~tag:"frequence" ()
     val mutable mTickMap = [(0, 0.)]
     val mOutput = Tkr.mkVoice ()
 
-    method getTalks = [mInput; mFreq]
+    method! getTalks = [mInput; mFreq]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
 
-      let (fT, iT) = L.find ~f:(fun (fT, iT) -> tick >= fT) mTickMap in
+      let (fT, iT) = L.find ~f:(fun (fT, _) -> tick >= fT) mTickMap in
       let dt = tick - fT in
       let it = ref iT in
       let fr = Listen.talk mFreq fT (dt + len) ~copy:false in
@@ -860,19 +858,19 @@ end
 module DynamicModulator = struct
   let kind = "dynamicModulator"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mGain = Tkr.mkTalk ~tag:"gain" ()
     val mOutput = Tkr.mkVoice ()
     val mutable mPrevVal = 0.
 
-    method getTalks = [mInput; mGain]
+    method! getTalks = [mInput; mGain]
     method getKind = kind
-    method getVoice name = mOutput
-    method getVoices = [|mOutput|]
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ir = Listen.talk mInput tick len in
       let gr = Listen.talk mGain tick (Listen.getLength ir) ~copy:false in
       let grl = Listen.getLength gr in
@@ -898,7 +896,7 @@ end
 module Damper = struct
   let kind = "damper"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mCeiling = Tkr.mkTalk ~tag:"ceiling" ()
@@ -906,11 +904,11 @@ module Damper = struct
     val mOutput = Tkr.mkVoice ()
     val mutable mPrevVal = 0.
 
-    method getTalks = [mInput; mCeiling; mGain]
+    method! getTalks = [mInput; mCeiling; mGain]
     method getKind = kind
-    method getVoices = [|mOutput|]
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let ir = Listen.talk mInput tick len in
       let cr = Listen.talk mCeiling tick (Listen.getLength ir) in
       let gr = Listen.talk mGain tick (Listen.getLength cr) ~copy:false in
@@ -939,7 +937,7 @@ end
 module Accumulator = struct
   let kind = "accumulator"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mIntegral = Tkr.mkTalk ~tag:"integral" ()
@@ -951,11 +949,11 @@ module Accumulator = struct
     val mutable mPrevOutput = 0.
     val mutable mIntegVal = 0.
 
-    method getTalks = [mInput; mIntegral; mDamper]
+    method! getTalks = [mInput; mIntegral; mDamper]
     method getKind = kind
-    method getVoices = [|mOutput|]
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let inr = Listen.talk mInput tick len in
       let ir = Listen.talk mIntegral tick (Listen.getLength inr) in
       let dr = Listen.talk mDamper tick (Listen.getLength ir) ~copy:false in
@@ -994,7 +992,7 @@ end
 module Regulator = struct
   let kind = "regulator"
 
-  class c = object(self) inherit Tkr.c as super
+  class c = object inherit Tkr.c
 
     val mInput = Tkr.mkTalk ()
     val mProportional = Tkr.mkTalk ~tag:"proportional" ()
@@ -1006,11 +1004,11 @@ module Regulator = struct
     val mutable mPrevOutput = 0.
     val mutable mIntegVal = 0.
 
-    method getTalks = [mInput; mProportional; mIntegral; mDerivative]
+    method! getTalks = [mInput; mProportional; mIntegral; mDerivative]
     method getKind = kind
-    method getVoices = [|mOutput|]
+    method! getVoices = [|mOutput|]
 
-    method talk port tick len =
+    method! talk _ tick len =
       let inr = Listen.talk mInput tick len in
       let pr = Listen.talk mProportional tick (Listen.getLength inr) in
       let ir = Listen.talk mIntegral tick (Listen.getLength pr) in

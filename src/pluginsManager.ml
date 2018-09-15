@@ -22,7 +22,7 @@ let loadPlugins () =
     let open Plugin in
 
     (* Inner talkers registering *)
-    L.iter Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
+    L.iter ~f:Factory.addTalkerHandler InnerTalkers.handler.talkerHandlers;
     traceGreen(InnerTalkers.handler.name^" talkers registered");
 
     Factory.addTalkerHandler FileInput.handler;
@@ -40,7 +40,7 @@ let loadPlugins () =
 
             let ph = Plugin.getHandler() in
 
-            L.iter Factory.addTalkerHandler ph.talkerHandlers;
+            L.iter ~f:Factory.addTalkerHandler ph.talkerHandlers;
             traceGreen("Plugin "^ph.name^" ("^fileName^") registered");
           )
           else (

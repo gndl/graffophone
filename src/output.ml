@@ -14,19 +14,14 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Printf
 open Graffophone_plugin
-open Usual
-open Identifier
-open SampleFormat
-(*open CMixingConsole*)
 
 let sOutputCount = ref 0
 
 let kind = "output"
 
-class virtual c name = object(self) inherit
-  Identifier.c ~name ~kind sOutputCount as id
+class virtual c name = object inherit
+  Identifier.c ~name ~kind sOutputCount
 
   method virtual openOutput : int -> unit(* -> unit*)
   (*method virtual voice : time   buffer        length  outlength *)  

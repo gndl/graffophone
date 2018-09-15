@@ -15,7 +15,6 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
 
 module SF = SampleFormat
@@ -132,7 +131,7 @@ class c pVoice (pSsnCtrl : SessionControler.c) =
       let chunkIndex = ticksCount / SF.chunkSize in
       let lastLen = ticksCount mod SF.chunkSize in
 
-      let values = A.make_matrix (chunkIndex + 1) SF.chunkSize 0. in
+      let values = A.make_matrix ~dimx:(chunkIndex + 1) ~dimy:SF.chunkSize 0. in
 
       let minVal = ref max_float in
       let maxVal = ref min_float in
@@ -225,7 +224,7 @@ class c pVoice (pSsnCtrl : SessionControler.c) =
       self#clear();
 
 
-    method drawSelectedTimeRange x width =
+    method drawSelectedTimeRange _ _ =
 
       if mSelectedTimeRangeStartX <> mSelectedTimeRangeEndX then (
 

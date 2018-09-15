@@ -15,9 +15,7 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
-open SampleFormat
 
 module Tkr = Talker
 
@@ -56,16 +54,16 @@ let addMixingConsole tkr = !gInstance.mixCons <- (tkr#getId, tkr)::!gInstance.mi
 let addOutput op = !gInstance.outputs <- (op#getId, op)::!gInstance.outputs
 
 let supTalker tkr =
-  !gInstance.talkers <- L.filter (fun (_, t) -> t <> tkr) !gInstance.talkers
+  !gInstance.talkers <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.talkers
 
 let supTrack tkr =
-  !gInstance.tracks <- L.filter (fun (_, t) -> t <> tkr) !gInstance.tracks
+  !gInstance.tracks <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.tracks
 
 let supMixingConsole tkr =
-  !gInstance.mixCons <- L.filter (fun (_, t) -> t <> tkr) !gInstance.mixCons
+  !gInstance.mixCons <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.mixCons
 
 let supOutput op =
-  !gInstance.outputs <- L.filter (fun (_, t) -> t <> op) !gInstance.outputs
+  !gInstance.outputs <- L.filter ~f:(fun (_, t) -> t <> op) !gInstance.outputs
 
 
 let make ?(filename = "NewSession.es") ?(talkers = [])
@@ -91,12 +89,12 @@ let recoverDefaultTalkers session =
 
           recDefTkr tkr#getTalks;
 
-          if not(L.mem_assoc tkr#getId session.talkers) then
+          if not(L.mem_assoc tkr#getId ~map:session.talkers) then
             talkers := (tkr#getId, tkr) :: !talkers)
   in
-  L.iter (fun (n, tkr) -> recDefTkr (tkr#getTalks)) session.talkers;
-  L.iter (fun (n, tkr) -> recDefTkr (tkr#getTalks)) session.tracks;
-  L.iter (fun (n, tkr) -> recDefTkr (tkr#getTalks)) session.mixCons;
+  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.talkers;
+  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.tracks;
+  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.mixCons;
 
   make ~filename:session.filename ~talkers:(session.talkers @ !talkers)
     ~tracks:session.tracks ~mixingConsoles:session.mixCons
@@ -121,7 +119,7 @@ let formatId id = Str.global_replace (Str.regexp "[ \t]+") "_" id
 
 let makeDecs lines =
   let reg = Str.regexp "[ \t]+" in
-  let lns = L.map (fun s -> Str.split reg s) lines
+  let lns = L.map ~f:(fun s -> Str.split reg s) lines
   in
   let splitTlk tlk =
     try let p = String.index tlk ':' in
@@ -132,12 +130,12 @@ let makeDecs lines =
     | [] -> (n, {kind = k; feature = f; attributs = al})::dl
     | l::tl -> (
         match l with
-        | c::e when c.[0] = '/' -> mkDs k n f dl al tl (* commentaires *)
-        | p::t::tlk::e when p = ">" -> let (tkr, sp) = splitTlk tlk in
+        | c::_ when c.[0] = '/' -> mkDs k n f dl al tl (* commentaires *)
+        | p::t::tlk::_ when p = ">" -> let (tkr, sp) = splitTlk tlk in
           mkDs k n f dl ({tag = t; dpn = tkr; tkn = sp}::al) tl
-        | nk::nn::nf::e ->
+        | nk::nn::nf::_ ->
           mkDs nk nn nf ((n, {kind = k; feature = f; attributs = al})::dl) [] tl
-        | nk::nn::e ->
+        | nk::nn::_ ->
           mkDs nk nn "" ((n, {kind = k; feature = f; attributs = al})::dl) [] tl
         | _ -> mkDs k n f dl al tl
       )
@@ -148,9 +146,9 @@ let makeDecs lines =
 let load filename =
   let decs = makeDecs (readFileLines filename) in
 
-  let (trkDecs, l1) = L.partition (fun (n, p) -> p.kind = Track.kind) decs in
-  let (outpDecs, l2) = L.partition (fun (n, p) -> p.kind = Output.kind) l1 in
-  let (mxcDecs, tkrDecs) = L.partition (fun (n, p) -> p.kind = MixingConsole.kind) l2 in
+  let (trkDecs, l1) = L.partition ~f:(fun (_, p) -> p.kind = Track.kind) decs in
+  let (outpDecs, l2) = L.partition ~f:(fun (_, p) -> p.kind = Output.kind) l1 in
+  let (mxcDecs, tkrDecs) = L.partition ~f:(fun (_, p) -> p.kind = MixingConsole.kind) l2 in
 
   let tkrOfDec (id, prop) =
 
@@ -169,7 +167,7 @@ let load filename =
              try
                let value = fos att.dpn in
                talker#setEarToValueByTag att.tag value;
-             with Failure s -> (
+             with Failure _ -> (
                  try
                    let tkr = L.assoc att.dpn talkers in
 
@@ -200,13 +198,13 @@ let load filename =
   trace "> outputs = L.map outpDecs";
   let outputs = L.map outpDecs
       ~f:(fun (id, p) -> (id, Factory.makeOutput (getNameFromId id) p.feature (
-          L.map (fun a -> (a.tag, a.dpn, a.tkn)) p.attributs)))
+          L.map ~f:(fun a -> (a.tag, a.dpn, a.tkn)) p.attributs)))
   in
   trace "< outputs = L.map outpDecs";
   let mixingConsoles = L.map mxcDecs
       ~f:(fun (id, properties) ->
           let mixCon = MixingConsole.make (getNameFromId id)
-              (L.map (fun a -> (a.tag, a.dpn, a.tkn)) properties.attributs)
+              (L.map ~f:(fun a -> (a.tag, a.dpn, a.tkn)) properties.attributs)
               tracks outputs
           in
           setTalkerEars (mixCon, properties);
@@ -241,25 +239,25 @@ let save session =
     | Ear.Talk tlk -> talkDepLine tlk
   in
   let decToLines id (knd, ftr, ears) =
-    (headLine id knd ftr) @ L.map srcToL (A.to_list(Ear.earsToSources ears))
+    (headLine id knd ftr) @ L.map ~f:srcToL (A.to_list(Ear.earsToSources ears))
   in
   let aToL (tag, id) = depLine tag (mkId id)
   in
   let mcDecToLines id (knd, ftr, ears, trks, ops) =
     (headLine id knd ftr)
-    @ L.map srcToL (A.to_list(Ear.earsToSources ears)) @ L.map aToL trks @ L.map aToL ops
+    @ L.map ~f:srcToL (A.to_list(Ear.earsToSources ears)) @ L.map ~f:aToL trks @ L.map ~f:aToL ops
   in
   let opDecToLines id (knd, ftr, al) =
-    (headLine id knd ftr) @ L.map (fun (tag, dep) -> depLine tag dep) al
+    (headLine id knd ftr) @ L.map ~f:(fun (tag, dep) -> depLine tag dep) al
   in
   (*let sn = recoverDefaultTalkers session*)
   let sn = session
   in
   let lines = L.flatten (
-      L.map (fun (n, e) -> decToLines (mkId e) e#backup) sn.talkers
-      @ L.map (fun (n, e) -> decToLines (mkId e) e#backup) sn.tracks
-      @ L.map (fun (n, e) -> mcDecToLines (mkId e) e#mixingConsoleBackup) sn.mixCons
-      @ L.map (fun (n, e) -> opDecToLines (mkId e) e#backup) sn.outputs)
+      L.map ~f:(fun (_, e) -> decToLines (mkId e) e#backup) sn.talkers
+      @ L.map ~f:(fun (_, e) -> decToLines (mkId e) e#backup) sn.tracks
+      @ L.map ~f:(fun (_, e) -> mcDecToLines (mkId e) e#mixingConsoleBackup) sn.mixCons
+      @ L.map ~f:(fun (_, e) -> opDecToLines (mkId e) e#backup) sn.outputs)
   in
   writeFileLines session.filename lines
 

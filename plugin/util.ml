@@ -18,19 +18,19 @@
 module L = ListLabels
 
 module A = struct
-	include ArrayLabels
-	
-	let add a e = append a [|e|]
-	
-	let sup a i =
-		let newLen = length a - 1 in
-		
-		if i = 0 then sub a 1 newLen
-		else if i = newLen then sub a 0 newLen
-		else append(sub a 0 i) (sub a (i + 1) (newLen - i))
-		
+  include ArrayLabels
+
+  let add a e = append a [|e|]
+
+  let sup a i =
+    let len = length a - 1 in
+
+    if i = 0 then sub a ~pos:1 ~len
+    else if i = len then sub a ~pos:0 ~len
+    else append(sub a ~pos:0 ~len:i) (sub a ~pos:(i + 1) ~len:(len - i))
+
 end
-		
+
 
 let pi = 4.0 *. atan 1.0
 let pi2 = 2. *. pi

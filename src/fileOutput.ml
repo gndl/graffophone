@@ -17,9 +17,7 @@
 open FFmpeg
 
 open Graffophone_plugin
-open Util
 open Usual
-open Identifier
 open SampleFormat
 open Output
 
@@ -61,7 +59,7 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
       | None -> ()
       | Some(conv, stream) ->
         let planes = if lg = A.length channels.(0) then channels
-          else A.map ~f:(fun plane -> A.sub plane 0 lg) channels in
+          else A.map ~f:(fun plane -> A.sub plane ~pos:0 ~len:lg) channels in
 
         Converter.convert conv planes |> Av.write_frame stream;
 
@@ -77,7 +75,7 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
 
 let make name attributs =
   let filename = try
-      let (t, d, _) = List.find (fun (t, d, _) -> t = "filename") attributs in d
+      let (_, d, _) = List.find (fun (t, _, _) -> t = "filename") attributs in d
     with Not_found -> "" in
   toO(new c ~filename ~name ())
 

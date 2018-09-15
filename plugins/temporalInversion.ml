@@ -15,45 +15,43 @@
  *)
 
 open Graffophone_plugin
-open Util
-open SampleFormat
-(*open Array*)
+
 module Tkr = Talker
 
 let kind = "temporalInversion"
 
-class c = object(self) inherit Tkr.c as super
+class c = object inherit Tkr.c
 
-	val mInput = Tkr.mkTalk ()
-	val mPeriod = Tkr.mkTalk ~tag:"period" ()
-	val mOutput = Tkr.mkVoice ()
+  val mInput = Tkr.mkTalk ()
+  val mPeriod = Tkr.mkTalk ~tag:"period" ()
+  val mOutput = Tkr.mkVoice ()
 
-	method getKind = kind
-	method getTalks = [mInput; mPeriod]
-	method getVoices = [|mOutput|]
+  method getKind = kind
+  method! getTalks = [mInput; mPeriod]
+  method! getVoices = [|mOutput|]
 
-	method talk port tick len =
-		let ir = Listen.talk mInput tick len in
-		let gr = Listen.talk mInput tick (Listen.getLength ir) ~copy:false in
-		let grl = Listen.getLength gr in
+  method! talk _ tick len =
+    let ir = Listen.talk mInput tick len in
+    let gr = Listen.talk mInput tick (Listen.getLength ir) ~copy:false in
+    let grl = Listen.getLength gr in
 
-		Voice.checkLength mOutput grl;
+    Voice.checkLength mOutput grl;
 
-		for i = 0 to grl - 1 do
-			Voice.set mOutput i Listen.((ir@+i) *. (gr@+i))
-		done;
+    for i = 0 to grl - 1 do
+      Voice.set mOutput i Listen.((ir@+i) *. (gr@+i))
+    done;
 
-		Voice.setTick mOutput tick;
-		Voice.setLength mOutput grl;
+    Voice.setTick mOutput tick;
+    Voice.setLength mOutput grl;
 end
 
 let handler = Plugin.{kind; category = "Handling"; make = fun() -> new c}
 
 (*
 let registerPlugin fileName =
-	Factory.addTalkerMaker kind "Handling" make;
-	print_string ("Plugin "^fileName^" registered\n");
-	flush stdout;;
+Factory.addTalkerMaker kind "Handling" make;
+print_string ("Plugin "^fileName^" registered\n");
+flush stdout;;
 
 Factory.registerPlugin := registerPlugin;
 *)

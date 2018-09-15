@@ -20,7 +20,7 @@ let devicesColumns = new GTree.column_list
 let devicesNameColumn = devicesColumns#add Gobject.Data.string
 
 class c =
-  object (self)
+  object
     val gui = new GraffophoneGui.controlPanelDialog()
 
     initializer
@@ -63,7 +63,7 @@ class c =
 
         let _ = match gui#devicesTreeview#selection#get_selected_rows with
           | [] -> ()
-          | path::tl ->
+          | path::_ ->
             let row = model#get_iter path in
             let name = model#get ~row ~column:devicesNameColumn in
             Configuration.setOutputDeviceName name;
@@ -72,9 +72,9 @@ class c =
         closeDialog();
       in
 
-      ignore(gui#controlPanelOkButton#connect#clicked onValidation);
-      ignore(gui#controlPanelCancelButton#connect#clicked closeDialog);
-      ignore(gui#toplevel#connect#close closeDialog);
+      ignore(gui#controlPanelOkButton#connect#clicked ~callback:onValidation);
+      ignore(gui#controlPanelCancelButton#connect#clicked ~callback:closeDialog);
+      ignore(gui#toplevel#connect#close ~callback:closeDialog);
 
       gui#toplevel#show()
 

@@ -16,7 +16,6 @@
 
 open Graffophone_plugin
 open Usual
-open SampleFormat
 
 module Tkr = Talker
 

@@ -16,7 +16,7 @@
 
 open Usual
 
-module Tkr = Talker
+module Tkr = Graffophone_plugin.Talker
 module GTkr = GTalker
 
 
@@ -42,9 +42,9 @@ class c (mixingConsole:MixingConsole.c) canvas = object (self)
 |volume #       |
 \_______________/
 *)
-  method draw ?(pX = 0.) ?(pY = 0.) () =
+  method! draw pX pY =
 
-    self#drawHeader ~pX ~pY false true false;
+    self#drawHeader pY false true false;
 
     let topTrackY = self#getHeight +. GTkr.space in
 
@@ -55,7 +55,7 @@ class c (mixingConsole:MixingConsole.c) canvas = object (self)
 
             gTrk#setWidth w;
 
-            gTrk#draw ~pX:(1. -. GTkr.boxRadius) ~pY:h ();
+            gTrk#draw (1. -. GTkr.boxRadius) h;
 
             (max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
           ) in
@@ -64,8 +64,8 @@ class c (mixingConsole:MixingConsole.c) canvas = object (self)
     self#setHeight(h +. GTkr.marge -. pY);
     mGTracks <- gTrks;
 
-    self#drawEarsVoices ~pX ~pY ();
-    self#drawBox ~pX ~pY ();
+    self#drawEarsVoices pY;
+    self#drawBox pX pY;
 
     let w = self#getWidth in
     let points = [|pX; topTrackY; pX +. w; topTrackY|] in

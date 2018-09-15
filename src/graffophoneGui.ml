@@ -4,7 +4,7 @@ let data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<glade-interface>\n  <!-
 
 class aboutDialog ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"aboutDialog" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.about_dialog (GtkWindow.AboutDialog.cast
@@ -14,13 +14,13 @@ class aboutDialog ?domain ?autoconnect(*=true*) () =
       new GWindow.about_dialog (GtkWindow.AboutDialog.cast
         (Glade.get_widget_msg ~name:"aboutDialog" ~info:"GtkAboutDialog" xmldata))
     method aboutDialog = aboutDialog
-    method reparent (parent:GObj.widget) =
+    method reparent (_:GObj.widget) =
       toplevel#destroy ()
     method check_widgets () = ()
   end
 class applicationView ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"applicationView" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.window (GtkWindow.Window.cast
@@ -181,7 +181,7 @@ class applicationView ?domain ?autoconnect(*=true*) () =
   end
 class controlPanelDialog ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"controlPanelDialog" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.dialog_any (GtkWindow.Dialog.cast
@@ -203,13 +203,13 @@ class controlPanelDialog ?domain ?autoconnect(*=true*) () =
       new GTree.view (GtkTree.TreeView.cast
         (Glade.get_widget_msg ~name:"devicesTreeview" ~info:"GtkTreeView" xmldata))
     method devicesTreeview = devicesTreeview
-    method reparent (parent:GObj.widget) =
+    method reparent (_:GObj.widget) =
       toplevel#destroy ()
     method check_widgets () = ()
   end
 class floatEntryDialog ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"floatEntryDialog" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.window (GtkWindow.Window.cast
@@ -250,7 +250,7 @@ class floatEntryDialog ?domain ?autoconnect(*=true*) () =
   end
 class windowBoundedFloatEntryDialog ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"windowBoundedFloatEntryDialog" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.window (GtkWindow.Window.cast
@@ -291,7 +291,7 @@ class windowBoundedFloatEntryDialog ?domain ?autoconnect(*=true*) () =
   end
 class stringEntryDialog ?domain ?autoconnect(*=true*) () =
   let xmldata = Glade.create ~data  ~root:"stringEntryDialog" ?domain () in
-  object (self)
+  object
     inherit Glade.xml ?autoconnect xmldata
     val toplevel =
       new GWindow.dialog_any (GtkWindow.Dialog.cast
@@ -313,7 +313,7 @@ class stringEntryDialog ?domain ?autoconnect(*=true*) () =
       new GEdit.entry (GtkEdit.Entry.cast
         (Glade.get_widget_msg ~name:"entryStringEntry" ~info:"GtkEntry" xmldata))
     method entryStringEntry = entryStringEntry
-    method reparent (parent:GObj.widget) =
+    method reparent (_:GObj.widget) =
       toplevel#destroy ()
     method check_widgets () = ()
   end

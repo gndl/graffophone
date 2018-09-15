@@ -14,17 +14,12 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Usual
-
 module Bus = EventBus
-module Tkr = Talker
+module Tkr = Graffophone_plugin.Talker
 
-class c = object (self)
-
-
+class c = object
 
   method zoomIn() = ()
   method zoomOut() = ()
-
 
 end

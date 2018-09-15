@@ -29,9 +29,9 @@ let is_string_prefix s1 s2 =
 let image_filter () =
   let f = GFile.filter ~name:"Images" () in
   f#add_custom [ `MIME_TYPE ]
-    (fun info ->
-       let mime = List.assoc `MIME_TYPE info in
-       is_string_prefix "image/" mime) ;
+    ~callback:(fun info ->
+        let mime = List.assoc `MIME_TYPE info in
+        is_string_prefix "image/" mime) ;
   f
 
 let text_filter () = 
@@ -84,13 +84,13 @@ let aboutDialog() =
 
   let dialog = new GraffophoneGui.aboutDialog() in
 
-  let _ = dialog#toplevel#connect#response(fun _ -> dialog#toplevel#destroy()) in
-  let _ = dialog#toplevel#connect#close(fun() -> dialog#toplevel#destroy()) in
+  let _ = dialog#toplevel#connect#response ~callback:(fun _ -> dialog#toplevel#destroy()) in
+  let _ = dialog#toplevel#connect#close ~callback:(fun() -> dialog#toplevel#destroy()) in
 
   dialog#toplevel#show()
 
 
-let dialogStringEntry initValue callback =
+let dialogStringEntry initValue f =
 
   let dialog = new GraffophoneGui.stringEntryDialog() in
 
@@ -98,14 +98,14 @@ let dialogStringEntry initValue callback =
 
   let closeDialog() = dialog#toplevel#destroy() in
 
-  let _ = dialog#stringEntryOkButton#connect#clicked(
-      fun() ->
-        callback dialog#entryStringEntry#text;
-        closeDialog();
-    ) in
+  let _ = dialog#stringEntryOkButton#connect#clicked
+      ~callback:(fun() ->
+          f dialog#entryStringEntry#text;
+          closeDialog();
+        ) in
 
-  ignore(dialog#stringEntryCancelButton#connect#clicked closeDialog);
-  ignore(dialog#toplevel#connect#close closeDialog);
+  ignore(dialog#stringEntryCancelButton#connect#clicked ~callback:closeDialog);
+  ignore(dialog#toplevel#connect#close ~callback:closeDialog);
 
   dialog#toplevel#show()
 
@@ -113,9 +113,9 @@ let dialogTextEntry initValue callback = dialogStringEntry initValue callback
 
 
 let dialogFloatEntry initValue callback =
-trace("dialogFloatEntry "^sof initValue);
-let dialog = new DialogBoundedFloatEntry.c 0. initValue 0.
-  (fun _ v _ f -> callback v f) in
+  trace("dialogFloatEntry "^sof initValue);
+  let dialog = new DialogBoundedFloatEntry.c 0. initValue 0.
+    (fun _ v _ f -> callback v f) in
 
   dialog#toplevel#show()
 

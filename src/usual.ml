@@ -97,7 +97,7 @@ let readFileLines filename =
 
 let writeFileLines filename lines =
   let chan = open_out filename in
-  L.iter(fun l -> output_string chan l; output_char chan '\n') lines;
+  L.iter ~f:(fun l -> output_string chan l; output_char chan '\n') lines;
   close_out chan
 
 

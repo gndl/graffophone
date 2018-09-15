@@ -17,7 +17,7 @@
 open Usual
 
 class c initMinValue initValue initMaxValue callback = object (self)
-  inherit GraffophoneGui.windowBoundedFloatEntryDialog() as super
+  inherit GraffophoneGui.windowBoundedFloatEntryDialog()
 
   val mutable mInitValue = initValue
   val mutable mMinValue = 0.
@@ -30,7 +30,7 @@ class c initMinValue initValue initMaxValue callback = object (self)
     ignore(spinbuttonBoundedFloatEntryMin#event#connect#key_release ~callback:self#keyPressedOnBoundValue);
     ignore(spinbuttonBoundedFloatEntryMax#event#connect#key_release ~callback:self#keyPressedOnBoundValue);
 
-    ignore(vscaleBoundedFloatEntry#adjustment#connect#value_changed (self#vscaleValueChanged true));
+    ignore(vscaleBoundedFloatEntry#adjustment#connect#value_changed ~callback:(self#vscaleValueChanged true));
 
     ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
 

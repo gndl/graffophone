@@ -46,14 +46,14 @@ let gdkRgb c = Int32.(
 let gdk c = Gdk.Color.alloc (Gdk.Color.get_system_colormap()) (rgb c)
 let gdk c = GDraw.color (rgb c)
 *)
-let gdk c = Gdk.Color.alloc (Gdk.Rgb.get_cmap()) (gdkRgb c)
+let gdk c = Gdk.Color.alloc ~colormap:(Gdk.Rgb.get_cmap()) (gdkRgb c)
 
 
 let gdkRgbOfRgb8 r g b =
   let to16 c = (c land 0xFF) * 65535 / 255 in
   `RGB (to16 r, to16 g, to16 b)
 
-let gdkOfRgb8 r g b = Gdk.Color.alloc (Gdk.Rgb.get_cmap()) (gdkRgbOfRgb8 r g b)
+let gdkOfRgb8 r g b = Gdk.Color.alloc ~colormap:(Gdk.Rgb.get_cmap()) (gdkRgbOfRgb8 r g b)
 
 
 let gtk c = gdkRgb c

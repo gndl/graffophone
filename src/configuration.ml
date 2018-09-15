@@ -34,7 +34,7 @@ let files = new list_cp string_wrappers ~group ["library"; "files"] [] "Audio fi
 let log_file = open_out "graffophone.log";;
 group#read
   ~on_type_error:
-    (fun groupable_cp raw_cp output filename in_channel ->
+    (fun groupable_cp _ output filename _ ->
        Printf.fprintf log_file
          "Type error while loading configuration parameter %s from file %s.\n%!"
          (S.concat "." groupable_cp#get_name) filename;
@@ -51,7 +51,7 @@ let setOutputDeviceName v = outputDeviceName#set v
 
 
 let addFiles filenameList = files#set(files#get @ filenameList)
-let removeFile filename = files#set(L.filter(fun fn -> fn <> filename) files#get)
+let removeFile filename = files#set(L.filter ~f:(fun fn -> fn <> filename) files#get)
 let getFiles = files#get
 
 let save() = group#write configFileName

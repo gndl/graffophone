@@ -16,7 +16,6 @@
 
 open Voice
 open Ear
-open Talker
 
 type t = { offset : int; length : int; cornet : Cornet.t;}
 
@@ -27,19 +26,19 @@ let getCornet t = t.cornet
 
 
 let voice voice ?(copy = true) tick len =
-	
-	if tick < voice.tick
-	|| tick + len > voice.tick + voice.len
-	then (
-		voice.tkr#talk voice.port tick len;
-	);
-	let ofs = tick - voice.tick in
-	let l = Util.mini len (voice.len - ofs) in
-	
-	if l < 1 then raise Voice.End;
-	 
-	if copy then {cornet = Cornet.sub voice.cor ofs l; offset = 0; length = l}
-	else {cornet = voice.cor; offset = ofs; length = l}
+
+  if tick < voice.tick
+  || tick + len > voice.tick + voice.len
+  then (
+    voice.tkr#talk voice.port tick len;
+  );
+  let ofs = tick - voice.tick in
+  let l = Util.mini len (voice.len - ofs) in
+
+  if l < 1 then raise Voice.End;
+
+  if copy then {cornet = Cornet.sub voice.cor ofs l; offset = 0; length = l}
+  else {cornet = voice.cor; offset = ofs; length = l}
 
 
 let talk talk ?(copy = true) tick len = voice talk.voice ~copy tick len
@@ -50,5 +49,5 @@ let (@.) r i = Cornet.get r.cornet i
 
 
 let blit src dest offset =
-	Cornet.blit src.cornet src.offset dest.cor offset src.length;
-	src.length
+  Cornet.blit src.cornet src.offset dest.cor offset src.length;
+  src.length

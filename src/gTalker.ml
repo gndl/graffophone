@@ -13,9 +13,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
-
+dfjqsdfql
 open Graffophone_plugin
-open Util
 open Usual
 
 module Tkr = Talker
@@ -98,7 +97,7 @@ let boxTop = textHeight +. boxRadius
 let minimumHeight = boxTop +. textHeight *. 2. +. boxRadius
 
 
-let makeEarText (tag, index, ear) = tag ^ " " ^ index
+let makeEarText (tag, index, _) = tag ^ " " ^ index
 
 type gearType_t = GWord of Ear.word_t | GTalk of Tkr.talk_t | GAdd
 
@@ -118,9 +117,9 @@ let editValue pValueAction = function
   | Tkr.Float f -> GuiUtility.dialogFloatEntry f
                      (fun f fly -> pValueAction (Tkr.Float f) fly)
   | Tkr.String s -> GuiUtility.dialogStringEntry s
-                      (fun s fly -> pValueAction (Tkr.String s) fly)
+                      (fun s -> pValueAction (Tkr.String s) false)
   | Tkr.Text t -> GuiUtility.dialogTextEntry t
-                    (fun t fly -> pValueAction (Tkr.Text t) fly)
+                    (fun t -> pValueAction (Tkr.Text t) false)
   | Tkr.File _ -> (match GuiUtility.openFile (*gui#toplevel*)() with
       | None -> ()
       | Some fn -> pValueAction (Tkr.File fn) false)
@@ -185,14 +184,14 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
                    |TAG_INPUT_3 [3]  [TAG_OUTPUT_2]|
                    \_______________________________/
     *)
-    method draw ?(pX = 0.) ?(pY = 0.) () =
+    method draw pX pY =
 
-      self#drawHeader ~pX ~pY true true true;
-      self#drawEarsVoices ~pX ~pY ();
-      self#drawBox ~pX ~pY ();
+      self#drawHeader pY true true true;
+      self#drawEarsVoices pY;
+      self#drawBox pX pY;
 
 
-    method drawHeader ?(pX = 0.) ?(pY = 0.) drawKind drawName drawMainValue =
+    method drawHeader pY drawKind drawName drawMainValue =
 
       mBoxTop <- if drawKind then (
           mKindItem <- Some(GnoCanvas.text ~text:talker#getKind ~y:pY
@@ -228,7 +227,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
         else mainValueY -. pY;
 
 
-    method drawEarsVoices ?(pX = 0.) ?(pY = 0.) () =
+    method drawEarsVoices pY =
       let ears = talker#getEars in
       let voices = talker#getVoices in
 
@@ -339,7 +338,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       mHeight <- (max lb rb) -. pY
 
 
-    method drawBox ?(pX = 0.) ?(pY = 0.) () =
+    method drawBox pX pY =
 
       let x2 = pX +. mWidth +. marge in
       let y2 = pY +. mHeight +. marge in
@@ -354,7 +353,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       self#positionTags();
 
 
-    method drawRoundedBox ?(pX = 0.) ?(pY = 0.) () =
+    method drawRoundedBox pX pY =
 
       let x2 = pX +. mWidth in
       let y2 = pY +. mHeight in
@@ -374,25 +373,25 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
 
       ignore(match mKindItem with
           | None -> ()
-          | Some item -> item#move middle 0.);
+          | Some item -> item#move ~x:middle ~y:0.);
 
       ignore(match mNameItem with
           | None -> ()
-          | Some item -> item#move middle 0.);
+          | Some item -> item#move ~x:middle ~y:0.);
 
       ignore(match mMainValueItem with
           | None -> ()
-          | Some item -> item#move middle 0.);
+          | Some item -> item#move ~x:middle ~y:0.);
 
-      A.iter (fun gv -> gv.voiceItem#move ~x:mWidth ~y:0.) mGVoices;
+      A.iter ~f:(fun gv -> gv.voiceItem#move ~x:mWidth ~y:0.) mGVoices;
 
 
     method getEars = talker#getEars
 
-    method move x y = mGroup#move x y
+    method move x y = mGroup#move ~x ~y
 
     method drawAt x y =
-      self#draw();
+      self#draw 0. 0.;
       self#move x y
 
 
@@ -401,7 +400,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       A.fold_left mGEars ~init:0
         ~f:(fun index gEar ->
             try match gEar.earType with
-              | GWord wdr -> index + 1
+              | GWord _ -> index + 1
               | GTalk talk ->
                 let tkr = Ear.getTalkTalker talk in
                 let gTkr = L.assoc tkr#getId gpTalkers in
@@ -497,7 +496,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
 
       (match mBoxItem with
        | None -> ()
-       | Some item -> (item#connect#event(fun ie -> match ie with
+       | Some item -> (item#connect#event ~callback:(fun ie -> match ie with
            | `BUTTON_PRESS ev ->
              let button = GdkEvent.Button.button ev in
 
@@ -515,16 +514,16 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
       (* talker name action *)
       (match mNameItem with
        | None -> ()
-       | Some item -> (item#connect#event(function
-           | `BUTTON_RELEASE ev -> editName(); true
+       | Some item -> (item#connect#event ~callback:(function
+           | `BUTTON_RELEASE _ -> editName(); true
            | _ -> false
          )) |> ignore) |> ignore;
 
       (* talker value action *)
       (match mMainValueItem with
        | None -> ()
-       | Some item -> (item#connect#event(function
-           | `BUTTON_RELEASE ev ->
+       | Some item -> (item#connect#event ~callback:(function
+           | `BUTTON_RELEASE _ ->
              talker#getValue |> editValue (pGraphCtrl#setTalkerValue talker);
              true
            | _ -> false
@@ -535,17 +534,17 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
           (* ear action *)
           (match gEar.earItem with
            | None -> ()
-           | Some item -> (item#connect#event(function
-               | `BUTTON_RELEASE ev -> pGraphCtrl#selectEar talker index;
+           | Some item -> (item#connect#event ~callback:(function
+               | `BUTTON_RELEASE _ -> pGraphCtrl#selectEar talker index;
                  true
                | _ -> false
              )) |> ignore) |> ignore;
           (* earvalue action *)
           (match gEar.valueItem with
            | None -> ()
-           | Some item -> (item#connect#event(fun ie ->
+           | Some item -> (item#connect#event ~callback:(fun ie ->
                match ie with
-               | `BUTTON_RELEASE ev ->
+               | `BUTTON_RELEASE _ ->
 
                  if gEar.addItem <> None then
                    GuiUtility.dialogFloatEntry 0. (fun value fly ->
@@ -569,18 +568,18 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
           (* add action *)
           (match gEar.addItem with
            | None -> ()
-           | Some item -> (item#connect#event(fun ie ->
+           | Some item -> (item#connect#event ~callback:(fun ie ->
                match ie with
-               | `BUTTON_RELEASE ev -> pGraphCtrl#addEar talker gEar.rootIndex;
+               | `BUTTON_RELEASE _ -> pGraphCtrl#addEar talker gEar.rootIndex;
                  true
                | _ -> false
              )) |> ignore) |> ignore;
           (* sup action *)
           (match gEar.supItem with
            | None -> ()
-           | Some item -> (item#connect#event(fun ie ->
+           | Some item -> (item#connect#event ~callback:(fun ie ->
                match ie with
-               | `BUTTON_RELEASE ev -> pGraphCtrl#supEar talker index;
+               | `BUTTON_RELEASE _ -> pGraphCtrl#supEar talker index;
                  true
                | _ -> false
              )) |> ignore) |> ignore;
@@ -588,7 +587,7 @@ class c (talker : Tkr.c) ?group (canvas : GnoCanvas.canvas) =
 
       (* voice action *)
       A.iteri mGVoices ~f:(fun index gVoice ->
-          gVoice.voiceItem#connect#event(fun ie ->
+          gVoice.voiceItem#connect#event ~callback:(fun ie ->
               match ie with
               | `BUTTON_RELEASE ev ->
                 if GdkEvent.Button.button ev = 3 then

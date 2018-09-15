@@ -15,10 +15,7 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
-open SampleFormat
-open Identifier
 
 module Tkr = Talker 
 
@@ -92,7 +89,7 @@ class c = object(self) inherit Tkr.c
           if cg <> 0. then (
             for j = 0 to !ol - 1 do
               ch.(j) <- cg *. buf.(j) done;
-          ) else A.fill ch 0 !ol 0.;
+          ) else A.fill ch ~pos:0 ~len:!ol 0.;
         | Ear.Talk cge -> (
             let cgr = Listen.talk cge tick !ol in
             let cgrl = Listen.getLength cgr in
@@ -104,15 +101,15 @@ class c = object(self) inherit Tkr.c
 
       for i = n to A.length channels - 1 do
         let ch = channels.(i) in
-        A.blit buf 0 ch 0 !ol;
+        A.blit ~src:buf ~src_pos:0 ~dst:ch ~dst_pos:0 ~len:!ol;
       done;
     );
     !ol
 
 
-  method getEars = Ear.([|ETalk mInput; EBin mGain; EBins mChannelsGains|])
+  method! getEars = Ear.([|ETalk mInput; EBin mGain; EBins mChannelsGains|])
 
-  method backup = (kind, "", self#getEars)
+  method! backup = (kind, "", self#getEars)
 end
 
 let make() = new c

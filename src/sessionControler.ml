@@ -14,14 +14,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open Printf
 open Graffophone_plugin
 open Usual
-open Talker
-open Track
-open Output
-open MixingConsole
-open Factory
 
 module SF = SampleFormat
 module Bus = EventBus
@@ -122,7 +116,7 @@ class c =
       ignore(Session.saveAs filename (Session.getInstance()))
 
 
-    method play (s:int) =
+    method play (_:int) =
       ignore( match mState with
           | State.Playing -> Mutex.lock mPauseLock; mOrder <- Pause
           | State.Paused -> Mutex.unlock mPauseLock
@@ -130,7 +124,7 @@ class c =
         );
       Thread.yield()
 
-    method pause (s:int) =
+    method pause (_:int) =
       ignore( match mState with
           | State.Playing -> Mutex.lock mPauseLock; mOrder <- Pause
           | State.Paused -> Mutex.unlock mPauseLock
@@ -138,7 +132,7 @@ class c =
         );
       Thread.yield()
 
-    method stop (s:int) =
+    method stop (_:int) =
       ignore( match mState with
           | State.Playing -> mOrder <- Stop
           | State.Paused -> mOrder <- Stop; Mutex.unlock mPauseLock
@@ -183,13 +177,13 @@ class c =
       let sd = SF.chunkSize in
       let buf = Array.make sd 0. in
       trace("Open output at "^sof (Sys.time()));
-      List.iter (fun (n, mc) -> mc#openOutput) (Session.getMixingConsoles());
+      List.iter (fun (_, mc) -> mc#openOutput) (Session.getMixingConsoles());
 
 
       let playChunk t =
         let (d, continu) = ListLabels.fold_left ~init:(sd, false)
             (Session.getMixingConsoles())
-            ~f:(fun (d, c) (n, mc) ->
+            ~f:(fun (d, c) (_, mc) ->
                 if mc#isProductive then (
                   try (*trace("comOut "^soi t^" "^soi d);*)
                     let nd = mc#comeOut t buf d in
@@ -235,7 +229,7 @@ class c =
       Bus.(notify(Tick mStartTick));
       Mutex.unlock mSynchronizationLock;
 
-      List.iter (fun (n, mc) -> mc#closeOutput) (Session.getMixingConsoles());
+      List.iter (fun (_, mc) -> mc#closeOutput) (Session.getMixingConsoles());
       trace("Close output at "^sof (Sys.time()));
 
       let nbTick = endTick - mStartTick in

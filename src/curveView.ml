@@ -68,15 +68,15 @@ class c (pSsnCtrl : SessionControler.c) =
       in
       let bc = GButton.tool_button ~stock:`CLOSE ~packing:tb#insert ~expand:false ()
       in
-      ignore(bc#connect#clicked(self#empty));
+      ignore(bc#connect#clicked ~callback:(self#empty));
 
       let bzi = GButton.tool_button ~stock:`ZOOM_IN ~packing:tb#insert ~expand:false ()
       in
-      ignore(bzi#connect#clicked(fun() -> self#drawCurves ~zoom:2.));
+      ignore(bzi#connect#clicked ~callback:(fun() -> self#drawCurves ~zoom:2.));
 
       let bzo = GButton.tool_button ~stock:`ZOOM_OUT ~packing:tb#insert ~expand:false ()
       in
-      ignore(bzo#connect#clicked(fun() -> self#drawCurves ~zoom:0.5));
+      ignore(bzo#connect#clicked ~callback:(fun() -> self#drawCurves ~zoom:0.5));
 
       let b2b = GButton.tool_button ~stock:`MEDIA_PREVIOUS ~packing:tb#insert ~expand:false ()
       in
@@ -84,19 +84,19 @@ class c (pSsnCtrl : SessionControler.c) =
       in
       let b2n = GButton.tool_button ~stock:`MEDIA_FORWARD ~packing:tb#insert ~expand:false ()
       in
-      ignore(b2b#connect#clicked(fun() ->
+      ignore(b2b#connect#clicked ~callback:(fun() ->
           if mLeftTick > 0 then (
             mLeftTick <- 0;
             self#drawCurves ~zoom:1.;
           )));
 
-      ignore(b2p#connect#clicked(fun() ->
+      ignore(b2p#connect#clicked ~callback:(fun() ->
           if mLeftTick > 0 then (
             mLeftTick <- max 0 (mLeftTick - ((mTicksCount * 9) / 10));
             self#drawCurves ~zoom:1.;
           )));
 
-      ignore(b2n#connect#clicked(fun() ->
+      ignore(b2n#connect#clicked ~callback:(fun() ->
           mLeftTick <- mLeftTick + mTicksCount;
           self#drawCurves ~zoom:1.;
         ));
@@ -138,7 +138,7 @@ class c (pSsnCtrl : SessionControler.c) =
         mCurvesBox#pack ~expand:false gCurve#getCurve;
         mCtrlsBox#pack ~expand:false gCurve#getControls;
 
-        ignore(gCurve#getRemoveButton#connect#clicked(self#remove gCurve));
+        ignore(gCurve#getRemoveButton#connect#clicked ~callback:(self#remove gCurve));
 
         mGCurves <- gCurve::mGCurves;
         self#setTimeRange pSsnCtrl#getStartTick pSsnCtrl#getEndTick;
@@ -188,13 +188,13 @@ class c (pSsnCtrl : SessionControler.c) =
     method remove gCurve () =
       mCurvesBox#remove gCurve#getCurve;
       mCtrlsBox#remove gCurve#getControls;
-      mGCurves <- L.filter((!=) gCurve) mGCurves;
+      mGCurves <- L.filter ~f:((!=) gCurve) mGCurves;
       Bus.notify Bus.CurveRemoved
 
 
     method toggleTalkCurve tkrId port =
       try
-        let talkCurves = L.filter(fun gc -> gc#voiceIsFrom tkrId port) mGCurves in
+        let talkCurves = L.filter ~f:(fun gc -> gc#voiceIsFrom tkrId port) mGCurves in
 
         if talkCurves = [] then self#addTalkCurve tkrId port
         else
@@ -209,7 +209,7 @@ class c (pSsnCtrl : SessionControler.c) =
 
 
     method empty() =
-      L.iter(fun gCurve ->
+      L.iter ~f:(fun gCurve ->
           mCurvesBox#remove gCurve#getCurve;
           mCtrlsBox#remove gCurve#getControls;
         ) mGCurves;

@@ -20,7 +20,7 @@ open Usual
 module Bus = EventBus
 module Tkr = Talker
 
-class c = object (self)
+class c = object
 
   val mutable mSelectedEar : (Tkr.c * int) option = None
   val mutable mSelectedVoice : (Tkr.c * int) option = None
@@ -39,8 +39,8 @@ class c = object (self)
 
     if mControlKeyPressed then (
 
-      if L.memq tkr mSelectedTalkers then (
-        mSelectedTalkers <- L.filter (fun t -> t != tkr) mSelectedTalkers;
+      if L.memq tkr ~set:mSelectedTalkers then (
+        mSelectedTalkers <- L.filter ~f:(fun t -> t != tkr) mSelectedTalkers;
         Bus.notify(Bus.TalkerUnselected tkr#getId)
       )
       else (
@@ -50,12 +50,12 @@ class c = object (self)
     )
     else (
       if L.length mSelectedTalkers > 1 then (
-        L.iter(fun tkr -> Bus.notify(Bus.TalkerUnselected tkr#getId)) mSelectedTalkers;
+        L.iter ~f:(fun tkr -> Bus.notify(Bus.TalkerUnselected tkr#getId)) mSelectedTalkers;
         mSelectedTalkers <- [tkr];
         Bus.notify(Bus.TalkerSelected tkr#getId);
       )
       else (
-        if L.memq tkr mSelectedTalkers then (
+        if L.memq tkr ~set:mSelectedTalkers then (
           mSelectedTalkers <- [];
           Bus.notify(Bus.TalkerUnselected tkr#getId)
         )

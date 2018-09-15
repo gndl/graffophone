@@ -15,7 +15,6 @@
  *)
 
 open FFmpeg
-open Avutil
 
 open Usual
 

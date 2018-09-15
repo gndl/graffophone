@@ -17,7 +17,6 @@
 open Bigarray
 
 open FFmpeg
-open Avutil
 
 open Graffophone_plugin
 open Usual
@@ -83,7 +82,7 @@ class c ?(name = "Playback Output(") () =
       | None -> ()
       | Some(conv, output) ->
         let planes = if lg = A.length channels.(0) then channels
-          else A.map ~f:(fun plane -> A.sub plane 0 lg) channels in
+          else A.map ~f:(fun plane -> A.sub plane ~pos:0 ~len:lg) channels in
         try
           Converter.convert conv planes |> Av.write_audio_frame output;
         with Avutil.Failure msg -> Bus.asyncNotify(Bus.Error msg)
@@ -99,7 +98,7 @@ class c ?(name = "Playback Output(") () =
 
   end
 
-let make name attributs = toO(new c ~name ())
+let make name _ = toO(new c ~name ())
 
 let handler = {feature = "playback"; make}
 

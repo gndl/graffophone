@@ -15,7 +15,6 @@
  *)
 
 open Graffophone_plugin
-open Util
 open Usual
 
 module Bus = EventBus
@@ -31,7 +30,7 @@ type property_t = {
 
 let buildGTalker tkr gTalkers canvas =
   let gTkr = GTkr.make tkr canvas in
-  gTkr#draw();
+  gTkr#draw 0. 0.;
   gTalkers := (tkr#getId, gTkr) :: !gTalkers;
   gTkr
 
@@ -153,7 +152,7 @@ let createGraph canvas =
     let createMixingConsole row mixCon =
 
       let gMc = GMC.makeAt mixCon row 0 canvas in
-      gMc#draw();
+      gMc#draw 0. 0.;
       gTalkers := (mixCon#getId, gMc#base) :: !gTalkers;
 
       (* create GTalkers by covering talkers for each track *)
@@ -191,7 +190,7 @@ let createGraph canvas =
     (* list the unused talkers e.g not in the gTalkers list *)
     let unusedTalkers = L.fold_left (Session.getTalkers()) ~init:[]
         ~f:(fun unusedTalkers (id, tkr) ->
-            if tkr#isHidden || L.mem_assoc id !gTalkers then unusedTalkers
+            if tkr#isHidden || L.mem_assoc id ~map:!gTalkers then unusedTalkers
             else (tkr, ref 0)::unusedTalkers
           )
     in
@@ -277,7 +276,7 @@ class c (pGraphCtrl : GraphControler.c) = object (self)
 
     mGTalkers <- createGraph mGraphCanvas;
 
-    L.iter mGTalkers ~f:(fun (id, gTkr) -> gTkr#setActions pGraphCtrl);
+    L.iter mGTalkers ~f:(fun (_, gTkr) -> gTkr#setActions pGraphCtrl);
 
 
     (* observer methods *)
@@ -315,7 +314,7 @@ let gridLayout x0 y0 gTalkers rowsPropertys columnsPropertys =
   (* define rows start (y) *)
   let rowsProps = L.sort ~cmp:(fun (n1, _) (n2, _) -> n1 - n2) !rowsPropertys in
 
-  let h = L.fold_left rowsProps ~init:0. ~f:(fun start (n, prop) ->
+  let h = L.fold_left rowsProps ~init:0. ~f:(fun start (_, prop) ->
       prop.start <- start;
       start +. prop.thickness +. vPad
     ) in
@@ -323,7 +322,7 @@ let gridLayout x0 y0 gTalkers rowsPropertys columnsPropertys =
   (* define columns start (x) *)
   let columnsProps = L.sort ~cmp:(fun (n1, _) (n2, _) -> n1 - n2) !columnsPropertys in
 
-  let w = L.fold_right columnsProps ~init:0. ~f:(fun (n, prop) start ->
+  let w = L.fold_right columnsProps ~init:0. ~f:(fun (_, prop) start ->
       prop.start <- start;
       start +. prop.thickness +. marge
     ) in
@@ -349,7 +348,7 @@ let makeUnusedGTalkers x0 y0 gTalkers canvas =
   (* list the unused talkers e.g not in the gTalkers list *)
   let unusedTalkers = L.fold_left (Session.getTalkers()) ~init:[]
       ~f:(fun unusedTalkers (id, tkr) ->
-          if L.mem_assoc id !gTalkers then unusedTalkers
+          if L.mem_assoc id ~map:!gTalkers then unusedTalkers
           else (tkr, ref 0)::unusedTalkers
         )
   in

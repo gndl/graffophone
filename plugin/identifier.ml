@@ -18,32 +18,32 @@ let incCount count = count := !count + 1; !count
 
 
 class virtual c ?name ?kind count =
-	object
-	val mId = incCount count
-	val mutable mName = ""
+  object
+    val mId = incCount count
+    val mutable mName = ""
 
-	initializer
-		match name with
-		| Some n ->
-			if n.[String.length n - 1] = '(' then (
-				match kind with
-				| Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ ")"
-				| None -> mName <- n ^ string_of_int mId ^ ")"
-			)
-			else if n.[String.length n - 1] = '[' then (
-				match kind with
-				| Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ "]"
-				| None -> mName <- n ^ string_of_int mId ^ "]"
-			)
-			else mName <- n
-		| None -> match kind with
-			| Some k -> mName <- k ^ " " ^ string_of_int mId
-			| None -> () (*mName <- "[" ^ string_of_int mId ^ "]"*)
+    initializer
+      match name with
+      | Some n ->
+	if n.[String.length n - 1] = '(' then (
+	  match kind with
+	  | Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ ")"
+	  | None -> mName <- n ^ string_of_int mId ^ ")"
+	)
+	else if n.[String.length n - 1] = '[' then (
+	  match kind with
+	  | Some k -> mName <- n ^ k ^ " " ^ string_of_int mId ^ "]"
+	  | None -> mName <- n ^ string_of_int mId ^ "]"
+	)
+	else mName <- n
+      | None -> match kind with
+	| Some k -> mName <- k ^ " " ^ string_of_int mId
+	| None -> () (*mName <- "[" ^ string_of_int mId ^ "]"*)
 
-	method getId = mId
-	method getName = mName
-	method setName name = mName <- name
-	method dependsOf id = mId = id
-end	
+    method getId = mId
+    method getName = mName
+    method setName name = mName <- name
+    method dependsOf id = mId = id
+  end	
 
 let toId st = (st :> c)

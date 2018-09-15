@@ -71,8 +71,8 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
       scrolledwindowGraph#set_vadjustment graphCanvas#vadjustment;
 
       (* Graph toolbar event connection *)
-      ignore(toolbuttonShowCurve#connect#toggled(
-          fun() -> mCurveView#activate toolbuttonShowCurve#get_active));
+      ignore(toolbuttonShowCurve#connect#toggled ~callback:(fun() ->
+          mCurveView#activate toolbuttonShowCurve#get_active));
 
       loopTalkerButton#misc#hide();
       graphToolbar#set_icon_size`MENU;
@@ -192,8 +192,8 @@ class c (pSsnCtrl : SessionControler.c) (graphView : GraphView.c) =
           | State.Stopped -> playButton#set_stock_id `MEDIA_PLAY; traceGreen "stop"
         )
       | Bus.CurveAdded | Bus.CurveRemoved ->
-      let h = graphCurveVpaned#misc#allocation.height in
-      graphCurveVpaned#set_position (max (h - mCurveView#getHeight) 320);
+        let h = graphCurveVpaned#misc#allocation.height in
+        graphCurveVpaned#set_position (max (h - mCurveView#getHeight) 320);
       | Bus.Info msg -> self#showMessage msg `INFO
       | Bus.Warning msg -> self#showMessage msg `WARNING
       | Bus.Error msg -> self#showMessage msg `ERROR
