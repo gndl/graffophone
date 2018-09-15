@@ -3,26 +3,26 @@
 default: build
 
 build:
-	jbuilder build src/graffophone.exe
+	dune build src/graffophone.exe
 
 dbg:
-	jbuilder build src/graffophone.bc
+	dune build src/graffophone.bc
 	cp ./_build/default/src/graffophone.bc .
 
 test:
-	jbuilder runtest -f
+	dune runtest -f
 
 exec:
-	jbuilder exec src/graffophone.exe
+	dune exec src/graffophone.exe
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 # Optionally, remove all files/folders ignored by git as defined
 # in .gitignore (-X).
 #git clean -dfXq
