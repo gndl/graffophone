@@ -6,13 +6,20 @@ bug-reports: "https://github.com/gndl/graffophone/issues"
 dev-repo: "https://github.com/gndl/graffophone.git"
 
 build: [
-  ["jbuilder" "subst"] {pinned}
-  ["jbuilder" "build" "-p" graffophone "-j" 4]
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" graffophone "-j" 4]
 ]
 
-build-test: ["jbuilder" "runtest" "-p" graffophone]
+build-test: ["dune" "runtest" "-p" graffophone]
 
 depends: [
-  "jbuilder" {build & >= "1.0+beta14"}
+  "dune" {build}
   "alcotest" {test}
+  "lablgtk"
+  "config-file"
+  "ffmpeg"
+]
+
+available: [
+  ocaml-version >= "4.05.0"
 ]

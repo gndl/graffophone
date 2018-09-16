@@ -6,12 +6,26 @@ Building and installing Graffophone
 ==============================
 
 
+Configuration
+-------------
+
+Prerequisites: ocaml >= 4.05.0, opam, dune
+
+Dependencies:
+
+    $ make dep
+
+
 Compilation
 -----------
 
-Dependencies: ocaml >= 4.00.1, ocamlfind, opam, lablgtk2, config-file, ffmpeg
-
     $ make
+
+
+Execution
+---------
+
+    $ make exec
 
 
 Installation
