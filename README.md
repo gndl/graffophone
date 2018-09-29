@@ -1,6 +1,6 @@
 # Graffophone
 Modular audio processing system in OCaml
-
+![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone.png)
 
 Building and installing Graffophone
 ==============================
