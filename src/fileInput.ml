@@ -22,7 +22,7 @@ open SampleFormat
 
 module Bus = EventBus
 module Tkr = Talker
-module Converter = Swresample.Make (Swresample.Frame) (Swresample.DblPlanarBigArray)
+module Converter = Swresample.Make (Swresample.Frame) (Swresample.FltPlanarBigArray)
 
 
 let kind = "fileInput"
