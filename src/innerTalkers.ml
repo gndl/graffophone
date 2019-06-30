@@ -160,7 +160,7 @@ module StaticSine = struct
 
   class c = object(self) inherit Tkr.c
 
-    val mutable mFreqCoef = 0.
+    val mutable mFreqCoef = SF.coefOfFrequence 440.
     val mutable mPeriod = 1
     val mutable mLargeOrDecimalPeriod = true
     val mOutput = Tkr.mkVoice ()
@@ -223,7 +223,7 @@ module Sine = struct
 
   class c = object inherit Tkr.c
 
-    val mFreq = Tkr.mkBin ~tag:"frequence" ()
+    val mFreq = Tkr.mkBin ~tag:"frequence" ~value:440. ()
     val mPhase = Tkr.mkBin ~tag:"phase" ()
     val mOutput = Tkr.mkVoice ()
 
@@ -308,7 +308,7 @@ module AbsSine = struct
 
   class c = object inherit Tkr.c
 
-    val mFreq = Tkr.mkBin ~tag:"frequence" ()
+    val mFreq = Tkr.mkBin ~tag:"frequence" ~value:440. ()
     val mPhase = Tkr.mkBin ~tag:"phase" ()
     val mOutput = Tkr.mkVoice ()
 
@@ -498,7 +498,7 @@ module Square = struct
       Voice.checkLength mOutput l;
 
       let ampli = ref 0. and invPos = ref 0 in
-      (*trace("tick : "^soi tick^", len : "^soi l);*)
+
       let nextPeriodBegin = ref 0 in
 
       if tick = mRemainderTick then (
