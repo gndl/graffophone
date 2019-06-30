@@ -19,28 +19,39 @@ open Usual
 class c initMinValue initValue initMaxValue callback = object (self)
   inherit GraffophoneGui.windowBoundedFloatEntryDialog()
 
-  val mutable mInitValue = initValue
-  val mutable mMinValue = 0.
-  val mutable mMaxValue = 1.
-
   initializer
     spinbuttonBoundedFloatEntry#set_adjustment vscaleBoundedFloatEntry#adjustment;
 
     ignore(spinbuttonBoundedFloatEntry#event#connect#key_release ~callback:self#keyPressedOnValue);
-    ignore(spinbuttonBoundedFloatEntryMin#event#connect#key_release ~callback:self#keyPressedOnBoundValue);
-    ignore(spinbuttonBoundedFloatEntryMax#event#connect#key_release ~callback:self#keyPressedOnBoundValue);
-
-    ignore(vscaleBoundedFloatEntry#adjustment#connect#value_changed ~callback:(self#vscaleValueChanged true));
+    ignore(vscaleBoundedFloatEntry#adjustment#connect#value_changed ~callback:(self#valueChanged true));
 
     ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
 
-    self#setAdjustment initMinValue initValue initMaxValue;
+    let minValue, maxValue = if initMinValue = initMaxValue then (-20000., 20000.)
+      else (initMinValue, initMaxValue) in
 
-    (* in order to remind the c float 32 init value *)
-    (* mInitValue <- vscaleBoundedFloatEntry#adjustment#value; *)
+    ignore(spinbuttonBoundedFloatEntryMin#adjustment#connect#value_changed ~callback:self#setAdjustment);
+
+    spinbuttonBoundedFloatEntryMin#adjustment#set_bounds
+      ~lower:(-100000.) ~upper:100000. ~step_incr:100. ~page_incr:1000. ~page_size:0. ();
+
+    spinbuttonBoundedFloatEntryMin#set_value minValue;
 
 
-  method vscaleValueChanged onTheFly () = trace "> DialogBoundedFloatEntry.c#vscaleValueChanged";
+    ignore(spinbuttonBoundedFloatEntryMax#adjustment#connect#value_changed ~callback:self#setAdjustment);
+
+    spinbuttonBoundedFloatEntryMax#adjustment#set_bounds
+      ~lower:(-100000.) ~upper:100000. ~step_incr:100. ~page_incr:1000. ~page_size:0. ();
+
+    spinbuttonBoundedFloatEntryMax#set_value maxValue;
+
+
+    self#setAdjustment ();
+
+    spinbuttonBoundedFloatEntry#adjustment#set_value initValue;
+
+
+  method valueChanged onTheFly () = trace "> DialogBoundedFloatEntry.c#valueChanged";
     trace(
       "min value = "^sof vscaleBoundedFloatEntry#adjustment#lower ^
       "\nvalue = "^sof vscaleBoundedFloatEntry#adjustment#value ^
@@ -48,49 +59,49 @@ class c initMinValue initValue initMaxValue callback = object (self)
       if onTheFly then "\n on the fly" else ""
     );
     callback
-      vscaleBoundedFloatEntry#adjustment#lower
-      vscaleBoundedFloatEntry#adjustment#value
-      vscaleBoundedFloatEntry#adjustment#upper
+      spinbuttonBoundedFloatEntryMin#adjustment#value
+      spinbuttonBoundedFloatEntry#adjustment#value
+      spinbuttonBoundedFloatEntryMax#adjustment#value
       onTheFly;
-    trace "< DialogBoundedFloatEntry.c#vscaleValueChanged";
+    trace "< DialogBoundedFloatEntry.c#valueChanged"
 
 
-  method setAdjustment minValue value maxValue = trace("> DialogBoundedFloatEntry.c#setAdjustment "^sof value);
-    let lower, upper =
-      if minValue < maxValue then (minValue, maxValue)
-      else if value = 0. then (0., 1.)
-      else if value > 0. then (0., 2. *. value)
-      else (2. *. value, 0.)
-    in
+  method setAdjustment() =
 
-    let range = upper -. lower in
-    let step_incr = range /. 100. in
-    let page_incr = range /. 10. in
+    let minValue = spinbuttonBoundedFloatEntryMin#value in
+    let maxValue = spinbuttonBoundedFloatEntryMax#value in
 
-    vscaleBoundedFloatEntry#adjustment#set_bounds
-      ~lower ~upper ~step_incr ~page_incr ~page_size:0. ();
+    trace("> DialogBoundedFloatEntry.c#setAdjustment "^sof minValue^" "^sof maxValue);
 
-    vscaleBoundedFloatEntry#adjustment#set_value value;
+    if minValue <> maxValue then (
+      let lower, upper =
+        if minValue < maxValue then (minValue, maxValue)
+        else (
+          spinbuttonBoundedFloatEntryMin#set_value maxValue;
+          spinbuttonBoundedFloatEntryMax#set_value minValue;
 
-    spinbuttonBoundedFloatEntryMin#adjustment#set_bounds
-      ~lower:(-100000.) ~upper:100000. ~step_incr ~page_incr ~page_size:0. ();
-    spinbuttonBoundedFloatEntryMin#set_value lower;
+          (maxValue, minValue)
+        ) in
 
-    spinbuttonBoundedFloatEntryMax#adjustment#set_bounds
-      ~lower:(-100000.) ~upper:100000. ~step_incr ~page_incr ~page_size:0. ();
-    spinbuttonBoundedFloatEntryMax#set_value upper;
+      if lower > vscaleBoundedFloatEntry#adjustment#value then (
+        vscaleBoundedFloatEntry#adjustment#set_value lower;
+      )
+      else if upper < vscaleBoundedFloatEntry#adjustment#value then (
+        vscaleBoundedFloatEntry#adjustment#set_value upper;
+      );
+      
+      let range = upper -. lower in
 
-    trace("< DialogBoundedFloatEntry.c#setAdjustment "^sof value);
+      vscaleBoundedFloatEntry#adjustment#set_bounds ~lower ~upper
+        ~step_incr:(range /. 1000.) ~page_incr:(range /. 100.) ~page_size:0. ();
+    );
+    trace("< DialogBoundedFloatEntry.c#setAdjustment");
 
 
   method keyPressedOnBoundValue(ev:GdkEvent.Key.t) =
 
     if GdkEvent.Key.keyval ev = GdkKeysyms._Return then (
-      self#setAdjustment
-        spinbuttonBoundedFloatEntryMin#value
-        spinbuttonBoundedFloatEntry#value
-        spinbuttonBoundedFloatEntryMax#value
-      ;
+      self#setAdjustment();
       true
     )
     else (
@@ -116,7 +127,7 @@ class c initMinValue initValue initMaxValue callback = object (self)
     || vscaleBoundedFloatEntry#adjustment#lower <> initMinValue
     || vscaleBoundedFloatEntry#adjustment#value <> initValue
     || vscaleBoundedFloatEntry#adjustment#upper <> initMaxValue then (
-      self#vscaleValueChanged false ();
+      self#valueChanged false ();
     );
     toplevel#destroy();
     trace "< DialogBoundedFloatEntry.c#finish";
