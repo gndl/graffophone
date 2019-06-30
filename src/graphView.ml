@@ -92,8 +92,10 @@ let columnLayout x0 y0 gTalkers columnsPropertys =
                   let row = gTkr#getRow in
                   let x = prevX -. ((gTkr#getWidth +. colProp.thickness) *. 0.5) in
 
-                  let y = if row - prevRow > 1 then
+                  let y = if row - prevRow > 1 then (
+                      traceBlue("position GTalkers : "^gTkr#getTalker#getName ^" row "^ soi gTkr#getDependentRow);
                       max prevBottom prevRowsY.(gTkr#getDependentRow)
+                    )
                     else prevBottom
                   in
 
@@ -131,9 +133,11 @@ let makeGTalkers row column columnsPropertys gTalkers canvas talker =
 
         if newGTalker then (
           gTkr#setDependentRow row;
+
+          traceBlue("mkGtkrs : "^gTkr#getTalker#getName ^" row "^ soi gTkr#getDependentRow);
         );
 
-        let depRow = gTkrRow - talksCount / 2 in
+        let depRow = max 0 (gTkrRow - talksCount / 2) in
         let depColumn = column + 1 in
 
         L.iter talks ~f:(fun talk ->
@@ -157,7 +161,7 @@ let createGraph canvas =
 
       (* create GTalkers by covering talkers for each track *)
       L.iter mixCon#getTracks ~f:(fun track ->
-          (*ignore(L.fold_left track#getTalks ~init:(row, 1) ~f:createGTalkers);*)
+
           L.iter track#getTalks ~f:(fun talk ->
               makeGTalkers row 1 columnsPropertys gTalkers canvas (Ear.getTalkTalker talk)
             );
