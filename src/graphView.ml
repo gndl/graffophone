@@ -92,10 +92,8 @@ let columnLayout x0 y0 gTalkers columnsPropertys =
                   let row = gTkr#getRow in
                   let x = prevX -. ((gTkr#getWidth +. colProp.thickness) *. 0.5) in
 
-                  let y = if row - prevRow > 1 then (
-                      traceBlue("position GTalkers : "^gTkr#getTalker#getName ^" row "^ soi gTkr#getDependentRow);
+                  let y = if row - prevRow > 1 then
                       max prevBottom prevRowsY.(gTkr#getDependentRow)
-                    )
                     else prevBottom
                   in
 
@@ -133,8 +131,6 @@ let makeGTalkers row column columnsPropertys gTalkers canvas talker =
 
         if newGTalker then (
           gTkr#setDependentRow row;
-
-          traceBlue("mkGtkrs : "^gTkr#getTalker#getName ^" row "^ soi gTkr#getDependentRow);
         );
 
         let depRow = max 0 (gTkrRow - talksCount / 2) in
