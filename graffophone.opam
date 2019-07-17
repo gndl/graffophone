@@ -14,9 +14,11 @@ build-test: ["dune" "runtest" "-p" graffophone]
 
 depends: [
   "dune" {build}
+  "ppx_sexp_conv" {build}
+  "ppxlib" {build}
   "alcotest" {test}
+  "sexplib"
   "lablgtk"
-  "config-file"
   "ffmpeg"
 ]
 

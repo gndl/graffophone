@@ -15,43 +15,45 @@
  *)
 
 open Usual
-open Config_file
+open Sexplib.Std
+       
+type t = {
+  mutable playbackVolume : float [@default 50.];(* Playback volume. Its default value is 50% *)
 
-let group = new group
+  mutable playbackOutputDeviceName : string [@default "ALSA audio output"];(* Playback output device name. Its default value is empty *)
+
+  mutable libraryFiles : string list;  (* Audio files and folders of the library *)
+} [@@deriving sexp]
+
 let configFileName = (Sys.getenv "HOME")^"/.graffophone.conf"
-
-(* Playback volume. Its default value is 50% *)
-let volume = new float_cp ~group ["playback"; "volume"] 50. "Playback volume (%)"
-
-(* Playback output device name. Its default value is empty *)
-let outputDeviceName = new string_cp ~group ["playback"; "outputDeviceName"] "" "Playback output device"
-
-let files = new list_cp string_wrappers ~group ["library"; "files"] [] "Audio files and folders of the library"
 
 
 (* Loading of the configuration file *)
 
-let log_file = open_out "graffophone.log";;
-group#read
-  ~on_type_error:
-    (fun groupable_cp _ output filename _ ->
-       Printf.fprintf log_file
-         "Type error while loading configuration parameter %s from file %s.\n%!"
-         (S.concat "." groupable_cp#get_name) filename;
-       output log_file; (* get more information into log_file *)
-    )
-  configFileName
+let log_file = open_out "graffophone.log"
+
+let default = {
+  playbackVolume = 50.;
+  playbackOutputDeviceName =  "ALSA audio output";
+  libraryFiles = []
+}
 
 
-let getVolume = volume#get
-let setVolume v = volume#set v
+let save config = sexp_of_t config |> Sexplib.Sexp.save_hum configFileName
 
-let getOutputDeviceName = outputDeviceName#get
-let setOutputDeviceName v = outputDeviceName#set v
+let config = match Sexplib.Sexp.load_sexp_conv configFileName t_of_sexp with
+  | `Result c -> c
+  | `Error _ | exception _ -> save default; default
+
+let save() = save config
+
+let getVolume = config.playbackVolume
+let setVolume v = config.playbackVolume <- v
+
+let getOutputDeviceName = config.playbackOutputDeviceName
+let setOutputDeviceName v = config.playbackOutputDeviceName <- v
 
 
-let addFiles filenameList = files#set(files#get @ filenameList)
-let removeFile filename = files#set(L.filter ~f:(fun fn -> fn <> filename) files#get)
-let getFiles = files#get
-
-let save() = group#write configFileName
+let addFiles filenameList = config.libraryFiles <- config.libraryFiles @ filenameList
+let removeFile filename = config.libraryFiles <- L.filter ~f:(fun fn -> fn <> filename) config.libraryFiles
+let getFiles = config.libraryFiles

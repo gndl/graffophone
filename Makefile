@@ -2,8 +2,8 @@
 
 default: build
 
-dep:
-	opam install -y lablgtk config-file ffmpeg
+deps:
+	opam install -y --deps-only .
 
 build:
 	dune build src/graffophone.exe
