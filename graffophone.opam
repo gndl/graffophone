@@ -20,7 +20,7 @@ depends: [
   "alcotest" {test}
   "sexplib"
   "lablgtk"
-  "ffmpeg"
+  "ffmpeg" {<= "0.2.0"}
 ]
 
 available: [
