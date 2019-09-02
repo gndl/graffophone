@@ -43,7 +43,8 @@ let save config = sexp_of_t config |> Sexplib.Sexp.save_hum configFileName
 
 let config = match Sexplib.Sexp.load_sexp_conv configFileName t_of_sexp with
   | `Result c -> c
-  | `Error _ | exception _ -> save default; default
+  | `Error _ -> save default; default
+  | exception _ -> save default; default
 
 let save() = save config
 

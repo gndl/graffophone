@@ -1,4 +1,5 @@
 opam-version: "1.2"
+synopsis: "Modular audio processing system"
 maintainer: "gndl@users.noreply.github.com"
 authors: ["gndl"]
 homepage: "https://github.com/gndl/graffophone"
@@ -7,7 +8,7 @@ dev-repo: "https://github.com/gndl/graffophone.git"
 
 build: [
   ["dune" "subst"] {pinned}
-  ["dune" "build" "-p" graffophone "-j" 4]
+  ["dune" "build" "-p" graffophone]
 ]
 
 build-test: ["dune" "runtest" "-p" graffophone]
