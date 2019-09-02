@@ -62,14 +62,14 @@ class c ?(name = "Playback Output(") () =
           );
 
           mCtx <- Some(conv, output);
-        with Avutil.Failure msg -> (
-            Bus.asyncNotify(Bus.Error msg);
+        with Avutil.Error e -> (
+            Bus.Error(Avutil.string_of_error e) |> Bus.asyncNotify;
 
             (* If the new device raise an error, we fallback to the previous device *)
             if device <> mOutputDevice then
               makeOutputStream mOutputDevice
             else
-              raise (Avutil.Failure msg)
+              raise (Avutil.Error e)
           )
       in
       makeOutputStream mNewOutputDevice;
@@ -85,7 +85,7 @@ class c ?(name = "Playback Output(") () =
           else A.map ~f:(fun plane -> A.sub plane ~pos:0 ~len:lg) channels in
         try
           Converter.convert conv planes |> Av.write_audio_frame output;
-        with Avutil.Failure msg -> Bus.asyncNotify(Bus.Error msg)
+        with Avutil.Error e -> Bus.Error(Avutil.string_of_error e) |> Bus.asyncNotify;
 
 
     method closeOutput =

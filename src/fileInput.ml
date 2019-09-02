@@ -68,7 +68,7 @@ class c = object(self) inherit Tkr.c
       mFilename <- fileName;
       self#setName(Filename.basename fileName);
       trace fileName;
-    with Avutil.Failure msg -> Bus.notify(Bus.Error(fileName ^ " : " ^ msg));
+    with Avutil.Error e -> Bus.notify(Bus.Error(fileName ^ " : " ^ Avutil.string_of_error e));
 
 
   method getKind = kind
