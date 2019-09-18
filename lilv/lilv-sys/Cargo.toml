@@ -1,0 +1,11 @@
+[package]
+name = "lilv-sys"
+version = "0.1.0"
+authors = ["Adrien Prokopowicz <adrien.prokopowicz@gmail.com>"]
+
+[dependencies]
+
+
+[build-dependencies]
+bindgen = "0.40.0"
+pkg-config = "0.3.14"

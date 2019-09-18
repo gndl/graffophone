@@ -1,0 +1,8 @@
+[package]
+name = "lv2"
+version = "0.1.0"
+authors = ["Adrien Prokopowicz <adrien.prokopowicz@gmail.com>"]
+
+[dependencies]
+lv2-sys = { path = "./lv2-sys" }
+lv2-derive = { path = "./lv2-derive" }
