@@ -1,20 +1,20 @@
-use std::error::Error;
 use core::uri::Uri;
+use std::error::Error;
 use std::num::NonZeroU32;
 
 pub type URID = NonZeroU32;
 mod cache;
-mod uridof;
 mod simple_mapper;
+mod uridof;
 
 pub use self::cache::*;
-pub use self::uridof::*;
 pub use self::simple_mapper::*;
+pub use self::uridof::*;
 
 pub mod features;
 
 pub trait URIDMapper {
-    fn map(&self, uri: &Uri) -> Result<URID, Box<Error>>;
+    fn map(&self, uri: &Uri) -> Result<URID, Box<dyn Error>>;
     fn unmap(&self, urid: URID) -> Option<&Uri>;
 }
 
