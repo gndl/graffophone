@@ -6,7 +6,7 @@ use ::port::Port;
 use ::plugin::Plugin;
 
 struct BufferContainer<T: BufferType> {
-    buffer: Box<Borrow<T::BufferImpl>>
+    buffer: Box<dyn Borrow<T::BufferImpl>>
 }
 
 impl<T: BufferType> BufferContainer<T> {
