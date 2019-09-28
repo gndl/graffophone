@@ -1,7 +1,7 @@
+extern crate failure;
 extern crate lilv;
 
 use std::alloc::System;
-use std::io;
 
 #[global_allocator]
 static A: System = System;
@@ -39,17 +39,18 @@ impl<'a> FeatureSet<'a> for MyFeatureSet {
 }
 */
 
-extern crate portaudio;
-
-use portaudio as pa;
 //use std::collections::VecDeque;
+mod audio_data;
+mod playback_output;
+use crate::audio_data::{AudioOutput, Interleaved};
+use crate::playback_output::Playback;
 use std::f64::consts::PI;
 
-const CHANNELS: i32 = 2;
-const NUM_SECONDS: i32 = 5;
-const SAMPLE_RATE: f64 = 44_100.0;
-const FRAMES_PER_BUFFER: u32 = 64;
-const TABLE_SIZE: usize = 200;
+const CHANNELS: usize = 2;
+const NUM_SECONDS: u64 = 5;
+const SAMPLE_RATE: usize = 44_100;
+const FRAMES_PER_SECOND: usize = 100;
+const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
     //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
@@ -71,153 +72,37 @@ fn main() {
     }
 }
 
-fn run() -> Result<(), pa::Error> {
-    let pa = pa::PortAudio::new()?;
+fn run() -> Result<(), failure::Error> {
+    let po = Playback::new()?;
 
-    let device_index = select_device(&pa)?;
-    play_sine(&pa, device_index)?;
-    run_blocking()
+    play_sine(&po)
 }
 
-const INTERLEAVED: bool = true;
+fn play_sine<'a>(po: &'a Playback) -> Result<(), failure::Error> {
+    let mut f = 220.0;
 
-fn select_device<'a>(pa: &'a pa::PortAudio) -> Result<pa::DeviceIndex, pa::Error> {
-    for device in pa.devices()? {
-        let (idx, info) = device?;
-        println!("{} {}", idx.0, info.name);
-    }
-    println!("Please input your device.");
+    po.open()?;
 
-    let mut dev_idx = String::new();
+    for _ in 0..NUM_SECONDS {
+        for _ in 0..FRAMES_PER_SECOND {
+            let ad = Interleaved::new(CHANNELS, SAMPLES);
+            let mut av = ad.vector();
 
-    io::stdin()
-        .read_line(&mut dev_idx)
-        .expect("Failed to read line");
+            for i in 0..SAMPLES {
+                let sample = ((i as f64 * PI * 2.0 * f) / SAMPLE_RATE as f64).sin() as f32;
 
-    match dev_idx.trim().parse() {
-        Ok(idx) => Ok(pa::DeviceIndex(idx)),
-        Err(_) => Err(pa::Error::InvalidDevice),
-    }
-}
-
-fn play_sine<'a>(pa: &'a pa::PortAudio, device_index: pa::DeviceIndex) -> Result<(), pa::Error> {
-    // Initialise sinusoidal wavetable.
-    let mut sine = [0.0; TABLE_SIZE];
-    for i in 0..TABLE_SIZE {
-        sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
-    }
-    let mut left_phase = 0;
-    let mut right_phase = 0;
-
-    println!("let device_info = pa.device_info(device_index)?;");
-    let device_info = pa.device_info(device_index)?;
-    println!("Default output device info: {:#?}", &device_info);
-
-    // Construct the output stream parameters.
-    let latency = device_info.default_high_output_latency;
-    let output_params = pa::StreamParameters::new(device_index, CHANNELS, INTERLEAVED, latency);
-
-    // Construct the settings with which we'll open our duplex stream.
-    let settings = pa::OutputStreamSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
-    /*
-        let mut settings =
-            pa.default_output_stream_settings(CHANNELS, SAMPLE_RATE, FRAMES_PER_BUFFER)?;
-        // we won't output out of range samples so don't bother clipping them.
-        settings.flags = pa::stream_flags::CLIP_OFF;
-    */
-    // This routine will be called by the PortAudio engine when audio is needed. It may called at
-    // interrupt level on some machines so don't do anything that could mess up the system like
-    // dynamic resource allocation or IO.
-    let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
-        let mut idx = 0;
-        for _ in 0..frames {
-            buffer[idx] = sine[left_phase];
-            buffer[idx + 1] = sine[right_phase];
-            left_phase += 1;
-            if left_phase >= TABLE_SIZE {
-                left_phase -= TABLE_SIZE;
+                av[CHANNELS * i] = sample;
+                av[CHANNELS * i + 1] = sample;
             }
-            right_phase += 3;
-            if right_phase >= TABLE_SIZE {
-                right_phase -= TABLE_SIZE;
-            }
-            idx += 2;
+
+            po.write(ad)?;
         }
-        pa::Continue
-    };
-
-    println!("{:#?}", &settings);
-
-    println!("pa.open_non_blocking_stream");
-    let mut stream = pa.open_non_blocking_stream(settings, callback)?;
-
-    println!("stream.start()");
-    stream.start()?;
-
-    println!("Play for {} seconds.", NUM_SECONDS);
-    pa.sleep(NUM_SECONDS * 1_000);
-
-    println!("stream.stop()");
-    stream.stop()?;
-    stream.close()?;
-
-    println!("Test finished.");
-
-    Ok(())
-}
-
-fn run_blocking() -> Result<(), pa::Error> {
-    // Initialise sinusoidal wavetable.
-    let mut sine = [0.0; TABLE_SIZE];
-    let f = 440.0;
-
-    for i in 0..TABLE_SIZE {
-        sine[i] = ((i as f64 * PI * 2.0 * f) / SAMPLE_RATE).sin() as f32;
+        f = 2. * f;
     }
 
-    let pa = pa::PortAudio::new()?;
+    std::thread::sleep(std::time::Duration::from_secs(NUM_SECONDS));
 
-    println!("let pa = pa::PortAudio::new()");
+    po.close()?;
 
-    let settings = pa.default_output_stream_settings(CHANNELS, SAMPLE_RATE, FRAMES_PER_BUFFER)?;
-    println!("let settings = pa.default_output_stream_settings(CHANNELS, SAMPLE_RATE, FRAMES)?;");
-    // we won't output out of range samples so don't bother clipping them.
-    //    settings.flags = pa::stream_flags::CLIP_OFF;
-    /*
-        let def_output = pa.default_output_device();
-        let device_info = pa.device_info(def_output);
-        println!("Default output device info: {:#?}", &device_info);
-
-        // Construct the output stream parameters.
-        let latency = device_info.default_low_output_latency;
-        let output_params =
-            pa::StreamParameters::<f32>::new(def_output, CHANNELS, INTERLEAVED, latency);
-
-        // Construct the settings with which we'll open our duplex stream.
-        let settings = pa::OutputStreamSettings::new(output_params, SAMPLE_RATE, FRAMES);
-    */
-    let mut stream = pa.open_blocking_stream(settings)?;
-    println!("let mut stream = pa.open_blocking_stream(settings)?;");
-
-    stream.start()?;
-    println!("stream.start()?;");
-
-    'stream: loop {
-        println!("'stream: loop ");
-        stream.write(TABLE_SIZE as u32 * 2, |output| {
-            println!("stream.write(TABLE_SIZE as u32 * 2, |output|");
-            let buffer_frames = output.len() / CHANNELS as usize;
-            for i in 0..buffer_frames {
-                println!("output[{}] = sine[{}]", i * 2, i);
-
-                output[i * 2] = sine[i];
-                output[i * 2 + 1] = sine[i];
-            }
-        })?;
-    }
-    /*
-    stream.stop()?;
-    stream.close()?;
     Ok(())
-     */
 }

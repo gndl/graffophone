@@ -7,5 +7,6 @@ authors = ["Adrien Prokopowicz <adrien.prokopowicz@gmail.com>"]
 
 
 [build-dependencies]
-bindgen = "0.40.0"
+#bindgen = "0.40.0"
+bindgen = "0.32.3"
 pkg-config = "0.3.14"
