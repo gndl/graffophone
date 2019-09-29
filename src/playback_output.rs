@@ -9,55 +9,38 @@ use crate::audio_data::{AudioOutput, Interleaved};
 pub struct Playback {
     //    event_loop: cpal::EventLoop,
     //    format: cpal::Format,
-    //    stream_id: cpal::StreamId,
+    //  stream_id: cpal::StreamId,
     sender: std::sync::mpsc::Sender<Interleaved>,
-    //    receiver: std::sync::mpsc::Receiver<Interleaved>,
+    //receiver: std::sync::mpsc::Receiver<Interleaved>,
     //    data: Interleaved,
 }
 
 impl Playback {
     pub fn new() -> Result<Self, failure::Error> {
+        let (sender, receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
+            std::sync::mpsc::channel();
+
         let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .expect("failed to find a default output device");
+        let device = match host.default_output_device() {
+            Some(d) => d,
+            None => return Err(failure::err_msg("failed to find a default output device")),
+        };
+        //            .expect("failed to find a default output device");
         let format = device.default_output_format()?;
         let event_loop = host.event_loop();
         let stream_id = event_loop.build_output_stream(&device, &format)?;
-        let (sender, receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
-            std::sync::mpsc::channel();
 
         event_loop.play_stream(stream_id.clone())?;
 
         std::thread::spawn(move || {
             let nb_channels = format.channels as usize;
-            let ad = receiver.recv().unwrap();
-            let mut nc = ad.channels();
-            let mut len = ad.samples() * nc;
-            let mut av = ad.vector();
+            let mut nc = 0;
+            let mut len = 0;
+            let mut av = Vec::new();
             let mut pos = 0;
-            //            let len = data.len;
-            /*
-
-            let next_value = |chan: usize| {
-                if pos >= av.len() {
-                    let ad = receiver.recv().unwrap();
-            nc = ad.0;
-             av = ad.1;
-                    pos = 0;
-                }
-                let chan = chan % nc;
-
-                let v = data.sample(chan, pos);
-                pos += 1;
-                v
-                0.0
-                    av[nc * pos + chan]
-            };
-                 */
 
             event_loop.run(move |id, result| {
-                let data = match result {
+                let out_data = match result {
                     Ok(data) => data,
                     Err(err) => {
                         eprintln!("an error occurred on stream {:?}: {}", id, err);
@@ -65,17 +48,29 @@ impl Playback {
                     }
                 };
 
-                match data {
+                match out_data {
                     cpal::StreamData::Output {
                         buffer: cpal::UnknownTypeOutputBuffer::F32(mut buffer),
                     } => {
                         for sample in buffer.chunks_mut(nb_channels) {
                             if pos >= len {
-                                let ad = receiver.recv().unwrap();
-                                nc = ad.channels();
-                                len = ad.samples() * nc;
-                                av = ad.vector();
-                                pos = 0;
+                                match receiver.recv() {
+                                    Ok(ad) => {
+                                        if ad.is_end() {
+                                            //                                            event_loop.destroy_stream(stream_id);
+                                            return;
+                                        } else {
+                                            nc = ad.channels();
+                                            len = ad.samples() * nc;
+                                            av = ad.vector();
+                                            pos = 0;
+                                        }
+                                    }
+                                    Err(err) => {
+                                        eprintln!("an error occurred on stream {:?}: {}", id, err);
+                                        return;
+                                    }
+                                }
                             }
                             for chan in 0..nb_channels {
                                 sample[chan] = av[pos + chan];
@@ -89,11 +84,11 @@ impl Playback {
         });
 
         Ok(Self {
-            //          event_loop: event_loop,
+            //            event_loop: event_loop,
             //            format: format,
-            //           stream_id: stream_id,
+            //            stream_id: stream_id,
             sender: sender,
-            //            receiver: receiver,
+            //      receiver: receiver,
             //            data: Interleaved::new(0, 0),
         })
     }
@@ -110,7 +105,7 @@ impl AudioOutput for Playback {
     }
 
     fn close(&self) -> Result<(), failure::Error> {
-        //        self.event_loop.destroy_stream(self.stream_id);
+        self.sender.send(Interleaved::end()).unwrap();
         Ok(())
     }
 }
