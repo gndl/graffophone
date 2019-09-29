@@ -719,6 +719,61 @@ module Amplifier = struct
 end
 
 
+module Fuzz = struct
+  let kind = "fuzz"
+
+let cubic_amplifier input =
+  (* samples should be between -1.0 and 1.0*)
+    if input < 0.0 then (
+        (* if it's negative (-1.0 to 0), then adding 1.0 takes it to
+        the 0 to 1.0 range. If it's cubed, it still won't leave the
+           0 to 1.0 range.*)
+        let negated = input +. 1.0 in
+        (negated *. negated *. negated) -. 1.0
+) else (
+        (* if it's positive (0 to 1.0), then subtracting 1.0 takes it
+         to the -1.0 to 0 range. If it's cubed, it still won't leave
+           the -1.0 to 0 range.*)
+        let negated = input -. 1.0 in
+        (negated *. negated *. negated) +. 1.0
+      )
+
+let rec fuzz numIteration input =
+  if numIteration > 0 then fuzz(numIteration -1) (cubic_amplifier input)
+      else input
+ 
+  class c = object inherit Tkr.c
+
+    val mutable mNumIteration = 1
+    val mInput = Tkr.mkTalk ()
+    val mOutput = Tkr.mkVoice ()
+
+    method! getValue = Tkr.i2v mNumIteration
+    method! setValue v = mNumIteration <- (Tkr.v2i v)
+
+    method! getTalks = [mInput]
+    method getKind = kind
+
+    method! getVoice _ = mOutput
+    method! getVoices = [|mOutput|]
+
+    method! talk _ tick len =
+      let ir = Listen.talk mInput tick len ~copy:false in
+
+      Voice.checkLength mOutput (Listen.getLength ir);
+
+      for i = 0 to (Listen.getLength ir) - 1 do
+        Voice.set mOutput i (fuzz mNumIteration Listen.(ir @+ i))
+      done;
+
+      Voice.setTick mOutput tick;
+      Voice.setLength mOutput (Listen.getLength ir);
+  end
+
+  let handler = Plugin.{kind; category = "Modulator"; make = fun() -> (new c)#base}
+end
+
+
 module AmplitudeModulator = struct
   let kind = "amplitudeModulator"
 
@@ -1041,28 +1096,6 @@ module Regulator = struct
   let handler = Plugin.{kind; category = "Shaper"; make = fun() -> (new c)#base}
 end
 
-(*
-let register =
-Factory.addTalkerMaker Constant.kind "Mathematics" Constant.make;
-Factory.addTalkerMaker Sum.kind "Mathematics" Sum.make;
-Factory.addTalkerMaker Product.kind "Mathematics" Product.make;
-Factory.addTalkerMaker Average.kind "Mathematics" Average.make;
-Factory.addTalkerMaker StaticSine.kind "Oscillator" StaticSine.make;
-Factory.addTalkerMaker Sine.kind "Oscillator" Sine.make;
-Factory.addTalkerMaker AbsSine.kind "Oscillator" AbsSine.make;
-Factory.addTalkerMaker BSine.kind "Oscillator" BSine.make;
-Factory.addTalkerMaker AbsBSine.kind "Oscillator" AbsBSine.make;
-Factory.addTalkerMaker Square.kind "Oscillator" Square.make;
-Factory.addTalkerMaker BSquare.kind "Oscillator" BSquare.make;
-Factory.addTalkerMaker Triangle.kind "Oscillator" Triangle.make;
-Factory.addTalkerMaker Amplifier.kind "Modulator" Amplifier.make;
-Factory.addTalkerMaker AmplitudeModulator.kind  "Modulator"AmplitudeModulator.make;
-Factory.addTalkerMaker FrequencyModulator.kind "Modulator" FrequencyModulator.make;
-Factory.addTalkerMaker DynamicModulator.kind "Modulator" DynamicModulator.make;
-Factory.addTalkerMaker Damper.kind "Shaper" Damper.make;
-Factory.addTalkerMaker Accumulator.kind "Shaper" Accumulator.make;
-Factory.addTalkerMaker Regulator.kind "Shaper" Regulator.make;
-*)
 let handler = Plugin.{ name = "Inner";
                        talkerHandlers = [
                          Constant.handler;
@@ -1078,6 +1111,7 @@ let handler = Plugin.{ name = "Inner";
                          BSquare.handler;
                          Triangle.handler;
                          Amplifier.handler;
+                         Fuzz.handler;
                          AmplitudeModulator.handler;
                          FrequencyModulator.handler;
                          DynamicModulator.handler;
