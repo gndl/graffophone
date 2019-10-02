@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 failure = "0.1.5"
 #ffmpeg = "0.1.1"
+lv2 = { path = "./lv2" }
 lilv = { path = "./lilv" }
-portaudio = "0.7.0"
+#portaudio = "0.7.0"
 cpal = "0.10.0"
