@@ -15,7 +15,7 @@ dbg:
 test:
 	dune runtest -f
 
-exec:
+run:
 	dune exec src/graffophone.exe
 
 install:
