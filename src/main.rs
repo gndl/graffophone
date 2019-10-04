@@ -3,20 +3,23 @@ extern crate lilv;
 extern crate lv2;
 
 use std::alloc::System;
+use std::rc::Rc;
 
 #[global_allocator]
 static A: System = System;
 
+use lilv::plugin::Plugin;
 use lilv::world::World;
 /*
+use lilv::*;
+ */
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
+use lilv::port::Port;
 use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
-use lilv::*;
 use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
-*/
 
 use lv2::core::{Feature, FeatureBuffer, FeatureSet};
 
@@ -96,13 +99,53 @@ fn run(world: World) -> Result<(), failure::Error> {
     let fuzzface = world
         .get_plugin_by_uri("http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_")
         .unwrap();
-    println!("> {:?}", fuzzface);
 
-    let fuzzface_inst = fuzzface
+    show_plugin(&fuzzface);
+
+    let fuzz_ctrl_buf = Rc::new(CellBuffer::new(1f32));
+    let level_ctrl_buf = Rc::new(CellBuffer::new(0.5f32));
+
+    let control_bufs = fuzzface
+        .inputs()
+        .filter_map(UnknownInputPort::into_typed::<Control>)
+        .map(|p| {
+            if p.name().as_ref() == "FUZZ" {
+                (p.handle(), fuzz_ctrl_buf)
+            } else {
+                (p.handle(), level_ctrl_buf)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let in_audio_buf = VecBuffer::new(0f32, SAMPLES);
+    let out_audio_buf = VecBuffer::new(0f32, SAMPLES);
+
+    let mut audio_bufs = fuzzface
+        .inputs()
+        .filter_map(UnknownInputPort::into_typed::<Audio>)
+        .map(|p| (p.handle(), Rc::new(&in_audio_buf)))
+        .collect::<Vec<_>>();
+
+    audio_bufs.extend(
+        fuzzface
+            .outputs()
+            .filter_map(UnknownOutputPort::into_typed::<Audio>)
+            .map(|p| (p.handle(), Rc::new(&out_audio_buf))),
+    );
+
+    let mut fuzzface_inst = fuzzface
         .resolve(&features)
         .unwrap()
-        .instantiate(SAMPLE_RATE as f64);
-    //lilv::instance::PluginInstance::new(fuzzface, , );
+        .instantiate(SAMPLE_RATE as f64)
+        .unwrap();
+
+    for buf in &control_bufs {
+        fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
+    }
+
+    for mut buf in &mut audio_bufs {
+        fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
+    }
 
     let po = Playback::new()?;
     po.open()?;
@@ -111,7 +154,15 @@ fn run(world: World) -> Result<(), failure::Error> {
         for _ in 0..FRAMES_PER_SECOND {
             for i in 0..SAMPLES {
                 let sample = ((i as f64 * PI * 2.0 * f) / SAMPLE_RATE as f64).sin() as f32;
+                in_audio_buf.get()[i].set(sample);
+            }
 
+            fuzzface_inst.activate();
+            fuzzface_inst.run(SAMPLES as u32);
+            fuzzface_inst.deactivate();
+
+            for i in 0..SAMPLES {
+                let sample = out_audio_buf.get()[i].get();
                 av[CHANNELS * i] = sample;
                 av[CHANNELS * i + 1] = sample;
             }
@@ -127,4 +178,32 @@ fn run(world: World) -> Result<(), failure::Error> {
     po.close()?;
 
     Ok(())
+}
+
+fn show_plugin(plugin: &Plugin) {
+    println!("> {:?}", plugin);
+    for port in plugin.inputs() {
+        println!("> {:?}", port);
+    }
+    for port in plugin.outputs() {
+        println!("< {:?}", port);
+    }
+    for port in plugin
+        .inputs()
+        .filter_map(UnknownInputPort::into_typed::<Audio>)
+    {
+        println!("\t{:?}", port)
+    }
+    for port in plugin
+        .outputs()
+        .filter_map(UnknownOutputPort::into_typed::<Audio>)
+    {
+        println!("\t{:?}", port)
+    }
+    for port in plugin
+        .inputs()
+        .filter_map(UnknownInputPort::into_typed::<Control>)
+    {
+        println!("\t{:?}", port)
+    }
 }
