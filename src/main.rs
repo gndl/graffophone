@@ -102,35 +102,35 @@ fn run(world: World) -> Result<(), failure::Error> {
 
     show_plugin(&fuzzface);
 
-    let fuzz_ctrl_buf = Rc::new(CellBuffer::new(1f32));
-    let level_ctrl_buf = Rc::new(CellBuffer::new(0.5f32));
+    let fuzz_ctrl_buf = Rc::new(CellBuffer::new(2f32));
+    let level_ctrl_buf = Rc::new(CellBuffer::new(0.25f32));
 
     let control_bufs = fuzzface
         .inputs()
         .filter_map(UnknownInputPort::into_typed::<Control>)
         .map(|p| {
             if p.name().as_ref() == "FUZZ" {
-                (p.handle(), fuzz_ctrl_buf)
+                (p.handle(), Rc::clone(&fuzz_ctrl_buf))
             } else {
-                (p.handle(), level_ctrl_buf)
+                (p.handle(), Rc::clone(&level_ctrl_buf))
             }
         })
         .collect::<Vec<_>>();
 
-    let in_audio_buf = VecBuffer::new(0f32, SAMPLES);
-    let out_audio_buf = VecBuffer::new(0f32, SAMPLES);
+    let in_audio_buf = Rc::new(VecBuffer::new(0f32, SAMPLES));
+    let out_audio_buf = Rc::new(VecBuffer::new(0f32, SAMPLES));
 
     let mut audio_bufs = fuzzface
         .inputs()
         .filter_map(UnknownInputPort::into_typed::<Audio>)
-        .map(|p| (p.handle(), Rc::new(&in_audio_buf)))
+        .map(|p| (p.handle(), Rc::clone(&in_audio_buf)))
         .collect::<Vec<_>>();
 
     audio_bufs.extend(
         fuzzface
             .outputs()
             .filter_map(UnknownOutputPort::into_typed::<Audio>)
-            .map(|p| (p.handle(), Rc::new(&out_audio_buf))),
+            .map(|p| (p.handle(), Rc::clone(&out_audio_buf))),
     );
 
     let mut fuzzface_inst = fuzzface
@@ -143,12 +143,14 @@ fn run(world: World) -> Result<(), failure::Error> {
         fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
     }
 
-    for mut buf in &mut audio_bufs {
+    for buf in &audio_bufs {
         fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
     }
 
     let po = Playback::new()?;
     po.open()?;
+
+            fuzzface_inst.activate();
 
     for _ in 0..NUM_SECONDS {
         for _ in 0..FRAMES_PER_SECOND {
@@ -157,9 +159,7 @@ fn run(world: World) -> Result<(), failure::Error> {
                 in_audio_buf.get()[i].set(sample);
             }
 
-            fuzzface_inst.activate();
             fuzzface_inst.run(SAMPLES as u32);
-            fuzzface_inst.deactivate();
 
             for i in 0..SAMPLES {
                 let sample = out_audio_buf.get()[i].get();
@@ -172,6 +172,8 @@ fn run(world: World) -> Result<(), failure::Error> {
         }
         f = 2. * f;
     }
+
+            fuzzface_inst.deactivate();
 
     std::thread::sleep(std::time::Duration::from_secs(NUM_SECONDS));
 
