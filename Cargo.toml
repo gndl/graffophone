@@ -13,3 +13,4 @@ lv2 = { path = "./lv2" }
 lilv = { path = "./lilv" }
 #portaudio = "0.7.0"
 cpal = "0.10.0"
+gpplugin = { path = "./plugin" }

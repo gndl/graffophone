@@ -1,4 +1,5 @@
 extern crate failure;
+extern crate gpplugin;
 extern crate lilv;
 extern crate lv2;
 
@@ -56,6 +57,9 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
+    let id = gpplugin::Identifier::new();
+    println!("id {}", id.get_id());
+
     //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
     let world = World::new().unwrap();
 
@@ -150,7 +154,7 @@ fn run(world: World) -> Result<(), failure::Error> {
     let po = Playback::new()?;
     po.open()?;
 
-            fuzzface_inst.activate();
+    fuzzface_inst.activate();
 
     for _ in 0..NUM_SECONDS {
         for _ in 0..FRAMES_PER_SECOND {
@@ -173,7 +177,7 @@ fn run(world: World) -> Result<(), failure::Error> {
         f = 2. * f;
     }
 
-            fuzzface_inst.deactivate();
+    fuzzface_inst.deactivate();
 
     std::thread::sleep(std::time::Duration::from_secs(NUM_SECONDS));
 

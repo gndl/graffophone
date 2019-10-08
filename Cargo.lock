@@ -198,11 +198,19 @@ version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "gpplugin"
+version = "0.1.0"
+dependencies = [
+ "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "graffophone"
 version = "0.1.0"
 dependencies = [
  "cpal 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gpplugin 0.1.0",
  "lilv 0.1.0",
  "lv2 0.1.0",
 ]
