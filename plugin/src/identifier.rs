@@ -3,15 +3,8 @@ pub struct Identifier {
     name: String,
 }
 
-fn inc_count(count: &mut u32) -> u32 {
-    *count = *count + 1;
-    *count
-}
-
 impl Identifier {
-    pub fn new(name: &str, kind: &str, count: &mut u32) -> Self {
-        let id = inc_count(count);
-
+    pub fn new(name: &str, kind: &str, id: u32) -> Self {
         let name_kind_fm = |close_char| {
             if kind.is_empty() {
                 format!("{}{}{}", name, id, close_char)

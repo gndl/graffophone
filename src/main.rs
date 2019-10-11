@@ -57,8 +57,7 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
-    let mut count: u32 = 0;
-    let id = gpplugin::Identifier::new("name[", "kind", &mut count);
+    let tkr = gpplugin::talker::Base::new();
 
     //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
     let world = World::new().unwrap();
@@ -88,7 +87,11 @@ fn main() {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-    println!("id {}", id.get_name());
+    println!(
+        "tkr id {}, name {}",
+        tkr.identifier.get_id(),
+        tkr.identifier.get_name()
+    );
 }
 
 fn run(world: World) -> Result<(), failure::Error> {

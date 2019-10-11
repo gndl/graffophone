@@ -1,6 +1,10 @@
 extern crate failure;
+extern crate lilv;
 
+pub mod ear;
 pub mod identifier;
+pub mod talker;
+pub mod voice;
 
 pub use identifier::Identifier;
 /*
