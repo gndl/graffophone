@@ -1,6 +1,7 @@
 extern crate failure;
 extern crate lilv;
 
+pub mod cornet;
 pub mod ear;
 pub mod identifier;
 pub mod talker;

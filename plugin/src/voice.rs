@@ -1,13 +1,12 @@
 use crate::talker::Talker;
-use lilv::port::buffer::VecBuffer;
-use std::rc::Rc;
+use crate::cornet;
 
 type Port = i32;
 
 pub struct Voice {
     tick: i64,
     len: usize,
-    cor: Rc<VecBuffer<f32>>,
+    cor: cornet::Cornet,
     tkr: Box<dyn Talker>,
     port: Port,
     tag: String,
@@ -18,7 +17,7 @@ impl Voice {
         Self {
             tick: tick,
             len: len,
-            cor: Rc::new(VecBuffer::new(0f32, len)),
+            cor: cornet::new(len),
             tkr: tkr,
             port: port,
             tag: tag,
@@ -27,7 +26,7 @@ impl Voice {
 
     pub fn check_length(&mut self, len: usize) {
         if self.cor.len() < len {
-            self.cor = Rc::new(VecBuffer::new(0f32, len));
+            self.cor = cornet::new(len);
         }
     }
 

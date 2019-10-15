@@ -5,6 +5,7 @@ extern crate lv2;
 
 use std::alloc::System;
 use std::rc::Rc;
+use std::f64::consts::PI;
 
 #[global_allocator]
 static A: System = System;
@@ -23,6 +24,8 @@ use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
 use lv2::core::{Feature, FeatureBuffer, FeatureSet};
+
+use gpplugin::talker::Talker;
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
@@ -43,12 +46,12 @@ impl<'a> FeatureSet<'a> for GpFeatureSet {
 }
 
 mod audio_data;
-
 mod playback_output;
-use crate::audio_data::{AudioOutput, Interleaved};
+mod lilv_talker;
 
+use crate::audio_data::{AudioOutput, Interleaved};
 use crate::playback_output::Playback;
-use std::f64::consts::PI;
+use crate::lilv_talker::LilvTalker;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -57,7 +60,7 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
-    let tkr = gpplugin::talker::Base::new();
+    let tkr: Box<dyn Talker> = Box::new(LilvTalker::new().unwrap());
 
     //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
     let world = World::new().unwrap();
@@ -89,8 +92,8 @@ fn main() {
     }
     println!(
         "tkr id {}, name {}",
-        tkr.identifier.get_id(),
-        tkr.identifier.get_name()
+        tkr.get_id(),
+        tkr.get_name()
     );
 }
 
