@@ -37,3 +37,21 @@ pub trait Talker {
     fn depends_of(&self, id: u32) -> bool;
     fn get_ears<'a>(&'a self) -> &'a Vec<Ear>;
 }
+
+
+
+pub struct Handler = {
+  kind : String,
+  category : String, 
+  make : Box<dyn Fn() -> Box<dyn Talker>>,
+}
+
+impl Handler {
+    pub fn new(kind: &str, kind: &str, make: Box<dyn Fn() -> Box<dyn Talker>>) -> Self {
+        Self {
+            kind: kind.to_string(),
+            category: category.to_string(),
+            make: make,
+        }
+    }
+}

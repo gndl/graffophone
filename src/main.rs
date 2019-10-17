@@ -4,8 +4,8 @@ extern crate lilv;
 extern crate lv2;
 
 use std::alloc::System;
-use std::rc::Rc;
 use std::f64::consts::PI;
+use std::rc::Rc;
 
 #[global_allocator]
 static A: System = System;
@@ -46,12 +46,13 @@ impl<'a> FeatureSet<'a> for GpFeatureSet {
 }
 
 mod audio_data;
+mod lv2_talker;
 mod playback_output;
-mod lilv_talker;
+mod plugins_manager;
 
 use crate::audio_data::{AudioOutput, Interleaved};
 use crate::playback_output::Playback;
-use crate::lilv_talker::LilvTalker;
+use crate::plugins_manager;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -60,41 +61,16 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
-    let tkr: Box<dyn Talker> = Box::new(LilvTalker::new().unwrap());
+    let phs = plugins_manager::load_plugins();
 
-    //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
     let world = World::new().unwrap();
 
-    println!("Print plugins start");
-
-    for plugin in world.plugins() {
-        println!("{} {}", plugin.name(), plugin.uri());
-        /*
-        for port in plugin.ports() {
-            println!("> {}", port);
-        }
-        */
-        for port in plugin.inputs() {
-            println!("> {:?}", port);
-        }
-        for port in plugin.outputs() {
-            println!("< {:?}", port);
-        }
-    }
-    println!("Print plugins end");
-    /*
-     */
     match run(world) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-    println!(
-        "tkr id {}, name {}",
-        tkr.get_id(),
-        tkr.get_name()
-    );
 }
 
 fn run(world: World) -> Result<(), failure::Error> {
