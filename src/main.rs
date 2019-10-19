@@ -52,7 +52,7 @@ mod plugins_manager;
 
 use crate::audio_data::{AudioOutput, Interleaved};
 use crate::playback_output::Playback;
-use crate::plugins_manager;
+use crate::plugins_manager::PluginsManager;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -61,11 +61,15 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
-    let phs = plugins_manager::load_plugins();
+    let mut pm = PluginsManager::new();
+    let phs = pm.load_plugins();
 
-    let world = World::new().unwrap();
+    for ph in phs {
+        println!("Plugin {}.{}", ph.category, ph.kind);
+    }
+//    let world = World::new().unwrap();
 
-    match run(world) {
+    match run(pm.lilv_world()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -73,7 +77,7 @@ fn main() {
     }
 }
 
-fn run(world: World) -> Result<(), failure::Error> {
+fn run(world: &World) -> Result<(), failure::Error> {
     let mut f = 22.5;
     let mut av = Vec::with_capacity(CHANNELS * SAMPLES);
     for _ in 0..CHANNELS * SAMPLES {

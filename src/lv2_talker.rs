@@ -1,3 +1,5 @@
+use lilv::plugin::Plugin;
+use lilv::world::World;
 use gpplugin::ear::Ear;
 use gpplugin::talker;
 use gpplugin::talker::{Base, Handler, Talker};
@@ -7,12 +9,12 @@ pub struct Lv2Talker {
     ears: Vec<Ear>,
 }
 impl Lv2Talker {
-    pub fn new(uri: String) -> Result<Self, failure::Error> {
+    pub fn new(uri: &String) -> Self {
         println!("Lv2Talker plugin uri : {}", uri);
-        Ok(Self {
+        Self {
             base: gpplugin::talker::Base::new(),
             ears: Vec::new(),
-        })
+        }
     }
 }
 
@@ -28,32 +30,3 @@ impl Talker for Lv2Talker {
     }
 }
 
-fn get_plugin_handlers() -> Vec<Handler> {
-    let phs = Vec::new();
-
-    //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
-    let world = World::new().unwrap();
-
-    println!("Print plugins start");
-
-    for plugin in world.plugins() {
-        let ph = Handler::new(
-            plugin.name(),
-            plugin.uri(),
-            Box::new(|| Box::new(Lv2Talker::new(plugin.uri()))),
-        );
-
-        phs.push(ph);
-        println!("{} {}", plugin.name(), plugin.uri());
-        /*
-        for port in plugin.inputs() {
-            println!("> {:?}", port);
-        }
-        for port in plugin.outputs() {
-            println!("< {:?}", port);
-        }
-        */
-    }
-    println!("Print plugins end");
-    phs
-}
