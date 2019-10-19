@@ -3,6 +3,7 @@ use lv2::core::FeatureBuffer;
 use node::inner_node::node_from_ptr;
 use node::OwnedNodeList;
 use node::{Node, String, Uri};
+use plugin_class::PluginClass;
 use port::inner::InnerPort;
 use port::{UnknownInputPort, UnknownOutputPort};
 use std::fmt::Debug;
@@ -29,7 +30,7 @@ impl<'w> Plugin<'w> {
     }
 
     pub fn class(&self) -> PluginClass {
-        unsafe { PluginClass::new(::lilv_sys::lilv_plugin_get_class(self.ptr)) }
+        unsafe { PluginClass::new(::lilv_sys::lilv_plugin_get_class(self.ptr), self.world) }
     }
 
     pub fn world(&self) -> &'w World {
