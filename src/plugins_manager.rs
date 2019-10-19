@@ -5,23 +5,18 @@ use crate::lv2_talker;
 use crate::lv2_talker::Lv2Talker;
 
 pub struct PluginsManager {
-    world: lilv::world::World,
-    plugin_handlers: Vec<Handler>,
+pub    handlers: Vec<Handler>,
 }
 
 impl PluginsManager {
     pub fn new() -> Self {
         Self {
-	    world: World::new().unwrap(),
-	        plugin_handlers: Vec::new(),
+   handlers: Vec::new(),
         }
     }
 
-    pub fn lilv_world<'a>(&'a self) -> &'a World {
-	&self.world
-    }
-    
-    pub fn load_plugins<'a>(&'a mut self) -> &'a Vec<Handler> {
+    pub fn load_plugins<'a>(&'a mut self) {
+    let world: World = World::new().unwrap();
     /*
     let tkr: Box<dyn Talker> = Box::new(Lv2Talker::new().unwrap());
     println!("tkr id {}, name {}", tkr.get_id(), tkr.get_name());
@@ -32,7 +27,7 @@ impl PluginsManager {
 
     println!("Print plugins start");
 
-	for plugin in self.world.plugins() {
+	for plugin in world.plugins() {
 	    let plg_uri = String::from(plugin.uri().to_string());
 	    
         let ph = Handler::new(
@@ -40,7 +35,7 @@ impl PluginsManager {
             plugin.class().label().to_str(),
             Box::new(move || Box::new(Lv2Talker::new(&plg_uri))),
         );
-            self.plugin_handlers.push(ph);
+            self.handlers.push(ph);
 
         println!("{}({}) {}", plugin.name(), plugin.class().label().to_str(), plugin.uri());
         /*
@@ -53,7 +48,6 @@ impl PluginsManager {
         */
     }
     println!("Print plugins end");
-        &self.plugin_handlers
 }
 }
 

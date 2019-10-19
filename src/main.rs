@@ -61,15 +61,17 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
+    let world: World = World::new().unwrap();
+
     let mut pm = PluginsManager::new();
     let phs = pm.load_plugins();
 
-    for ph in phs {
+    for ph in pm.handlers {
         println!("Plugin {}.{}", ph.category, ph.kind);
+	let tkr = (ph.make)();
     }
-//    let world = World::new().unwrap();
 
-    match run(pm.lilv_world()) {
+    match run(&world) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -90,8 +92,6 @@ fn run(world: &World) -> Result<(), failure::Error> {
     let fuzzface = world
         .get_plugin_by_uri("http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_")
         .unwrap();
-
-    show_plugin(&fuzzface);
 
     let fuzz_ctrl_buf = Rc::new(CellBuffer::new(2f32));
     let level_ctrl_buf = Rc::new(CellBuffer::new(0.25f32));
@@ -173,30 +173,3 @@ fn run(world: &World) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn show_plugin(plugin: &Plugin) {
-    println!("> {:?}", plugin);
-    for port in plugin.inputs() {
-        println!("> {:?}", port);
-    }
-    for port in plugin.outputs() {
-        println!("< {:?}", port);
-    }
-    for port in plugin
-        .inputs()
-        .filter_map(UnknownInputPort::into_typed::<Audio>)
-    {
-        println!("\t{:?}", port)
-    }
-    for port in plugin
-        .outputs()
-        .filter_map(UnknownOutputPort::into_typed::<Audio>)
-    {
-        println!("\t{:?}", port)
-    }
-    for port in plugin
-        .inputs()
-        .filter_map(UnknownInputPort::into_typed::<Control>)
-    {
-        println!("\t{:?}", port)
-    }
-}
