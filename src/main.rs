@@ -68,7 +68,7 @@ fn main() {
 
     for ph in pm.handlers {
         println!("Plugin {}.{}", ph.category, ph.kind);
-	let tkr = (ph.make)();
+        let tkr = (ph.make)();
     }
 
     match run(&world) {
@@ -172,4 +172,3 @@ fn run(world: &World) -> Result<(), failure::Error> {
 
     Ok(())
 }
-

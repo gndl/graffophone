@@ -1,5 +1,5 @@
 use node::inner_node::node_from_ptr;
-use node::{Node, String, Uri};
+use node::{String, Uri};
 use world::World;
 
 #[derive(Clone)]
