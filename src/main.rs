@@ -10,10 +10,11 @@ use std::rc::Rc;
 #[global_allocator]
 static A: System = System;
 
-use lilv::plugin::Plugin;
 use lilv::world::World;
 /*
+use lilv::plugin::Plugin;
 use lilv::*;
+use gpplugin::talker::Talker;
  */
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
@@ -24,8 +25,6 @@ use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
 use lv2::core::{Feature, FeatureBuffer, FeatureSet};
-
-use gpplugin::talker::Talker;
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
@@ -62,16 +61,16 @@ const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
     let world: World = World::new().unwrap();
+    let feature_set = GpFeatureSet::new();
+    let features = feature_set.to_list();
+    //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
     let mut pm = PluginsManager::new();
-    let phs = pm.load_plugins();
+    pm.load_plugins(&world /*, &features*/);
 
-    for ph in pm.handlers {
-        println!("Plugin {}.{}", ph.category, ph.kind);
-        let tkr = (ph.make)();
-    }
+    pm.run();
 
-    match run(&world) {
+    match run(&world, &features) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -79,15 +78,12 @@ fn main() {
     }
 }
 
-fn run(world: &World) -> Result<(), failure::Error> {
+fn run(world: &World, features: &FeatureBuffer) -> Result<(), failure::Error> {
     let mut f = 22.5;
     let mut av = Vec::with_capacity(CHANNELS * SAMPLES);
     for _ in 0..CHANNELS * SAMPLES {
         av.push(0.);
     }
-
-    let feature_set = GpFeatureSet::new();
-    let features = feature_set.to_list();
 
     let fuzzface = world
         .get_plugin_by_uri("http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_")

@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["gndl"]
 
 [dependencies]
-failure = "0.1.2"
+failure = "0.1.5"
 lilv = { path = "../lilv" }

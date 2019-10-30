@@ -1,57 +1,67 @@
+extern crate failure;
 use crate::ear::Ear;
 use crate::identifier::Identifier;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
 
-pub struct Base {
+pub struct TalkerBase {
     pub identifier: Identifier,
     get_ear_call: bool,
 }
 
-impl Base {
+impl TalkerBase {
     pub fn new() -> Self {
         Self {
             identifier: Identifier::new("", "", TALKER_COUNT.fetch_add(1, Ordering::SeqCst)),
             get_ear_call: false,
         }
     }
-/*
-        pub fn identifier<'a>(&'a self) -> &'a Identifier{
-            self.identifier
-        }
+    /*
+            pub fn identifier<'a>(&'a self) -> &'a Identifier{
+                self.identifier
+            }
 
-pub fn get_id(&self) -> u32 {self.identifier.get_id()}
-pub fn get_name(&self) -> u32 {self.identifier.get_name()}
-*/
+    pub fn get_id(&self) -> u32 {self.identifier.get_id()}
+    pub fn get_name(&self) -> u32 {self.identifier.get_name()}
+    */
 }
 
 pub trait Talker {
-    fn base<'a>(&'a self) -> &'a Base;
-    fn get_id(&self) -> u32 {
+    fn base<'a>(&'a self) -> &'a TalkerBase;
+    fn id(&self) -> u32 {
         self.base().identifier.get_id()
     }
-    fn get_name<'a>(&'a self) -> &'a String {
+    fn name<'a>(&'a self) -> &'a String {
         self.base().identifier.get_name()
     }
     fn depends_of(&self, id: u32) -> bool;
-    fn get_ears<'a>(&'a self) -> &'a Vec<Ear>;
+    fn ears<'a>(&'a self) -> &'a Vec<Ear>;
 }
 
-
-
-pub struct Handler {
-pub  kind : String,
-pub  category : String, 
-pub  make : Box<dyn Fn() -> Box<dyn Talker>>,
+pub struct TalkerHandlerBase {
+    pub kind: String,
+    pub category: String,
 }
 
-impl Handler {
-    pub fn new(kind: &str, category: &str, make: Box<dyn Fn() -> Box<dyn Talker>>) -> Self {
+impl TalkerHandlerBase {
+    pub fn new(kind: &str, category: &str) -> Self {
         Self {
             kind: kind.to_string(),
             category: category.to_string(),
-            make: make,
         }
     }
+}
+
+pub trait TalkerHandler {
+    fn base<'a>(&'a self) -> &'a TalkerHandlerBase;
+
+    fn kind<'a>(&'a self) -> &'a String {
+        &self.base().kind
+    }
+    fn category<'a>(&'a self) -> &'a String {
+        &self.base().category
+    }
+
+    fn make(&self) -> Result<Box<dyn Talker>, failure::Error>;
 }

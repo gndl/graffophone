@@ -1,5 +1,5 @@
-use crate::talker::Talker;
 use crate::cornet;
+use crate::talker::Talker;
 
 type Port = i32;
 
@@ -31,6 +31,6 @@ impl Voice {
     }
 
     pub fn is_from(&mut self, tkr_id: u32, port: Port) -> bool {
-        self.port == port && self.tkr.get_id() == tkr_id
+        self.port == port && self.tkr.id() == tkr_id
     }
 }

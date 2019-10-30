@@ -1,11 +1,25 @@
 use crate::lv2_talker;
-use crate::lv2_talker::Lv2Talker;
-use gpplugin::talker::{Handler, Talker};
-use lilv::plugin::Plugin;
+use gpplugin::talker::TalkerHandler;
+
 use lilv::world::World;
+/*
+use gpplugin::talker::Talker;
+use crate::lv2_talker;
+use lv2::core::FeatureBuffer;
+use lilv::plugin::Plugin;
+use lilv::port::{UnknownInputPort, UnknownOutputPort};
+use gpplugin::talker::{TalkerHandler, TalkerHandlerBase};
+use crate::lv2_talker::Lv2TalkerHandler;
+*/
+enum PluginHandler {
+    Lv2 { uri: String },
+}
 
 pub struct PluginsManager {
-    pub handlers: Vec<Handler>,
+    // world: World,
+    // feature_set: GpFeatureSet,
+    //    pub handlers: Vec<Box<dyn TalkerHandler>>,
+    pub handlers: Vec<Box<dyn TalkerHandler>>,
 }
 
 impl PluginsManager {
@@ -15,43 +29,33 @@ impl PluginsManager {
         }
     }
 
-    pub fn load_plugins<'a>(&'a mut self) {
-        let world: World = World::new().unwrap();
+    pub fn load_plugins(&mut self, world: &World /*, features: &'a FeatureBuffer*/) {
+        println!("load_plugins start");
         /*
-            let tkr: Box<dyn Talker> = Box::new(Lv2Talker::new().unwrap());
-            println!("tkr id {}, name {}", tkr.get_id(), tkr.get_name());
-            let phs = Vec::new();
-        */
-
-        //    println!("lilv_plugins_size: {}", lilv_sys::lilv_plugins_size(plugins));
-
-        println!("Print plugins start");
-
-        for plugin in world.plugins() {
-            let plg_uri = String::from(plugin.uri().to_string());
-
-            let ph = Handler::new(
-                plugin.name().to_str(),
-                plugin.class().label().to_str(),
-                Box::new(move || Box::new(Lv2Talker::new(&plg_uri))),
-            );
-            self.handlers.push(ph);
-
-            println!(
-                "{}({}) {}",
-                plugin.name(),
-                plugin.class().label().to_str(),
-                plugin.uri()
-            );
-            /*
-            for port in plugin.inputs() {
-                println!("> {:?}", port);
-            }
-            for port in plugin.outputs() {
-                println!("< {:?}", port);
-            }
-            */
+        lv2_talker::load_plugins(&mut self.handlers);
+        for plugin in global.world.plugins() {
+            talker_handlers.push(Box::new(Lv2TalkerHandler::new(
+                TalkerHandlerBase::new(plugin.name().to_str(), plugin.class().label().to_str()),
+                String::from(plugin.uri().to_string()),
+            )));
         }
-        println!("Print plugins end");
+         */
+        println!("load_plugins end");
+    }
+
+    pub fn run(&self) {
+        for ph in self.handlers {
+            println!("Plugin {} ({})", ph.kind(), ph.category());
+
+            match ph.make() {
+                Ok(tkr) => {
+                    println!("Plugin {} {}", tkr.id(), tkr.name());
+                    //           talkers.push(tkr);
+                }
+                Err(e) => {
+                    eprintln!("Make talker failed: {:?}", e);
+                }
+            }
+        }
     }
 }
