@@ -6,9 +6,10 @@ use lilv::port::buffer::VecBuffer;
 use lilv::instance::{errors::MissingFeatureError, PluginInstance, ResolvedPlugin};
 use lv2::core::{Feature, FeatureBuffer, FeatureSet};
 use lv2::core::FeatureBuffer;
+use std::cell::RefCell;
+use std::rc::Rc;
 */
 
-use std::cell::RefCell;
 
 use lilv::instance::PluginInstance;
 use lilv::plugin::Plugin;
@@ -22,8 +23,8 @@ use gpplugin::ear::Ear;
 use gpplugin::talker;
 use gpplugin::talker::{Talker, TalkerBase, TalkerHandler, TalkerHandlerBase};
 
-use lv2::core::{Feature, FeatureBuffer, FeatureSet};
-
+use lv2::core::FeatureBuffer;
+/*
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
 }
@@ -56,7 +57,7 @@ thread_local!(static GLOBAL: RefCell<Global> = RefCell::new(Global {
                 hard_rt_capable: ::lv2::core::features::HardRTCapable,
             },
         }));
-
+*/
 pub struct Lv2Talker<'a> {
     base: talker::TalkerBase,
     ears: Vec<Ear>,
@@ -65,35 +66,37 @@ pub struct Lv2Talker<'a> {
 
 impl<'a> Lv2Talker<'a> {
     pub fn new<'w>(
-        /*
         world: &'w World,
         features: &'w FeatureBuffer<'a>,
+        /*
          */
         uri: &String,
-    ) -> Result<Box<dyn Talker>, failure::Error> {
+    ) -> Result<Lv2Talker<'a>, failure::Error> {
         println!("Lv2Talker plugin uri : {}", uri);
-
+/*
         GLOBAL.with(|global_cell| {
             let global = global_cell.borrow_mut();
 
             //        let world = World::new().unwrap();
             let plugin = global.world.get_plugin_by_uri(uri.as_str()).unwrap();
-
+*/
             //        show_plugin(&plugin);
             //                let features = global.feature_set.to_list();
+          let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
 
-            match plugin.resolve(&global.feature_set.to_list()) {
+//            match plugin.resolve(&global.feature_set.to_list()) {
+            match plugin.resolve(features) {
                 Ok(p) => match p.instantiate(audio_format::sample_rate() as f64) {
-                    Ok(instance) => Ok(Box::new(Self {
+                    Ok(instance) => Ok(/*Box::new(*/Self {
                         base: TalkerBase::new(),
                         ears: Vec::new(),
                         instance: instance,
-                    })),
+                    }),//),
                     _ => Err(failure::err_msg("PluginInstantiationError")),
                 },
                 _ => Err(failure::err_msg("MissingFeatureError")),
             }
-        })
+//        })
     }
 }
 
@@ -165,7 +168,7 @@ impl Lv2TalkerHandler {
         }
     }
 }
-
+/*
 impl TalkerHandler for Lv2TalkerHandler {
     fn base<'b>(&'b self) -> &'b TalkerHandlerBase {
         &self.base
@@ -176,7 +179,7 @@ impl TalkerHandler for Lv2TalkerHandler {
         )
     }
 }
-/*
+
 pub fn load_plugins(talker_handlers: &mut Vec<Box<dyn TalkerHandler>>) {
     GLOBAL.with(|global_cell| {
         let global = global_cell.borrow_mut();

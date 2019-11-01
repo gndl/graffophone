@@ -51,6 +51,14 @@ impl TalkerHandlerBase {
             category: category.to_string(),
         }
     }
+
+    pub fn kind<'a>(&'a self) -> &'a String {
+        &self.kind
+    }
+
+    pub fn category<'a>(&'a self) -> &'a String {
+        &self.category
+    }
 }
 
 pub trait TalkerHandler {

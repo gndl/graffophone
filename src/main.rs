@@ -66,7 +66,7 @@ fn main() {
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
     let mut pm = PluginsManager::new();
-    pm.load_plugins(&world /*, &features*/);
+    pm.load_plugins( /*&world, &features*/);
 
     pm.run();
 
