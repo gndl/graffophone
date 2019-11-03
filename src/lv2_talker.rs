@@ -72,7 +72,7 @@ impl<'a> Lv2Talker<'a> {
          */
         uri: &String,
     ) -> Result<Lv2Talker<'a>, failure::Error> {
-        println!("Lv2Talker plugin uri : {}", uri);
+//        println!("Lv2Talker plugin uri : {}", uri);
 /*
         GLOBAL.with(|global_cell| {
             let global = global_cell.borrow_mut();

@@ -55,9 +55,9 @@ unsafe impl Feature for URIDMap {
     const URI: &'static [u8] = ::lv2_sys::LV2_URID_MAP_URI;
 }
 
-impl URIDMap {
+impl<'a> URIDMap {
     #[inline]
-    pub fn new<T: URIDMapper>(mapper: &T) -> URIDMap {
+    pub fn new<T: URIDMapper>(mapper: &'a T) -> URIDMap {
         // FIXME: mapper needs an additional lifetime check here
         URIDMap {
             inner: ::lv2_sys::LV2_URID_Map {

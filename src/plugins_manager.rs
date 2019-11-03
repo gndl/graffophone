@@ -1,5 +1,9 @@
 use std::rc::Rc;
 use crate::lv2_talker::Lv2Talker;
+use lv2::urid::features::{URIDMap, URIDUnmap};
+use lv2::urid::{URID, URIDOf, SimpleMapper};
+
+use lv2::units::units::Frame;
 use gpplugin::talker::{Talker, TalkerHandlerBase};
 
 use lilv::world::World;
@@ -16,19 +20,30 @@ use lv2::core::{Feature, FeatureBuffer, FeatureSet};
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
+urid_map: ::lv2::urid::features::URIDMap,
+urid_unmap: ::lv2::urid::features::URIDUnmap,
+mapper: SimpleMapper,
 }
 
 impl GpFeatureSet {
     pub fn new() -> Self {
+let mapper = SimpleMapper::new();
+
         Self {
             hard_rt_capable: ::lv2::core::features::HardRTCapable,
+urid_map: URIDMap::new(&mapper),
+urid_unmap: URIDUnmap::new(&mapper),
+mapper: mapper,
         }
     }
 }
 
 impl<'a> FeatureSet<'a> for GpFeatureSet {
     fn to_list(&self) -> FeatureBuffer {
-        FeatureBuffer::from_vec(vec![Feature::descriptor(&self.hard_rt_capable)])
+        FeatureBuffer::from_vec(vec![Feature::descriptor(&self.hard_rt_capable)
+, Feature::descriptor(&self.urid_map)
+, Feature::descriptor(&self.urid_unmap)
+])
     }
 }
 
@@ -99,9 +114,11 @@ match Lv2Talker::new(
             }
         }
     }
+
 for tkr in &talkers {
                     println!("Plugin {} {}", tkr.id(), tkr.name());
 
 }
+
 }
 }
