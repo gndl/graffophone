@@ -19,12 +19,16 @@ impl SimpleMapper {
 
 impl URIDMapper for SimpleMapper {
     fn map(&self, uri: &Uri) -> Result<URID, Box<dyn Error>> {
+        println!(">>> SimpleMapper.map");
         let uris = unsafe { &mut *self.uris.get() }; // Please actually better handle borrows than that, this is just a test
+                                                     //        let uris = &mut self.uris.get(); // Please actually better handle borrows than that, this is just a test
+        println!("SimpleMapper.map uris {:?}", uris);
         let index = uris
             .iter()
             .enumerate()
             .find(|(_, u)| &uri == u)
             .map(|(i, _)| i);
+        println!("<<< SimpleMapper.map");
         Ok(NonZeroU32::new(match index {
             Some(i) => (i + 1) as u32,
             None => {

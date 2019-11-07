@@ -1,6 +1,7 @@
 use core::uri::AsUriRef;
 use core::uri::Uri;
 use core::Feature;
+use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
@@ -31,7 +32,7 @@ unsafe extern "C" fn urid_map<T: URIDMapper>(
         uri: *const c_char,
     ) -> Result<URID, Box<dyn Error>> {
         let value = ::std::panic::catch_unwind(|| {
-            (&*(handle as *const T)).map(Uri::from_cstr(CStr::from_ptr(uri))?)
+            (*(handle as *const T)).map(Uri::from_cstr(CStr::from_ptr(uri))?)
         })
         .map_err(|_| MapperPanickedError)?;
         value
@@ -43,6 +44,24 @@ unsafe extern "C" fn urid_map<T: URIDMapper>(
             eprintln!("Error in LV2 URID mapper: {}", e);
             0
         })
+}
+
+unsafe extern "C" fn urid_map_with_hashmap(
+    handle: ::lv2_sys::LV2_URID_Map_Handle,
+    uri: *const c_char,
+) -> ::lv2_sys::LV2_URID {
+    //    let mut hm: &HashMap<&CStr, u32> = ;
+
+    match (*(handle as *const HashMap<&CStr, u32>)).get(CStr::from_ptr(uri)) {
+        Some(urid) => *urid,
+        None => {
+            (*(handle as *mut HashMap<&CStr, u32>)).insert(
+                CStr::from_ptr(uri),
+                (*(handle as *const HashMap<&CStr, u32>)).len() as u32 + 1,
+            );
+            (*(handle as *const HashMap<&CStr, u32>)).len() as u32
+        }
+    }
 }
 
 #[repr(C)]
@@ -63,6 +82,15 @@ impl<'a> URIDMap {
             inner: ::lv2_sys::LV2_URID_Map {
                 handle: mapper as *const T as *const c_void as *mut c_void,
                 map: Some(urid_map::<T>),
+            },
+        }
+    }
+
+    pub fn new_with_hashmap(mapper: &'a HashMap<&CStr, u32>) -> URIDMap {
+        URIDMap {
+            inner: ::lv2_sys::LV2_URID_Map {
+                handle: mapper as *const HashMap<&CStr, u32> as *const c_void as *mut c_void,
+                map: Some(urid_map_with_hashmap),
             },
         }
     }
@@ -102,6 +130,19 @@ unsafe extern "C" fn urid_unmap<T: URIDMapper>(
         })
 }
 
+unsafe extern "C" fn urid_unmap_with_hashmap(
+    handle: ::lv2_sys::LV2_URID_Unmap_Handle,
+    urid: ::lv2_sys::LV2_URID,
+) -> *const c_char {
+    let mut k = ::std::ptr::null();
+    for (key, value) in (*(handle as *const HashMap<&CStr, u32>)).iter() {
+        if *value == urid {
+            k = key.as_ptr();
+        }
+    }
+    k
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct URIDUnmap {
@@ -112,14 +153,23 @@ unsafe impl Feature for URIDUnmap {
     const URI: &'static [u8] = ::lv2_sys::LV2_URID_UNMAP_URI;
 }
 
-impl URIDUnmap {
+impl<'a> URIDUnmap {
     #[inline]
-    pub fn new<T: URIDMapper>(mapper: &T) -> URIDUnmap {
+    pub fn new<T: URIDMapper>(mapper: &'a T) -> URIDUnmap {
         // FIXME: mapper needs an additional lifetime check here
         URIDUnmap {
             inner: ::lv2_sys::LV2_URID_Unmap {
                 handle: mapper as *const T as *const c_void as *mut c_void,
                 unmap: Some(urid_unmap::<T>),
+            },
+        }
+    }
+
+    pub fn new_with_hashmap(mapper: &'a HashMap<&CStr, u32>) -> URIDUnmap {
+        URIDUnmap {
+            inner: ::lv2_sys::LV2_URID_Unmap {
+                handle: mapper as *const HashMap<&CStr, u32> as *const c_void as *mut c_void,
+                unmap: Some(urid_unmap_with_hashmap),
             },
         }
     }
