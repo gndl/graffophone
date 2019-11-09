@@ -2,12 +2,12 @@ use std::collections::HashMap;
 //use std::error::Error;
 use crate::lv2_talker::Lv2Talker;
 use lv2::urid::features::{URIDMap, URIDUnmap};
-use lv2::urid::{SimpleMapper, URIDOf, URID};
-use std::ffi::CStr;
+//use lv2::urid::{SimpleMapper, URIDOf, URID};
+use std::ffi::CString;
 use std::rc::Rc;
 
 use gpplugin::talker::{Talker, TalkerHandlerBase};
-use lv2::units::units::Frame;
+//use lv2::units::units::Frame;
 
 use lilv::world::World;
 /*
@@ -25,19 +25,27 @@ struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
     urid_map: ::lv2::urid::features::URIDMap,
     urid_unmap: ::lv2::urid::features::URIDUnmap,
-    mapper: HashMap<&CStr, u32>,
+//    mapper: HashMap<CString, u32>,
 }
 
 impl GpFeatureSet {
     pub fn new() -> Self {
-        let mapper = HashMap::new();
-
-        Self {
+/*
+let m = HashMap::new();
+        let mut fs = 
+*/
+Self {
             hard_rt_capable: ::lv2::core::features::HardRTCapable,
-            urid_map: URIDMap::new_with_hashmap(&mapper),
-            urid_unmap: URIDUnmap::new_with_hashmap(&mapper),
-            mapper: mapper,
+            urid_map: URIDMap::new(),
+            urid_unmap: URIDUnmap::new(),
+//            mapper: HashMap::new(),
         }
+/*
+;
+fs.urid_map = URIDMap::new_with_hashmap(&fs.mapper);
+            fs.urid_unmap = URIDUnmap::new_with_hashmap(&fs.mapper);
+fs
+*/
     }
 }
 

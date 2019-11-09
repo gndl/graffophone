@@ -3,7 +3,7 @@ use core::uri::Uri;
 use core::Feature;
 use std::collections::HashMap;
 use std::error::Error;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::num::NonZeroU32;
 use std::os::raw::{c_char, c_void};
@@ -21,8 +21,33 @@ impl fmt::Display for MapperPanickedError {
 }
 
 impl Error for MapperPanickedError {}
+use std::cell::RefCell;
 
-unsafe extern "C" fn urid_map<T: URIDMapper>(
+thread_local!(static MAP: RefCell< HashMap<CString, u32>> = RefCell::new(HashMap::new()));
+
+unsafe extern "C" fn urid_map(
+    handle: ::lv2_sys::LV2_URID_Map_Handle,
+    uri: *const c_char,
+) -> ::lv2_sys::LV2_URID {
+
+let u =  CString::new(CStr::from_ptr(uri).to_str().unwrap()).unwrap();
+let mut ret = 0;
+
+  MAP.with(|map_cell| {
+        let mut map = map_cell.borrow_mut();
+
+    match map.get(&u) {
+        Some(urid) => ret = *urid,
+        None => {
+            ret = map.len() as u32 + 1;
+            map.insert(u, ret);
+        }
+    }
+    });
+ret
+}
+
+unsafe extern "C" fn urid_map_with_mapper<T: URIDMapper>(
     handle: ::lv2_sys::LV2_URID_Map_Handle,
     uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
@@ -50,18 +75,17 @@ unsafe extern "C" fn urid_map_with_hashmap(
     handle: ::lv2_sys::LV2_URID_Map_Handle,
     uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
-    //    let mut hm: &HashMap<&CStr, u32> = ;
-
+let u =  CString::new(CStr::from_ptr(uri).to_str().unwrap()).unwrap();
     match (*(handle as *const HashMap<&CStr, u32>)).get(CStr::from_ptr(uri)) {
         Some(urid) => *urid,
-        None => {
+         None => {
             (*(handle as *mut HashMap<&CStr, u32>)).insert(
                 CStr::from_ptr(uri),
                 (*(handle as *const HashMap<&CStr, u32>)).len() as u32 + 1,
-            );
+             );
             (*(handle as *const HashMap<&CStr, u32>)).len() as u32
-        }
-    }
+         }
+     }
 }
 
 #[repr(C)]
@@ -76,20 +100,29 @@ unsafe impl Feature for URIDMap {
 
 impl<'a> URIDMap {
     #[inline]
-    pub fn new<T: URIDMapper>(mapper: &'a T) -> URIDMap {
-        // FIXME: mapper needs an additional lifetime check here
+    pub fn new() -> URIDMap {
         URIDMap {
             inner: ::lv2_sys::LV2_URID_Map {
-                handle: mapper as *const T as *const c_void as *mut c_void,
-                map: Some(urid_map::<T>),
+                handle: ::std::ptr::null() as *const HashMap<CString, u32> as *const c_void as *mut c_void,
+                map: Some(urid_map),
             },
         }
     }
 
-    pub fn new_with_hashmap(mapper: &'a HashMap<&CStr, u32>) -> URIDMap {
+    #[inline]
+    pub fn new_with_mapper<T: URIDMapper>(mapper: &'a T) -> URIDMap {
         URIDMap {
             inner: ::lv2_sys::LV2_URID_Map {
-                handle: mapper as *const HashMap<&CStr, u32> as *const c_void as *mut c_void,
+                handle: mapper as *const T as *const c_void as *mut c_void,
+                map: Some(urid_map_with_mapper::<T>),
+            },
+        }
+    }
+
+    pub fn new_with_hashmap(mapper: &'a HashMap<CString, u32>) -> URIDMap {
+        URIDMap {
+            inner: ::lv2_sys::LV2_URID_Map {
+                handle: mapper as *const HashMap<CString, u32> as *const c_void as *mut c_void,
                 map: Some(urid_map_with_hashmap),
             },
         }
@@ -107,7 +140,24 @@ impl<'a> URIDMap {
     }
 }
 
-unsafe extern "C" fn urid_unmap<T: URIDMapper>(
+unsafe extern "C" fn urid_unmap(
+    handle: ::lv2_sys::LV2_URID_Unmap_Handle,
+    urid: ::lv2_sys::LV2_URID,
+) -> *const c_char {
+    let mut k = ::std::ptr::null();
+  MAP.with(|map_cell| {
+        let mut map = map_cell.borrow_mut();
+
+    for (key, value) in map.iter() {
+        if *value == urid {
+            k = key.as_ptr();
+        }
+    }
+    });
+    k
+}
+
+unsafe extern "C" fn urid_unmap_with_mapper<T: URIDMapper>(
     handle: ::lv2_sys::LV2_URID_Unmap_Handle,
     urid: ::lv2_sys::LV2_URID,
 ) -> *const c_char {
@@ -135,7 +185,7 @@ unsafe extern "C" fn urid_unmap_with_hashmap(
     urid: ::lv2_sys::LV2_URID,
 ) -> *const c_char {
     let mut k = ::std::ptr::null();
-    for (key, value) in (*(handle as *const HashMap<&CStr, u32>)).iter() {
+    for (key, value) in (*(handle as *const HashMap<CString, u32>)).iter() {
         if *value == urid {
             k = key.as_ptr();
         }
@@ -155,20 +205,29 @@ unsafe impl Feature for URIDUnmap {
 
 impl<'a> URIDUnmap {
     #[inline]
-    pub fn new<T: URIDMapper>(mapper: &'a T) -> URIDUnmap {
-        // FIXME: mapper needs an additional lifetime check here
+    pub fn new() -> URIDUnmap {
         URIDUnmap {
             inner: ::lv2_sys::LV2_URID_Unmap {
-                handle: mapper as *const T as *const c_void as *mut c_void,
-                unmap: Some(urid_unmap::<T>),
+                handle: ::std::ptr::null() as *const URIDMap as *const c_void as *mut c_void,
+                unmap: Some(urid_unmap),
             },
         }
     }
 
-    pub fn new_with_hashmap(mapper: &'a HashMap<&CStr, u32>) -> URIDUnmap {
+    pub fn new_with_mapper<T: URIDMapper>(mapper: &'a T) -> URIDUnmap {
+        // FIXME: mapper needs an additional lifetime check here
         URIDUnmap {
             inner: ::lv2_sys::LV2_URID_Unmap {
-                handle: mapper as *const HashMap<&CStr, u32> as *const c_void as *mut c_void,
+                handle: mapper as *const T as *const c_void as *mut c_void,
+                unmap: Some(urid_unmap_with_mapper::<T>),
+            },
+        }
+    }
+
+    pub fn new_with_hashmap(mapper: &'a HashMap<CString, u32>) -> URIDUnmap {
+        URIDUnmap {
+            inner: ::lv2_sys::LV2_URID_Unmap {
+                handle: mapper as *const HashMap<CString, u32> as *const c_void as *mut c_void,
                 unmap: Some(urid_unmap_with_hashmap),
             },
         }
