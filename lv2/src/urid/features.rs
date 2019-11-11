@@ -26,24 +26,25 @@ use std::cell::RefCell;
 thread_local!(static MAP: RefCell< HashMap<CString, u32>> = RefCell::new(HashMap::new()));
 
 unsafe extern "C" fn urid_map(
-    handle: ::lv2_sys::LV2_URID_Map_Handle,
-    uri: *const c_char,
+    _handle: ::lv2_sys::LV2_URID_Map_Handle,
+    c_uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
 
-let u =  CString::new(CStr::from_ptr(uri).to_str().unwrap()).unwrap();
+let uri = CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap();
 let mut ret = 0;
 
   MAP.with(|map_cell| {
         let mut map = map_cell.borrow_mut();
 
-    match map.get(&u) {
+    match map.get(&uri) {
         Some(urid) => ret = *urid,
         None => {
             ret = map.len() as u32 + 1;
-            map.insert(u, ret);
+            map.insert(uri, ret);
         }
     }
     });
+        println!("URID map {:?} -> {}", CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap(), ret);
 ret
 }
 
@@ -75,7 +76,7 @@ unsafe extern "C" fn urid_map_with_hashmap(
     handle: ::lv2_sys::LV2_URID_Map_Handle,
     uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
-let u =  CString::new(CStr::from_ptr(uri).to_str().unwrap()).unwrap();
+
     match (*(handle as *const HashMap<&CStr, u32>)).get(CStr::from_ptr(uri)) {
         Some(urid) => *urid,
          None => {
@@ -141,12 +142,12 @@ impl<'a> URIDMap {
 }
 
 unsafe extern "C" fn urid_unmap(
-    handle: ::lv2_sys::LV2_URID_Unmap_Handle,
+    _handle: ::lv2_sys::LV2_URID_Unmap_Handle,
     urid: ::lv2_sys::LV2_URID,
 ) -> *const c_char {
     let mut k = ::std::ptr::null();
   MAP.with(|map_cell| {
-        let mut map = map_cell.borrow_mut();
+        let map = map_cell.borrow_mut();
 
     for (key, value) in map.iter() {
         if *value == urid {
@@ -154,6 +155,7 @@ unsafe extern "C" fn urid_unmap(
         }
     }
     });
+        println!("URID unmap {} -> {:?}", urid, k);
     k
 }
 
