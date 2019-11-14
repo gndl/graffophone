@@ -40,22 +40,26 @@ pub trait Talker {
 }
 
 pub struct TalkerHandlerBase {
-    pub kind: String,
+    pub id: String,
+    pub name: String,
     pub category: String,
 }
 
 impl TalkerHandlerBase {
-    pub fn new(kind: &str, category: &str) -> Self {
+    pub fn new(id: &str, name: &str, category: &str) -> Self {
         Self {
-            kind: kind.to_string(),
+            id: id.to_string(),
+            name: name.to_string(),
             category: category.to_string(),
         }
     }
 
-    pub fn kind<'a>(&'a self) -> &'a String {
-        &self.kind
+    pub fn id<'a>(&'a self) -> &'a String {
+        &self.id
     }
-
+    pub fn name<'a>(&'a self) -> &'a String {
+        &self.name
+    }
     pub fn category<'a>(&'a self) -> &'a String {
         &self.category
     }
@@ -64,8 +68,11 @@ impl TalkerHandlerBase {
 pub trait TalkerHandler {
     fn base<'a>(&'a self) -> &'a TalkerHandlerBase;
 
-    fn kind<'a>(&'a self) -> &'a String {
-        &self.base().kind
+    fn id<'a>(&'a self) -> &'a String {
+        &self.base().id
+    }
+    fn name<'a>(&'a self) -> &'a String {
+        &self.base().name
     }
     fn category<'a>(&'a self) -> &'a String {
         &self.base().category
