@@ -26,7 +26,6 @@ use lv2::core::FeatureBuffer;
 
 pub struct Lv2Talker<'a> {
     base: talker::TalkerBase,
-    ears: Vec<Ear>,
     instance: PluginInstance<'a>,
 }
 
@@ -38,11 +37,16 @@ impl<'a> Lv2Talker<'a> {
     ) -> Result<Lv2Talker<'a>, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
 
+        for port in plugin.inputs() {
+            match UnknownInputPort::into_typed::<Control>(port) {
+                Some(cp) => {}
+                None => {}
+            }
+        }
         match plugin.resolve(features) {
             Ok(p) => match p.instantiate(audio_format::sample_rate() as f64) {
                 Ok(instance) => Ok(Self {
                     base: TalkerBase::new(),
-                    ears: Vec::new(),
                     instance: instance,
                 }),
                 _ => Err(failure::err_msg("PluginInstantiationError")),
@@ -58,9 +62,6 @@ impl<'a> Talker for Lv2Talker<'a> {
     }
     fn depends_of(&self, _id: u32) -> bool {
         true
-    }
-    fn ears<'e>(&'e self) -> &'e Vec<Ear> {
-        &self.ears
     }
 }
 

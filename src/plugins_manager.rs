@@ -5,7 +5,8 @@ use lv2::urid::features::{URIDMap, URIDUnmap};
 //use lv2::urid::{SimpleMapper, URIDOf, URID};
 use std::rc::Rc;
 
-use gpplugin::talker::{Talker, TalkerHandlerBase};
+use gpplugin::talker::Talker;
+use gpplugin::talker_handler::TalkerHandlerBase;
 //use lv2::units::units::Frame;
 
 use lilv::world::World;
