@@ -12,12 +12,15 @@ use std::rc::Rc;
 
 use lilv::instance::PluginInstance;
 use lilv::plugin::Plugin;
+use lilv::port::Port;
+use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
 use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
 use gpplugin::audio_format;
+use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::talker;
 use gpplugin::talker::{Talker, TalkerBase};
@@ -37,18 +40,31 @@ impl<'a> Lv2Talker<'a> {
     ) -> Result<Lv2Talker<'a>, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
 
-        for port in plugin.inputs() {
-            match UnknownInputPort::into_typed::<Control>(port) {
-                Some(cp) => {}
-                None => {}
-            }
-        }
         match plugin.resolve(features) {
             Ok(p) => match p.instantiate(audio_format::sample_rate() as f64) {
-                Ok(instance) => Ok(Self {
-                    base: TalkerBase::new(),
-                    instance: instance,
-                }),
+                Ok(mut instance) => {
+                    let mut base = TalkerBase::new();
+
+                    for port in plugin.inputs() {
+                        match UnknownInputPort::as_typed::<Control>(&port) {
+                            Some(cp) => {
+                                let w = ear::mk_word(Some(cp.name().to_string()), None);
+                                instance.connect_port(cp.handle().clone(), w.value.clone());
+                                base.add_ear(Ear::EWord(w));
+                            }
+                            None => match UnknownInputPort::as_typed::<Audio>(&port) {
+                                Some(ap) => {
+                                    let t = ear::mk_talk(Some(ap.name().to_string()), None, None);
+                                    base.add_ear(Ear::ETalk(t));
+                                }
+                                None => {
+                                    eprintln!("Type port inconnu");
+                                }
+                            },
+                        }
+                    }
+                    Ok(Self { base, instance })
+                }
                 _ => Err(failure::err_msg("PluginInstantiationError")),
             },
             _ => Err(failure::err_msg("MissingFeatureError")),
