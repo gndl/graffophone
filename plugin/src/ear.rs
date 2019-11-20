@@ -1,12 +1,13 @@
 use crate::hidden_constant_talker::HiddenConstantTalker;
 use crate::talker::Talker;
+use lilv::port::buffer::CellBuffer;
 use std::rc::Rc;
 
 pub const DEF_INPUT_TAG: &'static str = "I";
 
 pub struct Word {
-    value: f32,
-    tag: String,
+    pub value: Rc<CellBuffer<f32>>,
+    pub tag: String,
 }
 pub struct Talk {
     tkr: Rc<dyn Talker>,
@@ -43,7 +44,7 @@ pub enum Ear {
 
 pub fn def_word() -> Word {
     Word {
-        value: 0.,
+        value: Rc::new(CellBuffer::new(0f32)),
         tag: DEF_INPUT_TAG.to_string(),
     }
 }
@@ -64,7 +65,7 @@ fn mk_constant_talk(tag: Option<String>, value: Option<f32>) -> Talk {
 
 pub fn mk_word(tag: Option<String>, value: Option<f32>) -> Word {
     Word {
-        value: value.unwrap_or(0.),
+        value: Rc::new(CellBuffer::new(value.unwrap_or(0.))),
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
     }
 }
@@ -91,10 +92,7 @@ pub fn mk_bin(tag: Option<String>, src: Option<Src>, value: Option<f32>) -> Bin 
     match src {
         Some(src) => Bin { src },
         None => Bin {
-            src: Src::Word(Word {
-                value: value.unwrap_or(0.),
-                tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
-            }),
+            src: Src::Word(mk_word(tag, value)),
         },
     }
 }
@@ -102,7 +100,7 @@ pub fn mk_bin(tag: Option<String>, src: Option<Src>, value: Option<f32>) -> Bin 
 pub fn mk_word_bin(tag: Option<String>, value: f32) -> Bin {
     Bin {
         src: Src::Word(Word {
-            value,
+            value: Rc::new(CellBuffer::new(value)),
             tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
         }),
     }

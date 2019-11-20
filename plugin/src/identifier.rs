@@ -32,10 +32,10 @@ impl Identifier {
         Self { id: id, name: name }
     }
 
-    pub fn get_id(&self) -> u32 {
+    pub fn id(&self) -> u32 {
         self.id
     }
-    pub fn get_name<'a>(&'a self) -> &'a String {
+    pub fn name<'a>(&'a self) -> &'a String {
         &self.name
     }
     pub fn set_name(&mut self, name: &str) {
@@ -47,8 +47,8 @@ impl Identifier {
 }
 
 pub trait Identifiable {
-    fn get_id(&self) -> u32;
-    fn get_name(&self) -> String;
+    fn id(&self) -> u32;
+    fn name(&self) -> String;
     fn set_name(&self, name: &str) -> ();
     fn depends_of(&self, id: u32) -> bool;
 }

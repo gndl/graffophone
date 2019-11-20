@@ -7,10 +7,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
 
 pub struct TalkerBase {
-    pub identifier: Identifier,
+    identifier: Identifier,
     ears: Vec<Ear>,
     voices: Vec<Voice>,
-    get_ear_call: bool,
+    ear_call: bool,
 }
 
 impl TalkerBase {
@@ -19,26 +19,34 @@ impl TalkerBase {
             identifier: Identifier::new("", "", TALKER_COUNT.fetch_add(1, Ordering::SeqCst)),
             ears: Vec::new(),
             voices: Vec::new(),
-            get_ear_call: false,
+            ear_call: false,
         }
     }
-    /*
-            pub fn identifier<'a>(&'a self) -> &'a Identifier{
-                self.identifier
-            }
+    pub fn add_ear<'a>(&'a mut self, ear: Ear) {
+        self.ears.push(ear);
+    }
+    pub fn add_voice<'a>(&'a mut self, voice: Voice) {
+        self.voices.push(voice);
+    }
+    pub fn identifier<'a>(&'a self) -> &'a Identifier {
+        &self.identifier
+    }
 
-    pub fn get_id(&self) -> u32 {self.identifier.get_id()}
-    pub fn get_name(&self) -> u32 {self.identifier.get_name()}
-    */
+    pub fn id(&self) -> u32 {
+        self.identifier.id()
+    }
+    pub fn name<'a>(&'a self) -> &'a String {
+        self.identifier.name()
+    }
 }
 
 pub trait Talker {
     fn base<'a>(&'a self) -> &'a TalkerBase;
     fn id(&self) -> u32 {
-        self.base().identifier.get_id()
+        self.base().id()
     }
     fn name<'a>(&'a self) -> &'a String {
-        self.base().identifier.get_name()
+        self.base().name()
     }
     fn depends_of(&self, id: u32) -> bool;
 
