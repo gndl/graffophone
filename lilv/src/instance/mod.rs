@@ -1,34 +1,39 @@
-use Plugin;
-use std::marker::PhantomData;
-use lv2::core::{
-    FeatureBuffer,
-    ExtensionData,
-    uri::Uri
-};
+use lv2::core::{uri::Uri, ExtensionData, FeatureBuffer};
 use port::buffer::BufferType;
 use port::buffer::PortBuffer;
 use port::PortHandle;
 use port::PortIndex;
 use std::ffi::CStr;
+use std::marker::PhantomData;
+use Plugin;
 
 mod buffers;
 pub mod errors;
-use self::errors::*;
 use self::buffers::*;
+use self::errors::*;
 use std::borrow::Borrow;
 
 pub struct ResolvedPlugin<'p, 'l, 'f: 'l> {
     plugin: &'p Plugin<'p>,
-    feature_list: &'l FeatureBuffer<'f>
+    feature_list: &'l FeatureBuffer<'f>,
 }
 
-impl <'p, 'l, 'f: 'l> ResolvedPlugin<'p, 'l, 'f> {
-    pub(crate) fn new(plugin: &'p Plugin<'p>, feature_list: &'l FeatureBuffer<'f>) -> Result<Self, MissingFeatureError> {
+impl<'p, 'l, 'f: 'l> ResolvedPlugin<'p, 'l, 'f> {
+    pub(crate) fn new(
+        plugin: &'p Plugin<'p>,
+        feature_list: &'l FeatureBuffer<'f>,
+    ) -> Result<Self, MissingFeatureError> {
         // TODO: actually check stuff here
-        Ok(Self { plugin, feature_list })
+        Ok(Self {
+            plugin,
+            feature_list,
+        })
     }
 
-    pub fn instantiate(&self, sample_rate: f64) -> Result<PluginInstance<'f>, PluginInstantiationError> {
+    pub fn instantiate(
+        &self,
+        sample_rate: f64,
+    ) -> Result<PluginInstance<'f>, PluginInstantiationError> {
         PluginInstance::new(self.plugin, sample_rate, self.feature_list)
     }
 }
@@ -41,19 +46,30 @@ pub struct PluginInstance<'f> {
 }
 
 impl<'f> PluginInstance<'f> {
-    pub(crate) fn new(plugin: &Plugin, sample_rate: f64, features: &FeatureBuffer<'f>) -> Result<Self, PluginInstantiationError> {
+    pub(crate) fn new(
+        plugin: &Plugin,
+        sample_rate: f64,
+        features: &FeatureBuffer<'f>,
+    ) -> Result<Self, PluginInstantiationError> {
         let ptr = unsafe {
             ::lilv_sys::lilv_plugin_instantiate(
                 plugin.ptr,
                 sample_rate,
-                features.raw_descriptors_with_nul() as _
+                features.raw_descriptors_with_nul() as _,
             )
         };
-        if ptr.is_null() { return Err(PluginInstantiationError) }
+        if ptr.is_null() {
+            return Err(PluginInstantiationError);
+        }
 
         let buffers = Buffers::new(plugin);
 
-        Ok(Self { ptr, buffers, activated: false, _marker: PhantomData })
+        Ok(Self {
+            ptr,
+            buffers,
+            activated: false,
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
@@ -62,36 +78,45 @@ impl<'f> PluginInstance<'f> {
     }
 
     #[inline]
-    pub fn all_port_buffers<T: BufferType>(&self) -> impl Iterator<Item=&T::BufferImpl> {
+    pub fn all_port_buffers<T: BufferType>(&self) -> impl Iterator<Item = &T::BufferImpl> {
         self.buffers.all::<T>()
     }
 
-    pub fn connect_port<
-        P: BufferType,
-        R: Borrow<P::BufferImpl> + 'static
-    >(&mut self, handle: PortHandle<P>, buffer: R) {
+    pub fn connect_port<P: BufferType, R: Borrow<P::BufferImpl> + 'static>(
+        &mut self,
+        handle: PortHandle<P>,
+        buffer: R,
+    ) {
         unsafe {
             let buffer = self.buffers.set::<P, R>(handle.index(), buffer);
-            ::lilv_sys::lilv_instance_connect_port(
-                self.ptr,
-                handle.index(),
-                buffer.get_ptr()
-            )
+            ::lilv_sys::lilv_instance_connect_port(self.ptr, handle.index(), buffer.get_ptr())
+        }
+    }
+
+    pub fn connect_port_index<P: BufferType, R: Borrow<P::BufferImpl> + 'static>(
+        &mut self,
+        index: u32,
+        buffer: R,
+    ) {
+        unsafe {
+            let buffer = self.buffers.set::<P, R>(index, buffer);
+            ::lilv_sys::lilv_instance_connect_port(self.ptr, index, buffer.get_ptr())
         }
     }
 
     pub fn get_extension_data<E: ExtensionData>(&self) -> Option<&E> {
         unsafe {
-            (::lilv_sys::lilv_instance_get_extension_data(
-                self.ptr,
-                E::URI.as_ptr() as _) as *const E
-            ).as_ref()
+            (::lilv_sys::lilv_instance_get_extension_data(self.ptr, E::URI.as_ptr() as _)
+                as *const E)
+                .as_ref()
         }
     }
 
     #[inline]
     pub fn get_uri(&self) -> &Uri {
-        unsafe { Uri::from_cstr_unchecked(CStr::from_ptr(::lilv_sys::lilv_instance_get_uri(self.ptr))) }
+        unsafe {
+            Uri::from_cstr_unchecked(CStr::from_ptr(::lilv_sys::lilv_instance_get_uri(self.ptr)))
+        }
     }
 
     #[inline]
@@ -104,7 +129,9 @@ impl<'f> PluginInstance<'f> {
 
     #[inline]
     pub fn run(&mut self, sample_count: u32) {
-        if !self.activated { panic!("Tried to run instance without activating it first") }
+        if !self.activated {
+            panic!("Tried to run instance without activating it first")
+        }
         unsafe { ::lilv_sys::lilv_instance_run(self.ptr, sample_count) }
     }
 
@@ -115,12 +142,13 @@ impl<'f> PluginInstance<'f> {
         }
         self.activated = false;
     }
-
 }
 
 impl<'a> Drop for PluginInstance<'a> {
     fn drop(&mut self) {
-        if self.activated { self.deactivate() }
+        if self.activated {
+            self.deactivate()
+        }
         unsafe { ::lilv_sys::lilv_instance_free(self.ptr) }
     }
 }

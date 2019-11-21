@@ -19,17 +19,20 @@ use lilv::world::World;
 use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
-use gpplugin::audio_format;
+use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::talker;
 use gpplugin::talker::{Talker, TalkerBase};
+use gpplugin::voice::Voice;
 
 use lv2::core::FeatureBuffer;
 
 pub struct Lv2Talker<'a> {
     base: talker::TalkerBase,
     instance: PluginInstance<'a>,
+    inputPortHandlers: Vec<u32>,
+    outputPortHandlers: Vec<u32>,
 }
 
 impl<'a> Lv2Talker<'a> {
@@ -41,29 +44,51 @@ impl<'a> Lv2Talker<'a> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
 
         match plugin.resolve(features) {
-            Ok(p) => match p.instantiate(audio_format::sample_rate() as f64) {
+            Ok(p) => match p.instantiate(AudioFormat::sample_rate() as f64) {
                 Ok(mut instance) => {
                     let mut base = TalkerBase::new();
+                    let mut inputPortHandlers = Vec::new();
+                    let mut outputPortHandlers = Vec::new();
 
                     for port in plugin.inputs() {
                         match UnknownInputPort::as_typed::<Control>(&port) {
-                            Some(cp) => {
-                                let w = ear::mk_word(Some(cp.name().to_string()), None);
-                                instance.connect_port(cp.handle().clone(), w.value.clone());
+                            Some(p) => {
+                                let w = ear::mk_word(Some(p.name().to_string()), None);
+                                instance.connect_port(p.handle().clone(), w.value.clone());
+                                inputPortHandlers.push(p.handle().index());
                                 base.add_ear(Ear::EWord(w));
                             }
                             None => match UnknownInputPort::as_typed::<Audio>(&port) {
-                                Some(ap) => {
-                                    let t = ear::mk_talk(Some(ap.name().to_string()), None, None);
+                                Some(p) => {
+                                    let t = ear::mk_talk(Some(p.name().to_string()), None, None);
+                                    inputPortHandlers.push(p.handle().index());
                                     base.add_ear(Ear::ETalk(t));
                                 }
                                 None => {
-                                    eprintln!("Type port inconnu");
+                                    eprintln!("Unmanaged input port type");
                                 }
                             },
                         }
                     }
-                    Ok(Self { base, instance })
+
+                    for port in plugin.outputs() {
+                        match UnknownOutputPort::as_typed::<Audio>(&port) {
+                            Some(p) => {
+                                let vc = Voice::init(p.name().to_string());
+                                base.add_voice(vc);
+                                outputPortHandlers.push(p.handle().index());
+                            }
+                            None => {
+                                eprintln!("Unmanaged output port type");
+                            }
+                        }
+                    }
+                    Ok(Self {
+                        base,
+                        instance,
+                        inputPortHandlers,
+                        outputPortHandlers,
+                    })
                 }
                 _ => Err(failure::err_msg("PluginInstantiationError")),
             },

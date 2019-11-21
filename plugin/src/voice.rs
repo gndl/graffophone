@@ -1,3 +1,4 @@
+use crate::audio_format::AudioFormat;
 use crate::cornet;
 
 pub struct Voice {
@@ -8,6 +9,16 @@ pub struct Voice {
 }
 
 impl Voice {
+    pub fn init(tag: String) -> Self {
+        let len = AudioFormat::chunk_size();
+        Self {
+            tick: 0,
+            len,
+            cor: cornet::new(len),
+            tag: tag,
+        }
+    }
+
     pub fn new(tick: i64, len: usize, tag: String) -> Self {
         Self {
             tick: tick,
