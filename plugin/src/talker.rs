@@ -11,6 +11,7 @@ pub struct TalkerBase {
     ears: Vec<Ear>,
     voices: Vec<Voice>,
     ear_call: bool,
+    hidden: bool,
 }
 
 impl TalkerBase {
@@ -20,6 +21,7 @@ impl TalkerBase {
             ears: Vec::new(),
             voices: Vec::new(),
             ear_call: false,
+            hidden: false,
         }
     }
     pub fn add_ear<'a>(&'a mut self, ear: Ear) {
@@ -38,6 +40,15 @@ impl TalkerBase {
     pub fn name<'a>(&'a self) -> &'a String {
         self.identifier.name()
     }
+    pub fn set_name(&mut self, name: &String) {
+        self.identifier.set_name(name);
+    }
+    pub fn is_hidden(&self) -> bool {
+        self.hidden
+    }
+    pub fn set_hidden(&mut self, hidden: bool) {
+        self.hidden = hidden;
+    }
 }
 
 pub trait Talker {
@@ -48,12 +59,17 @@ pub trait Talker {
     fn name<'a>(&'a self) -> &'a String {
         self.base().name()
     }
-    fn depends_of(&self, id: u32) -> bool;
-
+    fn is_hidden(&self) -> bool {
+        self.base().is_hidden()
+    }
+    fn depends_of(&self, id: u32) -> bool {
+        self.base().id() == id
+    }
     fn ears<'a>(&'a self) -> &'a Vec<Ear> {
         &self.base().ears
     }
     fn voices<'a>(&'a self) -> &'a Vec<Voice> {
         &self.base().voices
     }
+    fn talk(&mut self, port: u32, tick: i64, len: usize);
 }
