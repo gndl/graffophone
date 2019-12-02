@@ -16,14 +16,14 @@ use lilv::port::Port;
 use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
-use lv2::core::ports::Audio;
-use lv2::core::ports::Control;
+use lv2::core::ports::{Audio, Control, CV};
 
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::talker;
 use gpplugin::talker::{Talker, TalkerBase};
+use gpplugin::voice;
 use gpplugin::voice::Voice;
 
 use lv2::core::FeatureBuffer;
@@ -31,8 +31,9 @@ use lv2::core::FeatureBuffer;
 pub struct Lv2Talker<'a> {
     base: talker::TalkerBase,
     instance: PluginInstance<'a>,
-    inputPortHandlers: Vec<u32>,
-    outputPortHandlers: Vec<u32>,
+    input_port_handlers: Vec<u32>,
+    output_port_handlers: Vec<u32>,
+    activated: bool,
 }
 
 impl<'a> Lv2Talker<'a> {
@@ -47,22 +48,22 @@ impl<'a> Lv2Talker<'a> {
             Ok(p) => match p.instantiate(AudioFormat::sample_rate() as f64) {
                 Ok(mut instance) => {
                     let mut base = TalkerBase::new();
-                    let mut inputPortHandlers = Vec::new();
-                    let mut outputPortHandlers = Vec::new();
+                    let mut input_port_handlers = Vec::new();
+                    let mut output_port_handlers = Vec::new();
 
                     for port in plugin.inputs() {
                         match UnknownInputPort::as_typed::<Control>(&port) {
                             Some(p) => {
-                                let w = ear::mk_word(Some(p.name().to_string()), None);
-                                instance.connect_port(p.handle().clone(), w.value.clone());
-                                inputPortHandlers.push(p.handle().index());
-                                base.add_ear(Ear::EWord(w));
+                                let tlk = ear::control(Some(p.name().to_string()), None);
+                                //                                instance.connect_port(p.handle().clone(), w.value.clone());
+                                input_port_handlers.push(p.handle().index());
+                                base.add_ear(Ear::Control(tlk));
                             }
                             None => match UnknownInputPort::as_typed::<Audio>(&port) {
                                 Some(p) => {
-                                    let t = ear::mk_talk(Some(p.name().to_string()), None, None);
-                                    inputPortHandlers.push(p.handle().index());
-                                    base.add_ear(Ear::ETalk(t));
+                                    let tlk = ear::audio(Some(p.name().to_string()), None, None);
+                                    input_port_handlers.push(p.handle().index());
+                                    base.add_ear(Ear::Audio(tlk));
                                 }
                                 None => {
                                     eprintln!("Unmanaged input port type");
@@ -74,20 +75,45 @@ impl<'a> Lv2Talker<'a> {
                     for port in plugin.outputs() {
                         match UnknownOutputPort::as_typed::<Audio>(&port) {
                             Some(p) => {
-                                let vc = Voice::init(p.name().to_string());
-                                base.add_voice(vc);
-                                outputPortHandlers.push(p.handle().index());
+                                let mut vc = voice::audio(Some(p.name().to_string()), None);
+                                instance
+                                    .connect_port(p.handle().clone(), vc.get_mut().horn().clone());
+                                base.add_voice(Voice::Audio(vc));
+                                output_port_handlers.push(p.handle().index());
                             }
-                            None => {
-                                eprintln!("Unmanaged output port type");
-                            }
+                            None => match UnknownOutputPort::as_typed::<Control>(&port) {
+                                Some(p) => {
+                                    let mut vc = voice::control(Some(p.name().to_string()), None);
+                                    instance.connect_port(
+                                        p.handle().clone(),
+                                        vc.get_mut().horn().clone(),
+                                    );
+                                    base.add_voice(Voice::Control(vc));
+                                    output_port_handlers.push(p.handle().index());
+                                }
+                                None => match UnknownOutputPort::as_typed::<CV>(&port) {
+                                    Some(p) => {
+                                        let mut vc = voice::cv(Some(p.name().to_string()), None);
+                                        instance.connect_port(
+                                            p.handle().clone(),
+                                            vc.get_mut().horn().clone(),
+                                        );
+                                        base.add_voice(Voice::Cv(vc));
+                                        output_port_handlers.push(p.handle().index());
+                                    }
+                                    None => {
+                                        eprintln!("Unmanaged output port type");
+                                    }
+                                },
+                            },
                         }
                     }
                     Ok(Self {
                         base,
                         instance,
-                        inputPortHandlers,
-                        outputPortHandlers,
+                        input_port_handlers,
+                        output_port_handlers,
+                        activated: false,
                     })
                 }
                 _ => Err(failure::err_msg("PluginInstantiationError")),
@@ -101,8 +127,9 @@ impl<'a> Talker for Lv2Talker<'a> {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
-    fn depends_of(&self, _id: u32) -> bool {
-        true
+    fn talk(&mut self, port: u32, tick: i64, len: usize) {
+        // for{
+        // }
     }
 }
 
