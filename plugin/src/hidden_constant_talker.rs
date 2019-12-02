@@ -19,9 +19,6 @@ impl Talker for HiddenConstantTalker {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
-    fn depends_of(&self, _id: u32) -> bool {
-        true
-    }
 }
 /*
 and ?(value = 1.) () =
