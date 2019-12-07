@@ -68,8 +68,15 @@ pub trait Talker {
     fn ears<'a>(&'a self) -> &'a Vec<Ear> {
         &self.base().ears
     }
-    fn voices<'a>(&'a self) -> &'a Vec<Voice> {
+    fn voices<'a>(&'a mut self) -> &'a Vec<Voice> {
         &self.base().voices
     }
-    fn talk(&mut self, port: u32, tick: i64, len: usize);
+    /*
+        fn iter_voices(&mut self, f: FnMut(&Voice)) {
+            for vc in &self.base().voices {
+                f(vc);
+            }
+        }
+    */
+    fn talk(&mut self, port: usize, tick: i64, len: usize);
 }

@@ -21,6 +21,7 @@ use lv2::core::ports::{Audio, Control, CV};
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
+use gpplugin::horn;
 use gpplugin::talker;
 use gpplugin::talker::{Talker, TalkerBase};
 use gpplugin::voice;
@@ -65,7 +66,13 @@ impl<'a> Lv2Talker<'a> {
                                     input_port_handlers.push(p.handle().index());
                                     base.add_ear(Ear::Audio(tlk));
                                 }
-                                None => {
+                                None => /*match UnknownInputPort::as_typed::<Cv>(&port) {
+                                Some(p) => {
+                                    let tlk = ear::cv(Some(p.name().to_string()), None, None);
+                                    input_port_handlers.push(p.handle().index());
+                                    base.add_ear(Ear::Audio(tlk));
+                                }
+                                None => */{
                                     eprintln!("Unmanaged input port type");
                                 }
                             },
@@ -75,30 +82,28 @@ impl<'a> Lv2Talker<'a> {
                     for port in plugin.outputs() {
                         match UnknownOutputPort::as_typed::<Audio>(&port) {
                             Some(p) => {
-                                let mut vc = voice::audio(Some(p.name().to_string()), None);
-                                instance
-                                    .connect_port(p.handle().clone(), vc.get_mut().horn().clone());
-                                base.add_voice(Voice::Audio(vc));
+                                let buf = horn::audio_buf(None, None);
+                                instance.connect_port(p.handle().clone(), buf.clone());
+                                let vc = voice::audio(Some(p.name().to_string()), None, Some(buf));
+                                base.add_voice(vc);
                                 output_port_handlers.push(p.handle().index());
                             }
                             None => match UnknownOutputPort::as_typed::<Control>(&port) {
                                 Some(p) => {
-                                    let mut vc = voice::control(Some(p.name().to_string()), None);
-                                    instance.connect_port(
-                                        p.handle().clone(),
-                                        vc.get_mut().horn().clone(),
-                                    );
-                                    base.add_voice(Voice::Control(vc));
+                                    let buf = horn::control_buf(None);
+                                    instance.connect_port(p.handle().clone(), buf.clone());
+                                    let vc =
+                                        voice::control(Some(p.name().to_string()), None, Some(buf));
+                                    base.add_voice(vc);
                                     output_port_handlers.push(p.handle().index());
                                 }
                                 None => match UnknownOutputPort::as_typed::<CV>(&port) {
                                     Some(p) => {
-                                        let mut vc = voice::cv(Some(p.name().to_string()), None);
-                                        instance.connect_port(
-                                            p.handle().clone(),
-                                            vc.get_mut().horn().clone(),
-                                        );
-                                        base.add_voice(Voice::Cv(vc));
+                                        let buf = horn::cv_buf(None, None);
+                                        instance.connect_port(p.handle().clone(), buf.clone());
+                                        let vc =
+                                            voice::cv(Some(p.name().to_string()), None, Some(buf));
+                                        base.add_voice(vc);
                                         output_port_handlers.push(p.handle().index());
                                     }
                                     None => {
@@ -127,7 +132,7 @@ impl<'a> Talker for Lv2Talker<'a> {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
-    fn talk(&mut self, port: u32, tick: i64, len: usize) {
+    fn talk(&mut self, port: usize, tick: i64, len: usize) {
         // for{
         // }
     }

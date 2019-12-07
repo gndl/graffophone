@@ -1,94 +1,47 @@
 use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
-use crate::horn;
 use crate::talker::Talker;
-use std::marker::PhantomData;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
-//use voice::VoiceT;
+use voice::PortType;
 
 pub const DEF_INPUT_TAG: &'static str = "I";
 
-pub struct TalkT<T> {
+pub struct Talk {
+    port_type: PortType,
     tag: String,
-    tkr: Rc<dyn Talker>,
-    port: i32,
-    _marker: PhantomData<T>,
-    //    horn: T,
-}
-pub type AudioTalk = TalkT<horn::Audio>;
-pub type ControlTalk = TalkT<horn::Control>;
-pub type CvTalk = TalkT<horn::Cv>;
-
-pub struct TalksT<T> {
-    tag: String,
-    talks: Vec<TalkT<T>>,
-    _marker: PhantomData<T>,
+    tkr: Rc<RefCell<dyn Talker>>,
+    port: usize,
 }
 
-pub type AudioTalks = TalksT<horn::Audio>;
-pub type ControlTalks = TalksT<horn::Control>;
-pub type CvTalks = TalksT<horn::Cv>;
-/*
-pub struct AudioTalk
-{
-    pub talk: Talk,
-    pub horn: horn::Audio,
-}
-pub struct ControlTalk {
-    pub talk: Talk,
-    pub horn: horn::Control,
-}
-pub struct CvTalk {
-    pub talk: Talk,
-    pub horn: horn::Cv,
-}
-pub enum Src {
-    Word(Word),
-    Talk(Talk),
-}
-pub struct Bin {
-    src: Src,
-}
-pub struct AudioTalks {
+pub struct Talks {
     tag: String,
-    talks: Vec<AudioTalk>,
+    talks: Vec<Talk>,
 }
-pub struct ControlTalks {
-    tag: String,
-    talks: Vec<ControlTalk>,
-}
-pub struct CvTalks {
-    tag: String,
-    talks: Vec<CvTalk>,
-}
-pub struct Bins {
-    bins: Vec<Bin>,
-    tag: String,
-}
-*/
+
 pub enum Ear {
-    Audio(AudioTalk),
-    Control(ControlTalk),
-    Cv(CvTalk),
-    Audios(AudioTalks),
-    Controls(ControlTalks),
-    Cvs(CvTalks),
+    Audio(Talk),
+    Control(Talk),
+    Cv(Talk),
+    Audios(Talks),
+    Controls(Talks),
+    Cvs(Talks),
 }
 
-pub fn def_audio(tag: Option<String>, value: Option<f32>) -> AudioTalk {
-    AudioTalk {
+pub fn def_audio(tag: Option<String>, value: Option<f32>) -> Talk {
+    Talk {
+        port_type: PortType::Audio,
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
-        tkr: Rc::new(AudioTalker::new(value, Some(true))),
+        tkr: Rc::new(RefCell::new(AudioTalker::new(value, Some(true)))),
         port: 0,
-        _marker: PhantomData,
     }
 }
-pub fn def_control(tag: Option<String>, value: Option<f32>) -> ControlTalk {
-    ControlTalk {
+pub fn def_control(tag: Option<String>, value: Option<f32>) -> Talk {
+    Talk {
+        port_type: PortType::Control,
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
-        tkr: Rc::new(ControlTalker::new(value, Some(true))),
+        tkr: Rc::new(RefCell::new(ControlTalker::new(value, Some(true)))),
         port: 0,
-        _marker: PhantomData,
     }
 }
 /*
@@ -100,23 +53,23 @@ pub fn def_ear() -> Ear {
     Ear::Control(def_control(None, None))
 }
 
-pub fn control(tag: Option<String>, value: Option<f32>) -> ControlTalk {
+pub fn control(tag: Option<String>, value: Option<f32>) -> Talk {
     def_control(tag, value)
 }
 
 pub fn audio(
     tag: Option<String>,
     value: Option<f32>,
-    talker_port: Option<(&Rc<dyn Talker>, i32)>,
-) -> AudioTalk {
+    talker_port: Option<(&Rc<RefCell<dyn Talker>>, usize)>,
+) -> Talk {
     match value {
         Some(_v) => def_audio(tag, value),
         None => match talker_port {
-            Some((tkr, port)) => AudioTalk {
+            Some((tkr, port)) => Talk {
+                port_type: PortType::Audio,
                 tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
                 tkr: Rc::clone(tkr),
                 port: port,
-                _marker: PhantomData,
             },
             None => def_audio(tag, None),
         },
@@ -186,16 +139,19 @@ pub fn talk_of_ear (ear: &Ear) -> Option<Ear> {
     )
 
     pub fn talks_of_ears ears =
-
-pub fn listen_voice<T>(talk: &TalkT<T>, tick: i64, len: usize) -> VoiceT<T> {
-    let port = talk.port;
-    let voice = talk.tkr.voices().get(port);
-
-    if tick != voice.tick()
-  || len > voice.len()
-  {
-    talk.tkr.talk (port tick len);
-  }
-    voice
-}
 */
+
+//fn need_talking(talk: &Talk, tick: i64, len: usize) {
+pub fn listen(talk: &Talk, tick: i64, len: usize) {
+    let mut need_talking = false;
+    let port = talk.port;
+    {
+        let mut tkr = talk.tkr.borrow_mut();
+        let voice = tkr.voices().get(port).unwrap().borrow();
+        need_talking = tick != voice.tick() || len > voice.len();
+    }
+    if need_talking {
+        let mut tkr: RefMut<_> = talk.tkr.borrow_mut();
+        tkr.talk(port, tick, len);
+    }
+}
