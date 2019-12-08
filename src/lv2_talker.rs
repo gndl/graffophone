@@ -55,26 +55,27 @@ impl<'a> Lv2Talker<'a> {
                     for port in plugin.inputs() {
                         match UnknownInputPort::as_typed::<Control>(&port) {
                             Some(p) => {
-                                let tlk = ear::control(Some(p.name().to_string()), None);
+                                let ear = ear::control(Some(p.name().to_string()), None);
                                 //                                instance.connect_port(p.handle().clone(), w.value.clone());
+                                base.add_ear(ear);
                                 input_port_handlers.push(p.handle().index());
-                                base.add_ear(Ear::Control(tlk));
                             }
                             None => match UnknownInputPort::as_typed::<Audio>(&port) {
                                 Some(p) => {
-                                    let tlk = ear::audio(Some(p.name().to_string()), None, None);
+                                    let ear = ear::audio(Some(p.name().to_string()), None, None);
+                                    base.add_ear(ear);
                                     input_port_handlers.push(p.handle().index());
-                                    base.add_ear(Ear::Audio(tlk));
                                 }
-                                None => /*match UnknownInputPort::as_typed::<Cv>(&port) {
-                                Some(p) => {
-                                    let tlk = ear::cv(Some(p.name().to_string()), None, None);
-                                    input_port_handlers.push(p.handle().index());
-                                    base.add_ear(Ear::Audio(tlk));
-                                }
-                                None => */{
-                                    eprintln!("Unmanaged input port type");
-                                }
+                                None => match UnknownInputPort::as_typed::<CV>(&port) {
+                                    Some(p) => {
+                                        let ear = ear::cv(Some(p.name().to_string()), None, None);
+                                        base.add_ear(ear);
+                                        input_port_handlers.push(p.handle().index());
+                                    }
+                                    None => {
+                                        eprintln!("Unmanaged input port type");
+                                    }
+                                },
                             },
                         }
                     }
@@ -132,9 +133,14 @@ impl<'a> Talker for Lv2Talker<'a> {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
-    fn talk(&mut self, port: usize, tick: i64, len: usize) {
-        // for{
-        // }
+    fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize {
+        let mut ln = len;
+
+        for ear in self.ears() {
+            ln = ear::listen(ear, tick, ln);
+        }
+        self.instance.run(ln as u32);
+        ln
     }
 }
 

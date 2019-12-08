@@ -78,5 +78,5 @@ pub trait Talker {
             }
         }
     */
-    fn talk(&mut self, port: usize, tick: i64, len: usize);
+    fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
 }

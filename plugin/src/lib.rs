@@ -4,6 +4,7 @@ extern crate lilv;
 pub mod audio_format;
 pub mod audio_talker;
 pub mod control_talker;
+pub mod cv_talker;
 pub mod ear;
 //pub mod hidden_constant_talker;
 pub mod horn;

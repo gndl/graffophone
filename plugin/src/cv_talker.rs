@@ -1,14 +1,14 @@
 use crate::talker::{Talker, TalkerBase};
 use crate::voice;
 
-pub struct AudioTalker {
+pub struct CvTalker {
     base: TalkerBase,
 }
 
-impl AudioTalker {
-    pub fn new(value: Option<f32>, hidden: Option<bool>) -> AudioTalker {
+impl CvTalker {
+    pub fn new(value: Option<f32>, hidden: Option<bool>) -> CvTalker {
         let mut base = TalkerBase::new();
-        let voice = voice::audio(None, value, None);
+        let voice = voice::cv(None, value, None);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
@@ -16,7 +16,7 @@ impl AudioTalker {
     }
 }
 
-impl Talker for AudioTalker {
+impl Talker for CvTalker {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
     }

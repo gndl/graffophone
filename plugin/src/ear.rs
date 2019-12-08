@@ -1,7 +1,8 @@
 use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
+use crate::cv_talker::CvTalker;
 use crate::talker::Talker;
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::rc::Rc;
 use voice::PortType;
 
@@ -15,34 +16,39 @@ pub struct Talk {
 }
 
 pub struct Talks {
+    port_type: PortType,
     tag: String,
     talks: Vec<Talk>,
 }
 
 pub enum Ear {
-    Audio(Talk),
-    Control(Talk),
-    Cv(Talk),
-    Audios(Talks),
-    Controls(Talks),
-    Cvs(Talks),
+    Talk(Talk),
+    Talks(Talks),
 }
 
-pub fn def_audio(tag: Option<String>, value: Option<f32>) -> Talk {
-    Talk {
+pub fn def_audio(tag: Option<String>, value: Option<f32>) -> Ear {
+    Ear::Talk(Talk {
         port_type: PortType::Audio,
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
         tkr: Rc::new(RefCell::new(AudioTalker::new(value, Some(true)))),
         port: 0,
-    }
+    })
 }
-pub fn def_control(tag: Option<String>, value: Option<f32>) -> Talk {
-    Talk {
+pub fn def_control(tag: Option<String>, value: Option<f32>) -> Ear {
+    Ear::Talk(Talk {
         port_type: PortType::Control,
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
         tkr: Rc::new(RefCell::new(ControlTalker::new(value, Some(true)))),
         port: 0,
-    }
+    })
+}
+pub fn def_cv(tag: Option<String>, value: Option<f32>) -> Ear {
+    Ear::Talk(Talk {
+        port_type: PortType::Cv,
+        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        tkr: Rc::new(RefCell::new(CvTalker::new(value, Some(true)))),
+        port: 0,
+    })
 }
 /*
 pub fn def_src() -> Src {
@@ -50,10 +56,10 @@ pub fn def_src() -> Src {
 }
  */
 pub fn def_ear() -> Ear {
-    Ear::Control(def_control(None, None))
+    def_control(None, None)
 }
 
-pub fn control(tag: Option<String>, value: Option<f32>) -> Talk {
+pub fn control(tag: Option<String>, value: Option<f32>) -> Ear {
     def_control(tag, value)
 }
 
@@ -61,17 +67,35 @@ pub fn audio(
     tag: Option<String>,
     value: Option<f32>,
     talker_port: Option<(&Rc<RefCell<dyn Talker>>, usize)>,
-) -> Talk {
+) -> Ear {
     match value {
         Some(_v) => def_audio(tag, value),
         None => match talker_port {
-            Some((tkr, port)) => Talk {
+            Some((tkr, port)) => Ear::Talk(Talk {
                 port_type: PortType::Audio,
                 tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
                 tkr: Rc::clone(tkr),
                 port: port,
-            },
+            }),
             None => def_audio(tag, None),
+        },
+    }
+}
+pub fn cv(
+    tag: Option<String>,
+    value: Option<f32>,
+    talker_port: Option<(&Rc<RefCell<dyn Talker>>, usize)>,
+) -> Ear {
+    match value {
+        Some(_v) => def_cv(tag, value),
+        None => match talker_port {
+            Some((tkr, port)) => Ear::Talk(Talk {
+                port_type: PortType::Cv,
+                tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+                tkr: Rc::clone(tkr),
+                port: port,
+            }),
+            None => def_cv(tag, None),
         },
     }
 }
@@ -141,9 +165,8 @@ pub fn talk_of_ear (ear: &Ear) -> Option<Ear> {
     pub fn talks_of_ears ears =
 */
 
-//fn need_talking(talk: &Talk, tick: i64, len: usize) {
-pub fn listen(talk: &Talk, tick: i64, len: usize) {
-    let mut need_talking = false;
+pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
+    let need_talking;
     let port = talk.port;
     {
         let mut tkr = talk.tkr.borrow_mut();
@@ -151,7 +174,23 @@ pub fn listen(talk: &Talk, tick: i64, len: usize) {
         need_talking = tick != voice.tick() || len > voice.len();
     }
     if need_talking {
-        let mut tkr: RefMut<_> = talk.tkr.borrow_mut();
-        tkr.talk(port, tick, len);
+        let mut tkr/*: RefMut<_> */= talk.tkr.borrow_mut();
+        tkr.talk(port, tick, len)
+    } else {
+        len
+    }
+}
+
+pub fn listen(ear: &Ear, tick: i64, len: usize) -> usize {
+    match ear {
+        Ear::Talk(talk) => listen_talk(&talk, tick, len),
+        Ear::Talks(talks) => {
+            let mut ln = len;
+
+            for tlk in &talks.talks {
+                ln = listen_talk(&tlk, tick, ln);
+            }
+            ln
+        }
     }
 }
