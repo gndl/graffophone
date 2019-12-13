@@ -24,7 +24,7 @@ impl T {
         Self {
             port_type,
             tag: tag.unwrap_or(DEF_OUTPUT_TAG.to_string()),
-            tick: 0,
+            tick: -1,
             len,
             horn,
         }

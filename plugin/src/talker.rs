@@ -1,10 +1,22 @@
 extern crate failure;
+use crate::ear;
 use crate::ear::Ear;
 use crate::identifier::Identifier;
 use crate::voice::Voice;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
+
+pub enum ValueType {
+    Nil,
+    Int(i64),
+    Float(f32),
+    String(String),
+    Text(String),
+    File(String),
+}
 
 pub struct TalkerBase {
     identifier: Identifier,
@@ -71,12 +83,36 @@ pub trait Talker {
     fn voices<'a>(&'a mut self) -> &'a Vec<Voice> {
         &self.base().voices
     }
-    /*
-        fn iter_voices(&mut self, f: FnMut(&Voice)) {
-            for vc in &self.base().voices {
-                f(vc);
+
+    fn set_ear_value_by_tag(&mut self, tag: &String, value: f32) -> bool {
+        for ear in self.ears() {
+            match ear {
+                Ear::Talk(talk) => {
+                    if talk.borrow().tag() == tag {
+                        ear::set_talk_value(talk, value);
+                        return true;
+                    }
+                }
+                Ear::Talks(talks) => {
+                    let mut tlks = talks.borrow_mut();
+
+                    if tlks.tag() == tag {
+                        tlks.add_talk_value(value);
+                        return true;
+                    } else {
+                        for talk in tlks.talks() {
+                            if talk.borrow().tag() == tag {
+                                ear::set_talk_value(talk, value);
+                                return true;
+                            }
+                        }
+                    }
+                }
             }
         }
-    */
+        false
+    }
     fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
 }
+
+pub type MTalker = Rc<RefCell<dyn Talker>>;
