@@ -16,8 +16,8 @@ pub struct Talk {
 }
 
 impl Talk {
-    pub fn port_type<'a>(&'a self) -> &'a PortType {
-        &self.port_type
+    pub fn port_type(&self) -> PortType {
+        self.port_type
     }
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
@@ -32,8 +32,8 @@ pub struct Talks {
 }
 
 impl Talks {
-    pub fn port_type<'a>(&'a self) -> &'a PortType {
-        &self.port_type
+    pub fn port_type(&self) -> PortType {
+        self.port_type
     }
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
@@ -44,8 +44,16 @@ impl Talks {
     pub fn add_talk(&mut self, talk: MTalk) {
         self.talks.push(talk)
     }
-    pub fn add_talk_value(&mut self, value: f32) {
-        self.talks.push(new_talk_type(&self.port_type, value))
+    pub fn add_talk_value(&mut self, value: f32) -> bool {
+        self.talks.push(new_talk_value(&self.port_type, value));
+        true
+    }
+    pub fn add_talk_voice(&mut self, talker: &MTalker, port: usize) -> bool {
+        if talker.borrow().voice_port_type_is(port, self.port_type) {
+            self.talks.push(new_talk_voice(talker, port));
+            return true;
+        }
+        return false;
     }
 }
 
@@ -131,13 +139,7 @@ pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&MTalker
     }
 }
 
-pub fn set_talk_value(talk: &MTalk, value: f32) {
-    /*    if talk.tkr.is_hidden() {
-         talk.tkr.set_value(Float value)
-       }else{
-         talk.voice <- ((new hiddenConstant ~value ())#getVoice "")
-       }}
-    */
+pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
     let mut tlk = talk.borrow_mut();
     match tlk.port_type {
         PortType::Audio => {
@@ -153,9 +155,22 @@ pub fn set_talk_value(talk: &MTalk, value: f32) {
             tlk.port = 0;
         }
     }
+    true
+}
+pub fn set_talk_voice(talk: &MTalk, talker: &MTalker, port: usize) -> bool {
+    if talker
+        .borrow()
+        .voice_port_type_is(port, talk.borrow().port_type())
+    {
+        let mut tlk = talk.borrow_mut();
+        tlk.tkr = talker.clone();
+        tlk.port = port;
+        return true;
+    }
+    false
 }
 
-pub fn new_talk_type(port_type: &PortType, value: f32) -> MTalk {
+pub fn new_talk_value(port_type: &PortType, value: f32) -> MTalk {
     match port_type {
         PortType::Audio => def_audio_talk(None, Some(value)),
         PortType::Control => def_control_talk(None, Some(value)),
@@ -163,12 +178,23 @@ pub fn new_talk_type(port_type: &PortType, value: f32) -> MTalk {
     }
 }
 
-pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
-    //    let tlk = talk.borrow();
+pub fn new_talk_voice(talker: &MTalker, port: usize) -> MTalk {
+    let port_type;
+    {
+        port_type = talker.borrow().voice_port_type(port);
+    }
+    RefCell::new(Talk {
+        port_type,
+        tag: DEF_INPUT_TAG.to_string(),
+        tkr: talker.clone(),
+        port,
+    })
+}
 
+pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
     let port = talk.port;
     {
-        let mut tkr = talk.tkr.borrow_mut();
+        let tkr = talk.tkr.borrow();
         let voice = tkr.voices().get(port).unwrap().borrow();
 
         if tick == voice.tick() {
@@ -192,3 +218,54 @@ pub fn listen(ear: &Ear, tick: i64, len: usize) -> usize {
         }
     }
 }
+
+pub fn visit_ear_flatten_index<F>(ears: &Vec<Ear>, index: usize, mut f: F) -> bool
+where
+    F: FnMut(&MTalk) -> bool,
+{
+    let mut res = false;
+    ears.into_iter().try_fold(0, |i, ear| match ear {
+        Ear::Talk(talk) => {
+            if i == index {
+                res = f(talk);
+                return None;
+            }
+            return Some(i + 1);
+        }
+        Ear::Talks(talks) => {
+            let ri = index - i;
+
+            if ri < talks.borrow().talks.len() {
+                res = f(talks.borrow().talks.get(ri).unwrap());
+                return None;
+            }
+            return Some(i + talks.borrow().talks.len());
+        }
+    });
+    res
+}
+/*
+fn visit_ear_tag<F>(ears: &Vec<Ear>, tag: &String, f: F)where  -> bool {
+    for ear in ears {
+            match ear {
+                Ear::Talk(talk) => {
+                    if talk.borrow().tag() == tag {
+                        if f(talk) {
+                            return true}
+                    }
+                }
+                Ear::Talks(talks) => {
+                    let mut tlks = talks.borrow_mut();
+
+                        for talk in tlks.talks() {
+                            if talk.borrow().tag() == tag {
+                        if f(talk) {
+                            return true}
+                            }
+                        }
+                    }
+            }
+        }
+        false
+}
+*/

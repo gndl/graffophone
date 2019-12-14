@@ -5,13 +5,14 @@ use std::cell::RefCell;
 
 pub const DEF_OUTPUT_TAG: &'static str = "O";
 
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum PortType {
     Audio,
     Control,
     Cv,
 }
 
-pub struct T {
+pub struct Voice {
     port_type: PortType,
     tag: String,
     tick: i64,
@@ -19,7 +20,7 @@ pub struct T {
     horn: Horn,
 }
 
-impl T {
+impl Voice {
     pub fn new(port_type: PortType, tag: Option<String>, len: usize, horn: Horn) -> Self {
         Self {
             port_type,
@@ -29,8 +30,8 @@ impl T {
             horn,
         }
     }
-    pub fn port_type<'a>(&'a self) -> &'a PortType {
-        &self.port_type
+    pub fn port_type(&self) -> PortType {
+        self.port_type
     }
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
@@ -52,11 +53,11 @@ impl T {
     }
 }
 
-pub type Voice = RefCell<T>;
+pub type MVoice = RefCell<Voice>;
 
-pub fn audio(tag: Option<String>, value: Option<f32>, buf: Option<AudioBuf>) -> Voice {
+pub fn audio(tag: Option<String>, value: Option<f32>, buf: Option<AudioBuf>) -> MVoice {
     let len = AudioFormat::chunk_size();
-    RefCell::new(T::new(
+    RefCell::new(Voice::new(
         PortType::Audio,
         tag,
         len,
@@ -64,8 +65,8 @@ pub fn audio(tag: Option<String>, value: Option<f32>, buf: Option<AudioBuf>) -> 
     ))
 }
 
-pub fn control(tag: Option<String>, value: Option<f32>, buf: Option<ControlBuf>) -> Voice {
-    RefCell::new(T::new(
+pub fn control(tag: Option<String>, value: Option<f32>, buf: Option<ControlBuf>) -> MVoice {
+    RefCell::new(Voice::new(
         PortType::Control,
         tag,
         1,
@@ -73,9 +74,9 @@ pub fn control(tag: Option<String>, value: Option<f32>, buf: Option<ControlBuf>)
     ))
 }
 
-pub fn cv(tag: Option<String>, value: Option<f32>, buf: Option<CvBuf>) -> Voice {
+pub fn cv(tag: Option<String>, value: Option<f32>, buf: Option<CvBuf>) -> MVoice {
     let len = AudioFormat::chunk_size();
-    RefCell::new(T::new(
+    RefCell::new(Voice::new(
         PortType::Cv,
         tag,
         len,
