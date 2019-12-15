@@ -1,7 +1,7 @@
 extern crate failure;
 use crate::ear;
 use crate::ear::Ear;
-use crate::identifier::Identifier;
+use crate::identifier::{Identifier, MIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
 use std::cell::RefCell;
@@ -20,7 +20,7 @@ pub enum ValueType {
 }
 
 pub struct TalkerBase {
-    identifier: Identifier,
+    identifier: MIdentifier,
     ears: Vec<Ear>,
     voices: Vec<MVoice>,
     ear_call: bool,
@@ -30,7 +30,11 @@ pub struct TalkerBase {
 impl TalkerBase {
     pub fn new() -> Self {
         Self {
-            identifier: Identifier::new("", "", TALKER_COUNT.fetch_add(1, Ordering::SeqCst)),
+            identifier: RefCell::new(Identifier::new(
+                "",
+                "",
+                TALKER_COUNT.fetch_add(1, Ordering::SeqCst),
+            )),
             ears: Vec::new(),
             voices: Vec::new(),
             ear_call: false,
@@ -43,18 +47,17 @@ impl TalkerBase {
     pub fn add_voice<'a>(&'a mut self, voice: MVoice) {
         self.voices.push(voice);
     }
-    pub fn identifier<'a>(&'a self) -> &'a Identifier {
+    pub fn identifier<'a>(&'a self) -> &'a MIdentifier {
         &self.identifier
     }
-
     pub fn id(&self) -> u32 {
-        self.identifier.id()
+        self.identifier.borrow().id()
     }
-    pub fn name<'a>(&'a self) -> &'a String {
-        self.identifier.name()
+    pub fn name(&self) -> String {
+        self.identifier.borrow().name().to_string()
     }
-    pub fn set_name(&mut self, name: &String) {
-        self.identifier.set_name(name);
+    pub fn set_name(&self, name: &String) {
+        self.identifier.borrow_mut().set_name(name);
     }
     pub fn is_hidden(&self) -> bool {
         self.hidden
@@ -63,14 +66,18 @@ impl TalkerBase {
         self.hidden = hidden;
     }
 }
+pub type MTalkerBase = RefCell<TalkerBase>;
 
 pub trait Talker {
     fn base<'a>(&'a self) -> &'a TalkerBase;
     fn id(&self) -> u32 {
         self.base().id()
     }
-    fn name<'a>(&'a self) -> &'a String {
+    fn name(&self) -> String {
         self.base().name()
+    }
+    fn set_name(&self, name: &String) {
+        self.base().set_name(name);
     }
     fn is_hidden(&self) -> bool {
         self.base().is_hidden()
