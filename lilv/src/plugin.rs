@@ -1,4 +1,4 @@
-use instance::{errors::MissingFeatureError, ResolvedPlugin};
+//use instance::{errors::MissingFeatureError, ResolvedPlugin};
 use lv2::core::FeatureBuffer;
 use node::inner_node::node_from_ptr;
 use node::OwnedNodeList;
@@ -48,18 +48,19 @@ impl<'w> Plugin<'w> {
     pub fn outputs(&self) -> impl Iterator<Item = UnknownOutputPort> {
         self.ports().filter_map(UnknownOutputPort::from_inner)
     }
-
+    /*
     pub fn resolve<'p, 'l, 'f>(
         &'p self,
         features: &'l FeatureBuffer<'f>,
     ) -> Result<ResolvedPlugin<'p, 'l, 'f>, MissingFeatureError> {
         ResolvedPlugin::new(self, features)
     }
-    /*
-        pub fn instantiate<'f>(&self, sample_rate: f64, features: &FeatureList<'f>) -> Result<PluginInstance<'f>, PluginInstantiationError> {
+
+    pub fn instantiate(&self, sample_rate: f64, features: &FeatureList<'f>) -> Result<PluginInstance<'f>, PluginInstantiationError> {
             PluginInstance::new(self, sample_rate, features)
         }
     */
+
     pub fn supported_features(&self) -> OwnedNodeList<Uri> {
         unsafe { OwnedNodeList::new(::lilv_sys::lilv_plugin_get_supported_features(self.ptr)) }
     }

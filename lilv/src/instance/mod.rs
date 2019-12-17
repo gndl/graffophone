@@ -1,4 +1,4 @@
-use lv2::core::{uri::Uri, ExtensionData, FeatureBuffer};
+use lv2::core::{uri::Uri, ExtensionData, FeatureBuffer, SharedFeatureBuffer};
 use port::buffer::BufferType;
 use port::buffer::PortBuffer;
 use port::PortHandle;
@@ -12,7 +12,7 @@ pub mod errors;
 use self::buffers::*;
 use self::errors::*;
 use std::borrow::Borrow;
-
+/*
 pub struct ResolvedPlugin<'p, 'l, 'f: 'l> {
     plugin: &'p Plugin<'p>,
     feature_list: &'l FeatureBuffer<'f>,
@@ -37,19 +37,23 @@ impl<'p, 'l, 'f: 'l> ResolvedPlugin<'p, 'l, 'f> {
         PluginInstance::new(self.plugin, sample_rate, self.feature_list)
     }
 }
-
-pub struct PluginInstance<'f> {
+*/
+//pub struct PluginInstance<'f> {
+pub struct PluginInstance {
     ptr: *mut ::lilv_sys::LilvInstance,
     buffers: Buffers,
     activated: bool,
-    _marker: PhantomData<&'f u8>,
+    //    _marker: PhantomData<&'f u8>,
+    features: SharedFeatureBuffer,
 }
 
-impl<'f> PluginInstance<'f> {
-    pub(crate) fn new(
+//impl<'f> PluginInstance<'f> {
+impl PluginInstance {
+    pub fn new(
         plugin: &Plugin,
         sample_rate: f64,
-        features: &FeatureBuffer<'f>,
+        //        features: &FeatureBuffer<'f>,
+        features: SharedFeatureBuffer,
     ) -> Result<Self, PluginInstantiationError> {
         let ptr = unsafe {
             ::lilv_sys::lilv_plugin_instantiate(
@@ -68,7 +72,8 @@ impl<'f> PluginInstance<'f> {
             ptr,
             buffers,
             activated: false,
-            _marker: PhantomData,
+            //            _marker: PhantomData,
+            features,
         })
     }
 
@@ -142,9 +147,13 @@ impl<'f> PluginInstance<'f> {
         }
         self.activated = false;
     }
+    #[inline]
+    pub fn activated(&self) -> bool {
+        self.activated
+    }
 }
 
-impl<'a> Drop for PluginInstance<'a> {
+impl Drop for PluginInstance /*<'a>*/ {
     fn drop(&mut self) {
         if self.activated {
             self.deactivate()

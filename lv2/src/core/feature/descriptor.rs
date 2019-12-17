@@ -1,21 +1,21 @@
-use std::os::raw::{c_void};
-use std::fmt;
-use std::marker::PhantomData;
-use core::uri::{Uri, UriBound};
 use core::feature::feature::Feature;
 use core::feature::feature::RawFeatureDescriptor;
+use core::uri::{Uri, UriBound};
 use std::ffi::CStr;
+use std::fmt;
+//use std::marker::PhantomData;
+use std::os::raw::c_void;
 
 #[derive(Copy, Clone)]
-pub struct FeatureDescriptor<'a> {
+pub struct FeatureDescriptor /*<'a>*/ {
     pub(crate) inner: ::lv2_sys::LV2_Feature,
     uri_len: usize,
-    _lifetime: PhantomData<&'a u8>
+    //    _lifetime: PhantomData<&'a u8>,
 }
 
-impl<'a> FeatureDescriptor<'a> {
+impl FeatureDescriptor /*<'a>*/ {
     #[inline]
-    pub fn from_feature<T: Feature + UriBound>(feature: &'a T) -> FeatureDescriptor<'a> {
+    pub fn from_feature<T: Feature + UriBound>(feature: &T) -> FeatureDescriptor /*<'a>*/ {
         let uri = T::uri();
         let data = if ::std::mem::size_of::<T>() == 0 {
             ::std::ptr::null_mut()
@@ -23,19 +23,24 @@ impl<'a> FeatureDescriptor<'a> {
             feature as *const T as *const c_void as *mut c_void
         };
         FeatureDescriptor {
-            inner: ::lv2_sys::LV2_Feature { URI: uri.as_ptr(), data },
+            inner: ::lv2_sys::LV2_Feature {
+                URI: uri.as_ptr(),
+                data,
+            },
             uri_len: uri.to_bytes_with_nul().len(),
-            _lifetime: PhantomData,
+            //        _lifetime: PhantomData,
         }
     }
 
     #[inline]
-    pub unsafe fn from_raw(raw: *const RawFeatureDescriptor) -> FeatureDescriptor<'a> {
+    pub unsafe fn from_raw(raw: *const RawFeatureDescriptor) -> FeatureDescriptor /*<'a>*/ {
         let inner = (*raw).inner;
         let uri_len = CStr::from_ptr(inner.URI).to_bytes_with_nul().len();
 
         FeatureDescriptor {
-            inner, uri_len, _lifetime: PhantomData
+            inner,
+            uri_len,
+            //          _lifetime: PhantomData,
         }
     }
 
@@ -53,7 +58,7 @@ impl<'a> FeatureDescriptor<'a> {
     }
 
     #[inline]
-    pub fn as_feature<T: Feature>(&self) -> Option<&'a T> {
+    pub fn as_feature<T: Feature>(&self) -> Option<&T> {
         let uri = unsafe { Uri::from_bytes_unchecked(T::URI) };
         if self.matches_uri(uri) {
             unsafe { (self.inner.data as *const T).as_ref() }
@@ -63,7 +68,7 @@ impl<'a> FeatureDescriptor<'a> {
     }
 
     #[inline]
-    pub fn into_feature_ref<T: Feature>(self) -> Option<&'a T> {
+    pub fn into_feature_ref<'a, T: Feature>(&'a self) -> Option<&'a T> {
         let uri = unsafe { Uri::from_bytes_unchecked(T::URI) };
         if self.matches_uri(uri) {
             unsafe { (self.inner.data as *const T).as_ref() }
@@ -78,7 +83,7 @@ impl<'a> FeatureDescriptor<'a> {
     }
 }
 
-impl<'a> fmt::Debug for FeatureDescriptor<'a> {
+impl fmt::Debug for FeatureDescriptor /*<'a>*/ {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("Feature")?;
@@ -106,16 +111,16 @@ impl<'a> fmt::Debug for FeatureDescriptor<'a> {
 //    assert_eq!(fo.0, &vec![42u8, 69])
 // ``
 
-impl<'a, T: Feature> From<&'a T> for FeatureDescriptor<'a> {
+impl</*'a,*/ T: Feature> From<&T> for FeatureDescriptor /*<'a>*/ {
     #[inline]
-    fn from(feature: &'a T) -> Self {
+    fn from(feature: &T) -> Self {
         FeatureDescriptor::from_feature(feature)
     }
 }
 
-impl<'a, T: Feature> From<&'a mut T> for FeatureDescriptor<'a> {
+impl</*'a,*/ T: Feature> From<&mut T> for FeatureDescriptor /*<'a>*/ {
     #[inline]
-    fn from(feature: &'a mut T) -> Self {
+    fn from(feature: &mut T) -> Self {
         FeatureDescriptor::from_feature(feature)
     }
 }

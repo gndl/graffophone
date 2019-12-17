@@ -1,3 +1,5 @@
+use lilv::instance::PluginInstance;
+use lv2::core::SharedFeatureBuffer;
 extern crate failure;
 extern crate gpplugin;
 extern crate lilv;
@@ -16,6 +18,7 @@ use lilv::plugin::Plugin;
 use lilv::*;
 use gpplugin::talker::Talker;
  */
+use gpplugin::audio_format::AudioFormat;
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
 use lilv::port::Port;
@@ -23,26 +26,6 @@ use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
-
-use lv2::core::{Feature, FeatureBuffer, FeatureSet};
-
-struct GpFeatureSet {
-    hard_rt_capable: ::lv2::core::features::HardRTCapable,
-}
-
-impl GpFeatureSet {
-    pub fn new() -> Self {
-        Self {
-            hard_rt_capable: ::lv2::core::features::HardRTCapable,
-        }
-    }
-}
-
-impl<'a> FeatureSet<'a> for GpFeatureSet {
-    fn to_list(&self) -> FeatureBuffer {
-        FeatureBuffer::from_vec(vec![Feature::descriptor(&self.hard_rt_capable)])
-    }
-}
 
 mod audio_data;
 mod lv2_talker;
@@ -61,24 +44,35 @@ const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
     let world: World = World::new().unwrap();
-    let feature_set = GpFeatureSet::new();
-    let features = feature_set.to_list();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
     let mut pm = PluginsManager::new();
     pm.load_plugins( /*&world, &features*/);
-
+    /*
     pm.run();
-
-    match run(&world, &features) {
+     */
+    match run(&world, pm.features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+
+    let mut talkers = Vec::new();
+    let fuzzface_uri =
+        "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
+    let fuzzface_talker = pm.make_talker(&fuzzface_uri, None);
+    match fuzzface_talker {
+        Ok(fuzzface_tkr) => {
+            talkers.push(fuzzface_tkr.clone());
+        }
+        Err(e) => {
+            eprintln!("Make talker failed: {:?}", e);
+        }
+    }
 }
 
-fn run(world: &World, features: &FeatureBuffer) -> Result<(), failure::Error> {
+fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Error> {
     let mut f = 22.5;
     let mut av = Vec::with_capacity(CHANNELS * SAMPLES);
     for _ in 0..CHANNELS * SAMPLES {
@@ -120,11 +114,8 @@ fn run(world: &World, features: &FeatureBuffer) -> Result<(), failure::Error> {
             .map(|p| (p.handle(), Rc::clone(&out_audio_buf))),
     );
 
-    let mut fuzzface_inst = fuzzface
-        .resolve(&features)
-        .unwrap()
-        .instantiate(SAMPLE_RATE as f64)
-        .unwrap();
+    let mut fuzzface_inst =
+        PluginInstance::new(&fuzzface, AudioFormat::sample_rate() as f64, features).unwrap();
 
     for buf in &control_bufs {
         fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())

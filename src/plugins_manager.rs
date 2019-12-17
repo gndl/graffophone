@@ -5,7 +5,8 @@ use lv2::urid::features::{URIDMap, URIDUnmap};
 //use lv2::urid::{SimpleMapper, URIDOf, URID};
 use std::rc::Rc;
 
-use gpplugin::talker::Talker;
+use gpplugin::talker;
+use gpplugin::talker::MTalker;
 use gpplugin::talker_handler::TalkerHandlerBase;
 //use lv2::units::units::Frame;
 
@@ -20,25 +21,41 @@ use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use gpplugin::talker::{TalkerHandler, TalkerHandlerBase};
 use crate::lv2_talker::Lv2TalkerHandler;
 */
-use lv2::core::{Feature, FeatureBuffer, FeatureSet};
+use lv2::core::{Feature, FeatureBuffer, FeatureSet, SharedFeatureBuffer};
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
     urid_map: ::lv2::urid::features::URIDMap,
     urid_unmap: ::lv2::urid::features::URIDUnmap,
+    buffer: SharedFeatureBuffer,
 }
 
 impl GpFeatureSet {
     pub fn new() -> Self {
-        Self {
+        GpFeatureSet::init(Self {
             hard_rt_capable: ::lv2::core::features::HardRTCapable,
             urid_map: URIDMap::new(),
             urid_unmap: URIDUnmap::new(),
-        }
+            buffer: Rc::new(FeatureBuffer::new()),
+        })
+    }
+    fn init(mut self) -> Self {
+        self.buffer = Rc::new(
+            FeatureBuffer::from_vec(vec![
+                Feature::descriptor(&self.hard_rt_capable),
+                Feature::descriptor(&self.urid_map),
+                Feature::descriptor(&self.urid_unmap),
+            ]), //                     self.to_list()
+        );
+        self
+    }
+    pub fn buffer(&self) -> SharedFeatureBuffer {
+        self.buffer.clone()
+        //Rc::clone(&
     }
 }
-
-impl<'a> FeatureSet<'a> for GpFeatureSet {
+/*
+impl FeatureSet for GpFeatureSet {
     fn to_list(&self) -> FeatureBuffer {
         FeatureBuffer::from_vec(vec![
             Feature::descriptor(&self.hard_rt_capable),
@@ -47,7 +64,7 @@ impl<'a> FeatureSet<'a> for GpFeatureSet {
         ])
     }
 }
-
+*/
 enum PluginType {
     Lv2 { uri: String },
 }
@@ -59,7 +76,7 @@ pub struct PluginHandler {
 
 pub struct PluginsManager {
     world: World,
-    feature_set: GpFeatureSet,
+    features: GpFeatureSet,
     handlers: HashMap<String, PluginHandler>,
 }
 
@@ -67,11 +84,14 @@ impl PluginsManager {
     pub fn new() -> Self {
         Self {
             world: World::new().unwrap(),
-            feature_set: GpFeatureSet::new(),
+            features: GpFeatureSet::new(),
             handlers: HashMap::new(),
         }
     }
 
+    pub fn features_buffer(&self) -> SharedFeatureBuffer {
+        self.features.buffer()
+    }
     pub fn load_plugins(&mut self) {
         println!("load_plugins start");
         /*
@@ -109,10 +129,10 @@ impl PluginsManager {
 
             match &ph.plugin_type {
                 PluginType::Lv2 { uri } => {
-                    match Lv2Talker::new(&self.world, &self.feature_set.to_list(), &uri) {
+                    match Lv2Talker::new(&self.world, self.features.buffer(), &uri) {
                         Ok(tkr) => {
                             //                    println!("Plugin {} {}", tkr.id(), tkr.name());
-                            talkers.push(Rc::new(tkr));
+                            talkers.push(tkr);
                         }
                         Err(e) => {
                             eprintln!("Make talker failed: {:?}", e);
@@ -123,7 +143,32 @@ impl PluginsManager {
         }
 
         for tkr in &talkers {
-            println!("Plugin {} {}", tkr.id(), tkr.name());
+            println!("Plugin {} {}", tkr.borrow().id(), tkr.borrow().name());
+        }
+    }
+
+    pub fn make_talker(
+        &self,
+        uri: &String,
+        name: Option<&String>,
+    ) -> Result<MTalker, failure::Error> {
+        match self.handlers.get(uri) {
+            Some(ph) => match &ph.plugin_type {
+                PluginType::Lv2 { uri } => {
+                    let talker = Lv2Talker::new(&self.world, self.features.buffer(), &uri);
+                    match talker {
+                        Ok(tkr) => {
+                            name.into_iter().inspect(|nm| tkr.borrow().set_name(nm));
+                            return Ok(tkr);
+                        }
+                        Err(e) => {
+                            eprintln!("Make talker failed: {:?}", e);
+                            return Err(e);
+                        }
+                    }
+                }
+            },
+            None => Err(failure::err_msg("Unknown talker URI")),
         }
     }
 }

@@ -1,6 +1,6 @@
-use core::uri::UriBound;
-use core::feature::descriptor::FeatureDescriptor;
 use core::feature::buffer::FeatureBuffer;
+use core::feature::descriptor::FeatureDescriptor;
+use core::uri::UriBound;
 
 /// Represents extension data for a given feature.
 /// # Unsafety
@@ -21,9 +21,9 @@ unsafe impl<F: Feature> UriBound for F {
 
 #[repr(transparent)]
 pub struct RawFeatureDescriptor {
-    pub(crate) inner: ::lv2_sys::LV2_Feature
+    pub(crate) inner: ::lv2_sys::LV2_Feature,
 }
 
-pub trait FeatureSet<'a> {
-    fn to_list(&'a self) -> FeatureBuffer<'a>;
+pub trait FeatureSet /*<'a>*/ {
+    fn to_list(&self) -> FeatureBuffer /*<'a>*/;
 }
