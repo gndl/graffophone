@@ -2,15 +2,15 @@ use crate::talker::Talker;
 
 pub struct TalkerHandlerBase {
     pub id: String,
-    pub name: String,
+    pub model: String,
     pub category: String,
 }
 
 impl TalkerHandlerBase {
-    pub fn new(id: &str, name: &str, category: &str) -> Self {
+    pub fn new(id: &str, model: &str, category: &str) -> Self {
         Self {
             id: id.to_string(),
-            name: name.to_string(),
+            model: model.to_string(),
             category: category.to_string(),
         }
     }
@@ -18,8 +18,8 @@ impl TalkerHandlerBase {
     pub fn id<'a>(&'a self) -> &'a String {
         &self.id
     }
-    pub fn name<'a>(&'a self) -> &'a String {
-        &self.name
+    pub fn model<'a>(&'a self) -> &'a String {
+        &self.model
     }
     pub fn category<'a>(&'a self) -> &'a String {
         &self.category
@@ -32,8 +32,8 @@ pub trait TalkerHandler {
     fn id<'a>(&'a self) -> &'a String {
         &self.base().id
     }
-    fn name<'a>(&'a self) -> &'a String {
-        &self.base().name
+    fn model<'a>(&'a self) -> &'a String {
+        &self.base().model
     }
     fn category<'a>(&'a self) -> &'a String {
         &self.base().category

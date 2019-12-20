@@ -125,7 +125,7 @@ impl PluginsManager {
         let mut talkers = Vec::new();
 
         for (_id, ph) in self.handlers.iter() {
-            println!("Plugin {} ({})", ph.base.name(), ph.base.category());
+            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
 
             match &ph.plugin_type {
                 PluginType::Lv2 { uri } => {
@@ -158,7 +158,11 @@ impl PluginsManager {
                     let talker = Lv2Talker::new(&self.world, self.features.buffer(), &uri);
                     match talker {
                         Ok(tkr) => {
-                            name.into_iter().inspect(|nm| tkr.borrow().set_name(nm));
+                            match name {
+                                Some(nm) => tkr.borrow().set_name(nm),
+                                None => (),
+                            };
+
                             return Ok(tkr);
                         }
                         Err(e) => {

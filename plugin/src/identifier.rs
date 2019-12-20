@@ -6,26 +6,26 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    pub fn new(name: &str, kind: &str, id: u32) -> Self {
-        let name_kind_fm = |close_char| {
-            if kind.is_empty() {
+    pub fn new(name: &str, model: &str, id: u32) -> Self {
+        let name_model_fm = |close_char| {
+            if model.is_empty() {
                 format!("{}{}{}", name, id, close_char)
             } else {
-                format!("{}{} {}{}", name, kind, id, close_char)
+                format!("{}{} {}{}", name, model, id, close_char)
             }
         };
 
         let name = if name.is_empty() {
-            if kind.is_empty() {
+            if model.is_empty() {
                 "".to_string()
             } else {
-                format!("{} {}", kind, id)
+                format!("{} {}", model, id)
             }
         } else {
             if name.ends_with("(") {
-                name_kind_fm(")")
+                name_model_fm(")")
             } else if name.ends_with("[") {
-                name_kind_fm("]")
+                name_model_fm("]")
             } else {
                 name.to_string()
             }
@@ -52,6 +52,6 @@ pub type MIdentifier = RefCell<Identifier>;
 pub trait Identifiable {
     fn id(&self) -> u32;
     fn name(&self) -> String;
-    fn set_name(&self, name: &str) -> ();
+    fn set_name(&self, name: &str);
     fn depends_of(&self, id: u32) -> bool;
 }

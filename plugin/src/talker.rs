@@ -73,6 +73,9 @@ pub trait Talker {
     fn id(&self) -> u32 {
         self.base().id()
     }
+    fn model(&self) -> &str {
+        ""
+    }
     fn name(&self) -> String {
         self.base().name()
     }

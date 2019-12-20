@@ -1,15 +1,3 @@
-/*
-use lilv::port::Port;
-use lilv::port::TypedPort;
-use lilv::port::buffer::CellBuffer;
-use lilv::port::buffer::VecBuffer;
-use lilv::instance::{errors::MissingFeatureError, PluginInstance, ResolvedPlugin};
-use lv2::core::{Feature, FeatureBuffer, FeatureSet};
-use lv2::core::FeatureBuffer;
-use std::cell::RefCell;
-use std::rc::Rc;
-*/
-
 use lilv::instance::PluginInstance;
 use lilv::plugin::Plugin;
 use lilv::port::Port;
@@ -33,7 +21,7 @@ use lv2::core::SharedFeatureBuffer;
 
 pub struct Lv2Talker {
     base: talker::TalkerBase,
-    //    features: FeatureBuffer,
+    model: String,
     instance: PluginInstance,
     input_port_handlers: Vec<u32>,
     output_port_handlers: Vec<u32>,
@@ -48,10 +36,6 @@ impl Lv2Talker {
     ) -> Result<MTalker, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
 
-        /*
-        match plugin.resolve(&features) {
-            Ok(p) => match p.instantiate(AudioFormat::sample_rate() as f64) {
-                */
         match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {
             Ok(mut instance) => {
                 let mut base = TalkerBase::new();
@@ -121,7 +105,7 @@ impl Lv2Talker {
                 }
                 Ok(Rc::new(RefCell::new(Self {
                     base,
-                    //    features,
+                    model: plugin.name().to_str().to_string(),
                     instance,
                     input_port_handlers,
                     output_port_handlers,
@@ -130,16 +114,18 @@ impl Lv2Talker {
             }
             _ => Err(failure::err_msg("PluginInstantiationError")),
         }
-        //            _ => Err(failure::err_msg("MissingFeatureError")),
-        //        }
     }
 }
 
-impl Talker for Lv2Talker /*<'a>*/ {
+impl Talker for Lv2Talker {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
-    fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize {
+    fn model(&self) -> &str {
+        self.model.as_str()
+    }
+
+    fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
         let mut ln = len;
 
         for ear in self.ears() {
