@@ -19,16 +19,15 @@ use gpplugin::voice::Voice;
 
 use lv2::core::SharedFeatureBuffer;
 
-pub struct Lv2Talker {
+pub struct Lv2 {
     base: talker::TalkerBase,
     model: String,
     instance: PluginInstance,
     input_port_handlers: Vec<u32>,
     output_port_handlers: Vec<u32>,
-    activated: bool,
 }
 
-impl Lv2Talker {
+impl Lv2 {
     pub fn new(
         world: &World,
         features: SharedFeatureBuffer,
@@ -109,7 +108,6 @@ impl Lv2Talker {
                     instance,
                     input_port_handlers,
                     output_port_handlers,
-                    activated: false,
                 })))
             }
             _ => Err(failure::err_msg("PluginInstantiationError")),
@@ -117,12 +115,18 @@ impl Lv2Talker {
     }
 }
 
-impl Talker for Lv2Talker {
+impl Talker for Lv2 {
     fn base<'b>(&'b self) -> &'b TalkerBase {
         &self.base
     }
     fn model(&self) -> &str {
         self.model.as_str()
+    }
+    fn activate(&mut self) {
+        self.instance.activate()
+    }
+    fn deactivate(&mut self) {
+        self.instance.deactivate()
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {

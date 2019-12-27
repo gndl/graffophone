@@ -19,19 +19,15 @@ impl AudioFormat {
             channels: CHANNELS,
         }
     }
-
     pub fn sample_rate() -> usize {
         SAMPLE_RATE.load(Ordering::Relaxed)
     }
-
     pub fn set_sample_rate(sample_rate: usize) {
         SAMPLE_RATE.store(sample_rate, Ordering::Relaxed);
     }
-
     pub fn chunk_size() -> usize {
         CHUNK_SIZE.load(Ordering::Relaxed)
     }
-
     pub fn set_chunk_size(chunk_size: usize) {
         CHUNK_SIZE.store(chunk_size, Ordering::Relaxed);
     }

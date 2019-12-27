@@ -28,13 +28,15 @@ use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
 mod audio_data;
-mod lv2_talker;
 mod playback_output;
 mod plugins_manager;
+mod talkers;
 
 use crate::audio_data::{AudioOutput, Interleaved};
 use crate::playback_output::Playback;
 use crate::plugins_manager::PluginsManager;
+use crate::talkers::abs_sine;
+//use crate::talkers::lv2_talker;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -50,21 +52,30 @@ fn main() {
     pm.load_plugins( /*&world, &features*/);
     /*
     pm.run();
-     */
     match run(&world, pm.features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+     */
 
     let mut talkers = Vec::new();
     let fuzzface_uri =
         "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
-    let fuzzface_talker = pm.make_talker(&fuzzface_uri, None);
-    match fuzzface_talker {
+
+    match pm.make_talker(&fuzzface_uri, None) {
         Ok(fuzzface_tkr) => {
             talkers.push(fuzzface_tkr.clone());
+
+            match pm.make_talker(&abs_sine::id().to_string(), None) {
+                Ok(abs_sine_tkr) => {
+                    talkers.push(abs_sine_tkr.clone());
+                }
+                Err(e) => {
+                    eprintln!("Make talker failed: {:?}", e);
+                }
+            }
         }
         Err(e) => {
             eprintln!("Make talker failed: {:?}", e);

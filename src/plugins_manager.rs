@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 //use std::error::Error;
-use crate::lv2_talker::Lv2Talker;
+use crate::talkers::abs_sine;
+use crate::talkers::abs_sine::AbsSine;
+use crate::talkers::lv2::Lv2;
 use lv2::urid::features::{URIDMap, URIDUnmap};
 //use lv2::urid::{SimpleMapper, URIDOf, URID};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use gpplugin::talker;
@@ -66,7 +69,8 @@ impl FeatureSet for GpFeatureSet {
 }
 */
 enum PluginType {
-    Lv2 { uri: String },
+    Internal,
+    Lv2,
 }
 
 pub struct PluginHandler {
@@ -92,17 +96,19 @@ impl PluginsManager {
     pub fn features_buffer(&self) -> SharedFeatureBuffer {
         self.features.buffer()
     }
+
+    fn add_handler(&mut self, base: TalkerHandlerBase) {
+        self.handlers.insert(
+            base.id().to_string(),
+            PluginHandler {
+                base,
+                plugin_type: PluginType::Internal,
+            },
+        );
+    }
+
     pub fn load_plugins(&mut self) {
         println!("load_plugins start");
-        /*
-        lv2_talker::load_plugins(&mut self.handlers);
-        for plugin in self.world.plugins() {
-            self.handlers.push(Rc::new(Lv2TalkerHandler::new(
-                TalkerHandlerBase::new(plugin.name().to_str(), plugin.class().label().to_str()),
-                String::from(plugin.uri().to_string()),
-            )));
-        }
-         */
         for plugin in self.world.plugins() {
             self.handlers.insert(
                 plugin.uri().to_string(),
@@ -112,13 +118,56 @@ impl PluginsManager {
                         plugin.name().to_str(),
                         plugin.class().label().to_str(),
                     ),
-                    plugin_type: PluginType::Lv2 {
-                        uri: String::from(plugin.uri().to_string()),
-                    },
+                    plugin_type: PluginType::Lv2,
                 },
             );
         }
+
+        self.add_handler(abs_sine::descriptor());
+
         println!("load_plugins end");
+    }
+
+    pub fn make_internal_talker(&self, id: &String) -> Result<MTalker, failure::Error> {
+        if id == abs_sine::id() {
+            Ok(Rc::new(RefCell::new(AbsSine::new())))
+        } else {
+            Err(failure::err_msg("Unknown talker ID"))
+        }
+    }
+
+    pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<MTalker, failure::Error> {
+        match &ph.plugin_type {
+            PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.id()),
+            PluginType::Internal => self.make_internal_talker(ph.base.id()),
+        }
+    }
+
+    pub fn make_talker(
+        &self,
+        id: &String,
+        name: Option<&String>,
+    ) -> Result<MTalker, failure::Error> {
+        match self.handlers.get(id) {
+            Some(ph) => {
+                let talker = self.mk_tkr(ph);
+                match talker {
+                    Ok(tkr) => {
+                        match name {
+                            Some(nm) => tkr.borrow().set_name(nm),
+                            None => (),
+                        };
+
+                        return Ok(tkr);
+                    }
+                    Err(e) => {
+                        eprintln!("Make talker failed: {:?}", e);
+                        return Err(e);
+                    }
+                }
+            }
+            None => Err(failure::err_msg("Unknown talker URI")),
+        }
     }
 
     pub fn run(&self) {
@@ -127,52 +176,19 @@ impl PluginsManager {
         for (_id, ph) in self.handlers.iter() {
             println!("Plugin {} ({})", ph.base.model(), ph.base.category());
 
-            match &ph.plugin_type {
-                PluginType::Lv2 { uri } => {
-                    match Lv2Talker::new(&self.world, self.features.buffer(), &uri) {
-                        Ok(tkr) => {
-                            //                    println!("Plugin {} {}", tkr.id(), tkr.name());
-                            talkers.push(tkr);
-                        }
-                        Err(e) => {
-                            eprintln!("Make talker failed: {:?}", e);
-                        }
-                    }
+            match self.mk_tkr(ph) {
+                Ok(tkr) => {
+                    //                    println!("Plugin {} {}", tkr.id(), tkr.name());
+                    talkers.push(tkr);
+                }
+                Err(e) => {
+                    eprintln!("Make talker failed: {:?}", e);
                 }
             }
         }
 
         for tkr in &talkers {
             println!("Plugin {} {}", tkr.borrow().id(), tkr.borrow().name());
-        }
-    }
-
-    pub fn make_talker(
-        &self,
-        uri: &String,
-        name: Option<&String>,
-    ) -> Result<MTalker, failure::Error> {
-        match self.handlers.get(uri) {
-            Some(ph) => match &ph.plugin_type {
-                PluginType::Lv2 { uri } => {
-                    let talker = Lv2Talker::new(&self.world, self.features.buffer(), &uri);
-                    match talker {
-                        Ok(tkr) => {
-                            match name {
-                                Some(nm) => tkr.borrow().set_name(nm),
-                                None => (),
-                            };
-
-                            return Ok(tkr);
-                        }
-                        Err(e) => {
-                            eprintln!("Make talker failed: {:?}", e);
-                            return Err(e);
-                        }
-                    }
-                }
-            },
-            None => Err(failure::err_msg("Unknown talker URI")),
         }
     }
 }

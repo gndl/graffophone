@@ -1,6 +1,7 @@
 use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
 use crate::cv_talker::CvTalker;
+use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use crate::talker::MTalker;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,7 +23,17 @@ impl Talk {
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
+    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+        let res;
+        let tkr = self.tkr.borrow();
+        {
+            let voice = tkr.voices().get(self.port)?;
+            res = voice.borrow().audio_buffer();
+        }
+        res
+    }
 }
+
 pub type MTalk = RefCell<Talk>;
 
 pub struct Talks {
@@ -189,6 +200,13 @@ pub fn new_talk_voice(talker: &MTalker, port: usize) -> MTalk {
         tkr: talker.clone(),
         port,
     })
+}
+
+pub fn audio_buffer(ear: &Ear) -> Option<AudioBuf> {
+    match ear {
+        Ear::Talk(talk) => talk.borrow().audio_buffer(),
+        _ => None,
+    }
 }
 
 pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {

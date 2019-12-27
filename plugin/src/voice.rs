@@ -51,6 +51,12 @@ impl Voice {
     pub fn horn<'a>(&'a self) -> &'a Horn {
         &self.horn
     }
+    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+        match &self.horn {
+            Horn::Audio(ab) => Some(ab.clone()),
+            _ => None,
+        }
+    }
 }
 
 pub type MVoice = RefCell<Voice>;

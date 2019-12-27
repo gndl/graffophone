@@ -1,3 +1,4 @@
+use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 extern crate failure;
 use crate::ear;
 use crate::ear::Ear;
@@ -104,6 +105,11 @@ pub trait Talker {
         self.voice_port_type(port) == port_type
     }
 
+    fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {
+        let ear = self.ears().get(port)?;
+        ear::audio_buffer(ear)
+    }
+
     fn set_ear_value_by_tag(&mut self, tag: &String, value: f32) -> bool {
         for ear in self.ears() {
             match ear {
@@ -163,6 +169,9 @@ pub trait Talker {
             ear::set_talk_voice(talk, talker, port)
         })
     }
+
+    fn activate(&mut self) {}
+    fn deactivate(&mut self) {}
 
     fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
 }
