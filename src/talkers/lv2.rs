@@ -10,13 +10,11 @@ use std::rc::Rc;
 
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
-use gpplugin::ear::Ear;
 use gpplugin::horn;
 use gpplugin::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use gpplugin::talker;
 use gpplugin::talker::{MTalker, Talker, TalkerBase};
 use gpplugin::voice;
-use gpplugin::voice::Voice;
 
 use lv2::core::SharedFeatureBuffer;
 
@@ -35,7 +33,7 @@ impl Lv2 {
         uri: &String,
     ) -> Result<MTalker, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
-
+        show_plugin(&plugin);
         match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {
             Ok(mut instance) => {
                 let mut base = TalkerBase::new();

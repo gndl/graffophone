@@ -1,30 +1,17 @@
 use std::collections::HashMap;
-//use std::error::Error;
+
 use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::lv2::Lv2;
 use lv2::urid::features::{URIDMap, URIDUnmap};
-//use lv2::urid::{SimpleMapper, URIDOf, URID};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpplugin::talker;
 use gpplugin::talker::MTalker;
 use gpplugin::talker_handler::TalkerHandlerBase;
-//use lv2::units::units::Frame;
 
 use lilv::world::World;
-/*
-use std::ffi::CString;
-use gpplugin::talker::Talker;
-use crate::lv2_talker;
-use lv2::core::FeatureBuffer;
-use lilv::plugin::Plugin;
-use lilv::port::{UnknownInputPort, UnknownOutputPort};
-use gpplugin::talker::{TalkerHandler, TalkerHandlerBase};
-use crate::lv2_talker::Lv2TalkerHandler;
-*/
-use lv2::core::{Feature, FeatureBuffer, FeatureSet, SharedFeatureBuffer};
+use lv2::core::{Feature, FeatureBuffer, SharedFeatureBuffer};
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,

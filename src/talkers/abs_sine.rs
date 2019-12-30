@@ -1,11 +1,8 @@
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
-use gpplugin::ear::Ear;
-use gpplugin::talker;
-use gpplugin::talker::{MTalker, Talker, TalkerBase};
+use gpplugin::talker::{Talker, TalkerBase};
 use gpplugin::talker_handler::TalkerHandlerBase;
 use gpplugin::voice;
-use gpplugin::voice::Voice;
 use std::f64::consts::PI;
 
 pub struct AbsSine {
