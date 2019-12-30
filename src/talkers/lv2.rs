@@ -12,6 +12,7 @@ use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::horn;
+use gpplugin::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use gpplugin::talker;
 use gpplugin::talker::{MTalker, Talker, TalkerBase};
 use gpplugin::voice;
@@ -45,7 +46,6 @@ impl Lv2 {
                     match UnknownInputPort::as_typed::<Control>(&port) {
                         Some(p) => {
                             let ear = ear::control(Some(p.name().to_string()), None);
-                            //                                instance.connect_port(p.handle().clone(), w.value.clone());
                             base.add_ear(ear);
                             input_port_handlers.push(p.handle().index());
                         }
@@ -123,6 +123,40 @@ impl Talker for Lv2 {
         self.model.as_str()
     }
     fn activate(&mut self) {
+        let mut i = 0;
+        let mut audio_buffers: Vec<(&u32, AudioBuf)> = Vec::new();
+        let mut control_buffers: Vec<(&u32, ControlBuf)> = Vec::new();
+        let mut cv_buffers: Vec<(&u32, CvBuf)> = Vec::new();
+
+        for ear in self.ears() {
+            match self.input_port_handlers.get(i) {
+                Some(port_index) => ear::visit_horn(ear, |horn| match horn {
+                    Horn::Audio(buf) => {
+                        audio_buffers.push((port_index, buf.clone()));
+                    }
+                    Horn::Control(buf) => {
+                        control_buffers.push((port_index, buf.clone()));
+                    }
+                    Horn::Cv(buf) => {
+                        cv_buffers.push((port_index, buf.clone()));
+                    }
+                }),
+                None => (),
+            };
+            i += 1;
+        }
+        for (port_index, buf) in audio_buffers {
+            self.instance
+                .connect_port_index::<Audio, AudioBuf>(*port_index, buf.clone());
+        }
+        for (port_index, buf) in control_buffers {
+            self.instance
+                .connect_port_index::<Control, ControlBuf>(*port_index, buf.clone());
+        }
+        for (port_index, buf) in cv_buffers {
+            self.instance
+                .connect_port_index::<CV, CvBuf>(*port_index, buf.clone());
+        }
         self.instance.activate()
     }
     fn deactivate(&mut self) {
