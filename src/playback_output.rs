@@ -2,6 +2,7 @@ extern crate cpal;
 extern crate failure;
 
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
+use gpplugin::horn::AudioBuf;
 use std::sync::mpsc::{Receiver, Sender};
 
 use crate::audio_data::{AudioOutput, Interleaved};
@@ -13,10 +14,13 @@ pub struct Playback {
     sender: std::sync::mpsc::Sender<Interleaved>,
     //receiver: std::sync::mpsc::Receiver<Interleaved>,
     //    data: Interleaved,
+    nb_channels: usize,
+    nb_samples: usize,
+    audio_vector: Vec<f32>,
 }
 
 impl Playback {
-    pub fn new() -> Result<Self, failure::Error> {
+    pub fn new(nb_channels: usize, nb_samples: usize) -> Result<Self, failure::Error> {
         let (sender, receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
             std::sync::mpsc::channel();
 
@@ -87,10 +91,25 @@ impl Playback {
             //            event_loop: event_loop,
             //            format: format,
             //            stream_id: stream_id,
-            sender: sender,
+            sender,
             //      receiver: receiver,
             //            data: Interleaved::new(0, 0),
+            nb_channels,
+            nb_samples,
+            audio_vector: vec![0.; nb_channels * nb_samples],
         })
+    }
+
+    pub fn write_mono(&mut self, audio_buf: &AudioBuf, len: usize) -> Result<(), failure::Error> {
+        let audio_buffer_slice = audio_buf.get();
+        for i in 0..len {
+            let sample = audio_buffer_slice[i].get();
+            self.audio_vector[self.nb_channels * i] = sample;
+            self.audio_vector[self.nb_channels * i + 1] = sample;
+        }
+
+        let ad = Interleaved::new(self.nb_channels, self.nb_samples, &self.audio_vector);
+        self.write(ad)
     }
 }
 
