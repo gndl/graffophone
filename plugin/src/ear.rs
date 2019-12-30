@@ -262,6 +262,30 @@ where
     });
     res
 }
+
+pub fn visit_talk_horn<F>(talk: &Talk, mut f: F)
+where
+    F: FnMut(&Horn),
+{
+    let tkr = talk.tkr.borrow();
+    {
+        match tkr.voices().get(talk.port) {
+            Some(voice) => f(voice.borrow().horn()),
+            None => (),
+        }
+    }
+}
+
+pub fn visit_horn<F>(ear: &Ear, f: F)
+where
+    F: FnMut(&Horn),
+{
+    match ear {
+        Ear::Talk(talk) => visit_talk_horn(&talk.borrow(), f),
+        Ear::Talks(_talks) => (),
+    }
+}
+
 /*
 fn visit_ear_tag<F>(ears: &Vec<Ear>, tag: &String, f: F)where  -> bool {
     for ear in ears {
