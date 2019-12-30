@@ -12,18 +12,13 @@ use std::rc::Rc;
 #[global_allocator]
 static A: System = System;
 
-use lilv::world::World;
-/*
-use lilv::plugin::Plugin;
-use lilv::*;
-use gpplugin::talker::Talker;
- */
 use gpplugin::audio_format::AudioFormat;
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
 use lilv::port::Port;
 use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
+use lilv::world::World;
 use lv2::core::ports::Audio;
 use lv2::core::ports::Control;
 
@@ -32,7 +27,7 @@ mod playback_output;
 mod plugins_manager;
 mod talkers;
 
-use crate::audio_data::{AudioOutput, Interleaved};
+use crate::audio_data::AudioOutput;
 use crate::playback_output::Playback;
 use crate::plugins_manager::PluginsManager;
 use crate::talkers::abs_sine;
@@ -52,43 +47,76 @@ fn main() {
     pm.load_plugins( /*&world, &features*/);
     /*
     pm.run();
+     */
+
     match run(&world, pm.features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-     */
 
-    let mut talkers = Vec::new();
-    let fuzzface_uri =
-        "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
-
-    match pm.make_talker(&fuzzface_uri, None) {
-        Ok(fuzzface_tkr) => {
-            talkers.push(fuzzface_tkr.clone());
-
-            match pm.make_talker(&abs_sine::id().to_string(), None) {
-                Ok(abs_sine_tkr) => {
-                    talkers.push(abs_sine_tkr.clone());
-                }
-                Err(e) => {
-                    eprintln!("Make talker failed: {:?}", e);
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Make talker failed: {:?}", e);
+    match play(&pm) {
+        Ok(_) => {}
+        e => {
+            eprintln!("Example failed with the following: {:?}", e);
         }
     }
 }
 
+fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
+    let mut talkers = Vec::new();
+    let fuzzface_uri =
+        "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
+
+    let fuzzface_tkr = pm.make_talker(&fuzzface_uri, None)?;
+    talkers.push(fuzzface_tkr.clone());
+
+    let abs_sine_tkr = pm.make_talker(&abs_sine::id().to_string(), None)?;
+    talkers.push(abs_sine_tkr.clone());
+
+    fuzzface_tkr
+        .borrow_mut()
+        .set_ear_voice_by_tag(&"In".to_string(), &abs_sine_tkr, 0);
+    fuzzface_tkr
+        .borrow_mut()
+        .set_ear_value_by_tag(&"FUZZ".to_string(), 2f32);
+    fuzzface_tkr
+        .borrow_mut()
+        .set_ear_value_by_tag(&"LEVEL".to_string(), 0.25f32);
+
+    for tkr in &talkers {
+        tkr.borrow_mut().activate();
+    }
+
+    let mut po = Playback::new(CHANNELS, SAMPLES)?;
+    po.open()?;
+    let audio_buf = fuzzface_tkr
+        .borrow_mut()
+        .voice(0)
+        .borrow()
+        .audio_buffer()
+        .unwrap();
+    let mut tick: i64 = 0;
+    let len = AudioFormat::chunk_size();
+    let nb_iter = 2000;
+    let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
+    println!("Will play fuzzed abs sinusoidal for {} seconds", secs);
+
+    for _ in 0..nb_iter {
+        let ln = fuzzface_tkr.borrow_mut().talk(0, tick, len);
+        po.write_mono(&audio_buf, ln)?;
+        tick += ln as i64;
+    }
+    for tkr in &talkers {
+        tkr.borrow_mut().deactivate();
+    }
+    std::thread::sleep(std::time::Duration::from_secs(secs));
+    Ok(())
+}
+
 fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Error> {
     let mut f = 22.5;
-    let mut av = Vec::with_capacity(CHANNELS * SAMPLES);
-    for _ in 0..CHANNELS * SAMPLES {
-        av.push(0.);
-    }
 
     let fuzzface = world
         .get_plugin_by_uri("http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_")
@@ -136,7 +164,7 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
         fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
     }
 
-    let po = Playback::new()?;
+    let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
 
     fuzzface_inst.activate();
@@ -150,14 +178,7 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
 
             fuzzface_inst.run(SAMPLES as u32);
 
-            for i in 0..SAMPLES {
-                let sample = out_audio_buf.get()[i].get();
-                av[CHANNELS * i] = sample;
-                av[CHANNELS * i + 1] = sample;
-            }
-
-            let ad = Interleaved::new(CHANNELS, SAMPLES, &av);
-            po.write(ad)?;
+            po.write_mono(&out_audio_buf, SAMPLES)?;
         }
         f = 2. * f;
     }
