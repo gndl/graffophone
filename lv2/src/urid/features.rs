@@ -29,23 +29,28 @@ unsafe extern "C" fn urid_map(
     _handle: ::lv2_sys::LV2_URID_Map_Handle,
     c_uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
+    let uri = CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap();
+    let mut ret = 0;
 
-let uri = CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap();
-let mut ret = 0;
-
-  MAP.with(|map_cell| {
+    MAP.with(|map_cell| {
         let mut map = map_cell.borrow_mut();
 
-    match map.get(&uri) {
-        Some(urid) => ret = *urid,
-        None => {
-            ret = map.len() as u32 + 1;
-            map.insert(uri, ret);
+        match map.get(&uri) {
+            Some(urid) => ret = *urid,
+            None => {
+                ret = map.len() as u32 + 1;
+                map.insert(uri, ret);
+            }
         }
-    }
     });
-        println!("URID map {:?} -> {}", CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap(), ret);
-ret
+
+    println!(
+        "URID map {:?} -> {}",
+        CString::new(CStr::from_ptr(c_uri).to_str().unwrap()).unwrap(),
+        ret
+    );
+
+    ret
 }
 
 unsafe extern "C" fn urid_map_with_mapper<T: URIDMapper>(
@@ -76,17 +81,16 @@ unsafe extern "C" fn urid_map_with_hashmap(
     handle: ::lv2_sys::LV2_URID_Map_Handle,
     uri: *const c_char,
 ) -> ::lv2_sys::LV2_URID {
-
     match (*(handle as *const HashMap<&CStr, u32>)).get(CStr::from_ptr(uri)) {
         Some(urid) => *urid,
-         None => {
+        None => {
             (*(handle as *mut HashMap<&CStr, u32>)).insert(
                 CStr::from_ptr(uri),
                 (*(handle as *const HashMap<&CStr, u32>)).len() as u32 + 1,
-             );
+            );
             (*(handle as *const HashMap<&CStr, u32>)).len() as u32
-         }
-     }
+        }
+    }
 }
 
 #[repr(C)]
@@ -104,7 +108,8 @@ impl<'a> URIDMap {
     pub fn new() -> URIDMap {
         URIDMap {
             inner: ::lv2_sys::LV2_URID_Map {
-                handle: ::std::ptr::null() as *const HashMap<CString, u32> as *const c_void as *mut c_void,
+                handle: ::std::ptr::null() as *const HashMap<CString, u32> as *const c_void
+                    as *mut c_void,
                 map: Some(urid_map),
             },
         }
@@ -146,16 +151,16 @@ unsafe extern "C" fn urid_unmap(
     urid: ::lv2_sys::LV2_URID,
 ) -> *const c_char {
     let mut k = ::std::ptr::null();
-  MAP.with(|map_cell| {
+    MAP.with(|map_cell| {
         let map = map_cell.borrow_mut();
 
-    for (key, value) in map.iter() {
-        if *value == urid {
-            k = key.as_ptr();
+        for (key, value) in map.iter() {
+            if *value == urid {
+                k = key.as_ptr();
+            }
         }
-    }
     });
-        println!("URID unmap {} -> {:?}", urid, k);
+    println!("URID unmap {} -> {:?}", urid, k);
     k
 }
 

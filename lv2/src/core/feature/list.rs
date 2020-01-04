@@ -1,5 +1,4 @@
 use core::feature::descriptor::FeatureDescriptor;
-use core::feature::feature::Feature;
 use core::feature::feature::RawFeatureDescriptor;
 use std::marker::PhantomData;
 
@@ -20,7 +19,8 @@ impl<'a> FeatureList<'a> {
         self.into_iter()
             .filter_map(FeatureDescriptor::into_feature_ref::<F>)
             .next()
-    }*/
+    }
+     */
 }
 
 impl<'a, 'b> IntoIterator for &'b FeatureList<'a> {

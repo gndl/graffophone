@@ -1,10 +1,10 @@
-use lv2::core::{uri::Uri, ExtensionData, FeatureBuffer, SharedFeatureBuffer};
+use lv2::core::{uri::Uri, ExtensionData, SharedFeatureBuffer};
 use port::buffer::BufferType;
 use port::buffer::PortBuffer;
 use port::PortHandle;
 use port::PortIndex;
 use std::ffi::CStr;
-use std::marker::PhantomData;
+//use std::marker::PhantomData;
 use Plugin;
 
 mod buffers;
@@ -53,8 +53,9 @@ impl PluginInstance {
         plugin: &Plugin,
         sample_rate: f64,
         //        features: &FeatureBuffer<'f>,
-        features: SharedFeatureBuffer,
+        shared_features: SharedFeatureBuffer,
     ) -> Result<Self, PluginInstantiationError> {
+        let features = &*shared_features;
         let ptr = unsafe {
             ::lilv_sys::lilv_plugin_instantiate(
                 plugin.ptr,
@@ -73,7 +74,7 @@ impl PluginInstance {
             buffers,
             activated: false,
             //            _marker: PhantomData,
-            features,
+            features: shared_features,
         })
     }
 

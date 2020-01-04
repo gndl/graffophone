@@ -10,7 +10,7 @@ use std::os::raw::c_void;
 pub struct FeatureDescriptor /*<'a>*/ {
     pub(crate) inner: ::lv2_sys::LV2_Feature,
     uri_len: usize,
-    //    _lifetime: PhantomData<&'a u8>,
+    //    _lifetime: PhantomData<&u8>,
 }
 
 impl FeatureDescriptor /*<'a>*/ {
@@ -18,17 +18,19 @@ impl FeatureDescriptor /*<'a>*/ {
     pub fn from_feature<T: Feature + UriBound>(feature: &T) -> FeatureDescriptor /*<'a>*/ {
         let uri = T::uri();
         let data = if ::std::mem::size_of::<T>() == 0 {
+            println!("LV2_Feature data null");
             ::std::ptr::null_mut()
         } else {
             feature as *const T as *const c_void as *mut c_void
         };
+        println!("LV2_Feature data: {:?}", data);
         FeatureDescriptor {
             inner: ::lv2_sys::LV2_Feature {
                 URI: uri.as_ptr(),
                 data,
             },
             uri_len: uri.to_bytes_with_nul().len(),
-            //        _lifetime: PhantomData,
+            //            _lifetime: PhantomData,
         }
     }
 
@@ -40,7 +42,7 @@ impl FeatureDescriptor /*<'a>*/ {
         FeatureDescriptor {
             inner,
             uri_len,
-            //          _lifetime: PhantomData,
+            //            _lifetime: PhantomData,
         }
     }
 

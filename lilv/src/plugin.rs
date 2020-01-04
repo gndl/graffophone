@@ -1,5 +1,4 @@
 //use instance::{errors::MissingFeatureError, ResolvedPlugin};
-use lv2::core::FeatureBuffer;
 use node::inner_node::node_from_ptr;
 use node::OwnedNodeList;
 use node::{Node, String, Uri};
