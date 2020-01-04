@@ -21,18 +21,16 @@ impl AbsSine {
 
         Self { base }
     }
-    pub fn id() -> &'static str {
-        "AbsSine"
-    }
-    pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new(AbsSine::id(), "Absolute sinusoidal", "Generator")
-    }
 }
 
 impl Talker for AbsSine {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
     }
+    /*
+        fn activate(&mut self) {}
+        fn deactivate(&mut self) {}
+    */
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
         let mut ln = len;
         let c = (PI * 2.0) / AudioFormat::sample_rate() as f64;
@@ -54,4 +52,11 @@ impl Talker for AbsSine {
         }
         ln
     }
+}
+
+pub fn id() -> &'static str {
+    "AbsSine"
+}
+pub fn descriptor() -> TalkerHandlerBase {
+    TalkerHandlerBase::new(id(), "Absolute sinusoidal", "Generator")
 }

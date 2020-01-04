@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::lv2::Lv2;
+use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use crate::talkers::sinusoidal::Sinusoidal;
 use lv2::urid::features::{URIDMap, URIDUnmap};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -30,31 +31,21 @@ impl GpFeatureSet {
         })
     }
     fn init(mut self) -> Self {
-        self.buffer = Rc::new(
-            FeatureBuffer::from_vec(vec![
-                Feature::descriptor(&self.hard_rt_capable),
-                Feature::descriptor(&self.urid_map),
-                Feature::descriptor(&self.urid_unmap),
-            ]), //                     self.to_list()
-        );
+        //        println!("&self.urid_map: {:?}", &self.urid_map);
+        self.buffer = Rc::new(FeatureBuffer::from_vec(vec![
+            /*
+            Feature::descriptor(&self.hard_rt_capable),
+            Feature::descriptor(&self.urid_unmap),
+            Feature::descriptor(&self.urid_map),
+                            */
+        ]));
+        //        println!("GpFeatureSet.buffer: {:#?}", self.buffer);
         self
     }
     pub fn buffer(&self) -> SharedFeatureBuffer {
-        self.buffer.clone()
-        //Rc::clone(&
+        Rc::clone(&self.buffer)
     }
 }
-/*
-impl FeatureSet for GpFeatureSet {
-    fn to_list(&self) -> FeatureBuffer {
-        FeatureBuffer::from_vec(vec![
-            Feature::descriptor(&self.hard_rt_capable),
-            Feature::descriptor(&self.urid_map),
-            Feature::descriptor(&self.urid_unmap),
-        ])
-    }
-}
-*/
 enum PluginType {
     Internal,
     Lv2,
@@ -110,14 +101,22 @@ impl PluginsManager {
             );
         }
 
-        self.add_handler(abs_sine::descriptor());
+        self.add_handler(AbsSine::descriptor());
+        self.add_handler(Sinusoidal::descriptor());
+        self.add_handler(SecondDegreeFrequencyProgression::descriptor());
 
         println!("load_plugins end");
     }
 
     pub fn make_internal_talker(&self, id: &String) -> Result<MTalker, failure::Error> {
-        if id == abs_sine::id() {
+        if id == Sinusoidal::id() {
+            Ok(Rc::new(RefCell::new(Sinusoidal::new())))
+        } else if id == AbsSine::id() {
             Ok(Rc::new(RefCell::new(AbsSine::new())))
+        } else if id == SecondDegreeFrequencyProgression::id() {
+            Ok(Rc::new(RefCell::new(
+                SecondDegreeFrequencyProgression::new(110., 0., 1., 1.),
+            )))
         } else {
             Err(failure::err_msg("Unknown talker ID"))
         }

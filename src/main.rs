@@ -1,5 +1,3 @@
-use lilv::instance::PluginInstance;
-use lv2::core::SharedFeatureBuffer;
 extern crate failure;
 extern crate gpplugin;
 extern crate lilv;
@@ -12,15 +10,20 @@ use std::rc::Rc;
 #[global_allocator]
 static A: System = System;
 
-use gpplugin::audio_format::AudioFormat;
+use lv2::core::ports::Audio;
+use lv2::core::ports::Control;
+use lv2::core::SharedFeatureBuffer;
+
+use lilv::instance::PluginInstance;
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
 use lilv::port::Port;
 use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
-use lv2::core::ports::Audio;
-use lv2::core::ports::Control;
+
+use gpplugin::audio_format::AudioFormat;
+use gpplugin::talker::MTalker;
 
 mod audio_data;
 mod playback_output;
@@ -30,8 +33,9 @@ mod talkers;
 use crate::audio_data::AudioOutput;
 use crate::playback_output::Playback;
 use crate::plugins_manager::PluginsManager;
-use crate::talkers::abs_sine;
-//use crate::talkers::lv2_talker;
+use crate::talkers::abs_sine::AbsSine;
+use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use crate::talkers::sinusoidal::Sinusoidal;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -45,18 +49,19 @@ fn main() {
 
     let mut pm = PluginsManager::new();
     pm.load_plugins( /*&world, &features*/);
+
     /*
     pm.run();
-     */
-
     match run(&world, pm.features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+     */
 
-    match play(&pm) {
+    match play_sin(&pm) {
+        //    match play_progressive_sinusoidale(&pm) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -72,7 +77,7 @@ fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
     let fuzzface_tkr = pm.make_talker(&fuzzface_uri, None)?;
     talkers.push(fuzzface_tkr.clone());
 
-    let abs_sine_tkr = pm.make_talker(&abs_sine::id().to_string(), None)?;
+    let abs_sine_tkr = pm.make_talker(&Sinusoidal::id().to_string(), None)?;
     talkers.push(abs_sine_tkr.clone());
 
     fuzzface_tkr
@@ -111,6 +116,56 @@ fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
     for tkr in &talkers {
         tkr.borrow_mut().deactivate();
     }
+    std::thread::sleep(std::time::Duration::from_secs(secs));
+    Ok(())
+}
+
+fn play_sin(pm: &PluginsManager) -> Result<(), failure::Error> {
+    let tkr = pm.make_talker(&Sinusoidal::id().to_string(), None)?;
+    tkr.borrow_mut().activate();
+
+    let mut po = Playback::new(CHANNELS, SAMPLES)?;
+    po.open()?;
+    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
+    let mut tick: i64 = 0;
+    let len = AudioFormat::chunk_size();
+    let nb_iter = 2000;
+    let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
+    println!("Will play sinusoidal for {} seconds", secs);
+
+    for _ in 0..nb_iter {
+        let ln = tkr.borrow_mut().talk(0, tick, len);
+        po.write_mono(&audio_buf, ln)?;
+        tick += ln as i64;
+    }
+
+    tkr.borrow_mut().deactivate();
+
+    std::thread::sleep(std::time::Duration::from_secs(secs));
+    Ok(())
+}
+
+fn play_progressive_sinusoidale(pm: &PluginsManager) -> Result<(), failure::Error> {
+    let tkr = pm.make_talker(&SecondDegreeFrequencyProgression::id().to_string(), None)?;
+    tkr.borrow_mut().activate();
+
+    let mut po = Playback::new(CHANNELS, SAMPLES)?;
+    po.open()?;
+    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
+    let mut tick: i64 = 0;
+    let len = AudioFormat::chunk_size();
+    let nb_iter = 2000;
+    let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
+    println!("Will play sinusoidal for {} seconds", secs);
+
+    for _ in 0..nb_iter {
+        let ln = tkr.borrow_mut().talk(0, tick, len);
+        po.write_mono(&audio_buf, ln)?;
+        tick += ln as i64;
+    }
+
+    tkr.borrow_mut().deactivate();
+
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())
 }
