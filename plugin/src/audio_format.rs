@@ -1,10 +1,11 @@
+use std::f64::consts::PI;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 const CHANNELS: usize = 2;
 const DEFAULT_SAMPLE_RATE: usize = 44_100;
 static SAMPLE_RATE: AtomicUsize = AtomicUsize::new(DEFAULT_SAMPLE_RATE);
 //const FRAMES_PER_SECOND: usize = 10;
-const DEFAULT_CHUNK_SIZE: usize = 512;
+const DEFAULT_CHUNK_SIZE: usize = 4410;
 static CHUNK_SIZE: AtomicUsize = AtomicUsize::new(DEFAULT_CHUNK_SIZE);
 
 pub struct AudioFormat {
@@ -30,5 +31,8 @@ impl AudioFormat {
     }
     pub fn set_chunk_size(chunk_size: usize) {
         CHUNK_SIZE.store(chunk_size, Ordering::Relaxed);
+    }
+    pub fn frequence_coef() -> f64 {
+        (PI * 2.0) / SAMPLE_RATE.load(Ordering::Relaxed) as f64
     }
 }
