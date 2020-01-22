@@ -28,7 +28,6 @@ impl Talker for AudioTalker {
             vc.set_len(len);
             vc.set_tick(tick);
         }
-
         len
     }
 }

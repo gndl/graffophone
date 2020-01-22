@@ -1,5 +1,6 @@
-use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
+use crate::horn::AudioBuf;
 extern crate failure;
+use crate::data::Data;
 use crate::ear;
 use crate::ear::Ear;
 use crate::identifier::{Identifier, MIdentifier};
@@ -10,15 +11,6 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
-
-pub enum ValueType {
-    Nil,
-    Int(i64),
-    Float(f32),
-    String(String),
-    Text(String),
-    File(String),
-}
 
 pub struct TalkerBase {
     identifier: MIdentifier,
@@ -67,7 +59,6 @@ impl TalkerBase {
         self.hidden = hidden;
     }
 }
-pub type MTalkerBase = RefCell<TalkerBase>;
 
 pub trait Talker {
     fn base<'a>(&'a self) -> &'a TalkerBase;
@@ -89,6 +80,26 @@ pub trait Talker {
     fn depends_of(&self, id: u32) -> bool {
         self.base().id() == id
     }
+
+    fn data(&self) -> Data {
+        Data::Nil
+    }
+    fn set_data(&mut self, data: Data) -> Result<(), failure::Error> {
+        Err(data.notify_incompatibility("Nil"))
+    }
+    fn get_data_string(&self) -> String {
+        self.data().to_string()
+    }
+    fn set_data_from_string(&mut self, s: &str) -> Result<(), failure::Error> {
+        match self.data().birth(s) {
+            Ok(d) => self.set_data(d),
+            Err(e) => Err(e),
+        }
+    }
+    fn get_float_data(&self) -> Result<f32, failure::Error> {
+        self.data().to_f()
+    }
+
     fn ears<'a>(&'a self) -> &'a Vec<Ear> {
         &self.base().ears
     }
@@ -174,6 +185,10 @@ pub trait Talker {
     fn deactivate(&mut self) {}
 
     fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
+
+    fn backup<'a>(&'a self) -> &'a Vec<Ear> {
+        (self.model(), self.get_data_string(), self.base().ears())
+    }
 }
 
 pub type MTalker = Rc<RefCell<dyn Talker>>;

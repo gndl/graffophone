@@ -1,7 +1,7 @@
 use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
 use crate::cv_talker::CvTalker;
-use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
+use crate::horn::{AudioBuf, Horn};
 use crate::talker::MTalker;
 use std::cell::RefCell;
 use std::rc::Rc;

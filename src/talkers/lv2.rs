@@ -121,14 +121,13 @@ impl Talker for Lv2 {
         self.model.as_str()
     }
     fn activate(&mut self) {
-        let mut i = 0;
         let mut audio_buffers: Vec<(&u32, AudioBuf)> = Vec::new();
         let mut control_buffers: Vec<(&u32, ControlBuf)> = Vec::new();
         let mut cv_buffers: Vec<(&u32, CvBuf)> = Vec::new();
 
-        for ear in self.ears() {
-            match self.input_port_handlers.get(i) {
-                Some(port_index) => ear::visit_horn(ear, |horn| match horn {
+        for (i, ear) in self.ears().iter().enumerate() {
+            if let Some(port_index) = self.input_port_handlers.get(i) {
+                ear::visit_horn(ear, |horn| match horn {
                     Horn::Audio(buf) => {
                         audio_buffers.push((port_index, buf.clone()));
                     }
@@ -138,10 +137,8 @@ impl Talker for Lv2 {
                     Horn::Cv(buf) => {
                         cv_buffers.push((port_index, buf.clone()));
                     }
-                }),
-                None => (),
-            };
-            i += 1;
+                });
+            }
         }
         for (port_index, buf) in audio_buffers {
             self.instance
