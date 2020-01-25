@@ -186,8 +186,8 @@ pub trait Talker {
 
     fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
 
-    fn backup<'a>(&'a self) -> &'a Vec<Ear> {
-        (self.model(), self.get_data_string(), self.base().ears())
+    fn backup<'a>(&'a self) -> (&str, std::string::String, &std::vec::Vec<ear::Ear>) {
+        (self.model(), self.get_data_string(), self.ears())
     }
 }
 
