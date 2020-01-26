@@ -58,7 +58,7 @@ impl Talker for Sinusoidal {
         }
 
         for ear in self.ears() {
-            ln = ear::listen(ear, tick, ln);
+            ln = ear.listen(tick, ln);
         }
         for voice in self.voices() {
             let freq_buf = self.ear_audio_buffer(0).unwrap();

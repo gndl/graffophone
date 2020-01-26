@@ -127,7 +127,7 @@ impl Talker for Lv2 {
 
         for (i, ear) in self.ears().iter().enumerate() {
             if let Some(port_index) = self.input_port_handlers.get(i) {
-                ear::visit_horn(ear, |horn| match horn {
+                ear.visit_horn(|horn| match horn {
                     Horn::Audio(buf) => {
                         audio_buffers.push((port_index, buf.clone()));
                     }
@@ -162,7 +162,7 @@ impl Talker for Lv2 {
         let mut ln = len;
 
         for ear in self.ears() {
-            ln = ear::listen(ear, tick, ln);
+            ln = ear.listen(tick, ln);
         }
         self.instance.run(ln as u32);
         ln

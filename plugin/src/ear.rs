@@ -75,6 +75,39 @@ pub enum Ear {
     Talks(MTalks),
 }
 
+impl Ear {
+    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+        match self {
+            Ear::Talk(talk) => talk.borrow().audio_buffer(),
+            _ => None,
+        }
+    }
+
+    pub fn listen(&self, tick: i64, len: usize) -> usize {
+        match self {
+            Ear::Talk(talk) => listen_talk(&talk.borrow(), tick, len),
+            Ear::Talks(talks) => {
+                let mut ln = len;
+
+                for talk in &talks.borrow().talks {
+                    ln = listen_talk(&talk.borrow(), tick, ln);
+                }
+                ln
+            }
+        }
+    }
+
+    pub fn visit_horn<F>(&self, f: F)
+    where
+        F: FnMut(&Horn),
+    {
+        match self {
+            Ear::Talk(talk) => visit_talk_horn(&talk.borrow(), f),
+            Ear::Talks(_talks) => (),
+        }
+    }
+}
+
 pub fn def_audio_talker(value: Option<f32>) -> MTalker {
     Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
 }
@@ -150,6 +183,14 @@ pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&MTalker
     }
 }
 
+pub fn talks(tag: Option<String>, port_type: PortType) -> Ear {
+    Ear::Talks(RefCell::new(Talks {
+        port_type,
+        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        talks: Vec::new(),
+    }))
+}
+
 pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
     let mut tlk = talk.borrow_mut();
     match tlk.port_type {
@@ -202,13 +243,6 @@ pub fn new_talk_voice(talker: &MTalker, port: usize) -> MTalk {
     })
 }
 
-pub fn audio_buffer(ear: &Ear) -> Option<AudioBuf> {
-    match ear {
-        Ear::Talk(talk) => talk.borrow().audio_buffer(),
-        _ => None,
-    }
-}
-
 pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
     let port = talk.port;
     {
@@ -221,20 +255,6 @@ pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
     }
 
     talk.tkr.borrow_mut().talk(port, tick, len)
-}
-
-pub fn listen(ear: &Ear, tick: i64, len: usize) -> usize {
-    match ear {
-        Ear::Talk(talk) => listen_talk(&talk.borrow(), tick, len),
-        Ear::Talks(talks) => {
-            let mut ln = len;
-
-            for talk in &talks.borrow().talks {
-                ln = listen_talk(&talk.borrow(), tick, ln);
-            }
-            ln
-        }
-    }
 }
 
 pub fn visit_ear_flatten_index<F>(ears: &Vec<Ear>, index: usize, mut f: F) -> bool
@@ -273,16 +293,6 @@ where
             Some(voice) => f(voice.borrow().horn()),
             None => (),
         }
-    }
-}
-
-pub fn visit_horn<F>(ear: &Ear, f: F)
-where
-    F: FnMut(&Horn),
-{
-    match ear {
-        Ear::Talk(talk) => visit_talk_horn(&talk.borrow(), f),
-        Ear::Talks(_talks) => (),
     }
 }
 

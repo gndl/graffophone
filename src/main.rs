@@ -129,7 +129,7 @@ fn play_sin(pm: &PluginsManager) -> Result<(), failure::Error> {
     let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
-    let nb_iter = 2000;
+    let nb_iter = 100;
     let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
     println!("Will play sinusoidal for {} seconds", secs);
 

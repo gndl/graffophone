@@ -118,7 +118,7 @@ pub trait Talker {
 
     fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {
         let ear = self.ears().get(port)?;
-        ear::audio_buffer(ear)
+        ear.audio_buffer()
     }
 
     fn set_ear_value_by_tag(&mut self, tag: &String, value: f32) -> bool {
