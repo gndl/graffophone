@@ -29,6 +29,7 @@ mod audio_data;
 mod playback_output;
 mod plugins_manager;
 mod talkers;
+mod track;
 
 use crate::audio_data::AudioOutput;
 use crate::playback_output::Playback;
