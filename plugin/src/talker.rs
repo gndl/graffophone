@@ -1,8 +1,8 @@
-use crate::horn::AudioBuf;
+use crate::horn::{AudioBuf, CvBuf};
 extern crate failure;
 use crate::data::Data;
 use crate::ear;
-use crate::ear::Ear;
+use crate::ear::{Ear, MTalks};
 use crate::identifier::{Identifier, MIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
@@ -121,6 +121,16 @@ pub trait Talker {
         ear.audio_buffer()
     }
 
+    fn ear_cv_buffer(&self, port: usize) -> Option<CvBuf> {
+        let ear = self.ears().get(port)?;
+        ear.cv_buffer()
+    }
+    /*
+        fn ear_talks(&self, port: usize) -> Option<MTalks> {
+            let ear = self.ears().get(port)?;
+            ear.talks()
+        }
+    */
     fn set_ear_value_by_tag(&mut self, tag: &String, value: f32) -> bool {
         for ear in self.ears() {
             match ear {

@@ -53,7 +53,13 @@ impl Voice {
     }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         match &self.horn {
-            Horn::Audio(ab) => Some(ab.clone()),
+            Horn::Audio(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn cv_buffer(&self) -> Option<CvBuf> {
+        match &self.horn {
+            Horn::Cv(b) => Some(b.clone()),
             _ => None,
         }
     }

@@ -1,7 +1,7 @@
 use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
 use crate::cv_talker::CvTalker;
-use crate::horn::{AudioBuf, Horn};
+use crate::horn::{AudioBuf, CvBuf, Horn};
 use crate::talker::MTalker;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,6 +29,15 @@ impl Talk {
         {
             let voice = tkr.voices().get(self.port)?;
             res = voice.borrow().audio_buffer();
+        }
+        res
+    }
+    pub fn cv_buffer(&self) -> Option<CvBuf> {
+        let res;
+        let tkr = self.tkr.borrow();
+        {
+            let voice = tkr.voices().get(self.port)?;
+            res = voice.borrow().cv_buffer();
         }
         res
     }
@@ -79,6 +88,20 @@ impl Ear {
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         match self {
             Ear::Talk(talk) => talk.borrow().audio_buffer(),
+            _ => None,
+        }
+    }
+
+    pub fn cv_buffer(&self) -> Option<CvBuf> {
+        match self {
+            Ear::Talk(talk) => talk.borrow().cv_buffer(),
+            _ => None,
+        }
+    }
+
+    pub fn talks<'a>(&'a self) -> Option<&'a MTalks> {
+        match self {
+            Ear::Talks(talks) => Some(&talks),
             _ => None,
         }
     }
@@ -183,12 +206,28 @@ pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&MTalker
     }
 }
 
-pub fn talks(tag: Option<String>, port_type: PortType) -> Ear {
-    Ear::Talks(RefCell::new(Talks {
+pub fn def_talks(tag: Option<String>, port_type: PortType) -> MTalks {
+    RefCell::new(Talks {
         port_type,
         tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
         talks: Vec::new(),
-    }))
+    })
+}
+
+pub fn talks(tag: Option<String>, port_type: PortType) -> Ear {
+    Ear::Talks(def_talks(tag, port_type))
+}
+
+pub fn controls(tag: Option<String>) -> Ear {
+    talks(tag, PortType::Control)
+}
+
+pub fn audios(tag: Option<String>) -> Ear {
+    talks(tag, PortType::Audio)
+}
+
+pub fn cvs(tag: Option<String>) -> Ear {
+    talks(tag, PortType::Cv)
 }
 
 pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
