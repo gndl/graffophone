@@ -1,9 +1,7 @@
 use gpplugin::audio_format::AudioFormat;
-use gpplugin::ear;
 use gpplugin::talker::{Talker, TalkerBase};
 use gpplugin::talker_handler::TalkerHandlerBase;
 use gpplugin::voice;
-use std::f64::consts::PI;
 
 pub struct SecondDegreeFrequencyProgression {
     base: TalkerBase,

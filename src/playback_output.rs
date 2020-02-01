@@ -5,7 +5,7 @@ use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 use gpplugin::horn::AudioBuf;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::audio_data::{AudioOutput, Interleaved};
+use crate::audio_data::{AudioOutput, Interleaved, Vector};
 
 pub struct Playback {
     //    event_loop: cpal::EventLoop,
@@ -16,7 +16,6 @@ pub struct Playback {
     //    data: Interleaved,
     nb_channels: usize,
     nb_samples: usize,
-    audio_vector: Vec<f32>,
 }
 
 impl Playback {
@@ -64,8 +63,8 @@ impl Playback {
                                             //                                            event_loop.destroy_stream(stream_id);
                                             return;
                                         } else {
-                                            nc = ad.channels();
-                                            len = ad.samples() * nc;
+                                            nc = ad.nb_channels();
+                                            len = ad.nb_samples_per_channel() * nc;
                                             av = ad.vector();
                                             pos = 0;
                                         }
@@ -96,20 +95,25 @@ impl Playback {
             //            data: Interleaved::new(0, 0),
             nb_channels,
             nb_samples,
-            audio_vector: vec![0.; nb_channels * nb_samples],
         })
     }
 
     pub fn write_mono(&mut self, audio_buf: &AudioBuf, len: usize) -> Result<(), failure::Error> {
         let audio_buffer_slice = audio_buf.get();
+
+        let mut right: Vec<f32> = vec![0.; len];
+        let mut left: Vec<f32> = vec![0.; len];
+
         for i in 0..len {
             let sample = audio_buffer_slice[i].get();
-            self.audio_vector[self.nb_channels * i] = sample;
-            self.audio_vector[self.nb_channels * i + 1] = sample;
+            right[i] = sample;
+            left[i] = sample;
         }
 
-        let ad = Interleaved::new(self.nb_channels, self.nb_samples, &self.audio_vector);
-        self.write(ad)
+        let mut channels = Vec::with_capacity(2);
+        channels.push(right);
+        channels.push(left);
+        self.write(&channels, len)
     }
 }
 
@@ -118,8 +122,13 @@ impl AudioOutput for Playback {
         Ok(())
     }
 
-    fn write(&self, data: Interleaved) -> Result<(), failure::Error> {
-        self.sender.send(data).unwrap();
+    fn write(
+        &self,
+        channels: &Vec<Vector>,
+        nb_samples_per_channel: usize,
+    ) -> Result<(), failure::Error> {
+        let ad = Interleaved::new(channels, nb_samples_per_channel);
+        self.sender.send(ad).unwrap();
         Ok(())
     }
 

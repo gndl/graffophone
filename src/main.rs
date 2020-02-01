@@ -23,9 +23,9 @@ use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
 
 use gpplugin::audio_format::AudioFormat;
-use gpplugin::talker::MTalker;
 
 mod audio_data;
+mod mixer;
 mod playback_output;
 mod plugins_manager;
 mod talkers;

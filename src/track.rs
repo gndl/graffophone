@@ -1,14 +1,10 @@
 use crate::audio_data::Vector;
 use gpplugin::ear;
-use gpplugin::ear::{Ear, MTalks};
+use gpplugin::ear::Ear;
 use gpplugin::talker::{Talker, TalkerBase};
-use gpplugin::voice::PortType;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct Track {
     base: TalkerBase,
-    //    channels_gains: MTalks,
 }
 
 impl Track {
@@ -17,14 +13,9 @@ impl Track {
 
         base.add_ear(ear::audio(None, None, None));
         base.add_ear(ear::audio(Some("gain".to_string()), Some(1.), None));
-        //        let channels_gains = ear::def_talks(Some("channelGain".to_string()), PortType::Cv);
-        //base.add_ear(Ear::Talks(RefCell::clone(&channels_gains)));
         base.add_ear(ear::cvs(Some("channelGain".to_string())));
 
-        Self {
-            base,
-            //  channels_gains,
-        }
+        Self { base }
     }
 
     pub fn id() -> &'static str {
@@ -32,11 +23,7 @@ impl Track {
     }
 
     fn compute_input_gain(&self, tick: i64, buf: &mut Vector, len: usize) -> usize {
-        let mut ln = len;
-
-        for ear in self.ears() {
-            ln = ear.listen(tick, ln);
-        }
+        let ln = self.listen_ears(tick, len);
 
         let in_buf = self.ear_audio_buffer(0).unwrap();
         let gain_buf = self.ear_audio_buffer(1).unwrap();
