@@ -2,7 +2,7 @@ use crate::horn::{AudioBuf, CvBuf};
 extern crate failure;
 use crate::data::Data;
 use crate::ear;
-use crate::ear::{Ear, MTalks};
+use crate::ear::Ear;
 use crate::identifier::{Identifier, MIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
@@ -195,6 +195,14 @@ pub trait Talker {
     fn deactivate(&mut self) {}
 
     fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
+
+    fn listen_ears(&self, tick: i64, len: usize) -> usize {
+        let mut ln = len;
+        for ear in self.ears() {
+            ln = ear.listen(tick, ln);
+        }
+        ln
+    }
 
     fn backup<'a>(&'a self) -> (&str, std::string::String, &std::vec::Vec<ear::Ear>) {
         (self.model(), self.get_data_string(), self.ears())

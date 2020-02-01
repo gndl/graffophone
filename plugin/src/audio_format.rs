@@ -14,6 +14,9 @@ pub struct AudioFormat {
 }
 
 impl AudioFormat {
+    pub const MIN_AUDIO: f32 = -0.99999;
+    pub const MAX_AUDIO: f32 = 0.99999;
+
     pub fn default() -> AudioFormat {
         AudioFormat {
             sample_rate: DEFAULT_SAMPLE_RATE,
