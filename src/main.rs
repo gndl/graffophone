@@ -25,9 +25,14 @@ use lilv::world::World;
 use gpplugin::audio_format::AudioFormat;
 
 mod audio_data;
+mod curve_controler;
+mod event_bus;
+mod graph_controler;
 mod mixer;
 mod playback_output;
 mod plugins_manager;
+mod session_controler;
+mod state;
 mod talkers;
 mod track;
 
