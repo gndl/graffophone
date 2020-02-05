@@ -8,11 +8,11 @@ use lv2::urid::features::{URIDMap, URIDUnmap};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpplugin::talker::MTalker;
+use gpplugin::talker::RTalker;
 use gpplugin::talker_handler::TalkerHandlerBase;
 
 use lilv::world::World;
-use lv2::core::{Feature, FeatureBuffer, SharedFeatureBuffer};
+use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
@@ -108,7 +108,7 @@ impl PluginsManager {
         println!("load_plugins end");
     }
 
-    pub fn make_internal_talker(&self, id: &String) -> Result<MTalker, failure::Error> {
+    pub fn make_internal_talker(&self, id: &String) -> Result<RTalker, failure::Error> {
         if id == Sinusoidal::id() {
             Ok(Rc::new(RefCell::new(Sinusoidal::new())))
         } else if id == AbsSine::id() {
@@ -122,7 +122,7 @@ impl PluginsManager {
         }
     }
 
-    pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<MTalker, failure::Error> {
+    pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
         match &ph.plugin_type {
             PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.id()),
             PluginType::Internal => self.make_internal_talker(ph.base.id()),
@@ -133,7 +133,7 @@ impl PluginsManager {
         &self,
         id: &String,
         name: Option<&String>,
-    ) -> Result<MTalker, failure::Error> {
+    ) -> Result<RTalker, failure::Error> {
         match self.handlers.get(id) {
             Some(ph) => {
                 let talker = self.mk_tkr(ph);

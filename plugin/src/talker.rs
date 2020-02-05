@@ -3,7 +3,7 @@ extern crate failure;
 use crate::data::Data;
 use crate::ear;
 use crate::ear::Ear;
-use crate::identifier::{Identifier, MIdentifier};
+use crate::identifier::{Identifier, RIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
 use std::cell::RefCell;
@@ -13,10 +13,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
 
 pub struct TalkerBase {
-    identifier: MIdentifier,
+    identifier: RIdentifier,
     ears: Vec<Ear>,
     voices: Vec<MVoice>,
-    ear_call: bool,
+    //    ear_call: bool,
     hidden: bool,
 }
 
@@ -30,7 +30,7 @@ impl TalkerBase {
             )),
             ears: Vec::new(),
             voices: Vec::new(),
-            ear_call: false,
+            //            ear_call: false,
             hidden: false,
         }
     }
@@ -40,7 +40,7 @@ impl TalkerBase {
     pub fn add_voice<'a>(&'a mut self, voice: MVoice) {
         self.voices.push(voice);
     }
-    pub fn identifier<'a>(&'a self) -> &'a MIdentifier {
+    pub fn identifier<'a>(&'a self) -> &'a RIdentifier {
         &self.identifier
     }
     pub fn id(&self) -> u32 {
@@ -156,7 +156,7 @@ pub trait Talker {
         }
         false
     }
-    fn set_ear_voice_by_tag(&mut self, tag: &String, talker: &MTalker, port: usize) -> bool {
+    fn set_ear_voice_by_tag(&mut self, tag: &String, talker: &RTalker, port: usize) -> bool {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
@@ -185,7 +185,7 @@ pub trait Talker {
         ear::visit_ear_flatten_index(self.ears(), index, |talk| ear::set_talk_value(talk, value))
     }
 
-    fn set_ear_voice_by_index(&self, index: usize, talker: &MTalker, port: usize) -> bool {
+    fn set_ear_voice_by_index(&self, index: usize, talker: &RTalker, port: usize) -> bool {
         ear::visit_ear_flatten_index(self.ears(), index, |talk| {
             ear::set_talk_voice(talk, talker, port)
         })
@@ -194,7 +194,9 @@ pub trait Talker {
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
 
-    fn talk(&mut self, port: usize, tick: i64, len: usize) -> usize;
+    fn talk(&mut self, _port: usize, _tick: i64, _len: usize) -> usize {
+        0
+    }
 
     fn listen_ears(&self, tick: i64, len: usize) -> usize {
         let mut ln = len;
@@ -209,4 +211,4 @@ pub trait Talker {
     }
 }
 
-pub type MTalker = Rc<RefCell<dyn Talker>>;
+pub type RTalker = Rc<RefCell<dyn Talker>>;

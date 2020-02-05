@@ -47,7 +47,7 @@ impl Identifier {
         self.id == id
     }
 }
-pub type MIdentifier = RefCell<Identifier>;
+pub type RIdentifier = RefCell<Identifier>;
 
 pub trait Identifiable {
     fn id(&self) -> u32;

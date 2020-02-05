@@ -1,3 +1,5 @@
+// use std::cell::RefCell;
+// use std::rc::Rc;
 use std::boxed::Box;
 extern crate failure;
 
@@ -65,4 +67,5 @@ pub trait AudioOutput {
     fn close(&self) -> Result<(), failure::Error>;
 }
 
-pub type MAudioOutput = Box<dyn AudioOutput>;
+//pub type RAudioOutput = Rc<RefCell<dyn AudioOutput>>;
+pub type RAudioOutput = Box<dyn AudioOutput>;

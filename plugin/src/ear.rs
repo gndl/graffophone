@@ -2,7 +2,7 @@ use crate::audio_talker::AudioTalker;
 use crate::control_talker::ControlTalker;
 use crate::cv_talker::CvTalker;
 use crate::horn::{AudioBuf, CvBuf, Horn};
-use crate::talker::MTalker;
+use crate::talker::RTalker;
 use std::cell::RefCell;
 use std::rc::Rc;
 use voice::PortType;
@@ -12,7 +12,7 @@ pub const DEF_INPUT_TAG: &'static str = "I";
 pub struct Talk {
     port_type: PortType,
     tag: String,
-    tkr: MTalker,
+    tkr: RTalker,
     port: usize,
 }
 
@@ -68,7 +68,7 @@ impl Talks {
         self.talks.push(new_talk_value(&self.port_type, value));
         true
     }
-    pub fn add_talk_voice(&mut self, talker: &MTalker, port: usize) -> bool {
+    pub fn add_talk_voice(&mut self, talker: &RTalker, port: usize) -> bool {
         if talker.borrow().voice_port_type_is(port, self.port_type) {
             self.talks.push(new_talk_voice(talker, port));
             return true;
@@ -131,7 +131,7 @@ impl Ear {
     }
 }
 
-pub fn def_audio_talker(value: Option<f32>) -> MTalker {
+pub fn def_audio_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
 }
 pub fn def_audio_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
@@ -142,7 +142,7 @@ pub fn def_audio_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
         port: 0,
     })
 }
-pub fn def_control_talker(value: Option<f32>) -> MTalker {
+pub fn def_control_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(ControlTalker::new(value, Some(true))))
 }
 pub fn def_control_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
@@ -153,7 +153,7 @@ pub fn def_control_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
         port: 0,
     })
 }
-pub fn def_cv_talker(value: Option<f32>) -> MTalker {
+pub fn def_cv_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(CvTalker::new(value, Some(true))))
 }
 pub fn def_cv_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
@@ -176,7 +176,7 @@ pub fn control(tag: Option<String>, value: Option<f32>) -> Ear {
 pub fn audio(
     tag: Option<String>,
     value: Option<f32>,
-    talker_port: Option<(&MTalker, usize)>,
+    talker_port: Option<(&RTalker, usize)>,
 ) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_audio_talk(tag, value)),
@@ -191,7 +191,7 @@ pub fn audio(
         },
     }
 }
-pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&MTalker, usize)>) -> Ear {
+pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_cv_talk(tag, value)),
         None => match talker_port {
@@ -248,7 +248,7 @@ pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
     }
     true
 }
-pub fn set_talk_voice(talk: &MTalk, talker: &MTalker, port: usize) -> bool {
+pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> bool {
     if talker
         .borrow()
         .voice_port_type_is(port, talk.borrow().port_type())
@@ -269,7 +269,7 @@ pub fn new_talk_value(port_type: &PortType, value: f32) -> MTalk {
     }
 }
 
-pub fn new_talk_voice(talker: &MTalker, port: usize) -> MTalk {
+pub fn new_talk_voice(talker: &RTalker, port: usize) -> MTalk {
     let port_type;
     {
         port_type = talker.borrow().voice_port_type(port);

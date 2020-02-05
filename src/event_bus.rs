@@ -38,11 +38,17 @@ pub struct EventBus {
     observers: Vec<RObserver>,
 }
 
+pub type REventBus = Rc<EventBus>;
+
 impl EventBus {
     pub fn new() -> EventBus {
         Self {
             observers: Vec::new(),
         }
+    }
+
+    pub fn new_ref() -> REventBus {
+        Rc::new(EventBus::new())
     }
 
     //let observers : (notification -> unit) list ref = ref []
@@ -63,5 +69,3 @@ impl EventBus {
         // GtkThread.async notify notif
     }
 }
-
-pub type REventBus = Rc<EventBus>;

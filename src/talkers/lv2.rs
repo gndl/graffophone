@@ -13,7 +13,7 @@ use gpplugin::ear;
 use gpplugin::horn;
 use gpplugin::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use gpplugin::talker;
-use gpplugin::talker::{MTalker, Talker, TalkerBase};
+use gpplugin::talker::{RTalker, Talker, TalkerBase};
 use gpplugin::voice;
 
 use lv2::core::SharedFeatureBuffer;
@@ -31,7 +31,7 @@ impl Lv2 {
         world: &World,
         features: SharedFeatureBuffer,
         uri: &String,
-    ) -> Result<MTalker, failure::Error> {
+    ) -> Result<RTalker, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
         show_plugin(&plugin);
         match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {

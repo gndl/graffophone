@@ -17,8 +17,8 @@
 use crate::curve_controler::CurveControler;
 use crate::event_bus::{Notification, REventBus};
 use crate::graph_controler::GraphControler;
+use crate::session::RSession;
 use crate::state::State;
-
 use std::sync::Mutex;
 
 enum Order {
@@ -27,7 +27,8 @@ enum Order {
     None,
 }
 
-struct SessionControler {
+pub struct SessionControler {
+    session: RSession,
     state: State,
     order: Order,
     pause_lock: Mutex<i64>,
@@ -44,8 +45,9 @@ struct SessionControler {
 }
 
 impl SessionControler {
-    pub fn new(bus: REventBus) -> SessionControler {
+    pub fn new(session: RSession, bus: REventBus) -> SessionControler {
         Self {
+            session,
             state: State::Stopped,
             order: Order::None,
             pause_lock: Mutex::new(0),
@@ -98,6 +100,11 @@ impl SessionControler {
         self.end_tick = t;
         self.bus.notify(Notification::TimeRange(self.start_tick, t));
     }
+    /*
+    pub fn new_session() -> Session {
+        let session = Session::new("");
+    }
+    */
 }
 /*
     method init() =

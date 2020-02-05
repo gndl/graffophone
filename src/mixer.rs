@@ -1,4 +1,4 @@
-use crate::audio_data::MAudioOutput;
+use crate::audio_data::RAudioOutput;
 use crate::audio_data::Vector;
 use crate::playback_output::Playback;
 use crate::track::Track;
@@ -6,11 +6,13 @@ use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::talker::{Talker, TalkerBase};
 use std::boxed::Box;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct Mixer {
     base: TalkerBase,
     tracks: Vec<Track>,
-    outputs: Vec<MAudioOutput>,
+    outputs: Vec<RAudioOutput>,
     channels: Vec<Vector>,
     tick: i64,
     productive: bool,
@@ -37,11 +39,11 @@ impl Mixer {
             productive: false,
         }
     }
-
-    pub fn id() -> &'static str {
-        "Mixer"
-    }
-
+    /*
+        pub fn id() -> &'static str {
+            "Mixer"
+        }
+    */
     pub fn open_output(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.open()?;
@@ -116,8 +118,6 @@ impl Talker for Mixer {
     fn model(&self) -> &str {
         "mixer"
     }
-
-    fn talk(&mut self, _port: usize, _tick: i64, _len: usize) -> usize {
-        0
-    }
 }
+
+pub type RMixer = Rc<RefCell<Mixer>>;

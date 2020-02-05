@@ -2,6 +2,8 @@ use crate::audio_data::Vector;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::talker::{Talker, TalkerBase};
+//use std::cell::RefCell;
+//use std::rc::Rc;
 
 pub struct Track {
     base: TalkerBase,
@@ -113,8 +115,6 @@ impl Talker for Track {
     fn model(&self) -> &str {
         "track"
     }
-
-    fn talk(&mut self, _port: usize, _tick: i64, _len: usize) -> usize {
-        0
-    }
 }
+
+//pub type RTrack = Rc<RefCell<Track>>;

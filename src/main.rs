@@ -31,14 +31,18 @@ mod graph_controler;
 mod mixer;
 mod playback_output;
 mod plugins_manager;
+mod session;
 mod session_controler;
 mod state;
 mod talkers;
 mod track;
 
 use crate::audio_data::AudioOutput;
+use crate::event_bus::EventBus;
 use crate::playback_output::Playback;
 use crate::plugins_manager::PluginsManager;
+use crate::session::Session;
+use crate::session_controler::SessionControler;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use crate::talkers::sinusoidal::Sinusoidal;
@@ -50,7 +54,10 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
-    let world: World = World::new().unwrap();
+    let bus = EventBus::new_ref();
+    let session = Session::new_ref("".to_string());
+    let controler = SessionControler::new(session, bus);
+    //    let world: World = World::new().unwrap();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
     let mut pm = PluginsManager::new();
