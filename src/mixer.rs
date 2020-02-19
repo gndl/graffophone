@@ -1,5 +1,5 @@
-use crate::audio_data::RAudioOutput;
 use crate::audio_data::Vector;
+use crate::output::ROutput;
 use crate::playback_output::Playback;
 use crate::track::Track;
 use gpplugin::audio_format::AudioFormat;
@@ -9,10 +9,12 @@ use std::boxed::Box;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub const KIND: &str = "mixer";
+
 pub struct Mixer {
     base: TalkerBase,
     tracks: Vec<Track>,
-    outputs: Vec<RAudioOutput>,
+    outputs: Vec<ROutput>,
     channels: Vec<Vector>,
     tick: i64,
     productive: bool,
@@ -116,7 +118,7 @@ impl Talker for Mixer {
     }
 
     fn model(&self) -> &str {
-        "mixer"
+        KIND //        "mixer"
     }
 }
 

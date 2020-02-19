@@ -29,6 +29,7 @@ mod curve_controler;
 mod event_bus;
 mod graph_controler;
 mod mixer;
+mod output;
 mod playback_output;
 mod plugins_manager;
 mod session;
@@ -37,8 +38,8 @@ mod state;
 mod talkers;
 mod track;
 
-use crate::audio_data::AudioOutput;
 use crate::event_bus::EventBus;
+use crate::output::Output;
 use crate::playback_output::Playback;
 use crate::plugins_manager::PluginsManager;
 use crate::session::Session;
@@ -95,13 +96,11 @@ fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
 
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_voice_by_tag(&"In".to_string(), &abs_sine_tkr, 0);
+        .set_ear_voice_by_tag("In", &abs_sine_tkr, 0);
+    fuzzface_tkr.borrow_mut().set_ear_value_by_tag("FUZZ", 2f32);
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_value_by_tag(&"FUZZ".to_string(), 2f32);
-    fuzzface_tkr
-        .borrow_mut()
-        .set_ear_value_by_tag(&"LEVEL".to_string(), 0.25f32);
+        .set_ear_value_by_tag("LEVEL", 0.25f32);
 
     for tkr in &talkers {
         tkr.borrow_mut().activate();

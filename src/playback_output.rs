@@ -5,7 +5,8 @@ use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 use gpplugin::horn::AudioBuf;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::audio_data::{AudioOutput, Interleaved, Vector};
+use crate::audio_data::{Interleaved, Vector};
+use crate::output::Output;
 
 pub struct Playback {
     //    event_loop: cpal::EventLoop,
@@ -117,7 +118,7 @@ impl Playback {
     }
 }
 
-impl AudioOutput for Playback {
+impl Output for Playback {
     fn open(&self) -> Result<(), failure::Error> {
         Ok(())
     }

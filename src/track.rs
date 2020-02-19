@@ -5,6 +5,8 @@ use gpplugin::talker::{Talker, TalkerBase};
 //use std::cell::RefCell;
 //use std::rc::Rc;
 
+pub const KIND: &str = "track";
+
 pub struct Track {
     base: TalkerBase,
 }
@@ -113,7 +115,7 @@ impl Talker for Track {
     }
 
     fn model(&self) -> &str {
-        "track"
+        KIND //        "track"
     }
 }
 

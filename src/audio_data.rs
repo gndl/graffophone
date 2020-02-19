@@ -1,8 +1,3 @@
-// use std::cell::RefCell;
-// use std::rc::Rc;
-use std::boxed::Box;
-extern crate failure;
-
 //const VECTOR_SIZE: usize = 960;
 
 //pub type Vector = [f32; VECTOR_SIZE];
@@ -54,18 +49,3 @@ impl Interleaved {
         self.is_end
     }
 }
-
-pub trait AudioOutput {
-    fn open(&self) -> Result<(), failure::Error>;
-
-    fn write(
-        &self,
-        channels: &Vec<Vector>,
-        nb_samples_per_channel: usize,
-    ) -> Result<(), failure::Error>;
-
-    fn close(&self) -> Result<(), failure::Error>;
-}
-
-//pub type RAudioOutput = Rc<RefCell<dyn AudioOutput>>;
-pub type RAudioOutput = Box<dyn AudioOutput>;
