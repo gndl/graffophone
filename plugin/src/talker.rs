@@ -115,6 +115,18 @@ pub trait Talker {
     fn voice_port_type_is(&self, port: usize, port_type: PortType) -> bool {
         self.voice_port_type(port) == port_type
     }
+    fn voice_port(&self, tag: &str) -> Result<usize, failure::Error> {
+        for (port, voice) in self.voices().iter().enumerate() {
+            if voice.borrow().tag() == tag {
+                return Ok(port);
+            }
+        }
+        Err(failure::err_msg(format!(
+            "Unknow voice {} for talker {}",
+            tag,
+            self.name()
+        )))
+    }
 
     fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {
         let ear = self.ears().get(port)?;
@@ -131,7 +143,7 @@ pub trait Talker {
             ear.talks()
         }
     */
-    fn set_ear_value_by_tag(&mut self, tag: &String, value: f32) -> bool {
+    fn set_ear_value_by_tag(&mut self, tag: &str, value: f32) -> bool {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
@@ -156,7 +168,7 @@ pub trait Talker {
         }
         false
     }
-    fn set_ear_voice_by_tag(&mut self, tag: &String, talker: &RTalker, port: usize) -> bool {
+    fn set_ear_voice_by_tag(&mut self, tag: &str, talker: &RTalker, port: usize) -> bool {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
