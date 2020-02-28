@@ -1,13 +1,17 @@
-use crate::audio_data::Vector;
-use crate::output::ROutput;
-use crate::playback_output::Playback;
-use crate::track::Track;
+//use std::boxed::Box;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
 use gpplugin::talker::{Talker, TalkerBase};
-use std::boxed::Box;
-use std::cell::RefCell;
-use std::rc::Rc;
+
+use crate::audio_data::Vector;
+use crate::output;
+use crate::output::ROutput;
+use crate::playback_output::Playback;
+use crate::track::{RTrack, Track};
 
 pub const KIND: &str = "mixer";
 
@@ -20,8 +24,11 @@ pub struct Mixer {
     productive: bool,
 }
 
+pub type RMixer = Rc<RefCell<Mixer>>;
+
 impl Mixer {
-    pub fn new(tracks: Vec<Track>, nb_channels: usize) -> Mixer {
+    pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
+        let nb_channels = 2;
         let mut base = TalkerBase::new();
 
         base.add_ear(ear::cv(Some("volume".to_string()), Some(1.), None));
@@ -34,21 +41,32 @@ impl Mixer {
 
         Self {
             base,
-            tracks,
-            outputs: vec![Box::new(Playback::new(nb_channels, chunk_size).unwrap())],
+            tracks: tracks.unwrap_or(Vec::new()),
+            outputs: outputs.unwrap_or(vec![Playback::new_ref(nb_channels, chunk_size).unwrap()]),
             channels,
             tick: 0,
             productive: false,
         }
     }
-    /*
-        pub fn id() -> &'static str {
-            "Mixer"
-        }
-    */
+    pub fn new_ref(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> RMixer {
+        Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
+    }
+
+    pub fn kind() -> &'static str {
+        "mixer"
+    }
+
+    pub fn add_track(&mut self, track: Track) {
+        self.tracks.push(track);
+    }
+
+    pub fn add_output(&mut self, output: ROutput) {
+        self.outputs.push(output);
+    }
+
     pub fn open_output(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
-            o.open()?;
+            o.borrow_mut().open()?;
         }
         self.tick = 0;
         self.productive = true;
@@ -57,7 +75,7 @@ impl Mixer {
 
     pub fn close_output(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
-            o.close()?;
+            o.borrow_mut().close()?;
         }
         self.productive = false;
         Ok(())
@@ -91,7 +109,7 @@ impl Mixer {
         let master_volume_buf = self.ear_cv_buffer(0).unwrap();
 
         for cn in 0..channels.len() {
-            let mut ch = &mut channels[cn];
+            let ch = &mut channels[cn];
 
             for i in 0..ln {
                 let mut sample = ch[i] * master_volume_buf[i].get();
@@ -106,7 +124,7 @@ impl Mixer {
         }
 
         for o in &self.outputs {
-            o.write(channels, ln)?;
+            o.borrow_mut().write(channels, ln)?;
         }
         Ok(ln)
     }
@@ -118,8 +136,6 @@ impl Talker for Mixer {
     }
 
     fn model(&self) -> &str {
-        KIND //        "mixer"
+        Mixer::kind()
     }
 }
-
-pub type RMixer = Rc<RefCell<Mixer>>;

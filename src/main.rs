@@ -27,6 +27,7 @@ use gpplugin::audio_format::AudioFormat;
 mod audio_data;
 mod curve_controler;
 mod event_bus;
+mod factory;
 mod graph_controler;
 mod mixer;
 mod output;
@@ -41,8 +42,7 @@ mod track;
 use crate::event_bus::EventBus;
 use crate::output::Output;
 use crate::playback_output::Playback;
-use crate::plugins_manager::PluginsManager;
-use crate::session::Session;
+use crate::session::{RSession, Session};
 use crate::session_controler::SessionControler;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
@@ -56,17 +56,15 @@ const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
     let bus = EventBus::new_ref();
-    let session = Session::new_ref("".to_string());
-    let controler = SessionControler::new(session, bus);
+    let session = Session::new_ref(None, None, None, None, None, None);
+
+    let _controler = SessionControler::new(session.clone(), bus);
     //    let world: World = World::new().unwrap();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
-    let mut pm = PluginsManager::new();
-    pm.load_plugins( /*&world, &features*/);
-
     /*
-    pm.run();
-    match run(&world, pm.features_buffer()) {
+    session.borrow().run();
+    match run(&world, session.borrow().features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -74,8 +72,8 @@ fn main() {
     }
      */
 
-    match play_sin(&pm) {
-        //    match play_progressive_sinusoidale(&pm) {
+    match play_sin(&session) {
+        //    match play_progressive_sinusoidale(&session) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -83,28 +81,27 @@ fn main() {
     }
 }
 
-fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
-    let mut talkers = Vec::new();
+fn play(session: &RSession) -> Result<(), failure::Error> {
     let fuzzface_uri =
         "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
 
-    let fuzzface_tkr = pm.make_talker(&fuzzface_uri, None)?;
-    talkers.push(fuzzface_tkr.clone());
+    let fuzzface_tkr = session.borrow_mut().add_talker(&fuzzface_uri, None)?;
 
-    let abs_sine_tkr = pm.make_talker(&Sinusoidal::id().to_string(), None)?;
-    talkers.push(abs_sine_tkr.clone());
+    let abs_sine_tkr = session
+        .borrow_mut()
+        .add_talker(&Sinusoidal::id().to_string(), None)?;
 
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_voice_by_tag("In", &abs_sine_tkr, 0);
-    fuzzface_tkr.borrow_mut().set_ear_value_by_tag("FUZZ", 2f32);
+        .set_ear_voice_by_tag("In", &abs_sine_tkr, 0)?;
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_value_by_tag("LEVEL", 0.25f32);
+        .set_ear_value_by_tag("FUZZ", 2f32)?;
+    fuzzface_tkr
+        .borrow_mut()
+        .set_ear_value_by_tag("LEVEL", 0.25f32)?;
 
-    for tkr in &talkers {
-        tkr.borrow_mut().activate();
-    }
+    session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -125,16 +122,18 @@ fn play(pm: &PluginsManager) -> Result<(), failure::Error> {
         po.write_mono(&audio_buf, ln)?;
         tick += ln as i64;
     }
-    for tkr in &talkers {
-        tkr.borrow_mut().deactivate();
-    }
+
+    session.borrow().deactivate_talkers();
+
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())
 }
 
-fn play_sin(pm: &PluginsManager) -> Result<(), failure::Error> {
-    let tkr = pm.make_talker(&Sinusoidal::id().to_string(), None)?;
-    tkr.borrow_mut().activate();
+fn play_sin(session: &RSession) -> Result<(), failure::Error> {
+    let tkr = session
+        .borrow_mut()
+        .add_talker(&Sinusoidal::id().to_string(), None)?;
+    session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -151,15 +150,17 @@ fn play_sin(pm: &PluginsManager) -> Result<(), failure::Error> {
         tick += ln as i64;
     }
 
-    tkr.borrow_mut().deactivate();
+    session.borrow().deactivate_talkers();
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())
 }
 
-fn play_progressive_sinusoidale(pm: &PluginsManager) -> Result<(), failure::Error> {
-    let tkr = pm.make_talker(&SecondDegreeFrequencyProgression::id().to_string(), None)?;
-    tkr.borrow_mut().activate();
+fn play_progressive_sinusoidale(session: &RSession) -> Result<(), failure::Error> {
+    let tkr = session
+        .borrow_mut()
+        .add_talker(&SecondDegreeFrequencyProgression::id().to_string(), None)?;
+    session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -176,7 +177,7 @@ fn play_progressive_sinusoidale(pm: &PluginsManager) -> Result<(), failure::Erro
         tick += ln as i64;
     }
 
-    tkr.borrow_mut().deactivate();
+    session.borrow().deactivate_talkers();
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())

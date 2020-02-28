@@ -2,16 +2,21 @@ use crate::audio_data::Vector;
 use gpplugin::ear;
 use gpplugin::ear::Ear;
 use gpplugin::talker::{Talker, TalkerBase};
-//use std::cell::RefCell;
-//use std::rc::Rc;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub const KIND: &str = "track";
 
 pub struct Track {
     base: TalkerBase,
 }
+pub type RTrack = Rc<RefCell<Track>>;
 
 impl Track {
+    pub fn kind() -> &'static str {
+        "track"
+    }
+
     pub fn new() -> Track {
         let mut base = TalkerBase::new();
 
@@ -20,6 +25,9 @@ impl Track {
         base.add_ear(ear::cvs(Some("channelGain".to_string())));
 
         Self { base }
+    }
+    pub fn new_ref() -> RTrack {
+        Rc::new(RefCell::new(Track::new()))
     }
 
     pub fn id() -> &'static str {
@@ -53,7 +61,7 @@ impl Track {
                 let n = std::cmp::min(channels.len(), cgs.talks().len());
 
                 for i in 0..n {
-                    let mut ch = &mut channels[i];
+                    let ch = &mut channels[i];
                     let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
 
                     for j in 0..ln {
@@ -62,7 +70,7 @@ impl Track {
                 }
 
                 for i in n..channels.len() {
-                    let mut ch = &mut channels[i];
+                    let ch = &mut channels[i];
                     for j in 0..ln {
                         ch[j] = buf[j];
                     }
@@ -88,7 +96,7 @@ impl Track {
                 let n = std::cmp::min(channels.len(), cgs.talks().len());
 
                 for i in 0..n {
-                    let mut ch = &mut channels[i];
+                    let ch = &mut channels[i];
                     let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
 
                     for j in 0..ln {
@@ -97,7 +105,7 @@ impl Track {
                 }
 
                 for i in n..channels.len() {
-                    let mut ch = &mut channels[i];
+                    let ch = &mut channels[i];
                     for j in 0..ln {
                         ch[j] = ch[j] + buf[j];
                     }
@@ -115,8 +123,6 @@ impl Talker for Track {
     }
 
     fn model(&self) -> &str {
-        KIND //        "track"
+        Track::kind()
     }
 }
-
-//pub type RTrack = Rc<RefCell<Track>>;

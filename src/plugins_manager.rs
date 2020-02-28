@@ -8,7 +8,7 @@ use lv2::urid::features::{URIDMap, URIDUnmap};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpplugin::talker::RTalker;
+use gpplugin::talker::{CTalker, RTalker};
 use gpplugin::talker_handler::TalkerHandlerBase;
 
 use lilv::world::World;
@@ -31,7 +31,6 @@ impl GpFeatureSet {
         })
     }
     fn init(mut self) -> Self {
-        //        println!("&self.urid_map: {:?}", &self.urid_map);
         self.buffer = Rc::new(FeatureBuffer::from_vec(vec![
             /*
             Feature::descriptor(&self.hard_rt_capable),
@@ -39,7 +38,7 @@ impl GpFeatureSet {
             Feature::descriptor(&self.urid_map),
                             */
         ]));
-        //        println!("GpFeatureSet.buffer: {:#?}", self.buffer);
+
         self
     }
     pub fn buffer(&self) -> SharedFeatureBuffer {
@@ -129,12 +128,8 @@ impl PluginsManager {
         }
     }
 
-    pub fn make_talker(
-        &self,
-        id: &String,
-        name: Option<&String>,
-    ) -> Result<RTalker, failure::Error> {
-        match self.handlers.get(id) {
+    pub fn make_talker(&self, id: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
+        match self.handlers.get(id.to_string().as_str()) {
             Some(ph) => {
                 let talker = self.mk_tkr(ph);
                 match talker {
@@ -164,7 +159,6 @@ impl PluginsManager {
 
             match self.mk_tkr(ph) {
                 Ok(tkr) => {
-                    //                    println!("Plugin {} {}", tkr.id(), tkr.name());
                     talkers.push(tkr);
                 }
                 Err(e) => {

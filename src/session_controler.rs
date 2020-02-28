@@ -102,7 +102,7 @@ impl SessionControler {
     }
     /*
     pub fn new_session() -> Session {
-        let session = Session::new("");
+        let session = Session::new(None, None, None, None, None);
     }
     */
 }
