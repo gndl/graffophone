@@ -44,7 +44,7 @@ pub struct PluginInstance {
     buffers: Buffers,
     activated: bool,
     //    _marker: PhantomData<&'f u8>,
-    features: SharedFeatureBuffer,
+    //    features: SharedFeatureBuffer,
 }
 
 //impl<'f> PluginInstance<'f> {
@@ -74,7 +74,7 @@ impl PluginInstance {
             buffers,
             activated: false,
             //            _marker: PhantomData,
-            features: shared_features,
+            //          features: shared_features,
         })
     }
 
