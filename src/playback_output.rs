@@ -1,12 +1,16 @@
 extern crate cpal;
 extern crate failure;
 
-use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
-use gpplugin::horn::AudioBuf;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 
+use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
+
+use gpplugin::horn::AudioBuf;
+
 use crate::audio_data::{Interleaved, Vector};
-use crate::output::Output;
+use crate::output::{Output, ROutput};
 
 pub struct Playback {
     //    event_loop: cpal::EventLoop,
@@ -20,7 +24,7 @@ pub struct Playback {
 }
 
 impl Playback {
-    pub fn new(nb_channels: usize, nb_samples: usize) -> Result<Self, failure::Error> {
+    pub fn new(nb_channels: usize, nb_samples: usize) -> Result<Playback, failure::Error> {
         let (sender, receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
             std::sync::mpsc::channel();
 
@@ -99,6 +103,13 @@ impl Playback {
         })
     }
 
+    pub fn new_ref(nb_channels: usize, nb_samples: usize) -> Result<ROutput, failure::Error> {
+        Ok(Rc::new(RefCell::new(Playback::new(
+            nb_channels,
+            nb_samples,
+        )?)))
+    }
+
     pub fn write_mono(&mut self, audio_buf: &AudioBuf, len: usize) -> Result<(), failure::Error> {
         let audio_buffer_slice = audio_buf.get();
 
@@ -119,12 +130,12 @@ impl Playback {
 }
 
 impl Output for Playback {
-    fn open(&self) -> Result<(), failure::Error> {
+    fn open(&mut self) -> Result<(), failure::Error> {
         Ok(())
     }
 
     fn write(
-        &self,
+        &mut self,
         channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
@@ -133,7 +144,7 @@ impl Output for Playback {
         Ok(())
     }
 
-    fn close(&self) -> Result<(), failure::Error> {
+    fn close(&mut self) -> Result<(), failure::Error> {
         self.sender.send(Interleaved::end()).unwrap();
         Ok(())
     }
