@@ -64,16 +64,22 @@ impl Talks {
     pub fn add_talk(&mut self, talk: MTalk) {
         self.talks.push(talk)
     }
-    pub fn add_talk_value(&mut self, value: f32) -> bool {
+    pub fn add_talk_value(&mut self, value: f32) -> Result<(), failure::Error> {
         self.talks.push(new_talk_value(&self.port_type, value));
-        true
+        Ok(())
     }
-    pub fn add_talk_voice(&mut self, talker: &RTalker, port: usize) -> bool {
+    pub fn add_talk_voice(&mut self, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
         if talker.borrow().voice_port_type_is(port, self.port_type) {
             self.talks.push(new_talk_voice(talker, port));
-            return true;
+            Ok(())
+        } else {
+            Err(failure::err_msg(format!(
+                "Talker {} voice {} type is not compatible with talks {}!",
+                talker.borrow().name(),
+                port,
+                self.tag
+            )))
         }
-        return false;
     }
 }
 
@@ -230,7 +236,7 @@ pub fn cvs(tag: Option<String>) -> Ear {
     talks(tag, PortType::Cv)
 }
 
-pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
+pub fn set_talk_value(talk: &MTalk, value: f32) -> Result<(), failure::Error> {
     let mut tlk = talk.borrow_mut();
     match tlk.port_type {
         PortType::Audio => {
@@ -246,9 +252,9 @@ pub fn set_talk_value(talk: &MTalk, value: f32) -> bool {
             tlk.port = 0;
         }
     }
-    true
+    Ok(())
 }
-pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> bool {
+pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
     if talker
         .borrow()
         .voice_port_type_is(port, talk.borrow().port_type())
@@ -256,9 +262,16 @@ pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> bool {
         let mut tlk = talk.borrow_mut();
         tlk.tkr = talker.clone();
         tlk.port = port;
-        return true;
+        Ok(())
+    } else {
+        Err(failure::err_msg(format!(
+            "Talker {} voice {} type is not compatible with talker {} talk {}!",
+            talker.borrow().name(),
+            port,
+            talk.borrow().tkr.borrow().name(),
+            talk.borrow().tag
+        )))
     }
-    false
 }
 
 pub fn new_talk_value(port_type: &PortType, value: f32) -> MTalk {
@@ -296,11 +309,16 @@ pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
     talk.tkr.borrow_mut().talk(port, tick, len)
 }
 
-pub fn visit_ear_flatten_index<F>(ears: &Vec<Ear>, index: usize, mut f: F) -> bool
+pub fn visit_ear_flatten_index<F>(
+    ears: &Vec<Ear>,
+    index: usize,
+    mut f: F,
+) -> Result<(), failure::Error>
 where
-    F: FnMut(&MTalk) -> bool,
+    F: FnMut(&MTalk) -> Result<(), failure::Error>,
 {
-    let mut res = false;
+    let mut res = Err(failure::err_msg(format!("Ear {} not found!", index)));
+
     ears.into_iter().try_fold(0, |i, ear| match ear {
         Ear::Talk(talk) => {
             if i == index {

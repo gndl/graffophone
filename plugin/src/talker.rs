@@ -49,7 +49,7 @@ impl TalkerBase {
     pub fn name(&self) -> String {
         self.identifier.borrow().name().to_string()
     }
-    pub fn set_name(&self, name: &String) {
+    pub fn set_name(&self, name: &str) {
         self.identifier.borrow_mut().set_name(name);
     }
     pub fn is_hidden(&self) -> bool {
@@ -71,7 +71,7 @@ pub trait Talker {
     fn name(&self) -> String {
         self.base().name()
     }
-    fn set_name(&self, name: &String) {
+    fn set_name(&self, name: &str) {
         self.base().set_name(name);
     }
     fn is_hidden(&self) -> bool {
@@ -143,7 +143,7 @@ pub trait Talker {
             ear.talks()
         }
     */
-    fn set_ear_value_by_tag(&mut self, tag: &str, value: f32) -> bool {
+    fn set_ear_value_by_tag(&mut self, tag: &str, value: f32) -> Result<(), failure::Error> {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
@@ -166,9 +166,18 @@ pub trait Talker {
                 }
             }
         }
-        false
+        Err(failure::err_msg(format!(
+            "Talker {} ear {} not found!",
+            self.name(),
+            tag
+        )))
     }
-    fn set_ear_voice_by_tag(&mut self, tag: &str, talker: &RTalker, port: usize) -> bool {
+    fn set_ear_voice_by_tag(
+        &mut self,
+        tag: &str,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
@@ -190,14 +199,23 @@ pub trait Talker {
                 }
             }
         }
-        false
+        Err(failure::err_msg(format!(
+            "Talker {} ear {} not found!",
+            self.name(),
+            tag
+        )))
     }
 
-    fn set_ear_value_by_index(&self, index: usize, value: f32) -> bool {
+    fn set_ear_value_by_index(&self, index: usize, value: f32) -> Result<(), failure::Error> {
         ear::visit_ear_flatten_index(self.ears(), index, |talk| ear::set_talk_value(talk, value))
     }
 
-    fn set_ear_voice_by_index(&self, index: usize, talker: &RTalker, port: usize) -> bool {
+    fn set_ear_voice_by_index(
+        &self,
+        index: usize,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
         ear::visit_ear_flatten_index(self.ears(), index, |talk| {
             ear::set_talk_voice(talk, talker, port)
         })
@@ -223,4 +241,5 @@ pub trait Talker {
     }
 }
 
-pub type RTalker = Rc<RefCell<dyn Talker>>;
+pub type CTalker = RefCell<dyn Talker>;
+pub type RTalker = Rc<CTalker>;
