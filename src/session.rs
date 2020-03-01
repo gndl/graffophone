@@ -325,9 +325,10 @@ impl Session {
 
         Ok(session)
     }
-    /*
-        let headLine id knd ftr = [""; knd ^ " " ^ formatId id ^ " " ^ ftr] in
-    fn depLine tag dep = "> " ^ tag ^ " " ^ formatId dep
+
+
+fn head_line (id:&str, kind:&str, feature:&String)->String{format!("\n{} {} {}\n", kind, Session::format_id( id), feature)}
+    /*    fn depLine tag dep = "> " ^ tag ^ " " ^ formatId dep
       in
       let wordDepLine wrd =  Ear.(depLine wrd.wTag (sof wrd.value))
       in
@@ -343,14 +344,19 @@ impl Session {
           )
         )
       in
-      let srcToL src =
-        match src with
+fn talk2line(talk:&ear)->String{
+        match ear{
         | Ear.Word wrd -> wordDepLine wrd
         | Ear.Talk tlk -> talkDepLine tlk
       in
-    fn dec2lines( id: (knd, ftr, ears) =
-        (headLine id knd ftr) @ L.map ~f:srcToL (A.to_list(Ear.earsToSources ears))
-      in
+    fn dec2lines( id:usize, (kind, feature, ears):(&str, String, &Vec<ear::Ear>))->String{
+
+        let mut lines = Vec::new_with_capacity(ears.len() + 1);
+lines.push(head_Line (id, kind, feature));
+
+for ear in ears{
+lines.push(Ear.earsToSources ears))
+}
     fn a2l (tag, id) = depLine tag (mkId id)
       in
 
@@ -373,6 +379,8 @@ impl Session {
           @ L.map ~f:(fun (_, e) -> opDecToLines (mkId e) e#backup) sn.outputs)
       in
       writeFileLines session.filename lines
+
+
             let mut file = File::create(self.filename)?;
 
             for tkr in self.talkers.values() {

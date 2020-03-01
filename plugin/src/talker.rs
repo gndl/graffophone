@@ -236,7 +236,7 @@ pub trait Talker {
         ln
     }
 
-    fn backup<'a>(&'a self) -> (&str, std::string::String, &std::vec::Vec<ear::Ear>) {
+    fn backup<'a>(&'a self) -> (&str, String, &Vec<ear::Ear>) {
         (self.model(), self.get_data_string(), self.ears())
     }
 }
