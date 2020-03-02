@@ -328,7 +328,9 @@ impl Session {
 
 
 fn head_line (id:&str, kind:&str, feature:&String)->String{format!("\n{} {} {}\n", kind, Session::format_id( id), feature)}
-    /*    fn depLine tag dep = "> " ^ tag ^ " " ^ formatId dep
+    fn dep_line (tag:&str, dep:&str)->String{format!("> {} {}", tag, Session::format_id( dep))}
+
+    /*
       in
       let wordDepLine wrd =  Ear.(depLine wrd.wTag (sof wrd.value))
       in
