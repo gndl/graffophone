@@ -90,6 +90,10 @@ impl Session {
         )))
     }
 
+    pub fn add_mixer(&mut self, mixer: Mixer) {
+	self.mixers.insert(mixer.id(), mixer);
+    }
+    
     pub fn add_talker(&mut self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
         let tkr = self.factory.make_talker(model, name)?;
         self.talkers.insert(tkr.borrow().id(), tkr.clone());
@@ -318,7 +322,7 @@ impl Session {
                 &otp_decs,
                 &properties,
             )?;
-            session.mixers.insert(mixer.id(), mixer);
+            session.add_mixer(mixer);
         }
 
         Ok(session)
@@ -394,102 +398,3 @@ let (model, feature, ears):(&str, String, &Vec<Ear>) = tkr.backup();
     }
 }
 
-/*
-let talkers session = session.talkers
-let tracks session = session.tracks
-let mixCons session = session.mixCons
-let outputs session = session.outputs
-
-let gInstance = ref {
-    filename = ""; talkers = []; tracks = []; mixCons = []; outputs = []
-  }
-
-let getInstance() = !gInstance
-
-let getTalkers() = !gInstance.talkers
-let getTracks() = !gInstance.tracks
-let getMixingConsoles() = !gInstance.mixCons
-let getOutputs() = !gInstance.outputs
-
-let findTalker id = L.assoc id !gInstance.talkers
-let findTrack id = L.assoc id !gInstance.tracks
-let findMixingConsole id = L.assoc id !gInstance.mixCons
-let findOutput id = L.assoc id !gInstance.outputs
-
-let addTalker tkr = !gInstance.talkers <- (tkr#getId, tkr)::!gInstance.talkers
-let addTrack tkr = !gInstance.tracks <- (tkr#getId, tkr)::!gInstance.tracks
-let addMixingConsole tkr = !gInstance.mixCons <- (tkr#getId, tkr)::!gInstance.mixCons
-let addOutput op = !gInstance.outputs <- (op#getId, op)::!gInstance.outputs
-
-let supTalker tkr =
-  !gInstance.talkers <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.talkers
-
-let supTrack tkr =
-  !gInstance.tracks <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.tracks
-
-let supMixingConsole tkr =
-  !gInstance.mixCons <- L.filter ~f:(fun (_, t) -> t <> tkr) !gInstance.mixCons
-
-let supOutput op =
-  !gInstance.outputs <- L.filter ~f:(fun (_, t) -> t <> op) !gInstance.outputs
-
-
-let make ?(filename = "NewSession.es") ?(talkers = [])
-    ?(tracks = []) ?(mixingConsoles = []) ?(outputs = []) () =
-
-  gInstance := {
-    filename = filename;
-    talkers = L.map talkers ~f:(fun(_, tkr) -> (tkr#getId, tkr));
-    tracks = L.map tracks ~f:(fun(_, tkr) -> (tkr#getId, tkr));
-    mixCons = L.map mixingConsoles ~f:(fun(_, tkr) -> (tkr#getId, tkr));
-    outputs = L.map outputs ~f:(fun(_, op) -> (op#getId, op))
-  };
-  !gInstance
-
-
-// recover constant talker created by Talker in order to set a word on a talk
-let recoverDefaultTalkers session =
-  let talkers = ref [] in
-  let rec recDefTkr deps =
-    L.iter deps
-      ~f:(fun talk ->
-          let tkr = Ear.getTalkTalker talk in
-
-          recDefTkr tkr#getTalks;
-
-          if not(L.mem_assoc tkr#getId ~map:session.talkers) then
-            talkers := (tkr#getId, tkr) :: !talkers)
-  in
-  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.talkers;
-  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.tracks;
-  L.iter ~f:(fun (_, tkr) -> recDefTkr (tkr#getTalks)) session.mixCons;
-
-  make ~filename:session.filename ~talkers:(session.talkers @ !talkers)
-    ~tracks:session.tracks ~mixingConsoles:session.mixCons
-    ~outputs:session.outputs ()
-
-
-*/
-
-/*
-let mcOfDec (name, prop) =
-let rec tomOfAtts ts os mv = function
-| [] -> (ts, os, mv)
-| a::tl -> (
-if a.tag = Track.kind then tomOfAtts ((assoc a.name tracks)::ts) os mv tl
-else
-if a.tag = "out" then tomOfAtts ts ((assoc a.name outputs)::os) mv tl
-else
-if a.tag = "volume" then
-tomOfAtts ts os (Some(assoc a.name !talkers)) tl
-else tomOfAtts ts os mv tl
-)
-in
-let (ts, os, mv) = tomOfAtts [] [] None prop.attributs in
-let tracks = L.rev ts and outputs = L.rev os in
-let mc = match mv with
-| Some v -> new cMixingConsole ~tracks ~outputs ~volume:v ~name ()
-| None -> new cMixingConsole ~tracks ~outputs ~name ()
-in (name, mc)
-in
-*/

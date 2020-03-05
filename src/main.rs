@@ -23,6 +23,7 @@ use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
 
 use gpplugin::audio_format::AudioFormat;
+use gpplugin::talker::Talker;
 
 mod audio_data;
 mod curve_controler;
@@ -50,6 +51,9 @@ use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
+use crate::mixer::{Mixer};
+use crate::output::ROutput;
+use crate::track::{RTrack, Track};
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -82,7 +86,6 @@ fn main() {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-    session.borrow().save();
 }
 
 fn play(session: &RSession) -> Result<(), failure::Error> {
@@ -134,9 +137,11 @@ fn play(session: &RSession) -> Result<(), failure::Error> {
 }
 
 fn play_sin(session: &RSession) -> Result<(), failure::Error> {
+
     let tkr = session
         .borrow_mut()
         .add_talker(sinusoidal::MODEL, None)?;
+
     session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
@@ -157,6 +162,12 @@ fn play_sin(session: &RSession) -> Result<(), failure::Error> {
     session.borrow().deactivate_talkers();
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
+    let mut track = Track::new();
+    track.set_ear_voice_by_index(0, &tkr, 0)?;
+    let mut mixer = Mixer::new(None, None);
+    mixer.add_track(track);
+    session.borrow_mut().add_mixer(mixer);
+    session.borrow_mut().save_as("play_sin.gsr");
     Ok(())
 }
 
