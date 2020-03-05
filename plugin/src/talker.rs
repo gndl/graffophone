@@ -1,16 +1,16 @@
-use crate::horn::{AudioBuf, CvBuf};
+use std::cell::RefCell;
+use std::rc::Rc;
+
 extern crate failure;
+
+use crate::horn::{AudioBuf, CvBuf};
 use crate::data::Data;
 use crate::ear;
 use crate::ear::Ear;
 use crate::identifier::{Identifier, RIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::atomic::{AtomicU32, Ordering};
 
-static TALKER_COUNT: AtomicU32 = AtomicU32::new(1);
 
 pub struct TalkerBase {
     identifier: RIdentifier,
@@ -21,12 +21,11 @@ pub struct TalkerBase {
 }
 
 impl TalkerBase {
-    pub fn new() -> Self {
+    pub fn new(name: &str, model: &str) -> Self {
         Self {
             identifier: RefCell::new(Identifier::new(
-                "",
-                "",
-                TALKER_COUNT.fetch_add(1, Ordering::SeqCst),
+                name,
+                model,
             )),
             ears: Vec::new(),
             voices: Vec::new(),
@@ -65,9 +64,9 @@ pub trait Talker {
     fn id(&self) -> u32 {
         self.base().id()
     }
-    fn model(&self) -> &str {
+    fn model(&self) -> &str;/* {
         ""
-    }
+    }*/
     fn name(&self) -> String {
         self.base().name()
     }
@@ -126,6 +125,19 @@ pub trait Talker {
             tag,
             self.name()
         )))
+    }
+
+    fn voice_tag(&self, port: usize) -> Result<String, failure::Error> {
+        match self.voices().get(port) {
+            Some(voice)=> Ok(voice.borrow().tag().to_string()),
+	    None=> {
+        Err(failure::err_msg(format!(
+            "Unknow voice {} for talker {}",
+port,
+            self.name()
+        )))
+	    }
+	}
     }
 
     fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {

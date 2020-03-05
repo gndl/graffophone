@@ -5,6 +5,8 @@ use gpplugin::talker_handler::TalkerHandlerBase;
 use gpplugin::voice;
 use std::f64::consts::PI;
 
+pub const MODEL: &str = "Sinusoidal";
+
 pub struct Sinusoidal {
     base: TalkerBase,
     last_tick: i64,
@@ -14,12 +16,12 @@ pub struct Sinusoidal {
 
 impl Sinusoidal {
     pub fn new() -> Sinusoidal {
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence".to_string()), Some(440.), None);
+        let freq = ear::audio(Some("frequence"), Some(440.), None);
         base.add_ear(freq);
 
-        let phase = ear::audio(Some("phase".to_string()), Some(0.), None);
+        let phase = ear::audio(Some("phase"), Some(0.), None);
         base.add_ear(phase);
 
         let voice = voice::audio(None, None, None);
@@ -33,17 +35,17 @@ impl Sinusoidal {
         }
     }
 
-    pub fn id() -> &'static str {
-        "Sinusoidal"
-    }
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new(Sinusoidal::id(), "Sinusoidal", "Generator")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Sinusoidal")
     }
 }
 
 impl Talker for Sinusoidal {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
+    }
+    fn model(&self) -> &str {
+        MODEL
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {

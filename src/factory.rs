@@ -24,8 +24,8 @@ impl Factory {
         Rc::new(Factory::new())
     }
 
-    pub fn make_talker(&self, id: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
-        self.plugins_manager.make_talker(id, name)
+    pub fn make_talker(&self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
+        self.plugins_manager.make_talker(model, name)
     }
 
     pub fn make_output(

@@ -1,6 +1,6 @@
 //use std::boxed::Box;
 use std::cell::RefCell;
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpplugin::audio_format::AudioFormat;
@@ -8,10 +8,10 @@ use gpplugin::ear;
 use gpplugin::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
-use crate::output;
+//use crate::output;
 use crate::output::ROutput;
 use crate::playback_output::Playback;
-use crate::track::{RTrack, Track};
+use crate::track::{Track};
 
 pub const KIND: &str = "mixer";
 
@@ -29,9 +29,9 @@ pub type RMixer = Rc<RefCell<Mixer>>;
 impl Mixer {
     pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
         let nb_channels = 2;
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::cv(Some("volume".to_string()), Some(1.), None));
+        base.add_ear(ear::cv(Some("volume"), Some(1.), None));
         let mut channels = Vec::with_capacity(nb_channels);
         let chunk_size = AudioFormat::chunk_size();
 
@@ -53,11 +53,19 @@ impl Mixer {
     }
 
     pub fn kind() -> &'static str {
-        "mixer"
+        KIND
+    }
+
+    pub fn tracks<'a>(&'a self)-> &'a Vec<Track> {
+        &self.tracks
     }
 
     pub fn add_track(&mut self, track: Track) {
         self.tracks.push(track);
+    }
+
+    pub fn outputs<'a>(&'a self)-> &'a Vec<ROutput> {
+        &self.outputs
     }
 
     pub fn add_output(&mut self, output: ROutput) {

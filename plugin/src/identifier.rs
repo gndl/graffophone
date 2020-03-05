@@ -1,4 +1,7 @@
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
 pub struct Identifier {
     id: u32,
@@ -6,7 +9,9 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    pub fn new(name: &str, model: &str, id: u32) -> Self {
+    pub fn new(name: &str, model: &str) -> Self {
+	let id = ID_COUNT.fetch_add(1, Ordering::SeqCst);
+
         let name_model_fm = |close_char| {
             if model.is_empty() {
                 format!("{}{}{}", name, id, close_char)
@@ -17,7 +22,7 @@ impl Identifier {
 
         let name = if name.is_empty() {
             if model.is_empty() {
-                "".to_string()
+                format!("{}", id)
             } else {
                 format!("{} {}", model, id)
             }
@@ -31,13 +36,13 @@ impl Identifier {
             }
         };
 
-        Self { id: id, name: name }
+        Self { id, name }
     }
 
     pub fn id(&self) -> u32 {
         self.id
     }
-    pub fn name<'a>(&'a self) -> &'a String {
+    pub fn name<'a>(&'a self) -> &'a str {
         &self.name
     }
     pub fn set_name(&mut self, name: &str) {

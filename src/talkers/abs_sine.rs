@@ -5,15 +5,17 @@ use gpplugin::talker_handler::TalkerHandlerBase;
 use gpplugin::voice;
 use std::f64::consts::PI;
 
+pub const MODEL: &str = "AbsSine";
+
 pub struct AbsSine {
     base: TalkerBase,
 }
 
 impl AbsSine {
     pub fn new() -> AbsSine {
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence".to_string()), Some(440.), None);
+        let freq = ear::audio(Some("frequence"), Some(440.), None);
         base.add_ear(freq);
 
         let voice = voice::audio(None, None, None);
@@ -21,11 +23,8 @@ impl AbsSine {
 
         Self { base }
     }
-    pub fn id() -> &'static str {
-        "AbsSine"
-    }
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new(AbsSine::id(), "Absolute sinusoidal", "Generator")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Absolute sinusoidal")
     }
 }
 
@@ -33,6 +32,10 @@ impl Talker for AbsSine {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
     }
+    fn model(&self) -> &str {
+        MODEL
+    }
+
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
         let mut ln = len;
         let c = (PI * 2.0) / AudioFormat::sample_rate() as f64;

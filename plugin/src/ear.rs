@@ -23,6 +23,12 @@ impl Talk {
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
+    pub fn talker<'a>(&'a self) -> &'a RTalker {
+        &self.tkr
+    }
+    pub fn port(&self) -> usize {
+        self.port
+    }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
         let tkr = self.tkr.borrow();
@@ -43,12 +49,12 @@ impl Talk {
     }
 }
 
-pub type MTalk = RefCell<Talk>;
+pub type RTalk = RefCell<Talk>;
 
 pub struct Talks {
     port_type: PortType,
     tag: String,
-    talks: Vec<MTalk>,
+    talks: Vec<RTalk>,
 }
 
 impl Talks {
@@ -58,10 +64,10 @@ impl Talks {
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
-    pub fn talks<'a>(&'a self) -> &'a Vec<MTalk> {
+    pub fn talks<'a>(&'a self) -> &'a Vec<RTalk> {
         &self.talks
     }
-    pub fn add_talk(&mut self, talk: MTalk) {
+    pub fn add_talk(&mut self, talk: RTalk) {
         self.talks.push(talk)
     }
     pub fn add_talk_value(&mut self, value: f32) -> Result<(), failure::Error> {
@@ -83,11 +89,11 @@ impl Talks {
     }
 }
 
-pub type MTalks = RefCell<Talks>;
+pub type RTalks = RefCell<Talks>;
 
 pub enum Ear {
-    Talk(MTalk),
-    Talks(MTalks),
+    Talk(RTalk),
+    Talks(RTalks),
 }
 
 impl Ear {
@@ -105,7 +111,7 @@ impl Ear {
         }
     }
 
-    pub fn talks<'a>(&'a self) -> Option<&'a MTalks> {
+    pub fn talks<'a>(&'a self) -> Option<&'a RTalks> {
         match self {
             Ear::Talks(talks) => Some(&talks),
             _ => None,
@@ -126,6 +132,22 @@ impl Ear {
         }
     }
 
+    pub fn fold_talks<P, F>(&self,mut f: F, p:P)->Result<P, failure::Error>
+    where
+        F: FnMut(P, &Talk)->Result<P, failure::Error>,
+    {
+        match self {
+            Ear::Talk(talk) => f(p, &talk.borrow()),
+            Ear::Talks(talks) => {
+		let mut acc = p;
+				  for talk in &talks.borrow().talks{
+				      acc = f(acc, &talk.borrow())?;
+				  }
+				  Ok(acc)
+				  },
+            }
+    }
+
     pub fn visit_horn<F>(&self, f: F)
     where
         F: FnMut(&Horn),
@@ -140,10 +162,10 @@ impl Ear {
 pub fn def_audio_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
 }
-pub fn def_audio_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
+pub fn def_audio_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Audio,
-        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
         tkr: def_audio_talker(value),
         port: 0,
     })
@@ -151,10 +173,10 @@ pub fn def_audio_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
 pub fn def_control_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(ControlTalker::new(value, Some(true))))
 }
-pub fn def_control_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
+pub fn def_control_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Control,
-        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
         tkr: def_control_talker(value),
         port: 0,
     })
@@ -162,10 +184,10 @@ pub fn def_control_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
 pub fn def_cv_talker(value: Option<f32>) -> RTalker {
     Rc::new(RefCell::new(CvTalker::new(value, Some(true))))
 }
-pub fn def_cv_talk(tag: Option<String>, value: Option<f32>) -> MTalk {
+pub fn def_cv_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Cv,
-        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
         tkr: def_cv_talker(value),
         port: 0,
     })
@@ -175,12 +197,12 @@ pub fn def_ear() -> Ear {
     Ear::Talk(def_control_talk(None, None))
 }
 
-pub fn control(tag: Option<String>, value: Option<f32>) -> Ear {
+pub fn control(tag: Option<&str>, value: Option<f32>) -> Ear {
     Ear::Talk(def_control_talk(tag, value))
 }
 
 pub fn audio(
-    tag: Option<String>,
+    tag: Option<&str>,
     value: Option<f32>,
     talker_port: Option<(&RTalker, usize)>,
 ) -> Ear {
@@ -189,7 +211,7 @@ pub fn audio(
         None => match talker_port {
             Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
                 port_type: PortType::Audio,
-                tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+                tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
                 tkr: Rc::clone(tkr),
                 port: port,
             })),
@@ -197,13 +219,13 @@ pub fn audio(
         },
     }
 }
-pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
+pub fn cv(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_cv_talk(tag, value)),
         None => match talker_port {
             Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
                 port_type: PortType::Cv,
-                tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+                tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
                 tkr: Rc::clone(tkr),
                 port: port,
             })),
@@ -212,31 +234,31 @@ pub fn cv(tag: Option<String>, value: Option<f32>, talker_port: Option<(&RTalker
     }
 }
 
-pub fn def_talks(tag: Option<String>, port_type: PortType) -> MTalks {
+pub fn def_talks(tag: Option<&str>, port_type: PortType) -> RTalks {
     RefCell::new(Talks {
         port_type,
-        tag: tag.unwrap_or(DEF_INPUT_TAG.to_string()),
+        tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
         talks: Vec::new(),
     })
 }
 
-pub fn talks(tag: Option<String>, port_type: PortType) -> Ear {
+pub fn talks(tag: Option<&str>, port_type: PortType) -> Ear {
     Ear::Talks(def_talks(tag, port_type))
 }
 
-pub fn controls(tag: Option<String>) -> Ear {
+pub fn controls(tag: Option<&str>) -> Ear {
     talks(tag, PortType::Control)
 }
 
-pub fn audios(tag: Option<String>) -> Ear {
+pub fn audios(tag: Option<&str>) -> Ear {
     talks(tag, PortType::Audio)
 }
 
-pub fn cvs(tag: Option<String>) -> Ear {
+pub fn cvs(tag: Option<&str>) -> Ear {
     talks(tag, PortType::Cv)
 }
 
-pub fn set_talk_value(talk: &MTalk, value: f32) -> Result<(), failure::Error> {
+pub fn set_talk_value(talk: &RTalk, value: f32) -> Result<(), failure::Error> {
     let mut tlk = talk.borrow_mut();
     match tlk.port_type {
         PortType::Audio => {
@@ -254,7 +276,7 @@ pub fn set_talk_value(talk: &MTalk, value: f32) -> Result<(), failure::Error> {
     }
     Ok(())
 }
-pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
+pub fn set_talk_voice(talk: &RTalk, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
     if talker
         .borrow()
         .voice_port_type_is(port, talk.borrow().port_type())
@@ -274,7 +296,7 @@ pub fn set_talk_voice(talk: &MTalk, talker: &RTalker, port: usize) -> Result<(),
     }
 }
 
-pub fn new_talk_value(port_type: &PortType, value: f32) -> MTalk {
+pub fn new_talk_value(port_type: &PortType, value: f32) -> RTalk {
     match port_type {
         PortType::Audio => def_audio_talk(None, Some(value)),
         PortType::Control => def_control_talk(None, Some(value)),
@@ -282,7 +304,7 @@ pub fn new_talk_value(port_type: &PortType, value: f32) -> MTalk {
     }
 }
 
-pub fn new_talk_voice(talker: &RTalker, port: usize) -> MTalk {
+pub fn new_talk_voice(talker: &RTalker, port: usize) -> RTalk {
     let port_type;
     {
         port_type = talker.borrow().voice_port_type(port);
@@ -315,7 +337,7 @@ pub fn visit_ear_flatten_index<F>(
     mut f: F,
 ) -> Result<(), failure::Error>
 where
-    F: FnMut(&MTalk) -> Result<(), failure::Error>,
+    F: FnMut(&RTalk) -> Result<(), failure::Error>,
 {
     let mut res = Err(failure::err_msg(format!("Ear {} not found!", index)));
 

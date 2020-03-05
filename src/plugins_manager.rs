@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
+use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::lv2::Lv2;
+use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
 use lv2::urid::features::{URIDMap, URIDUnmap};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpplugin::talker::{CTalker, RTalker};
+use gpplugin::talker::{RTalker};
 use gpplugin::talker_handler::TalkerHandlerBase;
 
 use lilv::world::World;
@@ -76,7 +79,7 @@ impl PluginsManager {
 
     fn add_handler(&mut self, base: TalkerHandlerBase) {
         self.handlers.insert(
-            base.id().to_string(),
+            base.model().to_string(),
             PluginHandler {
                 base,
                 plugin_type: PluginType::Internal,
@@ -91,9 +94,9 @@ impl PluginsManager {
                 plugin.uri().to_string(),
                 PluginHandler {
                     base: TalkerHandlerBase::new(
+                        plugin.class().label().to_str(),
                         plugin.uri().to_string().as_str(),
                         plugin.name().to_str(),
-                        plugin.class().label().to_str(),
                     ),
                     plugin_type: PluginType::Lv2,
                 },
@@ -107,29 +110,29 @@ impl PluginsManager {
         println!("load_plugins end");
     }
 
-    pub fn make_internal_talker(&self, id: &String) -> Result<RTalker, failure::Error> {
-        if id == Sinusoidal::id() {
+    pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
+        if model == sinusoidal::MODEL {
             Ok(Rc::new(RefCell::new(Sinusoidal::new())))
-        } else if id == AbsSine::id() {
+        } else if model == abs_sine::MODEL {
             Ok(Rc::new(RefCell::new(AbsSine::new())))
-        } else if id == SecondDegreeFrequencyProgression::id() {
+        } else if model == second_degree_frequency_progression::MODEL {
             Ok(Rc::new(RefCell::new(
                 SecondDegreeFrequencyProgression::new(110., 0., 1., 1.),
             )))
         } else {
-            Err(failure::err_msg("Unknown talker ID"))
+            Err(failure::err_msg("Unknown talker MODEL"))
         }
     }
 
     pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
         match &ph.plugin_type {
-            PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.id()),
-            PluginType::Internal => self.make_internal_talker(ph.base.id()),
+            PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.model()),
+            PluginType::Internal => self.make_internal_talker(ph.base.model()),
         }
     }
 
-    pub fn make_talker(&self, id: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
-        match self.handlers.get(id.to_string().as_str()) {
+    pub fn make_talker(&self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
+        match self.handlers.get(model.to_string().as_str()) {
             Some(ph) => {
                 let talker = self.mk_tkr(ph);
                 match talker {
@@ -154,7 +157,7 @@ impl PluginsManager {
     pub fn run(&self) {
         let mut talkers = Vec::new();
 
-        for (_id, ph) in self.handlers.iter() {
+        for (_model, ph) in self.handlers.iter() {
             println!("Plugin {} ({})", ph.base.model(), ph.base.category());
 
             match self.mk_tkr(ph) {
@@ -168,7 +171,7 @@ impl PluginsManager {
         }
 
         for tkr in &talkers {
-            println!("Plugin {} {}", tkr.borrow().id(), tkr.borrow().name());
+            println!("Plugin {} {}", tkr.borrow().model(), tkr.borrow().name());
         }
     }
 }

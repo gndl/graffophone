@@ -44,8 +44,11 @@ use crate::output::Output;
 use crate::playback_output::Playback;
 use crate::session::{RSession, Session};
 use crate::session_controler::SessionControler;
+use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
+use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
 
 const CHANNELS: usize = 2;
@@ -79,17 +82,18 @@ fn main() {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+    session.borrow().save();
 }
 
 fn play(session: &RSession) -> Result<(), failure::Error> {
     let fuzzface_uri =
-        "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_".to_string();
+        "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_";
 
-    let fuzzface_tkr = session.borrow_mut().add_talker(&fuzzface_uri, None)?;
+    let fuzzface_tkr = session.borrow_mut().add_talker(fuzzface_uri, None)?;
 
     let abs_sine_tkr = session
         .borrow_mut()
-        .add_talker(&Sinusoidal::id().to_string(), None)?;
+        .add_talker(sinusoidal::MODEL, None)?;
 
     fuzzface_tkr
         .borrow_mut()
@@ -132,7 +136,7 @@ fn play(session: &RSession) -> Result<(), failure::Error> {
 fn play_sin(session: &RSession) -> Result<(), failure::Error> {
     let tkr = session
         .borrow_mut()
-        .add_talker(&Sinusoidal::id().to_string(), None)?;
+        .add_talker(sinusoidal::MODEL, None)?;
     session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
@@ -159,7 +163,7 @@ fn play_sin(session: &RSession) -> Result<(), failure::Error> {
 fn play_progressive_sinusoidale(session: &RSession) -> Result<(), failure::Error> {
     let tkr = session
         .borrow_mut()
-        .add_talker(&SecondDegreeFrequencyProgression::id().to_string(), None)?;
+        .add_talker(second_degree_frequency_progression::MODEL, None)?;
     session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;

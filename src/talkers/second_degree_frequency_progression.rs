@@ -3,6 +3,9 @@ use gpplugin::talker::{Talker, TalkerBase};
 use gpplugin::talker_handler::TalkerHandlerBase;
 use gpplugin::voice;
 
+pub const MODEL: &str = "SecondDegreeFrequencyProgression";
+
+
 pub struct SecondDegreeFrequencyProgression {
     base: TalkerBase,
     f: f64,
@@ -13,7 +16,7 @@ pub struct SecondDegreeFrequencyProgression {
 
 impl SecondDegreeFrequencyProgression {
     pub fn new(f: f64, a: f64, b: f64, c: f64) -> SecondDegreeFrequencyProgression {
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", MODEL);
 
         let voice = voice::audio(None, None, None);
         base.add_voice(voice);
@@ -21,14 +24,9 @@ impl SecondDegreeFrequencyProgression {
         Self { base, f, a, b, c }
     }
 
-    pub fn id() -> &'static str {
-        "SecondDegreeFrequencyProgression"
-    }
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new(
-            SecondDegreeFrequencyProgression::id(),
+        TalkerHandlerBase::new("Oscillator", MODEL,
             "Second degree frequency progression",
-            "Generator",
         )
     }
 }
@@ -37,6 +35,10 @@ impl Talker for SecondDegreeFrequencyProgression {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
     }
+    fn model(&self) -> &str {
+        MODEL
+    }
+
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
         let c = AudioFormat::frequence_coef();
         let f = self.f;

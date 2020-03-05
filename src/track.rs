@@ -18,11 +18,11 @@ impl Track {
     }
 
     pub fn new() -> Track {
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::audio(None, None, None));
-        base.add_ear(ear::audio(Some("gain".to_string()), Some(1.), None));
-        base.add_ear(ear::cvs(Some("channelGain".to_string())));
+        base.add_ear(ear::audio(Some("gain"), Some(1.), None));
+        base.add_ear(ear::cvs(Some("channelGain")));
 
         Self { base }
     }

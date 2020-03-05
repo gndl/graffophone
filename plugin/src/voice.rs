@@ -21,10 +21,10 @@ pub struct Voice {
 }
 
 impl Voice {
-    pub fn new(port_type: PortType, tag: Option<String>, len: usize, horn: Horn) -> Self {
+    pub fn new(port_type: PortType, tag: Option<&str>, len: usize, horn: Horn) -> Self {
         Self {
             port_type,
-            tag: tag.unwrap_or(DEF_OUTPUT_TAG.to_string()),
+            tag: tag.unwrap_or(DEF_OUTPUT_TAG).to_string(),
             tick: -1,
             len,
             horn,
@@ -67,7 +67,7 @@ impl Voice {
 
 pub type MVoice = RefCell<Voice>;
 
-pub fn audio(tag: Option<String>, value: Option<f32>, buf: Option<AudioBuf>) -> MVoice {
+pub fn audio(tag: Option<&str>, value: Option<f32>, buf: Option<AudioBuf>) -> MVoice {
     let len = AudioFormat::chunk_size();
     RefCell::new(Voice::new(
         PortType::Audio,
@@ -77,7 +77,7 @@ pub fn audio(tag: Option<String>, value: Option<f32>, buf: Option<AudioBuf>) -> 
     ))
 }
 
-pub fn control(tag: Option<String>, value: Option<f32>, buf: Option<ControlBuf>) -> MVoice {
+pub fn control(tag: Option<&str>, value: Option<f32>, buf: Option<ControlBuf>) -> MVoice {
     RefCell::new(Voice::new(
         PortType::Control,
         tag,
@@ -86,7 +86,7 @@ pub fn control(tag: Option<String>, value: Option<f32>, buf: Option<ControlBuf>)
     ))
 }
 
-pub fn cv(tag: Option<String>, value: Option<f32>, buf: Option<CvBuf>) -> MVoice {
+pub fn cv(tag: Option<&str>, value: Option<f32>, buf: Option<CvBuf>) -> MVoice {
     let len = AudioFormat::chunk_size();
     RefCell::new(Voice::new(
         PortType::Cv,
@@ -97,13 +97,13 @@ pub fn cv(tag: Option<String>, value: Option<f32>, buf: Option<CvBuf>) -> MVoice
 }
 
 /*
-pub fn control(tag: Option<String>, value: Option<f32>) -> ControlVoice {
+pub fn control(tag: Option<&str>, value: Option<f32>) -> ControlVoice {
     //Rc::new(
     Cell::new(ControlVoiceT::new(tag, value))
     //)
 }
 
-pub fn cv(tag: Option<String>, value: Option<f32>) -> CvVoice {
+pub fn cv(tag: Option<&str>, value: Option<f32>) -> CvVoice {
     //  Rc::new(
     Cell::new(CvVoiceT::new(tag, value))
     //)

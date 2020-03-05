@@ -7,12 +7,17 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 
+use gpplugin::identifier::{RIdentifier};
 use gpplugin::horn::AudioBuf;
 
 use crate::audio_data::{Interleaved, Vector};
+use crate::output;
 use crate::output::{Output, ROutput};
 
+pub const MODEL: &str = "playback";
+
 pub struct Playback {
+    identifier: RIdentifier,
     //    event_loop: cpal::EventLoop,
     //    format: cpal::Format,
     //  stream_id: cpal::StreamId,
@@ -92,6 +97,7 @@ impl Playback {
         });
 
         Ok(Self {
+	    identifier: output::new_identifier("", MODEL),
             //            event_loop: event_loop,
             //            format: format,
             //            stream_id: stream_id,
@@ -130,6 +136,10 @@ impl Playback {
 }
 
 impl Output for Playback {
+    fn identifier<'a>(&'a self) -> &'a RIdentifier {
+        &self.identifier
+    }
+
     fn open(&mut self) -> Result<(), failure::Error> {
         Ok(())
     }
@@ -147,5 +157,9 @@ impl Output for Playback {
     fn close(&mut self) -> Result<(), failure::Error> {
         self.sender.send(Interleaved::end()).unwrap();
         Ok(())
+    }
+    
+    fn backup(&self)-> (&str, &str, Vec<(&str, String)>) {
+	(output::KIND, MODEL, Vec::new())
     }
 }

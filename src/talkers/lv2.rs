@@ -30,32 +30,32 @@ impl Lv2 {
     pub fn new(
         world: &World,
         features: SharedFeatureBuffer,
-        uri: &String,
+        uri: &str,
     ) -> Result<RTalker, failure::Error> {
-        let plugin = world.get_plugin_by_uri(uri.as_str()).unwrap();
+        let plugin = world.get_plugin_by_uri(uri).unwrap();
         show_plugin(&plugin);
         match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {
             Ok(mut instance) => {
-                let mut base = TalkerBase::new();
+                let mut base = TalkerBase::new(plugin.name().to_str(), uri);
                 let mut input_port_handlers = Vec::new();
                 let mut output_port_handlers = Vec::new();
 
                 for port in plugin.inputs() {
                     match UnknownInputPort::as_typed::<Control>(&port) {
                         Some(p) => {
-                            let ear = ear::control(Some(p.name().to_string()), None);
+                            let ear = ear::control(Some(&p.name().to_string()), None);
                             base.add_ear(ear);
                             input_port_handlers.push(p.handle().index());
                         }
                         None => match UnknownInputPort::as_typed::<Audio>(&port) {
                             Some(p) => {
-                                let ear = ear::audio(Some(p.name().to_string()), None, None);
+                                let ear = ear::audio(Some(&p.name().to_string()), None, None);
                                 base.add_ear(ear);
                                 input_port_handlers.push(p.handle().index());
                             }
                             None => match UnknownInputPort::as_typed::<CV>(&port) {
                                 Some(p) => {
-                                    let ear = ear::cv(Some(p.name().to_string()), None, None);
+                                    let ear = ear::cv(Some(&p.name().to_string()), None, None);
                                     base.add_ear(ear);
                                     input_port_handlers.push(p.handle().index());
                                 }
@@ -72,7 +72,7 @@ impl Lv2 {
                         Some(p) => {
                             let buf = horn::audio_buf(None, None);
                             instance.connect_port(p.handle().clone(), buf.clone());
-                            let vc = voice::audio(Some(p.name().to_string()), None, Some(buf));
+                            let vc = voice::audio(Some(&p.name().to_string()), None, Some(buf));
                             base.add_voice(vc);
                             output_port_handlers.push(p.handle().index());
                         }
@@ -81,7 +81,7 @@ impl Lv2 {
                                 let buf = horn::control_buf(None);
                                 instance.connect_port(p.handle().clone(), buf.clone());
                                 let vc =
-                                    voice::control(Some(p.name().to_string()), None, Some(buf));
+                                    voice::control(Some(&p.name().to_string()), None, Some(buf));
                                 base.add_voice(vc);
                                 output_port_handlers.push(p.handle().index());
                             }
@@ -89,7 +89,7 @@ impl Lv2 {
                                 Some(p) => {
                                     let buf = horn::cv_buf(None, None);
                                     instance.connect_port(p.handle().clone(), buf.clone());
-                                    let vc = voice::cv(Some(p.name().to_string()), None, Some(buf));
+                                    let vc = voice::cv(Some(&p.name().to_string()), None, Some(buf));
                                     base.add_voice(vc);
                                     output_port_handlers.push(p.handle().index());
                                 }
@@ -102,7 +102,7 @@ impl Lv2 {
                 }
                 Ok(Rc::new(RefCell::new(Self {
                     base,
-                    model: plugin.name().to_str().to_string(),
+                    model: uri.to_string(),//plugin.name().to_str().to_string(),
                     instance,
                     input_port_handlers,
                     output_port_handlers,
