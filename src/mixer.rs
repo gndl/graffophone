@@ -1,6 +1,4 @@
-//use std::boxed::Box;
 use std::cell::RefCell;
-//use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpplugin::audio_format::AudioFormat;
@@ -8,10 +6,8 @@ use gpplugin::ear;
 use gpplugin::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
-//use crate::output;
 use crate::output::ROutput;
-use crate::playback_output::Playback;
-use crate::track::{Track};
+use crate::track::Track;
 
 pub const KIND: &str = "mixer";
 
@@ -42,7 +38,7 @@ impl Mixer {
         Self {
             base,
             tracks: tracks.unwrap_or(Vec::new()),
-            outputs: outputs.unwrap_or(vec![Playback::new_ref(nb_channels, chunk_size).unwrap()]),
+            outputs: outputs.unwrap_or(Vec::new()),
             channels,
             tick: 0,
             productive: false,
@@ -56,7 +52,7 @@ impl Mixer {
         KIND
     }
 
-    pub fn tracks<'a>(&'a self)-> &'a Vec<Track> {
+    pub fn tracks<'a>(&'a self) -> &'a Vec<Track> {
         &self.tracks
     }
 
@@ -64,7 +60,7 @@ impl Mixer {
         self.tracks.push(track);
     }
 
-    pub fn outputs<'a>(&'a self)-> &'a Vec<ROutput> {
+    pub fn outputs<'a>(&'a self) -> &'a Vec<ROutput> {
         &self.outputs
     }
 

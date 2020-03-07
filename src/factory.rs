@@ -1,11 +1,16 @@
 use std::rc::Rc;
 
 use gpplugin::audio_format::AudioFormat;
+use gpplugin::identifier::RIdentifier;
 use gpplugin::talker::RTalker;
+use gpplugin::talker::Talker;
 
+use crate::mixer::Mixer;
 use crate::output::ROutput;
-use crate::playback_output::Playback;
+use crate::playback;
+use crate::playback::Playback;
 use crate::plugins_manager::PluginsManager;
+use crate::track::Track;
 
 pub struct Factory {
     plugins_manager: PluginsManager,
@@ -24,16 +29,62 @@ impl Factory {
         Rc::new(Factory::new())
     }
 
-    pub fn make_talker(&self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
-        self.plugins_manager.make_talker(model, name)
+    pub fn make_talker(
+        &self,
+        model: &str,
+        oid: Option<u32>,
+        oname: Option<&str>,
+    ) -> Result<RTalker, failure::Error> {
+        let tkr = self.plugins_manager.make_talker(model)?;
+        Factory::set_identity(tkr.borrow().identifier(), oid, oname);
+        Ok(tkr)
+    }
+
+    pub fn make_track(
+        &self,
+        oid: Option<u32>,
+        oname: Option<&str>,
+    ) -> Result<Track, failure::Error> {
+        let trk = Track::new();
+        Factory::set_identity(trk.identifier(), oid, oname);
+        Ok(trk)
+    }
+
+    pub fn make_mixer(
+        &self,
+        oid: Option<u32>,
+        oname: Option<&str>,
+        tracks: Option<Vec<Track>>,
+        outputs: Option<Vec<ROutput>>,
+    ) -> Result<Mixer, failure::Error> {
+        let mxr = Mixer::new(tracks, outputs);
+        Factory::set_identity(mxr.identifier(), oid, oname);
+        Ok(mxr)
     }
 
     pub fn make_output(
         &self,
-        _name: &str,
-        _kind: &str,
+        oid: Option<u32>,
+        oname: Option<&str>,
+        model: &str,
         _attributs: &Vec<(&str, &str, &str)>,
     ) -> Result<ROutput, failure::Error> {
-        Playback::new_ref(2, AudioFormat::chunk_size())
+        if model != playback::MODEL {
+            return Err(failure::err_msg(format!("Unknown output model {}!", model)));
+        }
+        let output = Playback::new_ref(2, AudioFormat::chunk_size())?;
+        Factory::set_identity(output.borrow().identifier(), oid, oname);
+        Ok(output)
+    }
+
+    fn set_identity(identifier: &RIdentifier, oid: Option<u32>, oname: Option<&str>) {
+        match oid {
+            Some(id) => identifier.borrow_mut().set_id(id),
+            None => (),
+        };
+        match oname {
+            Some(name) => identifier.borrow_mut().set_name(name),
+            None => (),
+        };
     }
 }

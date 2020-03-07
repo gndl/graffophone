@@ -1,10 +1,11 @@
-use crate::audio_talker::AudioTalker;
-use crate::control_talker::ControlTalker;
-use crate::cv_talker::CvTalker;
-use crate::horn::{AudioBuf, CvBuf, Horn};
-use crate::talker::RTalker;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use audio_talker::AudioTalker;
+use control_talker::ControlTalker;
+use cv_talker::CvTalker;
+use horn::{AudioBuf, CvBuf, Horn};
+use talker::RTalker;
 use voice::PortType;
 
 pub const DEF_INPUT_TAG: &'static str = "I";
@@ -132,20 +133,20 @@ impl Ear {
         }
     }
 
-    pub fn fold_talks<P, F>(&self,mut f: F, p:P)->Result<P, failure::Error>
+    pub fn fold_talks<P, F>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
-        F: FnMut(P, &Talk)->Result<P, failure::Error>,
+        F: FnMut(P, &Talk) -> Result<P, failure::Error>,
     {
         match self {
             Ear::Talk(talk) => f(p, &talk.borrow()),
             Ear::Talks(talks) => {
-		let mut acc = p;
-				  for talk in &talks.borrow().talks{
-				      acc = f(acc, &talk.borrow())?;
-				  }
-				  Ok(acc)
-				  },
+                let mut acc = p;
+                for talk in &talks.borrow().talks {
+                    acc = f(acc, &talk.borrow())?;
+                }
+                Ok(acc)
             }
+        }
     }
 
     pub fn visit_horn<F>(&self, f: F)
@@ -201,11 +202,7 @@ pub fn control(tag: Option<&str>, value: Option<f32>) -> Ear {
     Ear::Talk(def_control_talk(tag, value))
 }
 
-pub fn audio(
-    tag: Option<&str>,
-    value: Option<f32>,
-    talker_port: Option<(&RTalker, usize)>,
-) -> Ear {
+pub fn audio(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_audio_talk(tag, value)),
         None => match talker_port {

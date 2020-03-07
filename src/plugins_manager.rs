@@ -1,4 +1,14 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
+
+use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
+use lv2::urid::features::{URIDMap, URIDUnmap};
+
+use lilv::world::World;
+
+use gpplugin::talker::RTalker;
+use gpplugin::talker_handler::TalkerHandlerBase;
 
 use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
@@ -7,15 +17,6 @@ use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
-use lv2::urid::features::{URIDMap, URIDUnmap};
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use gpplugin::talker::{RTalker};
-use gpplugin::talker_handler::TalkerHandlerBase;
-
-use lilv::world::World;
-use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
 
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
@@ -131,25 +132,9 @@ impl PluginsManager {
         }
     }
 
-    pub fn make_talker(&self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
+    pub fn make_talker(&self, model: &str) -> Result<RTalker, failure::Error> {
         match self.handlers.get(model.to_string().as_str()) {
-            Some(ph) => {
-                let talker = self.mk_tkr(ph);
-                match talker {
-                    Ok(tkr) => {
-                        match name {
-                            Some(nm) => tkr.borrow().set_name(nm),
-                            None => (),
-                        };
-
-                        return Ok(tkr);
-                    }
-                    Err(e) => {
-                        eprintln!("Make talker failed: {:?}", e);
-                        return Err(e);
-                    }
-                }
-            }
+            Some(ph) => self.mk_tkr(ph),
             None => Err(failure::err_msg("Unknown talker URI")),
         }
     }

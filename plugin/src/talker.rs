@@ -3,14 +3,13 @@ use std::rc::Rc;
 
 extern crate failure;
 
-use crate::horn::{AudioBuf, CvBuf};
 use crate::data::Data;
 use crate::ear;
 use crate::ear::Ear;
-use crate::identifier::{Identifier, RIdentifier};
+use crate::horn::{AudioBuf, CvBuf};
+use crate::identifier::{Identifiable, Identifier, RIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
-
 
 pub struct TalkerBase {
     identifier: RIdentifier,
@@ -23,10 +22,7 @@ pub struct TalkerBase {
 impl TalkerBase {
     pub fn new(name: &str, model: &str) -> Self {
         Self {
-            identifier: RefCell::new(Identifier::new(
-                name,
-                model,
-            )),
+            identifier: RefCell::new(Identifier::new(name, model)),
             ears: Vec::new(),
             voices: Vec::new(),
             //            ear_call: false,
@@ -42,15 +38,6 @@ impl TalkerBase {
     pub fn identifier<'a>(&'a self) -> &'a RIdentifier {
         &self.identifier
     }
-    pub fn id(&self) -> u32 {
-        self.identifier.borrow().id()
-    }
-    pub fn name(&self) -> String {
-        self.identifier.borrow().name().to_string()
-    }
-    pub fn set_name(&self, name: &str) {
-        self.identifier.borrow_mut().set_name(name);
-    }
     pub fn is_hidden(&self) -> bool {
         self.hidden
     }
@@ -59,20 +46,41 @@ impl TalkerBase {
     }
 }
 
+impl Identifiable for TalkerBase {
+    fn id(&self) -> u32 {
+        self.identifier.borrow().id()
+    }
+    fn set_id(&self, id: u32) {
+        self.identifier.borrow_mut().set_id(id);
+    }
+    fn name(&self) -> String {
+        self.identifier.borrow().name().to_string()
+    }
+    fn set_name(&self, name: &str) {
+        self.identifier.borrow_mut().set_name(name);
+    }
+}
+
 pub trait Talker {
     fn base<'a>(&'a self) -> &'a TalkerBase;
+    fn identifier<'a>(&'a self) -> &'a RIdentifier {
+        self.base().identifier()
+    }
+
     fn id(&self) -> u32 {
         self.base().id()
     }
-    fn model(&self) -> &str;/* {
-        ""
-    }*/
+    fn set_id(&self, id: u32) {
+        self.base().set_id(id);
+    }
     fn name(&self) -> String {
         self.base().name()
     }
     fn set_name(&self, name: &str) {
         self.base().set_name(name);
     }
+
+    fn model(&self) -> &str;
     fn is_hidden(&self) -> bool {
         self.base().is_hidden()
     }
@@ -123,21 +131,19 @@ pub trait Talker {
         Err(failure::err_msg(format!(
             "Unknow voice {} for talker {}",
             tag,
-            self.name()
+            self.base().name()
         )))
     }
 
     fn voice_tag(&self, port: usize) -> Result<String, failure::Error> {
         match self.voices().get(port) {
-            Some(voice)=> Ok(voice.borrow().tag().to_string()),
-	    None=> {
-        Err(failure::err_msg(format!(
-            "Unknow voice {} for talker {}",
-port,
-            self.name()
-        )))
-	    }
-	}
+            Some(voice) => Ok(voice.borrow().tag().to_string()),
+            None => Err(failure::err_msg(format!(
+                "Unknow voice {} for talker {}",
+                port,
+                self.base().name()
+            ))),
+        }
     }
 
     fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {
@@ -180,7 +186,7 @@ port,
         }
         Err(failure::err_msg(format!(
             "Talker {} ear {} not found!",
-            self.name(),
+            self.base().name(),
             tag
         )))
     }
@@ -213,7 +219,7 @@ port,
         }
         Err(failure::err_msg(format!(
             "Talker {} ear {} not found!",
-            self.name(),
+            self.base().name(),
             tag
         )))
     }

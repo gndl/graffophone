@@ -16,6 +16,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -23,12 +24,13 @@ use std::io::Write;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use gpplugin::talker::{RTalker, Talker};
 use gpplugin::ear::{Ear, Talk};
+use gpplugin::identifier::Identifier;
+use gpplugin::talker::{RTalker, Talker};
 
 use crate::factory::Factory;
 use crate::mixer;
-use crate::mixer::{Mixer};
+use crate::mixer::Mixer;
 use crate::output;
 use crate::output::ROutput;
 use crate::track;
@@ -43,14 +45,14 @@ pub struct Session {
 
 pub type RSession = Rc<RefCell<Session>>;
 
-struct Properties<'a> {
+struct Module<'a> {
     kind: &'a str,
     mref: &'a str,
     feature: &'a str,
     attributs: Vec<(&'a str, &'a str, &'a str)>,
 }
-impl<'a> Properties<'a> {
-    pub fn new(kind: &'a str, mref: &'a str, feature: &'a str) -> Properties<'a> {
+impl<'a> Module<'a> {
+    pub fn new(kind: &'a str, mref: &'a str, feature: &'a str) -> Module<'a> {
         Self {
             kind,
             mref,
@@ -91,11 +93,16 @@ impl Session {
     }
 
     pub fn add_mixer(&mut self, mixer: Mixer) {
-	self.mixers.insert(mixer.id(), mixer);
+        self.mixers.insert(mixer.id(), mixer);
     }
-    
-    pub fn add_talker(&mut self, model: &str, name: Option<&str>) -> Result<RTalker, failure::Error> {
-        let tkr = self.factory.make_talker(model, name)?;
+
+    pub fn add_talker(
+        &mut self,
+        model: &str,
+        oid: Option<u32>,
+        oname: Option<&str>,
+    ) -> Result<RTalker, failure::Error> {
+        let tkr = self.factory.make_talker(model, oid, oname)?;
         self.talkers.insert(tkr.borrow().id(), tkr.clone());
         Ok(tkr)
     }
@@ -126,21 +133,33 @@ impl Session {
         }
     }
 
+    fn id_from_mref(mref: &str) -> Result<u32, failure::Error> {
+        let parts: Vec<&str> = mref.split('#').collect();
+        match u32::from_str(parts[0]) {
+            Ok(id) => Ok(id),
+            Err(e) => Err(failure::err_msg(format!(
+                "Failed to get id from mref {} : {}!",
+                mref,
+                e.description()
+            ))),
+        }
+    }
+
     fn tidy_decs<'a>(
-        properties: Properties<'a>,
+        module: Module<'a>,
         (tkr_decs, trk_decs, mxr_decs, otp_decs): &mut (
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
         ),
     ) {
-        match properties.kind {
+        match module.kind {
             "" => None,
-            track::KIND => trk_decs.insert(properties.mref, properties),
-            mixer::KIND => mxr_decs.insert(properties.mref, properties),
-            output::KIND => otp_decs.insert(properties.mref, properties),
-            _ => tkr_decs.insert(properties.mref, properties),
+            track::KIND => trk_decs.insert(module.mref, module),
+            mixer::KIND => mxr_decs.insert(module.mref, module),
+            output::KIND => otp_decs.insert(module.mref, module),
+            _ => tkr_decs.insert(module.mref, module),
         };
     }
 
@@ -148,10 +167,10 @@ impl Session {
         lines: &'a Vec<String>,
     ) -> Result<
         (
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
-            HashMap<&'a str, Properties<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
+            HashMap<&'a str, Module<'a>>,
         ),
         failure::Error,
     > {
@@ -161,7 +180,7 @@ impl Session {
             HashMap::new(),
             HashMap::new(),
         );
-        let mut properties = Properties::new("", "", "");
+        let mut module = Module::new("", "", "");
 
         for line in lines {
             let words: Vec<&str> = line.trim().split(|c| c == ' ' || c == '\t').collect();
@@ -174,35 +193,35 @@ impl Session {
                     let tkr = tlk_p.get(0).unwrap_or(tlk);
                     let sp = tlk_p.get(1).unwrap_or(&"");
 
-                    if properties.kind == "" {
+                    if module.kind == "" {
                         return Err(failure::err_msg(format!(
-                            "Found properties attribut {} {} before properties!",
+                            "Found module attribut {} {} before module!",
                             tag, tlk
                         )));
                     }
-                    properties.attributs.push((tag, tkr, sp));
+                    module.attributs.push((tag, tkr, sp));
                 }
                 (Some(kind), Some(mref), Some(feature)) => {
-                    Session::tidy_decs(properties, &mut decs);
-                    properties = Properties::new(kind, mref, feature);
+                    Session::tidy_decs(module, &mut decs);
+                    module = Module::new(kind, mref, feature);
                 }
                 (Some(kind), Some(mref), None) => {
-                    Session::tidy_decs(properties, &mut decs);
-                    properties = Properties::new(kind, mref, "");
+                    Session::tidy_decs(module, &mut decs);
+                    module = Module::new(kind, mref, "");
                 }
                 _ => (),
             }
         }
-        Session::tidy_decs(properties, &mut decs);
+        Session::tidy_decs(module, &mut decs);
         Ok(decs)
     }
 
     fn set_talker_ears(
         talkers: &HashMap<&str, RTalker>,
         talker: &RTalker,
-        properties: &Properties,
+        module: &Module,
     ) -> Result<(), failure::Error> {
-        for (tag, dpn, tkn) in &properties.attributs {
+        for (tag, dpn, tkn) in &module.attributs {
             match f32::from_str(&dpn) {
                 Ok(value) => talker.borrow_mut().set_ear_value_by_tag(&tag, value)?,
                 Err(_) => match talkers.get(dpn) {
@@ -221,13 +240,16 @@ impl Session {
     }
 
     fn make_track(
+        factory: &Factory,
         talkers: &HashMap<&str, RTalker>,
-        properties: &Properties,
+        module: &Module,
     ) -> Result<Track, failure::Error> {
-        let mut track = Track::new();
-        track.set_name(Session::name_from_mref(properties.mref));
+        let mut track = factory.make_track(
+            Some(Session::id_from_mref(module.mref)?),
+            Some(Session::name_from_mref(module.mref)),
+        )?;
 
-        for (tag, dpn, tkn) in &properties.attributs {
+        for (tag, dpn, tkn) in &module.attributs {
             match f32::from_str(&dpn) {
                 Ok(value) => track.set_ear_value_by_tag(&tag, value)?,
                 Err(_) => match talkers.get(dpn) {
@@ -243,28 +265,33 @@ impl Session {
         Ok(track)
     }
 
-    fn make_output(factory: &Factory, properties: &Properties) -> Result<ROutput, failure::Error> {
+    fn make_output(factory: &Factory, module: &Module) -> Result<ROutput, failure::Error> {
         factory.make_output(
-            Session::name_from_mref(properties.mref),
-            properties.feature,
-            &properties.attributs,
+            Some(Session::id_from_mref(module.mref)?),
+            Some(Session::name_from_mref(module.mref)),
+            module.feature,
+            &module.attributs,
         )
     }
 
     fn make_mixer(
         factory: &Factory,
         talkers: &HashMap<&str, RTalker>,
-        trk_decs: &HashMap<&str, Properties>,
-        otp_decs: &HashMap<&str, Properties>,
-        properties: &Properties,
+        trk_decs: &HashMap<&str, Module>,
+        otp_decs: &HashMap<&str, Module>,
+        module: &Module,
     ) -> Result<Mixer, failure::Error> {
-        let mut mixer = Mixer::new(None, None);
-        mixer.set_name(Session::name_from_mref(properties.mref));
+        let mut mixer = factory.make_mixer(
+            Some(Session::id_from_mref(module.mref)?),
+            Some(Session::name_from_mref(module.mref)),
+            None,
+            None,
+        )?;
 
-        for (tag, dpn, tkn) in &properties.attributs {
+        for (tag, dpn, tkn) in &module.attributs {
             if tag == &Track::kind() {
                 match trk_decs.get(dpn) {
-                    Some(trk) => mixer.add_track(Session::make_track(&talkers, trk)?),
+                    Some(trk) => mixer.add_track(Session::make_track(factory, &talkers, trk)?),
                     None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
                 }
             } else if tag == &output::KIND {
@@ -289,7 +316,8 @@ impl Session {
         Ok(mixer)
     }
 
-    fn load(filename: &str) -> Result<Session, failure::Error> {
+    pub fn load(filename: &str) -> Result<Session, failure::Error> {
+        Identifier::initialize_id_count();
         let mut session = Session::new(Some(filename), None, None, None, None, None);
 
         let br = BufReader::new(File::open(filename)?);
@@ -298,103 +326,149 @@ impl Session {
         let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Session::make_decs(&lines)?;
 
         let mut talkers = HashMap::new();
-        let mut talkers_props = Vec::new();
+        let mut talkers_modules = Vec::new();
 
-        for (mref, prop) in tkr_decs {
-            let tkr = session.add_talker(prop.kind, Some(Session::name_from_mref(mref)))?;
+        for (mref, module) in tkr_decs {
+            let tkr = session.add_talker(
+                module.kind,
+                Some(Session::id_from_mref(mref)?),
+                Some(Session::name_from_mref(mref)),
+            )?;
 
-            if prop.feature.len() > 0 {
-                tkr.borrow_mut().set_data_from_string(prop.feature)?;
+            if module.feature.len() > 0 {
+                tkr.borrow_mut().set_data_from_string(module.feature)?;
             }
-            talkers_props.push((tkr.clone(), prop));
+            talkers_modules.push((tkr.clone(), module));
             talkers.insert(mref, tkr.clone());
         }
 
-        for (talker, properties) in talkers_props {
-            Session::set_talker_ears(&talkers, &talker, &properties)?;
+        for (talker, module) in talkers_modules {
+            Session::set_talker_ears(&talkers, &talker, &module)?;
         }
 
-        for (_, properties) in mxr_decs {
-            let mixer = Session::make_mixer(
-                &session.factory,
-                &talkers,
-                &trk_decs,
-                &otp_decs,
-                &properties,
-            )?;
+        for (_, module) in mxr_decs {
+            let mixer =
+                Session::make_mixer(&session.factory, &talkers, &trk_decs, &otp_decs, &module)?;
             session.add_mixer(mixer);
         }
 
         Ok(session)
     }
 
+    pub fn load_ref(filename: &str) -> Result<RSession, failure::Error> {
+        Ok(Rc::new(RefCell::new(Session::load(filename)?)))
+    }
 
-  fn talk_dep_line<'a>(mut file:&'a File, talk:&Talk)->Result<&'a File, failure::Error>{
-          let tkr = &talk.talker().borrow();
+    fn talk_dep_line<'a>(mut file: &'a File, talk: &Talk) -> Result<&'a File, failure::Error> {
+        let tkr = &talk.talker().borrow();
 
-      if tkr.is_hidden(){
-	  writeln!(file, "> {} {}", talk.tag(), tkr.get_data_string())?;
-}
-          else {
-			       let voice_tag = tkr.voice_tag(talk.port())?;
+        if tkr.is_hidden() {
+            writeln!(file, "> {} {}", talk.tag(), tkr.get_data_string())?;
+        } else {
+            let voice_tag = tkr.voice_tag(talk.port())?;
 
             if voice_tag == "" {
-				writeln!(file, "> {} {}", talk.tag(), Session::mref(tkr.id(), &tkr.name()))?;
-	    }
-			       else {
-				   writeln!(file, "> {} {}:{}",talk.tag(), Session::mref(tkr.id(), &tkr.name()),voice_tag)?;
-			       }
-          }
-      Ok(file)
-  }
+                writeln!(
+                    file,
+                    "> {} {}",
+                    talk.tag(),
+                    Session::mref(tkr.id(), &tkr.name())
+                )?;
+            } else {
+                writeln!(
+                    file,
+                    "> {} {}:{}",
+                    talk.tag(),
+                    Session::mref(tkr.id(), &tkr.name()),
+                    voice_tag
+                )?;
+            }
+        }
+        Ok(file)
+    }
 
-    pub fn save(&self)-> Result<(), failure::Error>{
+    pub fn save(&self) -> Result<(), failure::Error> {
+        let mut file = File::create(&self.filename)?;
 
-            let mut file = File::create(&self.filename)?;
+        for rtkr in self.talkers.values() {
+            let tkr = rtkr.borrow();
+            let (model, feature, ears): (&str, String, &Vec<Ear>) = tkr.backup();
 
-            for rtkr in self.talkers.values() {
-		let tkr = rtkr.borrow();
-let (model, feature, ears):(&str, String, &Vec<Ear>) = tkr.backup();
- 
-        writeln!(file, "{} {} {}", model, Session::mref(tkr.id(), &tkr.name()), feature)?;
+            writeln!(
+                file,
+                "\n{} {} {}",
+                model,
+                Session::mref(tkr.id(), &tkr.name()),
+                feature
+            )?;
 
-		for ear in ears{
-		    ear.fold_talks(Session::talk_dep_line, &file)?;
-		}
-	    }
+            for ear in ears {
+                ear.fold_talks(Session::talk_dep_line, &file)?;
+            }
+        }
 
-	    for mxr in self.mixers.values() {
-        writeln!(file, "{} {}", mixer::KIND, Session::mref(mxr.id(), &mxr.name()))?;
-		
-		for ear in mxr.ears(){
-		    ear.fold_talks(Session::talk_dep_line, &file)?;
-		}
+        for mxr in self.mixers.values() {
+            for trk in mxr.tracks() {
+                writeln!(
+                    file,
+                    "\n{} {}",
+                    track::KIND,
+                    Session::mref(trk.id(), &trk.name())
+                )?;
 
-		for trk in mxr.tracks() {
-        writeln!(file, "{} {}", track::KIND, Session::mref(trk.id(), &trk.name()))?;
+                for ear in trk.ears() {
+                    ear.fold_talks(Session::talk_dep_line, &file)?;
+                }
+            }
 
-		for ear in trk.ears() {
-		    ear.fold_talks(Session::talk_dep_line, &file)?;
-		}
-		}
+            writeln!(
+                file,
+                "\n{} {}",
+                mixer::KIND,
+                Session::mref(mxr.id(), &mxr.name())
+            )?;
 
-		for rotp in mxr.outputs() {
-		    let otp = rotp.borrow();
-		    let (kind, model, properties) = otp.backup();
-		    writeln!(file, "{} {} {}", kind, Session::mref(otp.id(), &otp.name()), model)?;
+            for ear in mxr.ears() {
+                ear.fold_talks(Session::talk_dep_line, &file)?;
+            }
 
-		    for (tag, value) in properties {
-			writeln!(file, "> {} {}", tag, value)?;
-		    }
-		}
-	    }
+            for trk in mxr.tracks() {
+                writeln!(
+                    file,
+                    "> {} {}",
+                    track::KIND,
+                    Session::mref(trk.id(), &trk.name())
+                )?;
+            }
+
+            for rotp in mxr.outputs() {
+                let otp = rotp.borrow();
+                let (kind, _, _) = otp.backup();
+                writeln!(file, "> {} {}", kind, Session::mref(otp.id(), &otp.name()))?;
+            }
+
+            for rotp in mxr.outputs() {
+                let otp = rotp.borrow();
+                let (kind, model, properties) = otp.backup();
+                writeln!(
+                    file,
+                    "\n{} {} {}",
+                    kind,
+                    Session::mref(otp.id(), &otp.name()),
+                    model
+                )?;
+
+                for (tag, value) in properties {
+                    writeln!(file, "> {} {}", tag, value)?;
+                }
+            }
+        }
         Ok(())
     }
 
-    pub fn save_as(&mut self, filename:&str)->Result<(), failure::Error>{
-	self.filename = filename.to_string();
-	self.save()?;
-	Ok(())
+    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
+        self.filename = filename.to_string();
+        self.save()?;
+        Ok(())
     }
 }
-
