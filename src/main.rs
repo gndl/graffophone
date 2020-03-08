@@ -34,6 +34,7 @@ mod graph_controler;
 mod mixer;
 mod output;
 mod playback;
+mod player;
 mod plugins_manager;
 mod session;
 mod session_controler;
@@ -42,10 +43,12 @@ mod talkers;
 mod track;
 
 use crate::event_bus::EventBus;
+use crate::factory::Factory;
 use crate::mixer::Mixer;
 use crate::output::Output;
 use crate::output::ROutput;
 use crate::playback::Playback;
+use crate::player::Player;
 use crate::session::{RSession, Session};
 use crate::session_controler::SessionControler;
 use crate::talkers::abs_sine;
@@ -64,7 +67,8 @@ const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 fn main() {
     let bus = EventBus::new_ref();
-    let session = Session::new_ref(None, None, None, None, None, None);
+    let factory = Factory::new();
+    let session = Session::new_ref(None, None, None, None, None);
 
     let _controler = SessionControler::new(session.clone(), bus);
     //    let world: World = World::new().unwrap();
@@ -80,14 +84,20 @@ fn main() {
     }
      */
 
-    match play_sin(&session) {
-        //    match play_progressive_sinusoidale(&session) {
+    match play_sin(&factory, &session) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-    match load_save_sessions() {
+
+    match load_save_sessions(&factory) {
+        Ok(_) => {}
+        e => {
+            eprintln!("Example failed with the following: {:?}", e);
+        }
+    }
+    match play("play_sin.gsr") {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -95,20 +105,36 @@ fn main() {
     }
 }
 
-fn load_save_sessions() -> Result<(), failure::Error> {
-    let mut lss = Session::load("play_sin.gsr")?;
+fn play(filename: &str) -> Result<(), failure::Error> {
+    let mut player = Player::new(filename);
+
+    for _ in 0..3 {
+        player.start()?;
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        player.stop()?;
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    player.exit()?;
+
+    Ok(())
+}
+
+fn load_save_sessions(factory: &Factory) -> Result<(), failure::Error> {
+    let mut lss = Session::load(factory, "play_sin.gsr")?;
     lss.save_as("play_sin_dst.gsr")?;
     Ok(())
 }
 
-fn play(session: &RSession) -> Result<(), failure::Error> {
+fn play_fuzz(factory: &Factory, session: &RSession) -> Result<(), failure::Error> {
     let fuzzface_uri = "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_";
 
-    let fuzzface_tkr = session.borrow_mut().add_talker(fuzzface_uri, None, None)?;
+    let fuzzface_tkr = session
+        .borrow_mut()
+        .add_talker(factory, fuzzface_uri, None, None)?;
 
     let abs_sine_tkr = session
         .borrow_mut()
-        .add_talker(sinusoidal::MODEL, None, None)?;
+        .add_talker(factory, sinusoidal::MODEL, None, None)?;
 
     fuzzface_tkr
         .borrow_mut()
@@ -148,10 +174,10 @@ fn play(session: &RSession) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn play_sin(session: &RSession) -> Result<(), failure::Error> {
+fn play_sin(factory: &Factory, session: &RSession) -> Result<(), failure::Error> {
     let tkr = session
         .borrow_mut()
-        .add_talker(sinusoidal::MODEL, None, None)?;
+        .add_talker(factory, sinusoidal::MODEL, None, None)?;
 
     session.borrow().activate_talkers();
 
@@ -170,24 +196,30 @@ fn play_sin(session: &RSession) -> Result<(), failure::Error> {
         tick += ln as i64;
     }
 
+    std::thread::sleep(std::time::Duration::from_secs(secs));
     session.borrow().deactivate_talkers();
 
-    //    std::thread::sleep(std::time::Duration::from_secs(secs));
     let mut track = Track::new();
     track.set_ear_voice_by_index(0, &tkr, 0)?;
-    let mut mixer = Mixer::new(None, None);
-    mixer.add_track(track);
-    mixer.add_output(Rc::new(RefCell::new(po)));
-    session.borrow_mut().add_mixer(mixer);
+    let rmixer = Mixer::new_ref(None, None);
+    //    let mut mixer = rmixer.borrow_mut();
+    rmixer.borrow_mut().add_track(track);
+    rmixer.borrow_mut().add_output(Rc::new(RefCell::new(po)));
+    session.borrow_mut().add_mixer(rmixer);
     session.borrow_mut().save_as("play_sin.gsr")?;
     Ok(())
 }
 
-fn play_progressive_sinusoidale(session: &RSession) -> Result<(), failure::Error> {
-    let tkr =
-        session
-            .borrow_mut()
-            .add_talker(second_degree_frequency_progression::MODEL, None, None)?;
+fn play_progressive_sinusoidale(
+    factory: &Factory,
+    session: &RSession,
+) -> Result<(), failure::Error> {
+    let tkr = session.borrow_mut().add_talker(
+        factory,
+        second_degree_frequency_progression::MODEL,
+        None,
+        None,
+    )?;
     session.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;

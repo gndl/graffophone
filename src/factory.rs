@@ -5,7 +5,7 @@ use gpplugin::identifier::RIdentifier;
 use gpplugin::talker::RTalker;
 use gpplugin::talker::Talker;
 
-use crate::mixer::Mixer;
+use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;
 use crate::playback;
 use crate::playback::Playback;
@@ -56,10 +56,10 @@ impl Factory {
         oname: Option<&str>,
         tracks: Option<Vec<Track>>,
         outputs: Option<Vec<ROutput>>,
-    ) -> Result<Mixer, failure::Error> {
-        let mxr = Mixer::new(tracks, outputs);
-        Factory::set_identity(mxr.identifier(), oid, oname);
-        Ok(mxr)
+    ) -> Result<RMixer, failure::Error> {
+        let rmixer = Mixer::new_ref(tracks, outputs);
+        Factory::set_identity(rmixer.borrow_mut().identifier(), oid, oname);
+        Ok(rmixer)
     }
 
     pub fn make_output(
@@ -67,7 +67,7 @@ impl Factory {
         oid: Option<u32>,
         oname: Option<&str>,
         model: &str,
-        _attributs: &Vec<(&str, &str, &str)>,
+        _attributs: Option<&Vec<(&str, &str, &str)>>,
     ) -> Result<ROutput, failure::Error> {
         if model != playback::MODEL {
             return Err(failure::err_msg(format!("Unknown output model {}!", model)));

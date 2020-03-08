@@ -21,16 +21,10 @@ use crate::session::RSession;
 use crate::state::State;
 use std::sync::Mutex;
 
-enum Order {
-    Pause,
-    Stop,
-    None,
-}
-
 pub struct SessionControler {
     session: RSession,
     state: State,
-    order: Order,
+    //    order: Order,
     pause_lock: Mutex<i64>,
     synchronization_lock: Mutex<i64>,
     synchronization_request: bool,
@@ -49,7 +43,7 @@ impl SessionControler {
         Self {
             session,
             state: State::Stopped,
-            order: Order::None,
+            //           order: Order::None,
             pause_lock: Mutex::new(0),
             synchronization_lock: Mutex::new(0),
             synchronization_request: false,
@@ -72,11 +66,11 @@ impl SessionControler {
     }
     pub fn state<'a>(&'a self) -> &'a State {
         &self.state
-    }
-    pub fn set_order(&mut self, order: Order) {
-        self.order = order;
-    }
-
+    } /*
+          pub fn set_order(&mut self, order: Order) {
+              self.order = order;
+          }
+      */
     pub fn start_tick(&self) -> i64 {
         self.start_tick
     }

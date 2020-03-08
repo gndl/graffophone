@@ -1,14 +1,17 @@
-extern crate cpal;
-extern crate failure;
-
 use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread::JoinHandle;
+
+extern crate failure;
+
+extern crate cpal;
 
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 
-use gpplugin::identifier::{RIdentifier};
 use gpplugin::horn::AudioBuf;
+use gpplugin::identifier::RIdentifier;
 
 use crate::audio_data::{Interleaved, Vector};
 use crate::output;
@@ -18,12 +21,8 @@ pub const MODEL: &str = "playback";
 
 pub struct Playback {
     identifier: RIdentifier,
-    //    event_loop: cpal::EventLoop,
-    //    format: cpal::Format,
-    //  stream_id: cpal::StreamId,
-    sender: std::sync::mpsc::Sender<Interleaved>,
-    //receiver: std::sync::mpsc::Receiver<Interleaved>,
-    //    data: Interleaved,
+    sender: Sender<Interleaved>,
+    join_handle: JoinHandle<()>,
     nb_channels: usize,
     nb_samples: usize,
 }
@@ -38,14 +37,14 @@ impl Playback {
             Some(d) => d,
             None => return Err(failure::err_msg("failed to find a default output device")),
         };
-        //            .expect("failed to find a default output device");
+
         let format = device.default_output_format()?;
         let event_loop = host.event_loop();
         let stream_id = event_loop.build_output_stream(&device, &format)?;
 
         event_loop.play_stream(stream_id.clone())?;
 
-        std::thread::spawn(move || {
+        let join_handle: JoinHandle<()> = std::thread::spawn(move || {
             let nb_channels = format.channels as usize;
             let mut nc = 0;
             let mut len = 0;
@@ -56,7 +55,7 @@ impl Playback {
                 let out_data = match result {
                     Ok(data) => data,
                     Err(err) => {
-                        eprintln!("an error occurred on stream {:?}: {}", id, err);
+                        eprintln!("Error on stream {:?} match date result : {}", id, err);
                         return;
                     }
                 };
@@ -70,7 +69,6 @@ impl Playback {
                                 match receiver.recv() {
                                     Ok(ad) => {
                                         if ad.is_end() {
-                                            //                                            event_loop.destroy_stream(stream_id);
                                             return;
                                         } else {
                                             nc = ad.nb_channels();
@@ -80,7 +78,10 @@ impl Playback {
                                         }
                                     }
                                     Err(err) => {
-                                        eprintln!("an error occurred on stream {:?}: {}", id, err);
+                                        eprintln!(
+                                            "Error on stream {:?} receiver.recv() : {}",
+                                            id, err
+                                        );
                                         return;
                                     }
                                 }
@@ -97,13 +98,9 @@ impl Playback {
         });
 
         Ok(Self {
-	    identifier: output::new_identifier("", MODEL),
-            //            event_loop: event_loop,
-            //            format: format,
-            //            stream_id: stream_id,
+            identifier: output::new_identifier("", MODEL),
             sender,
-            //      receiver: receiver,
-            //            data: Interleaved::new(0, 0),
+            join_handle,
             nb_channels,
             nb_samples,
         })
@@ -150,16 +147,26 @@ impl Output for Playback {
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
         let ad = Interleaved::new(channels, nb_samples_per_channel);
-        self.sender.send(ad).unwrap();
-        Ok(())
+        self.sender
+            .send(ad)
+            .map_err(|e| failure::err_msg(format!("Playback::write error : {}", e)))
     }
 
     fn close(&mut self) -> Result<(), failure::Error> {
-        self.sender.send(Interleaved::end()).unwrap();
-        Ok(())
+        match self.sender.send(Interleaved::end()) {
+            Ok(()) => Ok(()),
+            /*self
+            .join_handle
+            .join()
+            .map_err(|_| failure::err_msg(format!("Playback::close error on send end"))),*/
+            Err(e) => Err(failure::err_msg(format!(
+                "Playback::close error : {}",
+                e.description()
+            ))),
+        }
     }
-    
-    fn backup(&self)-> (&str, &str, Vec<(&str, String)>) {
-	(output::KIND, MODEL, Vec::new())
+
+    fn backup(&self) -> (&str, &str, Vec<(&str, String)>) {
+        (output::KIND, MODEL, Vec::new())
     }
 }

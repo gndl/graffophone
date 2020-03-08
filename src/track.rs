@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use gpplugin::ear;
 use gpplugin::ear::Ear;
-use gpplugin::identifier::Identifier;
 use gpplugin::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;

@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use gpplugin::audio_format::AudioFormat;
 use gpplugin::ear;
@@ -20,7 +19,8 @@ pub struct Mixer {
     productive: bool,
 }
 
-pub type RMixer = Rc<RefCell<Mixer>>;
+//pub type RMixer = Rc<RefCell<Mixer>>;
+pub type RMixer = RefCell<Mixer>;
 
 impl Mixer {
     pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
@@ -45,7 +45,8 @@ impl Mixer {
         }
     }
     pub fn new_ref(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> RMixer {
-        Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
+        RefCell::new(Mixer::new(tracks, outputs))
+        // Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
     }
 
     pub fn kind() -> &'static str {
@@ -68,7 +69,7 @@ impl Mixer {
         self.outputs.push(output);
     }
 
-    pub fn open_output(&mut self) -> Result<(), failure::Error> {
+    pub fn open_outputs(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.borrow_mut().open()?;
         }
@@ -77,7 +78,7 @@ impl Mixer {
         Ok(())
     }
 
-    pub fn close_output(&mut self) -> Result<(), failure::Error> {
+    pub fn close_outputs(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.borrow_mut().close()?;
         }
@@ -85,7 +86,7 @@ impl Mixer {
         Ok(())
     }
 
-    fn come_out(
+    pub fn come_out(
         &mut self,
         tick: i64,
         buf: &mut Vector,
