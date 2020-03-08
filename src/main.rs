@@ -46,18 +46,15 @@ use crate::event_bus::EventBus;
 use crate::factory::Factory;
 use crate::mixer::Mixer;
 use crate::output::Output;
-use crate::output::ROutput;
 use crate::playback::Playback;
 use crate::player::Player;
 use crate::session::{RSession, Session};
 use crate::session_controler::SessionControler;
-use crate::talkers::abs_sine;
-use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
-use crate::track::{RTrack, Track};
+use crate::track::Track;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -100,7 +97,7 @@ fn main() {
     match play("play_sin.gsr") {
         Ok(_) => {}
         e => {
-            eprintln!("Example failed with the following: {:?}", e);
+            eprintln!("playing play_sin.gsr failed : {:?}", e);
         }
     }
 }
@@ -109,10 +106,10 @@ fn play(filename: &str) -> Result<(), failure::Error> {
     let mut player = Player::new(filename);
 
     for _ in 0..3 {
+        std::thread::sleep(std::time::Duration::from_secs(2));
         player.start()?;
         std::thread::sleep(std::time::Duration::from_secs(3));
         player.stop()?;
-        std::thread::sleep(std::time::Duration::from_secs(3));
     }
     player.exit()?;
 

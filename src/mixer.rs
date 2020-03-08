@@ -46,7 +46,6 @@ impl Mixer {
     }
     pub fn new_ref(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> RMixer {
         RefCell::new(Mixer::new(tracks, outputs))
-        // Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
     }
 
     pub fn kind() -> &'static str {

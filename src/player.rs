@@ -22,26 +22,16 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use gpplugin::audio_format::AudioFormat;
-// use gpplugin::ear::{Ear, Talk};
-// use gpplugin::identifier::Identifier;
-// use gpplugin::talker::{RTalker, Talker};
 
 use crate::factory::Factory;
-// use crate::mixer;
-// use crate::mixer::Mixer;
-// use crate::output;
-// use crate::output::ROutput;
 use crate::session::Session;
 use crate::state::State;
-// use crate::track;
-// use crate::track::{RTrack, Track};
 
 enum Order {
     Start,
     Play,
     Pause,
     Stop,
-    //    None,
     Exit,
 }
 
@@ -62,23 +52,23 @@ impl Player {
         let join_handle = thread::spawn(move || {
             let factory = Factory::new();
             let mut session = Session::load(&factory, &fname)?;
-            session.add_playback(&factory);
+            session.add_playback(&factory)?;
             let mut res = Ok(());
             let mut tick: i64 = 0;
             let mut start_tick: i64 = 0;
-            //            let mut end_tick: i64 = 0;
-            let len = AudioFormat::chunk_size();
+            let mut end_tick: i64 = i64::max_value();
+            let chunk_size = AudioFormat::chunk_size();
 
-            let mut buf: Vec<f32> = vec![0.; len];
+            let mut buf: Vec<f32> = vec![0.; chunk_size];
 
-            let mut right: Vec<f32> = vec![0.; len];
-            let mut left: Vec<f32> = vec![0.; len];
+            let nb_channels = session.nb_channels();
+            let mut channels: Vec<Vec<f32>> = Vec::with_capacity(nb_channels);
 
-            let mut channels = Vec::with_capacity(2);
-            channels.push(right);
-            channels.push(left);
+            for _ in 0..nb_channels {
+                channels.push(vec![0.; chunk_size]);
+            }
 
-            session.open_outputs();
+            session.open_outputs()?;
             session.activate_talkers();
             let mut order = Ok(Order::Stop);
 
@@ -109,30 +99,45 @@ impl Player {
                     Ok(Order::Exit) => break,
                     _ => (),
                 }
-                match session.play_chunk(tick, &mut buf, &mut channels, len) {
-                    Ok(ln) => {
-                        tick += ln as i64;
-                        if ln == 0 {
+
+                if tick > end_tick {
+                    tick = start_tick;
+                }
+
+                let mut len = if tick + (chunk_size as i64) < end_tick {
+                    chunk_size
+                } else {
+                    (end_tick - tick) as usize
+                };
+
+                for rmixer in session.mixers().values() {
+                    match rmixer
+                        .borrow_mut()
+                        .come_out(tick, &mut buf, &mut channels, len)
+                    {
+                        Ok(ln) => {
+                            len = ln;
+
+                            if ln == 0 {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            res = Err(failure::err_msg(format!("Player::run error : {}", e)));
                             break;
                         }
                     }
-                    Err(e) => {
-                        res = Err(failure::err_msg(format!("Player::run error : {}", e)));
-                        break;
-                    }
                 }
+                tick += len as i64;
+
                 order = receiver.try_recv();
             }
 
             session.deactivate_talkers();
-            session.close_outputs();
+            session.close_outputs()?;
             res
         });
 
-        // self.sender = Some(sender);
-        // self.join_handle = Some(join_handle);
-        // self.state = State::Playing;
-        // Ok(())
         Self {
             filename: filename.to_string(),
             sender,
@@ -145,8 +150,6 @@ impl Player {
         Rc::new(RefCell::new(Player::new(filename)))
     }
 
-    //    pub fn run(&mut self, _factory: &Factory) -> Result<(), failure::Error> {}
-
     pub fn start(&mut self) -> Result<(), failure::Error> {
         self.sender
             .send(Order::Start)
@@ -156,60 +159,52 @@ impl Player {
         thread::sleep(Duration::from_millis(1));
         Ok(())
     }
-    /*
+
     pub fn pause(&mut self) -> Result<(), failure::Error> {
         let (state, res) = match self.state {
             State::Playing => (
-                State::Playing,
+                State::Paused,
                 self.sender
-                    .unwrap()
-                    .send(Order::Start)
+                    .send(Order::Pause)
                     .map_err(|e| failure::err_msg(format!("Player::play error : {}", e))),
             ),
             State::Paused => (
                 State::Playing,
                 self.sender
-                    .unwrap()
                     .send(Order::Play)
                     .map_err(|e| failure::err_msg(format!("Player::play error : {}", e))),
             ),
-            State::Stopped => (State::Playing, self.run(factory)),
+            State::Stopped => (State::Stopped, Ok(())),
         };
         self.state = state;
         thread::sleep(Duration::from_millis(1));
         res
     }
-        method pause (_:int) =
-          ignore( match mState with
-              | State.Playing -> Mutex.lock mPauseLock; mOrder <- Pause
-              | State.Paused -> Mutex.unlock mPauseLock
-              | State.Stopped -> ()
-            );
-          Thread.yield()
-    */
+
     pub fn stop(&mut self) -> Result<(), failure::Error> {
-        let res = match self.state {
-            State::Playing => self
+        match self.state {
+            State::Stopped => {}
+            _ => self
                 .sender
                 .send(Order::Stop)
-                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e))),
-            State::Paused => self
-                .sender
-                .send(Order::Stop)
-                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e))),
-            State::Stopped => Ok(()),
-        };
+                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
+        }
         self.state = State::Stopped;
         thread::sleep(Duration::from_millis(1));
-        res
+        Ok(())
     }
     pub fn exit(&mut self) -> Result<(), failure::Error> {
         self.sender
             .send(Order::Exit)
-            .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?;
+            .map_err(|e| failure::err_msg(format!("Player::exit error : {}", e)))?;
+
+        // self.join_handle
+        //     .join()
+        //     .map_err(|e| failure::err_msg(format!("Player::join error : {:?}", e)))?;
+
+        thread::sleep(Duration::from_millis(50));
 
         self.state = State::Stopped;
-        thread::sleep(Duration::from_millis(1));
         Ok(())
     }
 }
