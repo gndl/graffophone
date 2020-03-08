@@ -28,7 +28,6 @@ use gpplugin::ear::{Ear, Talk};
 use gpplugin::identifier::Identifier;
 use gpplugin::talker::{RTalker, Talker};
 
-use crate::audio_data::Vector;
 use crate::factory::Factory;
 use crate::mixer;
 use crate::mixer::RMixer;
@@ -88,6 +87,10 @@ impl Session {
         Rc::new(RefCell::new(Session::new(
             filename, talkers, tracks, mixers, outputs,
         )))
+    }
+
+    pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
+        &self.mixers
     }
 
     fn mref(id: u32, name: &str) -> String {
@@ -460,6 +463,21 @@ impl Session {
         self.mixers.insert(id, rmixer);
     }
 
+    pub fn nb_channels(&self) -> usize {
+        let mut nb_channels = 0;
+
+        for rmixer in self.mixers.values() {
+            for routput in rmixer.borrow().outputs() {
+                let nc = routput.borrow().nb_channels();
+
+                if nc > nb_channels {
+                    nb_channels = nc
+                }
+            }
+        }
+        nb_channels
+    }
+
     pub fn add_talker(
         &mut self,
         factory: &Factory,
@@ -506,19 +524,5 @@ impl Session {
         for tkr in self.talkers.values() {
             tkr.borrow_mut().deactivate();
         }
-    }
-    pub fn play_chunk(
-        &mut self,
-        tick: i64,
-        buf: &mut Vector,
-        channels: &mut Vec<Vector>,
-        len: usize,
-    ) -> Result<usize, failure::Error> {
-        let mut ln = len;
-
-        for rmixer in self.mixers.values() {
-            ln = rmixer.borrow_mut().come_out(tick, buf, channels, ln)?;
-        }
-        Ok(ln)
     }
 }

@@ -78,10 +78,10 @@ impl Playback {
                                         }
                                     }
                                     Err(err) => {
-                                        eprintln!(
-                                            "Error on stream {:?} receiver.recv() : {}",
-                                            id, err
-                                        );
+                                        // eprintln!(
+                                        //     "Error on stream {:?} receiver.recv() : {}",
+                                        //     id, err
+                                        // );
                                         return;
                                     }
                                 }
@@ -116,18 +116,19 @@ impl Playback {
     pub fn write_mono(&mut self, audio_buf: &AudioBuf, len: usize) -> Result<(), failure::Error> {
         let audio_buffer_slice = audio_buf.get();
 
-        let mut right: Vec<f32> = vec![0.; len];
-        let mut left: Vec<f32> = vec![0.; len];
+        let mut channels = Vec::with_capacity(self.nb_channels);
+
+        for _ in 0..self.nb_channels {
+            channels.push(vec![0.; len]);
+        }
 
         for i in 0..len {
             let sample = audio_buffer_slice[i].get();
-            right[i] = sample;
-            left[i] = sample;
+            for c in 0..self.nb_channels {
+                channels[c][i] = sample;
+            }
         }
 
-        let mut channels = Vec::with_capacity(2);
-        channels.push(right);
-        channels.push(left);
         self.write(&channels, len)
     }
 }
@@ -135,6 +136,10 @@ impl Playback {
 impl Output for Playback {
     fn identifier<'a>(&'a self) -> &'a RIdentifier {
         &self.identifier
+    }
+
+    fn nb_channels(&self) -> usize {
+        self.nb_channels
     }
 
     fn open(&mut self) -> Result<(), failure::Error> {
