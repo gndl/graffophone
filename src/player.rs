@@ -32,6 +32,7 @@ enum Order {
     Play,
     Pause,
     Stop,
+    SetTimeRange(i64, i64),
     Exit,
 }
 
@@ -70,34 +71,44 @@ impl Player {
 
             session.open_outputs()?;
             session.activate_talkers();
+
+            let mut state = State::Stopped;
             let mut order = Ok(Order::Stop);
 
             loop {
                 match order {
                     Ok(Order::Start) => {
+                        state = State::Playing;
                         tick = start_tick;
                     }
-                    Ok(Order::Pause) => match receiver.recv() {
-                        Err(e) => {
-                            res = Err(failure::err_msg(format!("Player::run error : {}", e)));
-                            break;
-                        }
-                        Ok(Order::Exit) => break,
-                        _ => (),
-                    },
+                    Ok(Order::Pause) => {
+                        state = State::Paused;
+                        order = receiver.recv();
+                        continue;
+                    }
                     Ok(Order::Stop) => {
+                        state = State::Stopped;
                         tick = start_tick;
-                        match receiver.recv() {
-                            Err(e) => {
-                                res = Err(failure::err_msg(format!("Player::run error : {}", e)));
-                                break;
-                            }
-                            Ok(Order::Exit) => break,
-                            _ => (),
+                        order = receiver.recv();
+                        continue;
+                    }
+                    Ok(Order::SetTimeRange(start, end)) => {
+                        start_tick = start;
+                        end_tick = end;
+
+                        if state != State::Playing {
+                            order = Ok(Order::Pause);
+                            continue;
                         }
                     }
                     Ok(Order::Exit) => break,
-                    _ => (),
+                    Err(e) => {
+                        res = Err(failure::err_msg(format!("Player::run error : {}", e)));
+                        break;
+                    }
+                    _ => {
+                        state = State::Playing;
+                    }
                 }
 
                 if tick > end_tick {
@@ -130,7 +141,14 @@ impl Player {
                 }
                 tick += len as i64;
 
-                order = receiver.try_recv();
+                match receiver.try_recv() {
+                    Err(_) => {
+                        order = Ok(Order::Play);
+                    }
+                    Ok(o) => {
+                        order = Ok(o);
+                    }
+                }
             }
 
             session.deactivate_talkers();
@@ -150,6 +168,10 @@ impl Player {
         Rc::new(RefCell::new(Player::new(filename)))
     }
 
+    pub fn state<'a>(&'a self) -> &'a State {
+        &self.state
+    }
+
     pub fn start(&mut self) -> Result<(), failure::Error> {
         self.sender
             .send(Order::Start)
@@ -158,6 +180,21 @@ impl Player {
         self.state = State::Playing;
         thread::sleep(Duration::from_millis(1));
         Ok(())
+    }
+
+    pub fn play(&mut self) -> Result<(), failure::Error> {
+        let (state, res) = match self.state {
+            State::Playing => (State::Playing, Ok(())),
+            _ => (
+                State::Playing,
+                self.sender
+                    .send(Order::Play)
+                    .map_err(|e| failure::err_msg(format!("Player::play error : {}", e))),
+            ),
+        };
+        self.state = state;
+        thread::sleep(Duration::from_millis(1));
+        res
     }
 
     pub fn pause(&mut self) -> Result<(), failure::Error> {
@@ -193,6 +230,24 @@ impl Player {
         thread::sleep(Duration::from_millis(1));
         Ok(())
     }
+
+    pub fn set_time_range(&mut self, start_tick: i64, end_tick: i64) -> Result<(), failure::Error> {
+        self.sender
+            .send(Order::SetTimeRange(start_tick, end_tick))
+            .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
+
+        thread::sleep(Duration::from_millis(1));
+        Ok(())
+    }
+    /*
+        pub fn send_order(&mut self, order: Order) -> Result<(), failure::Error> {
+            self.sender
+                .send(order)
+                .map_err(|e| failure::err_msg(format!("Player::send_order error : {}", e)))?;
+            thread::sleep(Duration::from_millis(1));
+            Ok(())
+        }
+    */
     pub fn exit(&mut self) -> Result<(), failure::Error> {
         self.sender
             .send(Order::Exit)

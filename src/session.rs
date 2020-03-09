@@ -89,6 +89,9 @@ impl Session {
         )))
     }
 
+    pub fn filename<'a>(&'a self) -> &'a str {
+        &self.filename
+    }
     pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
         &self.mixers
     }

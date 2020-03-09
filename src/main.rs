@@ -67,7 +67,7 @@ fn main() {
     let factory = Factory::new();
     let session = Session::new_ref(None, None, None, None, None);
 
-    let _controler = SessionControler::new(session.clone(), bus);
+    let _controler = SessionControler::new(bus);
     //    let world: World = World::new().unwrap();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 

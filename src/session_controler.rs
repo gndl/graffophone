@@ -17,17 +17,14 @@
 use crate::curve_controler::CurveControler;
 use crate::event_bus::{Notification, REventBus};
 use crate::graph_controler::GraphControler;
-use crate::session::RSession;
+use crate::player::Player;
+use crate::session::{RSession, Session};
 use crate::state::State;
-use std::sync::Mutex;
 
 pub struct SessionControler {
     session: RSession,
-    state: State,
-    //    order: Order,
-    pause_lock: Mutex<i64>,
-    synchronization_lock: Mutex<i64>,
-    synchronization_request: bool,
+    player: Player,
+    player_synchronized: bool,
     start_tick: i64,
     end_tick: i64,
     control_key_pressed: bool,
@@ -39,14 +36,11 @@ pub struct SessionControler {
 }
 
 impl SessionControler {
-    pub fn new(session: RSession, bus: REventBus) -> SessionControler {
+    pub fn new(bus: REventBus) -> SessionControler {
         Self {
-            session,
-            state: State::Stopped,
-            //           order: Order::None,
-            pause_lock: Mutex::new(0),
-            synchronization_lock: Mutex::new(0),
-            synchronization_request: false,
+            session: Session::new_ref(None, None, None, None, None),
+            player: Player::new(""),
+            player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
             control_key_pressed: false,
@@ -65,17 +59,14 @@ impl SessionControler {
         &self.graph
     }
     pub fn state<'a>(&'a self) -> &'a State {
-        &self.state
-    } /*
-          pub fn set_order(&mut self, order: Order) {
-              self.order = order;
-          }
-      */
+        self.player.state()
+    }
+
     pub fn start_tick(&self) -> i64 {
         self.start_tick
     }
 
-    pub fn set_start_tick(&mut self, t: i64) {
+    pub fn set_start_tick(&mut self, t: i64) -> Result<(), failure::Error> {
         if self.start_tick == self.end_tick {
             self.start_tick = t;
             self.end_tick = t;
@@ -84,21 +75,56 @@ impl SessionControler {
             self.start_tick = t;
             self.bus.notify(Notification::TimeRange(t, self.end_tick));
         }
+        self.synchronize_player()?;
+        self.player.set_time_range(self.start_tick, self.end_tick)
     }
 
     pub fn end_tick(&self) -> i64 {
         self.end_tick
     }
 
-    pub fn set_end_tick(&mut self, t: i64) {
+    pub fn set_end_tick(&mut self, t: i64) -> Result<(), failure::Error> {
         self.end_tick = t;
         self.bus.notify(Notification::TimeRange(self.start_tick, t));
+        self.synchronize_player()?;
+        self.player.set_time_range(self.start_tick, self.end_tick)
     }
-    /*
-    pub fn new_session() -> Session {
-        let session = Session::new(None, None, None, None, None);
+
+    pub fn player<'a>(&'a mut self) -> &'a Player {
+        &self.player
     }
-    */
+    pub fn new_session(&mut self) -> Result<(), failure::Error> {
+        self.session = Session::new_ref(None, None, None, None, None);
+        self.player_synchronized = false;
+        Ok(())
+    }
+
+    fn synchronize_player(&mut self) -> Result<(), failure::Error> {
+        if !self.player_synchronized {
+            // TODO : synchronize player
+            self.player_synchronized = true;
+        }
+        Ok(())
+    }
+    pub fn start(&mut self) -> Result<(), failure::Error> {
+        self.synchronize_player()?;
+        self.player.start()
+    }
+
+    pub fn play(&mut self) -> Result<(), failure::Error> {
+        self.synchronize_player()?;
+        self.player.play()
+    }
+
+    pub fn pause(&mut self) -> Result<(), failure::Error> {
+        self.synchronize_player()?;
+        self.player.pause()
+    }
+
+    pub fn stop(&mut self) -> Result<(), failure::Error> {
+        self.synchronize_player()?;
+        self.player.stop()
+    }
 }
 /*
     method init() =
@@ -201,73 +227,4 @@ impl SessionControler {
       | _ -> f()
 
 
-    method private threadPlay() =
-
-      Mutex.lock mSynchronizationLock;
-      mState <- State.Playing;
-      Bus.(notify(State mState));
-
-      let sd = SF.chunkSize in
-      let buf = Array.make sd 0. in
-      trace("Open output at "^sof (Sys.time()));
-      List.iter (fun (_, mc) -> mc#openOutput) (Session.getMixingConsoles());
-
-
-      let playChunk t =
-        let (d, continu) = ListLabels.fold_left ~init:(sd, false)
-            (Session.getMixingConsoles())
-            ~f:(fun (d, c) (_, mc) ->
-                if mc#isProductive then (
-                  try (*trace("comOut "^soi t^" "^soi d);*)
-                    let nd = mc#comeOut t buf d in
-                    (nd, true)
-                  with Voice.End -> mc#setProductive false; (d, c)
-                )
-                else (d, c)
-              );
-        in (t + d, continu)
-      in
-
-      let rec eventLoop t =
-
-        if mSynchronizationRequest then (
-          Mutex.unlock mSynchronizationLock;
-          Thread.yield();
-          Mutex.lock mSynchronizationLock;
-        );
-
-        let (nt, continu) = match mOrder with
-          | None -> playChunk t
-          | Pause -> trace"state pause";
-            mOrder <- None;
-            mState <- State.Paused;
-            Bus.(notify(State mState));
-            Mutex.lock mPauseLock;
-            Mutex.unlock mPauseLock;
-            mState <- State.Playing;
-            Bus.(notify(State mState));
-            (t, true)
-          | Stop -> trace"state stop";
-            mOrder <- None; (t, false)
-        in
-        Bus.(notify(Tick nt));
-
-        if continu then eventLoop nt
-        else nt
-      in
-      let endTick = eventLoop mStartTick in
-
-      mState <- State.Stopped;
-      Bus.(notify(State mState));
-      Bus.(notify(Tick mStartTick));
-      Mutex.unlock mSynchronizationLock;
-
-      List.iter (fun (_, mc) -> mc#closeOutput) (Session.getMixingConsoles());
-      trace("Close output at "^sof (Sys.time()));
-
-      let nbTick = endTick - mStartTick in
-      trace(soi nbTick ^" sample played at "^sof (Sys.time()));
-      trace("Duration : "^soi(nbTick / (60 * SF.rate))^" min "^soi((nbTick / SF.rate) mod 60)^" sec");
-
-  end
 */
