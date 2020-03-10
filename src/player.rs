@@ -69,8 +69,7 @@ impl Player {
                 channels.push(vec![0.; chunk_size]);
             }
 
-            session.open_outputs()?;
-            session.activate_talkers();
+            session.open()?;
 
             let mut state = State::Stopped;
             let mut order = Ok(Order::Stop);
@@ -83,8 +82,13 @@ impl Player {
                     }
                     Ok(Order::Pause) => {
                         state = State::Paused;
+                        session.pause()?;
                         order = receiver.recv();
                         continue;
+                    }
+                    Ok(Order::Play) => {
+                        state = State::Playing;
+                        session.run()?;
                     }
                     Ok(Order::Stop) => {
                         state = State::Stopped;
@@ -105,9 +109,6 @@ impl Player {
                     Err(e) => {
                         res = Err(failure::err_msg(format!("Player::run error : {}", e)));
                         break;
-                    }
-                    _ => {
-                        state = State::Playing;
                     }
                 }
 
@@ -151,8 +152,7 @@ impl Player {
                 }
             }
 
-            session.deactivate_talkers();
-            session.close_outputs()?;
+            session.close()?;
             res
         });
 

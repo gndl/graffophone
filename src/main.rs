@@ -67,7 +67,7 @@ fn main() {
     let factory = Factory::new();
     let session = Session::new_ref(None, None, None, None, None);
 
-    let _controler = SessionControler::new(bus);
+    //    let _controler = SessionControler::new(bus);
     //    let world: World = World::new().unwrap();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 
@@ -79,7 +79,6 @@ fn main() {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
-     */
 
     match play_sin(&factory, &session) {
         Ok(_) => {}
@@ -87,6 +86,7 @@ fn main() {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+     */
 
     match load_save_sessions(&factory) {
         Ok(_) => {}
@@ -104,13 +104,15 @@ fn main() {
 
 fn play(filename: &str) -> Result<(), failure::Error> {
     let mut player = Player::new(filename);
+    player.start()?;
 
-    for _ in 0..3 {
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        player.start()?;
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        player.stop()?;
+    for _ in 0..5 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        player.pause()?;
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        player.play()?;
     }
+    player.stop()?;
     player.exit()?;
 
     Ok(())

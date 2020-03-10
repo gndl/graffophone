@@ -19,9 +19,15 @@ use crate::output::{Output, ROutput};
 
 pub const MODEL: &str = "playback";
 
+enum Control {
+    Run,
+    Pause,
+}
+
 pub struct Playback {
     identifier: RIdentifier,
-    sender: Sender<Interleaved>,
+    control_sender: Sender<Control>,
+    audio_sender: Sender<Interleaved>,
     join_handle: JoinHandle<()>,
     nb_channels: usize,
     nb_samples: usize,
@@ -29,7 +35,9 @@ pub struct Playback {
 
 impl Playback {
     pub fn new(nb_channels: usize, nb_samples: usize) -> Result<Playback, failure::Error> {
-        let (sender, receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
+        let (control_sender, control_receiver): (Sender<Control>, Receiver<Control>) =
+            std::sync::mpsc::channel();
+        let (audio_sender, audio_receiver): (Sender<Interleaved>, Receiver<Interleaved>) =
             std::sync::mpsc::channel();
 
         let host = cpal::default_host();
@@ -52,6 +60,12 @@ impl Playback {
             let mut pos = 0;
 
             event_loop.run(move |id, result| {
+                match control_receiver.try_recv() {
+                    Ok(Control::Pause) => match control_receiver.recv() {
+                        _ => {}
+                    },
+                    _ => {}
+                }
                 let out_data = match result {
                     Ok(data) => data,
                     Err(err) => {
@@ -66,7 +80,7 @@ impl Playback {
                     } => {
                         for sample in buffer.chunks_mut(nb_channels) {
                             if pos >= len {
-                                match receiver.recv() {
+                                match audio_receiver.recv() {
                                     Ok(ad) => {
                                         if ad.is_end() {
                                             return;
@@ -99,7 +113,8 @@ impl Playback {
 
         Ok(Self {
             identifier: output::new_identifier("", MODEL),
-            sender,
+            control_sender,
+            audio_sender,
             join_handle,
             nb_channels,
             nb_samples,
@@ -152,13 +167,25 @@ impl Output for Playback {
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
         let ad = Interleaved::new(channels, nb_samples_per_channel);
-        self.sender
+        self.audio_sender
             .send(ad)
             .map_err(|e| failure::err_msg(format!("Playback::write error : {}", e)))
     }
 
+    fn pause(&mut self) -> Result<(), failure::Error> {
+        self.control_sender
+            .send(Control::Pause)
+            .map_err(|e| failure::err_msg(format!("Playback::pause error : {}", e)))
+    }
+
+    fn run(&mut self) -> Result<(), failure::Error> {
+        self.control_sender
+            .send(Control::Run)
+            .map_err(|e| failure::err_msg(format!("Playback::pause error : {}", e)))
+    }
+
     fn close(&mut self) -> Result<(), failure::Error> {
-        match self.sender.send(Interleaved::end()) {
+        match self.audio_sender.send(Interleaved::end()) {
             Ok(()) => Ok(()),
             /*self
             .join_handle

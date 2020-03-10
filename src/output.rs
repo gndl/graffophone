@@ -37,6 +37,10 @@ pub trait Output {
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error>;
 
+    fn pause(&mut self) -> Result<(), failure::Error>;
+
+    fn run(&mut self) -> Result<(), failure::Error>;
+
     fn close(&mut self) -> Result<(), failure::Error>;
 
     //                           kind  model        tag   dep

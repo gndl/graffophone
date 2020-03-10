@@ -504,20 +504,20 @@ impl Session {
         }
         Ok(())
     }
-
-    pub fn open_outputs(&mut self) -> Result<(), failure::Error> {
-        for rmixer in self.mixers.values() {
-            rmixer.borrow_mut().open_outputs()?;
+    /*
+        pub fn open_outputs(&mut self) -> Result<(), failure::Error> {
+            for rmixer in self.mixers.values() {
+                rmixer.borrow_mut().open_outputs()?;
+            }
+            Ok(())
         }
-        Ok(())
-    }
-    pub fn close_outputs(&mut self) -> Result<(), failure::Error> {
-        for rmixer in self.mixers.values() {
-            rmixer.borrow_mut().close_outputs()?;
+        pub fn close_outputs(&mut self) -> Result<(), failure::Error> {
+            for rmixer in self.mixers.values() {
+                rmixer.borrow_mut().close_outputs()?;
+            }
+            Ok(())
         }
-        Ok(())
-    }
-
+    */
     pub fn activate_talkers(&self) {
         for tkr in self.talkers.values() {
             tkr.borrow_mut().activate();
@@ -527,5 +527,35 @@ impl Session {
         for tkr in self.talkers.values() {
             tkr.borrow_mut().deactivate();
         }
+    }
+
+    pub fn open(&mut self) -> Result<(), failure::Error> {
+        self.activate_talkers();
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().open()?;
+        }
+        Ok(())
+    }
+
+    pub fn pause(&mut self) -> Result<(), failure::Error> {
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().pause()?;
+        }
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), failure::Error> {
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().run()?;
+        }
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<(), failure::Error> {
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().close()?;
+        }
+        self.deactivate_talkers();
+        Ok(())
     }
 }

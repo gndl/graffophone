@@ -68,7 +68,7 @@ impl Mixer {
         self.outputs.push(output);
     }
 
-    pub fn open_outputs(&mut self) -> Result<(), failure::Error> {
+    pub fn open(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.borrow_mut().open()?;
         }
@@ -77,7 +77,21 @@ impl Mixer {
         Ok(())
     }
 
-    pub fn close_outputs(&mut self) -> Result<(), failure::Error> {
+    pub fn pause(&mut self) -> Result<(), failure::Error> {
+        for o in &self.outputs {
+            o.borrow_mut().pause()?;
+        }
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), failure::Error> {
+        for o in &self.outputs {
+            o.borrow_mut().run()?;
+        }
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.borrow_mut().close()?;
         }
