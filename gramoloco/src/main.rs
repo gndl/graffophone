@@ -1,8 +1,8 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 extern crate failure;
-extern crate gpplugin;
-extern crate lilv;
-extern crate lv2;
+// extern crate gpplugin;
+// extern crate lilv;
+// extern crate lv2;
 
 use std::alloc::System;
 use std::cell::RefCell;
@@ -24,38 +24,22 @@ use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
 
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::talker::Talker;
+use granode::audio_format::AudioFormat;
+use granode::talker::Talker;
 
-mod audio_data;
-mod curve_controler;
-mod event_bus;
-mod factory;
-mod graph_controler;
-mod mixer;
-mod output;
-mod playback;
-mod player;
-mod plugins_manager;
-mod session;
-mod session_controler;
-mod state;
-mod talkers;
-mod track;
-
-use crate::event_bus::EventBus;
-use crate::factory::Factory;
-use crate::mixer::Mixer;
-use crate::output::Output;
-use crate::playback::Playback;
-use crate::player::Player;
-use crate::session::{RSession, Session};
-use crate::session_controler::SessionControler;
-use crate::talkers::second_degree_frequency_progression;
-use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
-use crate::talkers::sinusoidal;
-use crate::talkers::sinusoidal::Sinusoidal;
-use crate::track::Track;
+use gramotor::event_bus::EventBus;
+use gramotor::factory::Factory;
+use gramotor::gramotor::Gramotor;
+use gramotor::mixer::Mixer;
+use gramotor::output::Output;
+use gramotor::playback::Playback;
+use gramotor::player::Player;
+use gramotor::session::{RSession, Session};
+use gramotor::talkers::second_degree_frequency_progression;
+use gramotor::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use gramotor::talkers::sinusoidal;
+use gramotor::talkers::sinusoidal::Sinusoidal;
+use gramotor::track::Track;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -68,7 +52,7 @@ fn main() {
     let factory = Factory::new();
     let session = Session::new_ref(None, None, None, None, None);
 
-    //    let _controler = SessionControler::new(bus);
+    //    let _controler = Gramotor::new(bus);
     //    let world: World = World::new().unwrap();
     //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
 

@@ -8,13 +8,13 @@ use lv2::core::ports::{Audio, Control, CV};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::ear;
-use gpplugin::horn;
-use gpplugin::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
-use gpplugin::talker;
-use gpplugin::talker::{RTalker, Talker, TalkerBase};
-use gpplugin::voice;
+use granode::audio_format::AudioFormat;
+use granode::ear;
+use granode::horn;
+use granode::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
+use granode::talker;
+use granode::talker::{RTalker, Talker, TalkerBase};
+use granode::voice;
 
 use lv2::core::SharedFeatureBuffer;
 
@@ -89,7 +89,8 @@ impl Lv2 {
                                 Some(p) => {
                                     let buf = horn::cv_buf(None, None);
                                     instance.connect_port(p.handle().clone(), buf.clone());
-                                    let vc = voice::cv(Some(&p.name().to_string()), None, Some(buf));
+                                    let vc =
+                                        voice::cv(Some(&p.name().to_string()), None, Some(buf));
                                     base.add_voice(vc);
                                     output_port_handlers.push(p.handle().index());
                                 }
@@ -102,7 +103,7 @@ impl Lv2 {
                 }
                 Ok(Rc::new(RefCell::new(Self {
                     base,
-                    model: uri.to_string(),//plugin.name().to_str().to_string(),
+                    model: uri.to_string(), //plugin.name().to_str().to_string(),
                     instance,
                     input_port_handlers,
                     output_port_handlers,

@@ -1,5 +1,5 @@
 [package]
-name = "gpplugin"
+name = "granode"
 version = "0.1.0"
 authors = ["gndl"]
 

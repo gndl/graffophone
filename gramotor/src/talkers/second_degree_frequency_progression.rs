@@ -1,10 +1,9 @@
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::talker::{Talker, TalkerBase};
-use gpplugin::talker_handler::TalkerHandlerBase;
-use gpplugin::voice;
+use granode::audio_format::AudioFormat;
+use granode::talker::{Talker, TalkerBase};
+use granode::talker_handler::TalkerHandlerBase;
+use granode::voice;
 
 pub const MODEL: &str = "SecondDegreeFrequencyProgression";
-
 
 pub struct SecondDegreeFrequencyProgression {
     base: TalkerBase,
@@ -25,9 +24,7 @@ impl SecondDegreeFrequencyProgression {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL,
-            "Second degree frequency progression",
-        )
+        TalkerHandlerBase::new("Oscillator", MODEL, "Second degree frequency progression")
     }
 }
 

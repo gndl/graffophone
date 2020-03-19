@@ -1,0 +1,19 @@
+(include_subdirs unqualified)
+
+(rule
+    (deps (source_tree .))
+    (targets libgramotor_stubs.a dllgramotor_stubs.so)
+    (action
+        (progn
+            (run cargo build -Z unstable-options --out-dir . --target-dir ../rust --release)
+            (run mv libgramotor_stubs.so ./dllgramotor_stubs.so)
+        )
+    )
+)
+
+(library
+   (name gramotor)
+;   (public_name gramotor)
+   (self_build_stubs_archive (gramotor))
+   (c_library_flags (-lpthread -lc -lm))
+)

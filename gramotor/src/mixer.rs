@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::ear;
-use gpplugin::talker::{Talker, TalkerBase};
+use granode::audio_format::AudioFormat;
+use granode::ear;
+use granode::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
 use crate::output::ROutput;

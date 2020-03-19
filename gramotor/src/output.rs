@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 extern crate failure;
 
-use gpplugin::identifier::{Identifier, RIdentifier};
+use granode::identifier::{Identifier, RIdentifier};
 
 use crate::audio_data::Vector;
 

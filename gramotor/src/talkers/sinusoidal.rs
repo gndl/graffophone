@@ -1,8 +1,8 @@
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::ear;
-use gpplugin::talker::{Talker, TalkerBase};
-use gpplugin::talker_handler::TalkerHandlerBase;
-use gpplugin::voice;
+use granode::audio_format::AudioFormat;
+use granode::ear;
+use granode::talker::{Talker, TalkerBase};
+use granode::talker_handler::TalkerHandlerBase;
+use granode::voice;
 use std::f64::consts::PI;
 
 pub const MODEL: &str = "Sinusoidal";

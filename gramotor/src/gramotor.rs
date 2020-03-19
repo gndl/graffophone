@@ -14,14 +14,12 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-use crate::curve_controler::CurveControler;
-use crate::event_bus::{Notification, REventBus};
-use crate::graph_controler::GraphControler;
+use crate::event_bus::{EventBus, Notification, REventBus};
 use crate::player::Player;
 use crate::session::{RSession, Session};
 use crate::state::State;
 
-pub struct SessionControler {
+pub struct Gramotor {
     session: RSession,
     player: Player,
     player_synchronized: bool,
@@ -30,13 +28,11 @@ pub struct SessionControler {
     control_key_pressed: bool,
     shift_key_pressed: bool,
     alt_key_pressed: bool,
-    curve: CurveControler,
-    graph: GraphControler,
     bus: REventBus,
 }
 
-impl SessionControler {
-    pub fn new(bus: REventBus) -> Result<SessionControler, failure::Error> {
+impl Gramotor {
+    pub fn new() -> Result<Gramotor, failure::Error> {
         Ok(Self {
             session: Session::new_ref(None, None, None, None, None),
             player: Player::new("")?,
@@ -46,18 +42,10 @@ impl SessionControler {
             control_key_pressed: false,
             shift_key_pressed: false,
             alt_key_pressed: false,
-            curve: CurveControler::new(),
-            graph: GraphControler::new(),
-            bus,
+            bus: EventBus::new_ref(),
         })
     }
 
-    pub fn curve<'a>(&'a self) -> &'a CurveControler {
-        &self.curve
-    }
-    pub fn graph<'a>(&'a self) -> &'a GraphControler {
-        &self.graph
-    }
     pub fn state<'a>(&'a self) -> &'a State {
         self.player.state()
     }

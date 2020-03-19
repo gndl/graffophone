@@ -24,9 +24,9 @@ use std::io::Write;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use gpplugin::ear::{Ear, Talk};
-use gpplugin::identifier::Identifier;
-use gpplugin::talker::{RTalker, Talker};
+use granode::ear::{Ear, Talk};
+use granode::identifier::Identifier;
+use granode::talker::{RTalker, Talker};
 
 use crate::factory::Factory;
 use crate::mixer;

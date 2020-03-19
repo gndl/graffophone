@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
-use gpplugin::audio_format::AudioFormat;
-use gpplugin::identifier::RIdentifier;
-use gpplugin::talker::RTalker;
-use gpplugin::talker::Talker;
+use granode::audio_format::AudioFormat;
+use granode::identifier::RIdentifier;
+use granode::talker::RTalker;
+use granode::talker::Talker;
 
 use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;

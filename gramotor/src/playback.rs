@@ -4,14 +4,15 @@ use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;
 
-extern crate failure;
+//extern crate failure;
 
-extern crate cpal;
+//extern crate cpal;
 
+use cpal;
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 
-use gpplugin::horn::AudioBuf;
-use gpplugin::identifier::RIdentifier;
+use granode::horn::AudioBuf;
+use granode::identifier::RIdentifier;
 
 use crate::audio_data::{Interleaved, Vector};
 use crate::output;

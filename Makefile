@@ -18,6 +18,8 @@ test:
 exec:
 	dune exec src/graffophone.exe
 
+run: exec
+
 install:
 	dune install
 

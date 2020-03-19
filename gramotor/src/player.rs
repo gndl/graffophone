@@ -21,7 +21,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use gpplugin::audio_format::AudioFormat;
+use granode::audio_format::AudioFormat;
 
 use crate::factory::Factory;
 use crate::session::Session;
