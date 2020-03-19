@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables, unused_imports)]
 extern crate failure;
 extern crate gpplugin;
 extern crate lilv;
@@ -87,13 +88,13 @@ fn main() {
         }
     }
      */
-
     match load_save_sessions(&factory) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
+
     match play("play_sin.gsr") {
         Ok(_) => {}
         e => {
@@ -103,8 +104,9 @@ fn main() {
 }
 
 fn play(filename: &str) -> Result<(), failure::Error> {
-    let mut player = Player::new(filename);
+    let mut player = Player::new(filename)?;
     player.start()?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     for _ in 0..5 {
         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -112,6 +114,7 @@ fn play(filename: &str) -> Result<(), failure::Error> {
         std::thread::sleep(std::time::Duration::from_secs(1));
         player.play()?;
     }
+
     player.stop()?;
     player.exit()?;
 
@@ -198,7 +201,7 @@ fn play_sin(factory: &Factory, session: &RSession) -> Result<(), failure::Error>
     std::thread::sleep(std::time::Duration::from_secs(secs));
     session.borrow().deactivate_talkers();
 
-    let mut track = Track::new();
+    let track = Track::new();
     track.set_ear_voice_by_index(0, &tkr, 0)?;
     let rmixer = Mixer::new_ref(None, None);
     //    let mut mixer = rmixer.borrow_mut();

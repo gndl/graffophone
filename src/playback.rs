@@ -60,6 +60,7 @@ impl Playback {
             let mut pos = 0;
 
             event_loop.run(move |id, result| {
+                //               println!("Playback.event_loop.run pos : {}, len : {}", pos, len);
                 match control_receiver.try_recv() {
                     Ok(Control::Pause) => match control_receiver.recv() {
                         _ => {}
@@ -78,8 +79,10 @@ impl Playback {
                     cpal::StreamData::Output {
                         buffer: cpal::UnknownTypeOutputBuffer::F32(mut buffer),
                     } => {
+                        let mut i = 0;
                         for sample in buffer.chunks_mut(nb_channels) {
                             if pos >= len {
+                                //              println!("Playback.event_loop.run pos : {} >= len : {} -> audio_receiver.recv", pos, len);
                                 match audio_receiver.recv() {
                                     Ok(ad) => {
                                         if ad.is_end() {
@@ -92,10 +95,7 @@ impl Playback {
                                         }
                                     }
                                     Err(err) => {
-                                        // eprintln!(
-                                        //     "Error on stream {:?} receiver.recv() : {}",
-                                        //     id, err
-                                        // );
+                                        //                        eprintln!("Playback.event_loop.run Error on audio_receiver.recv : {}", err);
                                         return;
                                     }
                                 }
@@ -104,9 +104,11 @@ impl Playback {
                                 sample[chan] = av[pos + chan];
                             }
                             pos += nc;
+                            i = i + 1;
                         }
+                        //                        println!("Playback.event_loop.run nombre de sample : {}", i);
                     }
-                    _ => (),
+                    _ => println!("Playback.event_loop.run out_data != cpal::StreamData::Output"),
                 }
             });
         });

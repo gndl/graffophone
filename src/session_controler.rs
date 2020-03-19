@@ -36,10 +36,10 @@ pub struct SessionControler {
 }
 
 impl SessionControler {
-    pub fn new(bus: REventBus) -> SessionControler {
-        Self {
+    pub fn new(bus: REventBus) -> Result<SessionControler, failure::Error> {
+        Ok(Self {
             session: Session::new_ref(None, None, None, None, None),
-            player: Player::new(""),
+            player: Player::new("")?,
             player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
@@ -49,7 +49,7 @@ impl SessionControler {
             curve: CurveControler::new(),
             graph: GraphControler::new(),
             bus,
-        }
+        })
     }
 
     pub fn curve<'a>(&'a self) -> &'a CurveControler {

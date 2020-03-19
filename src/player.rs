@@ -46,7 +46,7 @@ pub struct Player {
 pub type RPlayer = Rc<RefCell<Player>>;
 
 impl Player {
-    pub fn new(filename: &str) -> Player {
+    pub fn new(filename: &str) -> Result<Player, failure::Error> {
         let (sender, receiver): (Sender<Order>, Receiver<Order>) = std::sync::mpsc::channel();
         let fname = filename.to_string();
 
@@ -156,16 +156,16 @@ impl Player {
             res
         });
 
-        Self {
+        Ok(Self {
             filename: filename.to_string(),
             sender,
             join_handle,
             state: State::Stopped,
-        }
+        })
     }
 
-    pub fn new_ref(filename: &str) -> RPlayer {
-        Rc::new(RefCell::new(Player::new(filename)))
+    pub fn new_ref(filename: &str) -> Result<RPlayer, failure::Error> {
+        Ok(Rc::new(RefCell::new(Player::new(filename)?)))
     }
 
     pub fn state<'a>(&'a self) -> &'a State {

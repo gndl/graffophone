@@ -390,7 +390,7 @@ impl Session {
         }
 
         for rmixer in self.mixers.values() {
-            let mut mixer = rmixer.borrow_mut();
+            let mixer = rmixer.borrow();
 
             for trk in mixer.tracks() {
                 writeln!(
