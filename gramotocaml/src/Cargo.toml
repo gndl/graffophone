@@ -1,0 +1,16 @@
+[package]
+name = "gramotor_stubs"
+version = "0.1.0"
+authors = ["gndl"]
+
+[lib]
+path = "lib.rs"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+failure = "0.1.5"
+ocaml = {git = "https://github.com/zshipko/ocaml-rs"}
+lv2 = { path = "../../../../lv2" }
+lilv = { path = "../../../../lilv" }
+granode = { path = "../../../../granode" }
+gramotor = { path = "../../../../gramotor" }

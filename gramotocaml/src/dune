@@ -2,18 +2,17 @@
 
 (rule
     (deps (source_tree .))
-    (targets libgramotor_stubs.a dllgramotor_stubs.so)
+    (targets libgramotor_stubs.a)
     (action
         (progn
-            (run cargo build -Z unstable-options --out-dir . --target-dir ../rust --release)
-            (run mv libgramotor_stubs.so ./dllgramotor_stubs.so)
+            (run cargo build)
+            (run cp target/debug/libgramotor_stubs.a .)
         )
     )
 )
 
 (library
    (name gramotor)
-;   (public_name gramotor)
    (self_build_stubs_archive (gramotor))
    (c_library_flags (-lpthread -lc -lm))
 )

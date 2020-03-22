@@ -8,6 +8,9 @@ deps:
 build:
 	dune build src/graffophone.exe
 
+gramotocaml:
+	dune build gramotocaml/src/libgramotor_stubs.a
+
 dbg:
 	dune build src/graffophone.bc
 	cp ./_build/default/src/graffophone.bc .

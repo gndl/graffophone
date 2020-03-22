@@ -1,11 +1,12 @@
 #[macro_use]
 extern crate ocaml;
 
+extern crate failure;
 extern crate gramotor;
 
 use std::mem;
 
-use gramotor::Gramotor;
+use gramotor::gramotor::Gramotor;
 
 extern "C" fn finalize(value: ocaml::core::Value) {
     let handle = ocaml::Value(value);
@@ -14,15 +15,20 @@ extern "C" fn finalize(value: ocaml::core::Value) {
     println!("Finalize");
 }
 
-caml!(gramotor_create(n) {
-    let mut gramotor: Result<Gramotor, failure::Error> =Gramotor::new();
+caml!(gramotor_create() {
+    // let mut gramotor: Result<Gramotor, failure::Error> =
+        match Gramotor::new(){
+            Ok(mut gramotor)=>{
     let ptr = &mut gramotor as *mut Gramotor;
     mem::forget(gramotor);
-    ocaml::Value::alloc_custom(ptr, finalize)
+                ocaml::Value::alloc_custom(ptr, finalize)
+            },
+            Err(e)=>{ocaml::runtime::failwith(format!("{}", e));ocaml::Value::unit()}
+        }
 });
 
 caml!(gramotor_new_session(handle) {
     let motor = &mut *handle.custom_ptr_val_mut::<Gramotor>();
-    motor.new_session();
+    let _ = motor.new_session();
     ocaml::Value::unit()
 });
