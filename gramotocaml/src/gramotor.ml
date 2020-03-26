@@ -6,4 +6,5 @@ let create()=
 
 
 external new_session: t -> unit = "gramotor_new_session"
+external init_session: t -> string -> unit = "gramotor_init_session"
 

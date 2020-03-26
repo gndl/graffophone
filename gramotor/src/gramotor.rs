@@ -15,6 +15,7 @@
  */
 
 use crate::event_bus::{EventBus, Notification, REventBus};
+use crate::factory::Factory;
 use crate::player::Player;
 use crate::session::{RSession, Session};
 use crate::state::State;
@@ -83,6 +84,13 @@ impl Gramotor {
     }
     pub fn new_session(&mut self) -> Result<(), failure::Error> {
         self.session = Session::new_ref(None, None, None, None, None);
+        self.player_synchronized = false;
+        Ok(())
+    }
+
+    pub fn init_session(&mut self, session_description: &str) -> Result<(), failure::Error> {
+        let factory = Factory::new();
+        self.session = Session::make(&factory, session_description.as_ref())?.to_ref();
         self.player_synchronized = false;
         Ok(())
     }

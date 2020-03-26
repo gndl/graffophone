@@ -14,7 +14,6 @@ pub struct Mixer {
     base: TalkerBase,
     tracks: Vec<Track>,
     outputs: Vec<ROutput>,
-    channels: Vec<Vector>,
     tick: i64,
     productive: bool,
 }
@@ -24,22 +23,14 @@ pub type RMixer = RefCell<Mixer>;
 
 impl Mixer {
     pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
-        let nb_channels = 2;
         let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::cv(Some("volume"), Some(1.), None));
-        let mut channels = Vec::with_capacity(nb_channels);
-        let chunk_size = AudioFormat::chunk_size();
-
-        for _ in 0..nb_channels {
-            channels.push(vec![0.; chunk_size]);
-        }
 
         Self {
             base,
             tracks: tracks.unwrap_or(Vec::new()),
             outputs: outputs.unwrap_or(Vec::new()),
-            channels,
             tick: 0,
             productive: false,
         }

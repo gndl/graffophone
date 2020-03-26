@@ -32,3 +32,10 @@ caml!(gramotor_new_session(handle) {
     let _ = motor.new_session();
     ocaml::Value::unit()
 });
+
+caml!(gramotor_init_session(handle, session_description) {
+    let motor = &mut *handle.custom_ptr_val_mut::<Gramotor>();
+    let sd = ocaml::Str::from(session_description.clone());
+    let _ = motor.init_session(sd.as_str());
+    ocaml::Value::unit()
+});

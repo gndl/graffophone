@@ -1,0 +1,18 @@
+[package]
+name = "graffophone"
+version = "0.1.0"
+authors = ["gndl <gndl@users.noreply.github.com>"]
+edition = "2018"
+
+[[bin]]
+name = "gramoloco"
+path = "gramoloco/src/main.rs"
+
+[dependencies]
+failure = "0.1.5"
+lv2 = { path = "./lv2" }
+lilv = { path = "./lilv" }
+granode = { path = "./granode" }
+gramotor = { path = "./gramotor" }
+#ffmpeg = "0.1.1"
+#portaudio = "0.7.0"

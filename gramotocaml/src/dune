@@ -13,6 +13,6 @@
 
 (library
    (name gramotor)
-   (self_build_stubs_archive (gramotor))
-   (c_library_flags (-lpthread -lc -lm))
+   (foreign_archives gramotor_stubs)
+   (c_library_flags (-lpthread -lc -lm -lasound -llilv-0))
 )

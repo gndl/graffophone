@@ -17,6 +17,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -298,13 +299,11 @@ impl Session {
         Ok(rmixer)
     }
 
-    pub fn load(factory: &Factory, filename: &str) -> Result<Session, failure::Error> {
+    pub fn make(factory: &Factory, description_buffer: &[u8]) -> Result<Session, failure::Error> {
         Identifier::initialize_id_count();
-        let mut session = Session::new(Some(filename), None, None, None, None);
-
-        let br = BufReader::new(File::open(filename)?);
-
-        let lines = br.lines().map(|l| l.unwrap()).collect();
+        let mut session = Session::new(None, None, None, None, None);
+        let description_reader = BufReader::new(description_buffer);
+        let lines = description_reader.lines().map(|l| l.unwrap()).collect();
         let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Session::make_decs(&lines)?;
 
         let mut talkers = HashMap::new();
@@ -337,8 +336,16 @@ impl Session {
         Ok(session)
     }
 
-    pub fn load_ref(factory: &Factory, filename: &str) -> Result<RSession, failure::Error> {
-        Ok(Rc::new(RefCell::new(Session::load(factory, filename)?)))
+    pub fn load_file(factory: &Factory, filename: &str) -> Result<Session, failure::Error> {
+        let br = fs::read(filename)?;
+        let mut session = Session::make(factory, &br)?;
+        session.filename = filename.to_string();
+
+        Ok(session)
+    }
+
+    pub fn to_ref(self) -> RSession {
+        Rc::new(RefCell::new(self))
     }
 
     fn talk_dep_line<'a>(mut file: &'a File, talk: &Talk) -> Result<&'a File, failure::Error> {

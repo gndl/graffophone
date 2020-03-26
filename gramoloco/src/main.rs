@@ -3,6 +3,7 @@ extern crate failure;
 // extern crate gpplugin;
 // extern crate lilv;
 // extern crate lv2;
+extern crate gramotor;
 
 use std::alloc::System;
 use std::cell::RefCell;
@@ -106,7 +107,7 @@ fn play(filename: &str) -> Result<(), failure::Error> {
 }
 
 fn load_save_sessions(factory: &Factory) -> Result<(), failure::Error> {
-    let mut lss = Session::load(factory, "play_sin.gsr")?;
+    let mut lss = Session::load_file(factory, "play_sin.gsr")?;
     lss.save_as("play_sin_dst.gsr")?;
     Ok(())
 }

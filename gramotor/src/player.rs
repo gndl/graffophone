@@ -37,7 +37,6 @@ enum Order {
 }
 
 pub struct Player {
-    filename: String,
     sender: Sender<Order>,
     join_handle: JoinHandle<Result<(), failure::Error>>,
     state: State,
@@ -52,7 +51,7 @@ impl Player {
 
         let join_handle = thread::spawn(move || {
             let factory = Factory::new();
-            let mut session = Session::load(&factory, &fname)?;
+            let mut session = Session::load_file(&factory, &fname)?;
             session.add_playback(&factory)?;
             let mut res = Ok(());
             let mut tick: i64 = 0;
@@ -157,7 +156,6 @@ impl Player {
         });
 
         Ok(Self {
-            filename: filename.to_string(),
             sender,
             join_handle,
             state: State::Stopped,

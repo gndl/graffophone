@@ -95,7 +95,7 @@ impl Playback {
                                             pos = 0;
                                         }
                                     }
-                                    Err(err) => {
+                                    Err(_) => {
                                         //                        eprintln!("Playback.event_loop.run Error on audio_receiver.recv : {}", err);
                                         return;
                                     }

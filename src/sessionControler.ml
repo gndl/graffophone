@@ -34,6 +34,7 @@ class c =
     val mutable mControlKeyPressed = false
     val mutable mShiftKeyPressed = false
     val mutable mAltKeyPressed = false
+      val mutable mGramotor : Gramotor.t option = None
 
 
     val mCurve = new CurveControler.c
@@ -94,6 +95,11 @@ class c =
 
 
     method newSession() =
+      let () = match Gramotor.create() with
+      | Ok gramotor -> mGramotor <- Some(gramotor)
+      | Error msg -> traceRed msg
+      in
+
       let track = new Track.c in
       let output = (new PlaybackOutput.c() :> Output.c) in
       let mixingConsole = new MixingConsole.c ~tracks:[track] ~outputs:[output] ()

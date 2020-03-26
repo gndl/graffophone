@@ -17,7 +17,7 @@
 open Usual
 
 class c initValue callback = object (self)
-  inherit GraffophoneGui.floatEntryDialog() as super
+  inherit GraffophoneGui.floatEntryDialog()
 
   val mutable mInitValue = initValue
 
@@ -25,7 +25,7 @@ class c initValue callback = object (self)
     spinbuttonFloatEntry#set_adjustment vscaleFloatEntry#adjustment;
 
     ignore(spinbuttonFloatEntry#event#connect#key_release ~callback:self#onKeyPressed);
-    ignore(vscaleFloatEntry#adjustment#connect#value_changed self#vscaleValueChanged);
+    ignore(vscaleFloatEntry#adjustment#connect#value_changed ~callback:self#vscaleValueChanged);
     ignore(buttonAdjust#connect#clicked ~callback:self#adjustRange);
 
     ignore(toplevel#event#connect#leave_notify ~callback:self#leave);
