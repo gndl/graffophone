@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::iter::Extend;
 use std::rc::Rc;
 
 use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
@@ -66,32 +67,22 @@ pub struct PluginsManager {
 }
 
 impl PluginsManager {
-    pub fn new() -> Self {
-        Self {
-            world: World::new().unwrap(),
-            features: GpFeatureSet::new(),
-            handlers: HashMap::new(),
-        }
-    }
-
-    pub fn features_buffer(&self) -> SharedFeatureBuffer {
-        self.features.buffer()
-    }
-
-    fn add_handler(&mut self, base: TalkerHandlerBase) {
-        self.handlers.insert(
+    fn tkr_hr_kv(base: TalkerHandlerBase) -> (String, PluginHandler) {
+        (
             base.model().to_string(),
             PluginHandler {
                 base,
                 plugin_type: PluginType::Internal,
             },
-        );
+        )
     }
 
-    pub fn load_plugins(&mut self) {
-        println!("load_plugins start");
-        for plugin in self.world.plugins() {
-            self.handlers.insert(
+    pub fn make_plugins_handlers(world: &World) -> HashMap<String, PluginHandler> {
+        println!("make_plugins_handlers start");
+        let mut handlers = HashMap::new();
+
+        for plugin in world.plugins() {
+            handlers.insert(
                 plugin.uri().to_string(),
                 PluginHandler {
                     base: TalkerHandlerBase::new(
@@ -104,13 +95,64 @@ impl PluginsManager {
             );
         }
 
-        self.add_handler(AbsSine::descriptor());
-        self.add_handler(Sinusoidal::descriptor());
-        self.add_handler(SecondDegreeFrequencyProgression::descriptor());
+        handlers.extend(vec![
+            PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
+            PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
+        ]);
 
-        println!("load_plugins end");
+        println!("make_plugins_handlers end");
+        handlers
     }
 
+    pub fn new() -> Self {
+        let world = World::new().unwrap();
+        let handlers = PluginsManager::make_plugins_handlers(&world);
+
+        Self {
+            world,
+            features: GpFeatureSet::new(),
+            handlers,
+        }
+    }
+
+    pub fn features_buffer(&self) -> SharedFeatureBuffer {
+        self.features.buffer()
+    }
+    /*
+    fn add_handler(&mut self, base: TalkerHandlerBase) {
+        self.handlers.insert(
+            base.model().to_string(),
+            PluginHandler {
+                base,
+                plugin_type: PluginType::Internal,
+            },
+        );
+    }
+
+        pub fn load_plugins(&mut self) {
+            println!("load_plugins start");
+            for plugin in self.world.plugins() {
+                self.handlers.insert(
+                    plugin.uri().to_string(),
+                    PluginHandler {
+                        base: TalkerHandlerBase::new(
+                            plugin.class().label().to_str(),
+                            plugin.uri().to_string().as_str(),
+                            plugin.name().to_str(),
+                        ),
+                        plugin_type: PluginType::Lv2,
+                    },
+                );
+            }
+
+            self.add_handler(AbsSine::descriptor());
+            self.add_handler(Sinusoidal::descriptor());
+            self.add_handler(SecondDegreeFrequencyProgression::descriptor());
+
+            println!("load_plugins end");
+        }
+    */
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == sinusoidal::MODEL {
             Ok(Rc::new(RefCell::new(Sinusoidal::new())))
@@ -139,6 +181,27 @@ impl PluginsManager {
         }
     }
 
+    pub fn get_categorized_talkers_label_model(&self) -> HashMap<String, Vec<(String, String)>>    {
+        let mut categories:HashMap<String, Vec<(String, String)>> = HashMap::new();
+
+        for (model, ph) in self.handlers.iter() {
+            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
+
+        match categories.get_mut(ph.base.category()// .to_string().as_str()
+        ) {
+            Some(mut category_talkers) => {
+                category_talkers.push((ph.base.label().to_string(), model.to_string()));
+            }            ,
+            None => {
+        let mut category_talkers = Vec::new();
+                category_talkers.push((ph.base.label().to_string(), model.to_string()));
+                categories.insert(ph.base.category().to_string(), category_talkers);
+            }
+        }
+        }
+            categories
+    }
+    
     pub fn run(&self) {
         let mut talkers = Vec::new();
 

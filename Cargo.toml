@@ -4,15 +4,28 @@ version = "0.1.0"
 authors = ["gndl <gndl@users.noreply.github.com>"]
 edition = "2018"
 
+[lib]
+name = "gramotor_stubs"
+path = "./gramotocaml/src/lib.rs"
+crate-type = ["staticlib", "cdylib"]
+
 [[bin]]
 name = "gramoloco"
 path = "gramoloco/src/main.rs"
 
 [dependencies]
 failure = "0.1.5"
+glib = "^0"
+ocaml = {git = "https://github.com/zshipko/ocaml-rs"}
 lv2 = { path = "./lv2" }
 lilv = { path = "./lilv" }
 granode = { path = "./granode" }
 gramotor = { path = "./gramotor" }
-#ffmpeg = "0.1.1"
-#portaudio = "0.7.0"
+
+[dependencies.gtk]
+version = "^0"
+features = ["v3_24"]
+
+[dependencies.gio]
+version = ""
+features = ["v2_58"]

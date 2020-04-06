@@ -1,4 +1,6 @@
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 
 use granode::audio_format::AudioFormat;
 use granode::identifier::RIdentifier;
@@ -18,15 +20,23 @@ pub struct Factory {
 
 pub type RFactory = Rc<Factory>;
 
+static mut OPT_INSTANCE: Option<Arc<Mutex<Factory>>> = None;
+
 impl Factory {
     pub fn new() -> Factory {
-        let mut plugins_manager = PluginsManager::new();
-        plugins_manager.load_plugins();
-        Self { plugins_manager }
+        //        let mut plugins_manager = PluginsManager::new();
+        //        plugins_manager.load_plugins();
+        Self {
+            plugins_manager: PluginsManager::new(),
+        }
     }
 
     pub fn new_ref() -> RFactory {
         Rc::new(Factory::new())
+    }
+
+    pub fn get_categorized_talkers_label_model(&self) -> HashMap<String, Vec<(String, String)>> {
+        self.plugins_manager.get_categorized_talkers_label_model()
     }
 
     pub fn make_talker(
@@ -86,5 +96,24 @@ impl Factory {
             Some(name) => identifier.borrow_mut().set_name(name),
             None => (),
         };
+    }
+
+    pub fn visit<F, R>(mut f: F) -> Result<R, failure::Error>
+    where
+        F: FnMut(&Factory) -> Result<R, failure::Error>,
+    {
+        unsafe {
+            match &OPT_INSTANCE {
+                Some(factory) => {
+                    let factory = factory.clone();
+                    let factory = factory.lock().unwrap();
+                    f(&factory)
+                }
+                None => {
+                    OPT_INSTANCE = Some(Arc::new(Mutex::new(Factory::new())));
+                    Factory::visit(f)
+                }
+            }
+        }
     }
 }

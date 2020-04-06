@@ -16,7 +16,6 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -29,6 +28,7 @@ use granode::ear::{Ear, Talk};
 use granode::identifier::Identifier;
 use granode::talker::{RTalker, Talker};
 
+//use crate::factory;
 use crate::factory::Factory;
 use crate::mixer;
 use crate::mixer::RMixer;
@@ -118,7 +118,7 @@ impl Session {
             Err(e) => Err(failure::err_msg(format!(
                 "Failed to get id from mref {} : {}!",
                 mref,
-                e.description()
+                e.to_string()
             ))),
         }
     }
@@ -299,7 +299,11 @@ impl Session {
         Ok(rmixer)
     }
 
-    pub fn make(factory: &Factory, description_buffer: &[u8]) -> Result<Session, failure::Error> {
+    pub fn build(
+        factory: &Factory,
+        description_buffer: &[u8],
+        add_playback: bool,
+    ) -> Result<Session, failure::Error> {
         Identifier::initialize_id_count();
         let mut session = Session::new(None, None, None, None, None);
         let description_reader = BufReader::new(description_buffer);
@@ -310,7 +314,7 @@ impl Session {
         let mut talkers_modules = Vec::new();
 
         for (mref, module) in tkr_decs {
-            let tkr = session.add_talker(
+            let tkr = session.build_talker(
                 factory,
                 module.kind,
                 Some(Session::id_from_mref(mref)?),
@@ -333,16 +337,25 @@ impl Session {
             session.add_mixer(rmixer);
         }
 
-        Ok(session)
-    }
-
-    pub fn load_file(factory: &Factory, filename: &str) -> Result<Session, failure::Error> {
-        let br = fs::read(filename)?;
-        let mut session = Session::make(factory, &br)?;
-        session.filename = filename.to_string();
+        if add_playback {
+            session.add_playback(factory)?;
+        }
 
         Ok(session)
     }
+    pub fn make(description_buffer: &[u8], add_playback: bool) -> Result<Session, failure::Error> {
+        Factory::visit(|factory| Session::build(factory, description_buffer, add_playback))
+    }
+
+    pub fn load_file(filename: &str) -> Result<Session, failure::Error> {
+        let description_buffer = fs::read(filename)?;
+
+        let mut session = Factory::visit(|factory| Session::build(factory, &description_buffer, false))?;
+
+                session.filename = filename.to_string();
+
+        Ok(session)
+                }
 
     pub fn to_ref(self) -> RSession {
         Rc::new(RefCell::new(self))
@@ -488,7 +501,7 @@ impl Session {
         nb_channels
     }
 
-    pub fn add_talker(
+     fn build_talker(
         &mut self,
         factory: &Factory,
         model: &str,
@@ -498,6 +511,15 @@ impl Session {
         let tkr = factory.make_talker(model, oid, oname)?;
         self.talkers.insert(tkr.borrow().id(), tkr.clone());
         Ok(tkr)
+    }
+
+    pub fn add_talker(
+        &mut self,
+        model: &str,
+        oid: Option<u32>,
+        oname: Option<&str>,
+    ) -> Result<RTalker, failure::Error> {
+        Factory::visit(|factory| self.build_talker(factory, model, oid, oname))
     }
 
     pub fn add_playback(&mut self, factory: &Factory) -> Result<(), failure::Error> {

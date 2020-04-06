@@ -1,13 +1,11 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 extern crate failure;
-// extern crate gpplugin;
-// extern crate lilv;
-// extern crate lv2;
 extern crate gramotor;
 
 use std::alloc::System;
 use std::cell::RefCell;
 use std::f64::consts::PI;
+use std::fs;
 use std::rc::Rc;
 
 #[global_allocator]
@@ -29,7 +27,6 @@ use granode::audio_format::AudioFormat;
 use granode::talker::Talker;
 
 use gramotor::event_bus::EventBus;
-use gramotor::factory::Factory;
 use gramotor::gramotor::Gramotor;
 use gramotor::mixer::Mixer;
 use gramotor::output::Output;
@@ -48,14 +45,37 @@ const SAMPLE_RATE: usize = 44_100;
 const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
-fn main() {
-    let bus = EventBus::new_ref();
-    let factory = Factory::new();
-    let session = Session::new_ref(None, None, None, None, None);
+const GSR: &str = "
+Sinusoidal 1#Sinusoidal_1 
+> frequence 440
+> phase 0
 
-    //    let _controler = Gramotor::new(bus);
-    //    let world: World = World::new().unwrap();
-    //    let mut talkers = Vec::new(); //: Vec<Box<dyn Talker>> = ,
+track 2#track_2
+> I 1#Sinusoidal_1:O
+> gain 1
+
+mixer 5#mixer_5
+> volume 1
+> track 2#track_2
+";
+
+fn main() {
+    {
+    let mut motor = Gramotor::new();
+    motor.init_session(GSR.to_string());
+    for _ in 0..5 {
+        let _ = motor.play();
+    std::thread::sleep(std::time::Duration::from_secs(2));
+        let _ = motor.pause();
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+        let _ = motor.play();
+    std::thread::sleep(std::time::Duration::from_secs(2));
+        let _ = motor.stop();
+    std::thread::sleep(std::time::Duration::from_secs(50));
+    }
+    let bus = EventBus::new_ref();
+    let session = Session::new_ref(None, None, None, None, None);
 
     /*
     session.borrow().run();
@@ -66,14 +86,14 @@ fn main() {
         }
     }
 
-    match play_sin(&factory, &session) {
+    match play_sin(&session) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
      */
-    match load_save_sessions(&factory) {
+    match load_save_sessions() {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -89,7 +109,8 @@ fn main() {
 }
 
 fn play(filename: &str) -> Result<(), failure::Error> {
-    let mut player = Player::new(filename)?;
+    let session_description = String::from_utf8(fs::read(filename)?)?;
+    let mut player = Player::new(session_description)?;
     player.start()?;
     std::thread::sleep(std::time::Duration::from_secs(1));
 
@@ -106,22 +127,22 @@ fn play(filename: &str) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn load_save_sessions(factory: &Factory) -> Result<(), failure::Error> {
-    let mut lss = Session::load_file(factory, "play_sin.gsr")?;
+fn load_save_sessions() -> Result<(), failure::Error> {
+    let mut lss = Session::load_file("play_sin.gsr")?;
     lss.save_as("play_sin_dst.gsr")?;
     Ok(())
 }
 
-fn play_fuzz(factory: &Factory, session: &RSession) -> Result<(), failure::Error> {
+fn play_fuzz(session: &RSession) -> Result<(), failure::Error> {
     let fuzzface_uri = "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_";
 
     let fuzzface_tkr = session
         .borrow_mut()
-        .add_talker(factory, fuzzface_uri, None, None)?;
+        .add_talker(fuzzface_uri, None, None)?;
 
     let abs_sine_tkr = session
         .borrow_mut()
-        .add_talker(factory, sinusoidal::MODEL, None, None)?;
+        .add_talker(sinusoidal::MODEL, None, None)?;
 
     fuzzface_tkr
         .borrow_mut()
@@ -161,10 +182,10 @@ fn play_fuzz(factory: &Factory, session: &RSession) -> Result<(), failure::Error
     Ok(())
 }
 
-fn play_sin(factory: &Factory, session: &RSession) -> Result<(), failure::Error> {
+fn play_sin(session: &RSession) -> Result<(), failure::Error> {
     let tkr = session
         .borrow_mut()
-        .add_talker(factory, sinusoidal::MODEL, None, None)?;
+        .add_talker(sinusoidal::MODEL, None, None)?;
 
     session.borrow().activate_talkers();
 
@@ -198,11 +219,9 @@ fn play_sin(factory: &Factory, session: &RSession) -> Result<(), failure::Error>
 }
 
 fn play_progressive_sinusoidale(
-    factory: &Factory,
     session: &RSession,
 ) -> Result<(), failure::Error> {
     let tkr = session.borrow_mut().add_talker(
-        factory,
         second_degree_frequency_progression::MODEL,
         None,
         None,

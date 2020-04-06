@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::error::Error;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;
@@ -196,7 +195,7 @@ impl Output for Playback {
             .map_err(|_| failure::err_msg(format!("Playback::close error on send end"))),*/
             Err(e) => Err(failure::err_msg(format!(
                 "Playback::close error : {}",
-                e.description()
+                e.to_string()
             ))),
         }
     }

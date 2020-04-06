@@ -19,4 +19,5 @@ pub enum State {
     Playing,
     Paused,
     Stopped,
+    Exited,
 }

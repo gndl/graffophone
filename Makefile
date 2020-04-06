@@ -23,6 +23,9 @@ exec:
 
 run: exec
 
+gdb: build
+	gdb _build/default/src/graffophone.exe
+
 install:
 	dune install
 
