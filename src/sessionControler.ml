@@ -22,6 +22,20 @@ module Bus = EventBus
 
 type order = Pause | Stop | None
 
+let gsr = {|
+Sinusoidal 1#Sinusoidal_1 
+> frequence 440
+> phase 0
+
+track 2#track_2
+> I 1#Sinusoidal_1:O
+> gain 1
+
+mixer 5#mixer_5
+> volume 1
+> track 2#track_2
+|}
+  
 class c =
   object (self)
     val mutable mState = State.Stopped
@@ -34,8 +48,7 @@ class c =
     val mutable mControlKeyPressed = false
     val mutable mShiftKeyPressed = false
     val mutable mAltKeyPressed = false
-      val mutable mGramotor : Gramotor.t option = None
-
+    val mutable mGramotor : Gramotor.t option = None
 
     val mCurve = new CurveControler.c
     val mGraph = new GraphControler.c
@@ -93,10 +106,15 @@ class c =
       Bus.(notify(TimeRange(mStartTick, t)));
 
 
-
     method newSession() =
       let () = match Gramotor.create() with
-      | Ok gramotor -> mGramotor <- Some(gramotor)
+        | Ok gramotor -> (
+            mGramotor <- Some(gramotor);
+    Gc.minor ();
+    Gc.full_major ();
+    Gc.full_major ();
+            (* Gramotor.init_session gramotor gsr; *)
+          )
       | Error msg -> traceRed msg
       in
 
@@ -121,30 +139,34 @@ class c =
     method saveSessionAs filename =
       ignore(Session.saveAs filename (Session.getInstance()))
 
-
+    method actionMotor action =
+      let res = match mGramotor with
+      | Some motor -> action motor
+      | None -> (
+          match Gramotor.create() with
+          | Ok motor -> mGramotor <- Some(motor); action motor
+          | Error _ as e -> e
+        )
+      in
+      match res with Ok() -> () | Error msg -> Bus.(notify(Error msg ))
+        
     method play (_:int) =
-      ignore( match mState with
-          | State.Playing -> Mutex.lock mPauseLock; mOrder <- Pause
-          | State.Paused -> Mutex.unlock mPauseLock
-          | State.Stopped -> ignore(Thread.create self#threadPlay())
-        );
-      Thread.yield()
+      match mState with
+      | State.Playing -> self#actionMotor Gramotor.pause
+      | State.Paused -> self#actionMotor Gramotor.play
+      | State.Stopped -> self#actionMotor Gramotor.start
 
     method pause (_:int) =
-      ignore( match mState with
-          | State.Playing -> Mutex.lock mPauseLock; mOrder <- Pause
-          | State.Paused -> Mutex.unlock mPauseLock
-          | State.Stopped -> ()
-        );
-      Thread.yield()
+      match mState with
+      | State.Playing -> self#actionMotor Gramotor.pause
+      | State.Paused -> self#actionMotor Gramotor.play
+      | State.Stopped -> ()
 
     method stop (_:int) =
-      ignore( match mState with
-          | State.Playing -> mOrder <- Stop
-          | State.Paused -> mOrder <- Stop; Mutex.unlock mPauseLock
-          | State.Stopped -> ()
-        );
-      Thread.yield()
+      match mState with
+      | State.Playing -> self#actionMotor Gramotor.stop
+      | State.Paused -> self#actionMotor Gramotor.stop
+      | State.Stopped -> ()
 
     method changeVolume volumePercent =
       Bus.(notify(Volume volumePercent));
