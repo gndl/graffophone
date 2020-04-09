@@ -181,27 +181,38 @@ impl PluginsManager {
         }
     }
 
-    pub fn get_categorized_talkers_label_model(&self) -> HashMap<String, Vec<(String, String)>>    {
-        let mut categories:HashMap<String, Vec<(String, String)>> = HashMap::new();
+    pub fn get_categorized_talkers_label_model(&self) -> Vec<(String, Vec<(String, String)>)> {
+        let mut categories_map: HashMap<&String, Vec<(&String, &String)>> = HashMap::new();
+        let mut categories_vec: Vec<(String, Vec<(String, String)>)> = Vec::new();
 
         for (model, ph) in self.handlers.iter() {
-            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
+            //            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
 
-        match categories.get_mut(ph.base.category()// .to_string().as_str()
-        ) {
-            Some(mut category_talkers) => {
-                category_talkers.push((ph.base.label().to_string(), model.to_string()));
-            }            ,
-            None => {
-        let mut category_talkers = Vec::new();
-                category_talkers.push((ph.base.label().to_string(), model.to_string()));
-                categories.insert(ph.base.category().to_string(), category_talkers);
+            match categories_map.get_mut(ph.base.category()) {
+                Some(category_talkers) => {
+                    category_talkers.push((ph.base.label(), model));
+                }
+                None => {
+                    let mut category_talkers = Vec::new();
+                    category_talkers.push((ph.base.label(), model));
+                    categories_map.insert(ph.base.category(), category_talkers);
+                }
             }
         }
+
+        for (category, talkers) in categories_map {
+            let mut tkrs = Vec::new();
+
+            for (label, model) in talkers {
+                tkrs.push((label.to_string(), model.to_string()));
+            }
+            tkrs.sort();
+            categories_vec.push((category.to_string(), tkrs));
         }
-            categories
+        categories_vec.sort();
+        categories_vec
     }
-    
+
     pub fn run(&self) {
         let mut talkers = Vec::new();
 

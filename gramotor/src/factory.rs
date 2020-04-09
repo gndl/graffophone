@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 
 use granode::audio_format::AudioFormat;
 use granode::identifier::RIdentifier;
@@ -35,7 +34,7 @@ impl Factory {
         Rc::new(Factory::new())
     }
 
-    pub fn get_categorized_talkers_label_model(&self) -> HashMap<String, Vec<(String, String)>> {
+    pub fn get_categorized_talkers_label_model(&self) -> Vec<(String, Vec<(String, String)>)> {
         self.plugins_manager.get_categorized_talkers_label_model()
     }
 
