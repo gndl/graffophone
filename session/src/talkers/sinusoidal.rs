@@ -1,9 +1,9 @@
-use granode::audio_format::AudioFormat;
-use granode::ear;
-use granode::talker::{Talker, TalkerBase};
-use granode::talker_handler::TalkerHandlerBase;
-use granode::voice;
 use std::f64::consts::PI;
+use talker::audio_format::AudioFormat;
+use talker::ear;
+use talker::talker::{Talker, TalkerBase};
+use talker::talker_handler::TalkerHandlerBase;
+use talker::voice;
 
 pub const MODEL: &str = "Sinusoidal";
 

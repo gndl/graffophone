@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use granode::ear;
-use granode::ear::Ear;
-use granode::talker::{Talker, TalkerBase};
+use talker::ear;
+use talker::ear::Ear;
+use talker::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
 

@@ -24,9 +24,9 @@ use std::io::Write;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use granode::ear::{Ear, Talk};
-use granode::identifier::Identifier;
-use granode::talker::{RTalker, Talker};
+use talker::ear::{Ear, Talk};
+use talker::identifier::Identifier;
+use talker::talker::{RTalker, Talker};
 
 //use crate::factory;
 use crate::factory::Factory;
@@ -38,13 +38,13 @@ use crate::playback;
 use crate::track;
 use crate::track::{RTrack, Track};
 
-pub struct Session {
+pub struct Band {
     filename: String,
     talkers: HashMap<u32, RTalker>,
     mixers: HashMap<u32, RMixer>,
 }
 
-pub type RSession = Rc<RefCell<Session>>;
+pub type RBand = Rc<RefCell<Band>>;
 
 struct Module<'a> {
     kind: &'a str,
@@ -63,16 +63,16 @@ impl<'a> Module<'a> {
     }
 }
 
-impl Session {
+impl Band {
     pub fn new(
         filename: Option<&str>,
         talkers: Option<HashMap<u32, RTalker>>,
         _tracks: Option<HashMap<u32, RTrack>>,
         mixers: Option<HashMap<u32, RMixer>>,
         _outputs: Option<HashMap<u32, ROutput>>,
-    ) -> Session {
+    ) -> Band {
         Self {
-            filename: filename.unwrap_or("NewSession.gsr").to_string(),
+            filename: filename.unwrap_or("NewBand.gsr").to_string(),
             talkers: talkers.unwrap_or(HashMap::new()),
             mixers: mixers.unwrap_or(HashMap::new()),
         }
@@ -84,8 +84,8 @@ impl Session {
         tracks: Option<HashMap<u32, RTrack>>,
         mixers: Option<HashMap<u32, RMixer>>,
         outputs: Option<HashMap<u32, ROutput>>,
-    ) -> RSession {
-        Rc::new(RefCell::new(Session::new(
+    ) -> RBand {
+        Rc::new(RefCell::new(Band::new(
             filename, talkers, tracks, mixers, outputs,
         )))
     }
@@ -180,17 +180,17 @@ impl Session {
                     module.attributs.push((tag, tkr, sp));
                 }
                 (Some(kind), Some(mref), Some(feature)) => {
-                    Session::tidy_decs(module, &mut decs);
+                    Band::tidy_decs(module, &mut decs);
                     module = Module::new(kind, mref, feature);
                 }
                 (Some(kind), Some(mref), None) => {
-                    Session::tidy_decs(module, &mut decs);
+                    Band::tidy_decs(module, &mut decs);
                     module = Module::new(kind, mref, "");
                 }
                 _ => (),
             }
         }
-        Session::tidy_decs(module, &mut decs);
+        Band::tidy_decs(module, &mut decs);
         Ok(decs)
     }
 
@@ -223,8 +223,8 @@ impl Session {
         module: &Module,
     ) -> Result<Track, failure::Error> {
         let mut track = factory.make_track(
-            Some(Session::id_from_mref(module.mref)?),
-            Some(Session::name_from_mref(module.mref)),
+            Some(Band::id_from_mref(module.mref)?),
+            Some(Band::name_from_mref(module.mref)),
         )?;
 
         for (tag, dpn, tkn) in &module.attributs {
@@ -245,8 +245,8 @@ impl Session {
 
     fn make_output(factory: &Factory, module: &Module) -> Result<ROutput, failure::Error> {
         factory.make_output(
-            Some(Session::id_from_mref(module.mref)?),
-            Some(Session::name_from_mref(module.mref)),
+            Some(Band::id_from_mref(module.mref)?),
+            Some(Band::name_from_mref(module.mref)),
             module.feature,
             Some(&module.attributs),
         )
@@ -260,8 +260,8 @@ impl Session {
         module: &Module,
     ) -> Result<RMixer, failure::Error> {
         let rmixer = factory.make_mixer(
-            Some(Session::id_from_mref(module.mref)?),
-            Some(Session::name_from_mref(module.mref)),
+            Some(Band::id_from_mref(module.mref)?),
+            Some(Band::name_from_mref(module.mref)),
             None,
             None,
         )?;
@@ -271,12 +271,12 @@ impl Session {
             for (tag, dpn, tkn) in &module.attributs {
                 if tag == &Track::kind() {
                     match trk_decs.get(dpn) {
-                        Some(trk) => mixer.add_track(Session::make_track(factory, &talkers, trk)?),
+                        Some(trk) => mixer.add_track(Band::make_track(factory, &talkers, trk)?),
                         None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
                     }
                 } else if tag == &output::KIND {
                     match otp_decs.get(dpn) {
-                        Some(otp) => mixer.add_output(Session::make_output(factory, otp)?),
+                        Some(otp) => mixer.add_output(Band::make_output(factory, otp)?),
                         None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
                     }
                 } else {
@@ -303,22 +303,22 @@ impl Session {
         factory: &Factory,
         description_buffer: &[u8],
         add_playback: bool,
-    ) -> Result<Session, failure::Error> {
+    ) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
-        let mut session = Session::new(None, None, None, None, None);
+        let mut band = Band::new(None, None, None, None, None);
         let description_reader = BufReader::new(description_buffer);
         let lines = description_reader.lines().map(|l| l.unwrap()).collect();
-        let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Session::make_decs(&lines)?;
+        let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Band::make_decs(&lines)?;
 
         let mut talkers = HashMap::new();
         let mut talkers_modules = Vec::new();
 
         for (mref, module) in tkr_decs {
-            let tkr = session.build_talker(
+            let tkr = band.build_talker(
                 factory,
                 module.kind,
-                Some(Session::id_from_mref(mref)?),
-                Some(Session::name_from_mref(mref)),
+                Some(Band::id_from_mref(mref)?),
+                Some(Band::name_from_mref(mref)),
             )?;
 
             if module.feature.len() > 0 {
@@ -329,35 +329,35 @@ impl Session {
         }
 
         for (talker, module) in talkers_modules {
-            Session::set_talker_ears(&talkers, &talker, &module)?;
+            Band::set_talker_ears(&talkers, &talker, &module)?;
         }
 
         for (_, module) in mxr_decs {
-            let rmixer = Session::make_mixer(factory, &talkers, &trk_decs, &otp_decs, &module)?;
-            session.add_mixer(rmixer);
+            let rmixer = Band::make_mixer(factory, &talkers, &trk_decs, &otp_decs, &module)?;
+            band.add_mixer(rmixer);
         }
 
         if add_playback {
-            session.add_playback(factory)?;
+            band.add_playback(factory)?;
         }
 
-        Ok(session)
+        Ok(band)
     }
-    pub fn make(description_buffer: &[u8], add_playback: bool) -> Result<Session, failure::Error> {
-        Factory::visit(|factory| Session::build(factory, description_buffer, add_playback))
+    pub fn make(description_buffer: &[u8], add_playback: bool) -> Result<Band, failure::Error> {
+        Factory::visit(|factory| Band::build(factory, description_buffer, add_playback))
     }
 
-    pub fn load_file(filename: &str) -> Result<Session, failure::Error> {
+    pub fn load_file(filename: &str) -> Result<Band, failure::Error> {
         let description_buffer = fs::read(filename)?;
 
-        let mut session = Factory::visit(|factory| Session::build(factory, &description_buffer, false))?;
+        let mut band = Factory::visit(|factory| Band::build(factory, &description_buffer, false))?;
 
-                session.filename = filename.to_string();
+        band.filename = filename.to_string();
 
-        Ok(session)
-                }
+        Ok(band)
+    }
 
-    pub fn to_ref(self) -> RSession {
+    pub fn to_ref(self) -> RBand {
         Rc::new(RefCell::new(self))
     }
 
@@ -374,14 +374,14 @@ impl Session {
                     file,
                     "> {} {}",
                     talk.tag(),
-                    Session::mref(tkr.id(), &tkr.name())
+                    Band::mref(tkr.id(), &tkr.name())
                 )?;
             } else {
                 writeln!(
                     file,
                     "> {} {}:{}",
                     talk.tag(),
-                    Session::mref(tkr.id(), &tkr.name()),
+                    Band::mref(tkr.id(), &tkr.name()),
                     voice_tag
                 )?;
             }
@@ -400,12 +400,12 @@ impl Session {
                 file,
                 "\n{} {} {}",
                 model,
-                Session::mref(tkr.id(), &tkr.name()),
+                Band::mref(tkr.id(), &tkr.name()),
                 feature
             )?;
 
             for ear in ears {
-                ear.fold_talks(Session::talk_dep_line, &file)?;
+                ear.fold_talks(Band::talk_dep_line, &file)?;
             }
         }
 
@@ -417,11 +417,11 @@ impl Session {
                     file,
                     "\n{} {}",
                     track::KIND,
-                    Session::mref(trk.id(), &trk.name())
+                    Band::mref(trk.id(), &trk.name())
                 )?;
 
                 for ear in trk.ears() {
-                    ear.fold_talks(Session::talk_dep_line, &file)?;
+                    ear.fold_talks(Band::talk_dep_line, &file)?;
                 }
             }
 
@@ -429,11 +429,11 @@ impl Session {
                 file,
                 "\n{} {}",
                 mixer::KIND,
-                Session::mref(mixer.id(), &mixer.name())
+                Band::mref(mixer.id(), &mixer.name())
             )?;
 
             for ear in mixer.ears() {
-                ear.fold_talks(Session::talk_dep_line, &file)?;
+                ear.fold_talks(Band::talk_dep_line, &file)?;
             }
 
             for trk in mixer.tracks() {
@@ -441,7 +441,7 @@ impl Session {
                     file,
                     "> {} {}",
                     track::KIND,
-                    Session::mref(trk.id(), &trk.name())
+                    Band::mref(trk.id(), &trk.name())
                 )?;
             }
 
@@ -452,7 +452,7 @@ impl Session {
                     file,
                     "> {} {}",
                     kind,
-                    Session::mref(output.id(), &output.name())
+                    Band::mref(output.id(), &output.name())
                 )?;
             }
 
@@ -463,7 +463,7 @@ impl Session {
                     file,
                     "\n{} {} {}",
                     kind,
-                    Session::mref(output.id(), &output.name()),
+                    Band::mref(output.id(), &output.name()),
                     model
                 )?;
 
@@ -501,7 +501,7 @@ impl Session {
         nb_channels
     }
 
-     fn build_talker(
+    fn build_talker(
         &mut self,
         factory: &Factory,
         model: &str,

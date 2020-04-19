@@ -6,17 +6,18 @@ extern crate gio;
 extern crate glib;
 extern crate gtk;
 
-extern crate gramotor;
+extern crate session;
 
 use gio::prelude::*;
 
 use std::env::args;
 
-mod graph_controler;
+mod application_view;
 mod graph_view;
-mod gui;
+mod session_controler;
 
-use graph_controler::GraphControler;
+use application_view::ApplicationView;
+use session_controler::SessionControler;
 
 fn main() {
     let application =
@@ -24,8 +25,14 @@ fn main() {
             .expect("Initialization failed...");
 
     application.connect_activate(|app| {
-        let graph_controler = GraphControler::new_ref();
-        gui::build(app, graph_controler);
+        let session_controler = SessionControler::new_ref();
+
+        match ApplicationView::new_ref(app, &session_controler) {
+            Ok(_) => {
+                session_controler.borrow_mut().init();
+            }
+            Err(e) => eprintln!("{}", e),
+        }
     });
 
     application.run(&args().collect::<Vec<_>>());

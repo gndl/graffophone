@@ -1,9 +1,11 @@
-use granode::audio_format::AudioFormat;
-use granode::ear;
-use granode::talker::{Talker, TalkerBase};
-use granode::talker_handler::TalkerHandlerBase;
-use granode::voice;
 use std::f64::consts::PI;
+use talker::audio_format::AudioFormat;
+use talker::ear;
+use talker::talker::{Talker, TalkerBase};
+use talker::talker_handler::TalkerHandlerBase;
+use talker::voice;
+
+pub const MODEL: &str = "AbsSine";
 
 pub struct AbsSine {
     base: TalkerBase,
@@ -11,9 +13,9 @@ pub struct AbsSine {
 
 impl AbsSine {
     pub fn new() -> AbsSine {
-        let mut base = TalkerBase::new();
+        let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence".to_string()), Some(440.), None);
+        let freq = ear::audio(Some("frequence"), Some(440.), None);
         base.add_ear(freq);
 
         let voice = voice::audio(None, None, None);
@@ -21,22 +23,25 @@ impl AbsSine {
 
         Self { base }
     }
+    pub fn descriptor() -> TalkerHandlerBase {
+        TalkerHandlerBase::new("Oscillator", MODEL, "Absolute sinusoidal")
+    }
 }
 
 impl Talker for AbsSine {
     fn base<'a>(&'a self) -> &'a TalkerBase {
         &self.base
     }
-    /*
-        fn activate(&mut self) {}
-        fn deactivate(&mut self) {}
-    */
+    fn model(&self) -> &str {
+        MODEL
+    }
+
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
         let mut ln = len;
         let c = (PI * 2.0) / AudioFormat::sample_rate() as f64;
 
         for ear in self.ears() {
-            ln = ear::listen(ear, tick, ln);
+            ln = ear.listen(tick, ln);
         }
         for voice in self.voices() {
             let freq_buf = self.ear_audio_buffer(0).unwrap();
@@ -52,11 +57,4 @@ impl Talker for AbsSine {
         }
         ln
     }
-}
-
-pub fn id() -> &'static str {
-    "AbsSine"
-}
-pub fn descriptor() -> TalkerHandlerBase {
-    TalkerHandlerBase::new(id(), "Absolute sinusoidal", "Generator")
 }

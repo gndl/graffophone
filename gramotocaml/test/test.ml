@@ -1,5 +1,5 @@
 let gsr = {|
-Sinusoidal 1#Sinusoidal_1 
+Sinusoidal 1#Sinusoidal_1
 > frequence 440
 > phase 0
 
@@ -32,4 +32,4 @@ print_endline "Gramotor.play";
           )
             | Error msg -> msg
   )         |> print_endline
-          
+

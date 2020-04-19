@@ -49,9 +49,9 @@ let boxColorA1 = Int32.of_string "0xF5F5DCC0"
 let boxColorA2 = Int32.of_string "0xF5F5DC60"
 let boxBorderColorA = Int32.of_string "0x80808060"
 let roundedBoxPropertiesA = [
-  `FILL_COLOR_RGBA boxColorA1; 
-  `OUTLINE_COLOR_RGBA boxColorA2; 
-  `WIDTH_PIXELS (boxBorder - 2); 
+  `FILL_COLOR_RGBA boxColorA1;
+  `OUTLINE_COLOR_RGBA boxColorA2;
+  `WIDTH_PIXELS (boxBorder - 2);
   `JOIN_STYLE `ROUND]
 
 let roundedBoxBorderPropertiesA = [

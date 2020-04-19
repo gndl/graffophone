@@ -10,7 +10,7 @@ pub enum Notification {
     Pause,
     End,
     Volume(f32),
-    TalkersRange(Vec<(String, Vec<String>)>),
+    TalkersRange(Vec<(String, Vec<(String, String)>)>),
     NewTalker,
     TalkerChanged,
     TalkerRenamed(i64),
@@ -28,17 +28,20 @@ pub enum Notification {
     Error(String),
 }
 
-pub trait TObserver {
-    fn observe(&mut self, notification: &Notification);
-}
+// pub trait Observer {
+//     fn observe(&mut self, notification: &Notification);
+// }
 
-pub type RObserver = Rc<RefCell<dyn TObserver>>;
+// pub type RObserver = Rc<RefCell<dyn Observer>>;
+// pub type Observer = dyn FnMut(&Notification);
+// pub type RObserver = RefCell<dyn Observer>;
+pub type RObserver = Box<dyn Fn(&Notification)>;
 
 pub struct EventBus {
     observers: Vec<RObserver>,
 }
 
-pub type REventBus = Rc<EventBus>;
+pub type REventBus = Rc<RefCell<EventBus>>;
 
 impl EventBus {
     pub fn new() -> EventBus {
@@ -48,21 +51,18 @@ impl EventBus {
     }
 
     pub fn new_ref() -> REventBus {
-        Rc::new(EventBus::new())
+        Rc::new(RefCell::new(EventBus::new()))
     }
 
-    //let observers : (notification -> unit) list ref = ref []
-
-    //let addObserver o = observers := o :: !observers
     pub fn add_observer(&mut self, observer: RObserver) {
         self.observers.push(observer);
     }
 
     pub fn notify(&self, notification: Notification) {
         for obs in &self.observers {
-            obs.borrow_mut().observe(&notification);
+            //            obs.borrow_mut().observe(&notification);
+            obs(&notification);
         }
-        //  List.iter(fun observe -> observe notification) !observers
     }
 
     pub fn async_notify(&self, _notification: Notification) {

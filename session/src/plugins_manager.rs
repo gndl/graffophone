@@ -8,8 +8,8 @@ use lv2::urid::features::{URIDMap, URIDUnmap};
 
 use lilv::world::World;
 
-use granode::talker::RTalker;
-use granode::talker_handler::TalkerHandlerBase;
+use talker::talker::RTalker;
+use talker::talker_handler::TalkerHandlerBase;
 
 use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;

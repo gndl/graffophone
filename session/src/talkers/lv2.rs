@@ -8,13 +8,13 @@ use lv2::core::ports::{Audio, Control, CV};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use granode::audio_format::AudioFormat;
-use granode::ear;
-use granode::horn;
-use granode::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
-use granode::talker;
-use granode::talker::{RTalker, Talker, TalkerBase};
-use granode::voice;
+use talker::audio_format::AudioFormat;
+use talker::ear;
+use talker::horn;
+use talker::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
+use talker::talker;
+use talker::talker::{RTalker, Talker, TalkerBase};
+use talker::voice;
 
 use lv2::core::SharedFeatureBuffer;
 

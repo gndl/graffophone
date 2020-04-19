@@ -10,7 +10,7 @@ use gtk::{DrawingArea, WidgetExt};
 //use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
-use crate::graph_controler::RGraphControler;
+use crate::session_controler::RSessionControler;
 
 struct Control {
     b_x: f64,
@@ -21,14 +21,14 @@ struct Control {
 }
 
 pub struct GraphView {
-    controler: RGraphControler,
+    controler: RSessionControler,
     area: DrawingArea,
     controls: Vec<Control>,
 }
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(controler: RGraphControler) -> RGraphView {
+    pub fn new_ref(controler: RSessionControler) -> RGraphView {
         let rgv = Rc::new(RefCell::new(Self {
             controler,
             area: DrawingArea::new(),

@@ -1,13 +1,13 @@
 extern crate cpal;
 extern crate failure;
-extern crate granode;
 extern crate lilv;
 extern crate lv2;
+extern crate talker;
 
 pub mod audio_data;
+pub mod band;
 pub mod event_bus;
 pub mod factory;
-pub mod gramotor;
 pub mod mixer;
 pub mod output;
 pub mod playback;

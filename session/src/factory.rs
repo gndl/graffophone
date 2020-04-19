@@ -1,10 +1,10 @@
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use granode::audio_format::AudioFormat;
-use granode::identifier::RIdentifier;
-use granode::talker::RTalker;
-use granode::talker::Talker;
+use talker::audio_format::AudioFormat;
+use talker::identifier::RIdentifier;
+use talker::talker::RTalker;
+use talker::talker::Talker;
 
 use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;

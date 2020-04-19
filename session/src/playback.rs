@@ -10,8 +10,8 @@ use std::thread::JoinHandle;
 use cpal;
 use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 
-use granode::horn::AudioBuf;
-use granode::identifier::RIdentifier;
+use talker::horn::AudioBuf;
+use talker::identifier::RIdentifier;
 
 use crate::audio_data::{Interleaved, Vector};
 use crate::output;

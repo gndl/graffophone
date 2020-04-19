@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 extern crate failure;
-extern crate gramotor;
+extern crate session;
 
 use std::alloc::System;
 use std::cell::RefCell;
@@ -23,21 +23,21 @@ use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
 use lilv::world::World;
 
-use granode::audio_format::AudioFormat;
-use granode::talker::Talker;
+use talker::audio_format::AudioFormat;
+use talker::talker::Talker;
 
-use gramotor::event_bus::EventBus;
-use gramotor::gramotor::Gramotor;
-use gramotor::mixer::Mixer;
-use gramotor::output::Output;
-use gramotor::playback::Playback;
-use gramotor::player::Player;
-use gramotor::session::{RSession, Session};
-use gramotor::talkers::second_degree_frequency_progression;
-use gramotor::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
-use gramotor::talkers::sinusoidal;
-use gramotor::talkers::sinusoidal::Sinusoidal;
-use gramotor::track::Track;
+use session::band::{Band, RBand};
+use session::event_bus::EventBus;
+use session::mixer::Mixer;
+use session::output::Output;
+use session::playback::Playback;
+use session::player::Player;
+use session::session::Session;
+use session::talkers::second_degree_frequency_progression;
+use session::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use session::talkers::sinusoidal;
+use session::talkers::sinusoidal::Sinusoidal;
+use session::track::Track;
 
 const CHANNELS: usize = 2;
 const NUM_SECONDS: u64 = 9;
@@ -61,39 +61,39 @@ mixer 5#mixer_5
 
 fn main() {
     {
-    let mut motor = Gramotor::new();
-    motor.init_session(GSR.to_string());
-    for _ in 0..5 {
-        let _ = motor.play();
-    std::thread::sleep(std::time::Duration::from_secs(2));
-        let _ = motor.pause();
-    std::thread::sleep(std::time::Duration::from_secs(2));
-    }
-        let _ = motor.play();
-    std::thread::sleep(std::time::Duration::from_secs(2));
-        let _ = motor.stop();
-    std::thread::sleep(std::time::Duration::from_secs(50));
+        let mut session = Session::new();
+        session.init(GSR.to_string());
+        for _ in 0..5 {
+            let _ = session.play();
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let _ = session.pause();
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+        let _ = session.play();
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let _ = session.stop();
+        std::thread::sleep(std::time::Duration::from_secs(50));
     }
     let bus = EventBus::new_ref();
-    let session = Session::new_ref(None, None, None, None, None);
+    let band = Band::new_ref(None, None, None, None, None);
 
     /*
-    session.borrow().run();
-    match run(&world, session.borrow().features_buffer()) {
+    band.borrow().run();
+    match run(&world, band.borrow().features_buffer()) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
 
-    match play_sin(&session) {
+    match play_sin(&band) {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
         }
     }
      */
-    match load_save_sessions() {
+    match load_save_bands() {
         Ok(_) => {}
         e => {
             eprintln!("Example failed with the following: {:?}", e);
@@ -109,8 +109,8 @@ fn main() {
 }
 
 fn play(filename: &str) -> Result<(), failure::Error> {
-    let session_description = String::from_utf8(fs::read(filename)?)?;
-    let mut player = Player::new(session_description)?;
+    let band_description = String::from_utf8(fs::read(filename)?)?;
+    let mut player = Player::new(band_description)?;
     player.start()?;
     std::thread::sleep(std::time::Duration::from_secs(1));
 
@@ -127,20 +127,18 @@ fn play(filename: &str) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn load_save_sessions() -> Result<(), failure::Error> {
-    let mut lss = Session::load_file("play_sin.gsr")?;
+fn load_save_bands() -> Result<(), failure::Error> {
+    let mut lss = Band::load_file("play_sin.gsr")?;
     lss.save_as("play_sin_dst.gsr")?;
     Ok(())
 }
 
-fn play_fuzz(session: &RSession) -> Result<(), failure::Error> {
+fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
     let fuzzface_uri = "http://guitarix.sourceforge.net/plugins/gx_fuzzface_#_fuzzface_";
 
-    let fuzzface_tkr = session
-        .borrow_mut()
-        .add_talker(fuzzface_uri, None, None)?;
+    let fuzzface_tkr = band.borrow_mut().add_talker(fuzzface_uri, None, None)?;
 
-    let abs_sine_tkr = session
+    let abs_sine_tkr = band
         .borrow_mut()
         .add_talker(sinusoidal::MODEL, None, None)?;
 
@@ -154,7 +152,7 @@ fn play_fuzz(session: &RSession) -> Result<(), failure::Error> {
         .borrow_mut()
         .set_ear_value_by_tag("LEVEL", 0.25f32)?;
 
-    session.borrow().activate_talkers();
+    band.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -176,18 +174,18 @@ fn play_fuzz(session: &RSession) -> Result<(), failure::Error> {
         tick += ln as i64;
     }
 
-    session.borrow().deactivate_talkers();
+    band.borrow().deactivate_talkers();
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())
 }
 
-fn play_sin(session: &RSession) -> Result<(), failure::Error> {
-    let tkr = session
+fn play_sin(band: &RBand) -> Result<(), failure::Error> {
+    let tkr = band
         .borrow_mut()
         .add_talker(sinusoidal::MODEL, None, None)?;
 
-    session.borrow().activate_talkers();
+    band.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -205,7 +203,7 @@ fn play_sin(session: &RSession) -> Result<(), failure::Error> {
     }
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
-    session.borrow().deactivate_talkers();
+    band.borrow().deactivate_talkers();
 
     let track = Track::new();
     track.set_ear_voice_by_index(0, &tkr, 0)?;
@@ -213,20 +211,16 @@ fn play_sin(session: &RSession) -> Result<(), failure::Error> {
     //    let mut mixer = rmixer.borrow_mut();
     rmixer.borrow_mut().add_track(track);
     rmixer.borrow_mut().add_output(Rc::new(RefCell::new(po)));
-    session.borrow_mut().add_mixer(rmixer);
-    session.borrow_mut().save_as("play_sin.gsr")?;
+    band.borrow_mut().add_mixer(rmixer);
+    band.borrow_mut().save_as("play_sin.gsr")?;
     Ok(())
 }
 
-fn play_progressive_sinusoidale(
-    session: &RSession,
-) -> Result<(), failure::Error> {
-    let tkr = session.borrow_mut().add_talker(
-        second_degree_frequency_progression::MODEL,
-        None,
-        None,
-    )?;
-    session.borrow().activate_talkers();
+fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
+    let tkr =
+        band.borrow_mut()
+            .add_talker(second_degree_frequency_progression::MODEL, None, None)?;
+    band.borrow().activate_talkers();
 
     let mut po = Playback::new(CHANNELS, SAMPLES)?;
     po.open()?;
@@ -243,7 +237,7 @@ fn play_progressive_sinusoidale(
         tick += ln as i64;
     }
 
-    session.borrow().deactivate_talkers();
+    band.borrow().deactivate_talkers();
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
     Ok(())

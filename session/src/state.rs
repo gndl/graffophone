@@ -14,10 +14,22 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum State {
     Playing,
     Paused,
     Stopped,
     Exited,
+}
+
+impl State {
+    pub fn to_string(&self) -> String {
+        (match self {
+            State::Playing => "Playing",
+            State::Paused => "Paused",
+            State::Stopped => "Stopped",
+            State::Exited => "Exited",
+        })
+        .to_string()
+    }
 }

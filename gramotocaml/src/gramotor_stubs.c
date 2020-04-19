@@ -12,14 +12,9 @@
 
 static void custom_finalize_gramotor (value v)
 {
-  OcamlGramotor * ow = OcamlGramotor_val(v);
-  
-  for(int i = 0; i < OCAML_GRAMOTOR_LV2_NODES_LEN; i++) {
-    if(ow->nodes[i]) gramotor_node_free(ow->nodes[i]);
-  }
+  Gramotor * m = Gramotor_val(v);
 
-  gramotor_gramotor_free(ow->gramotorGramotor);
-  free(ow);
+  gramotor_gramotor_drop(m);
 }
 
 // Encapsulation of opaque gramotor handles (of type GramotorGramotor) as Caml custom blocks.
@@ -33,46 +28,28 @@ static struct custom_operations gramotor_gramotor_ops =
    custom_deserialize_default
   };
 
-/* Allocating a Caml custom block to hold the given GramotorGramotor */
-static void ocaml_gramotor_alloc_gramotor(GramotorGramotor* gramotor, value * pvalue)
-{
-  OcamlGramotor * ow = (OcamlGramotor *)calloc(1, sizeof(OcamlGramotor));
-  ow->gramotorGramotor = gramotor;
-  
-  *pvalue = caml_alloc_custom(&gramotor_gramotor_ops, sizeof(OcamlGramotor*), 0, 1);
-
-  OcamlGramotor_val(*pvalue) = ow;
-}
-
-const GramotorNode * ocaml_gramotor_get_node_by_id(OcamlGramotor * ow, int id)
-{
-  if(!ow->nodes[id]) {
-    ow->nodes[id] = gramotor_new_uri(ow->gramotorGramotor, ocaml_gramotor_lv2_uri(id));
-  }
-  
-  return ow->nodes[id];
-}
-
 value caml_gramotor_gramotor_new (value unit)
 {
   CAMLparam1 (unit);
   CAMLlocal1(ans);
 
-  caml_release_runtime_system();
-  GramotorGramotor* m = gramotor_gramotor_new();
-  caml_acquire_runtime_system();
-   
+//  caml_release_runtime_system();
+  Gramotor* m = gramotor_gramotor_new();
+//  caml_acquire_runtime_system();
+
   if(m == NULL) caml_failwith("Gramotor.Gramotor initialization failed");
 
-  ocaml_gramotor_alloc_gramotor(w, &ans);
-  
+  ans = caml_alloc_custom(&gramotor_gramotor_ops, sizeof(Gramotor*), 0, 1);
+
+  Gramotor_val(ans) = gramotor;
+
   CAMLreturn (ans);
 }
 
-//void gramotor_gramotor_set_option(GramotorGramotor* gramotor, const char* uri, const GramotorNode* value);
-value caml_gramotor_gramotor_set_option(value v_gramotor, value v_uri, value v_value)
+value caml_gramotor_gramotor_play(value v_gramotor)
 {
-  CAMLparam3 (v_gramotor, v_uri, v_value);
-  gramotor_gramotor_set_option(Gramotor_val(v_gramotor), String_val(v_uri), Node_val(v_value));
+  CAMLparam1 (v_gramotor);
+
+  gramotor_gramotor_play(Gramotor_val(v_gramotor));
   CAMLreturn (Val_unit);
 }

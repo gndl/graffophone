@@ -10,8 +10,8 @@ path = "./gramotocaml/src/lib.rs"
 crate-type = ["staticlib", "cdylib"]
 
 [[bin]]
-name = "gramoloco"
-path = "gramoloco/src/main.rs"
+name = "playone"
+path = "playone/src/main.rs"
 
 [dependencies]
 failure = "0.1.5"
@@ -21,8 +21,8 @@ cairo-rs = "^0"
 ocaml = {git = "https://github.com/zshipko/ocaml-rs"}
 lv2 = { path = "./lv2" }
 lilv = { path = "./lilv" }
-granode = { path = "./granode" }
-gramotor = { path = "./gramotor" }
+talker = { path = "./talker" }
+session = { path = "./session" }
 
 [dependencies.gtk]
 version = "^0"
