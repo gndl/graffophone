@@ -15,7 +15,6 @@
  */
 
 use crate::band::{Band, RBand};
-use crate::event_bus::{EventBus, Notification, REventBus};
 use crate::player::Player;
 use crate::state::State;
 
@@ -25,65 +24,50 @@ pub struct Session {
     player_synchronized: bool,
     start_tick: i64,
     end_tick: i64,
-    event_bus: REventBus,
 }
 
 impl Session {
-    pub fn new() -> Session {
-        Self {
-            band: Band::new_ref(None, None, None, None, None),
-            player: Player::new("".to_string()).unwrap(),
+    pub fn new(band_description: String) -> Result<Session, failure::Error> {
+        Ok(Self {
+            band: Band::make(band_description.as_ref())?.to_ref(),
+            player: Player::new(band_description)?,
             player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
-            event_bus: EventBus::new_ref(),
-        }
+        })
     }
 
     pub fn state(&mut self) -> State {
         self.player.state()
     }
 
-    pub fn event_bus<'a>(&'a self) -> &'a REventBus {
-        &self.event_bus
-    }
-
     pub fn start_tick(&self) -> i64 {
         self.start_tick
     }
 
-    pub fn set_start_tick(&mut self, t: i64) -> Result<(), failure::Error> {
+    pub fn set_start_tick(&mut self, t: i64) -> Result<State, failure::Error> {
         if self.start_tick == self.end_tick {
             self.start_tick = t;
             self.end_tick = t;
-            self.event_bus.borrow().notify(Notification::Tick(t));
         } else {
             self.start_tick = t;
-            self.event_bus
-                .borrow()
-                .notify(Notification::TimeRange(t, self.end_tick));
         }
         self.synchronize_player()?;
 
         let state = self.player.set_time_range(self.start_tick, self.end_tick)?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 
     pub fn end_tick(&self) -> i64 {
         self.end_tick
     }
 
-    pub fn set_end_tick(&mut self, t: i64) -> Result<(), failure::Error> {
+    pub fn set_end_tick(&mut self, t: i64) -> Result<State, failure::Error> {
         self.end_tick = t;
-        self.event_bus
-            .borrow()
-            .notify(Notification::TimeRange(self.start_tick, t));
         self.synchronize_player()?;
 
         let state = self.player.set_time_range(self.start_tick, self.end_tick)?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 
     pub fn player<'a>(&'a mut self) -> &'a Player {
@@ -96,7 +80,7 @@ impl Session {
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
-        self.band = Band::make(band_description.as_ref(), false)?.to_ref();
+        self.band = Band::make(band_description.as_ref())?.to_ref();
         self.player = Player::new(band_description)?;
         Ok(())
     }
@@ -108,45 +92,27 @@ impl Session {
         }
         Ok(())
     }
-    pub fn start(&mut self) -> Result<(), failure::Error> {
+    pub fn start(&mut self) -> Result<State, failure::Error> {
         self.synchronize_player()?;
         let state = self.player.start()?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 
-    pub fn play(&mut self) -> Result<(), failure::Error> {
+    pub fn play(&mut self) -> Result<State, failure::Error> {
         self.synchronize_player()?;
         let state = self.player.play()?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 
-    pub fn pause(&mut self) -> Result<(), failure::Error> {
+    pub fn pause(&mut self) -> Result<State, failure::Error> {
         self.synchronize_player()?;
         let state = self.player.pause()?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 
-    pub fn stop(&mut self) -> Result<(), failure::Error> {
+    pub fn stop(&mut self) -> Result<State, failure::Error> {
         self.synchronize_player()?;
         let state = self.player.stop()?;
-        self.event_bus.borrow().notify(Notification::State(state));
-        Ok(())
+        Ok(state)
     }
 }
-/*
-#[no_mangle]
-pub extern "C" fn gramotor_gramotor_new() -> Box<Session> {
-    Box::new(Session::new().unwrap())
-}
-
-#[no_mangle]
-pub extern "C" fn gramotor_gramotor_play(motor: &mut Session) {
-    let _ = motor.play();
-}
-
-#[no_mangle]
-pub extern "C" fn gramotor_gramotor_drop(_motor: Box<Session>) {}
-*/

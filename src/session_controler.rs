@@ -1,21 +1,38 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use session::event_bus::{Notification, REventBus};
+use session::event_bus::{EventBus, Notification, REventBus};
 use session::factory::Factory;
 use session::session::Session;
+use session::state::State;
+
+const GSR: &str = "
+Sinusoidal 1#Sinusoidal_1 
+> frequence 440
+> phase 0
+
+track 2#track_2
+> I 1#Sinusoidal_1:O
+> gain 1
+
+mixer 5#mixer_5
+> volume 1
+> track 2#track_2
+";
 
 pub struct SessionControler {
     session: Session,
     talkers: Vec<String>,
+    event_bus: REventBus,
 }
 pub type RSessionControler = Rc<RefCell<SessionControler>>;
 
 impl SessionControler {
     pub fn new() -> SessionControler {
         Self {
-            session: Session::new(),
+            session: Session::new(GSR.to_string()).unwrap(),
             talkers: Vec::new(),
+            event_bus: EventBus::new_ref(),
         }
     }
 
@@ -24,14 +41,23 @@ impl SessionControler {
     }
 
     pub fn event_bus<'a>(&'a self) -> &'a REventBus {
-        self.session.event_bus()
+        &self.event_bus
     }
 
     pub fn manage_result(&mut self, result: Result<(), failure::Error>) {
         match result {
             Ok(()) => {}
             Err(e) => self
-                .session
+                .event_bus()
+                .borrow()
+                .notify(Notification::Error(format!("{}", e))),
+        }
+    }
+
+    pub fn manage_state_result(&mut self, result: Result<State, failure::Error>) {
+        match result {
+            Ok(state) => self.event_bus.borrow().notify(Notification::State(state)),
+            Err(e) => self
                 .event_bus()
                 .borrow()
                 .notify(Notification::Error(format!("{}", e))),
@@ -40,15 +66,14 @@ impl SessionControler {
 
     pub fn init(&mut self) {
         let res = Factory::visit(|factory| {
-            Ok(self
-                .session
-                .event_bus()
-                .borrow()
-                .notify(Notification::TalkersRange(
-                    factory.get_categorized_talkers_label_model(),
-                )))
+            Ok(self.event_bus().borrow().notify(Notification::TalkersRange(
+                factory.get_categorized_talkers_label_model(),
+            )))
         });
         self.manage_result(res);
+        self.event_bus
+            .borrow()
+            .notify(Notification::State(self.session.state()))
     }
 
     pub fn talkers<'a>(&'a self) -> &'a Vec<String> {
@@ -60,34 +85,58 @@ impl SessionControler {
 
     pub fn set_start_tick(&mut self, t: i64) {
         let res = self.session.set_start_tick(t);
-        self.manage_result(res);
+        self.manage_state_result(res);
+        // self.event_bus
+        //     .borrow()
+        //     .notify(Notification::TimeRange(t, self.end_tick));
     }
 
     pub fn set_end_tick(&mut self, t: i64) {
         let res = self.session.set_end_tick(t);
-        self.manage_result(res);
+        self.manage_state_result(res);
     }
 
-    pub fn new_band(&mut self) {
-        let res = self.session.new_band();
-        self.manage_result(res);
+    pub fn new_session(&mut self) {
+        self.session = Session::new(GSR.to_string()).unwrap();
     }
-    /*
-        pub fn start(&mut self) -> Result<(), failure::Error> {
-            self.session.start()
-        }
-    */
-    pub fn play(&mut self) {
-        let res = self.session.play();
-        self.manage_result(res);
+
+    fn monitor_state(session_controler_reference: &RSessionControler) {
+        let this = session_controler_reference.clone();
+
+        gtk::timeout_add_seconds(1, move || {
+            let state = this.borrow_mut().session.state();
+            this.borrow()
+                .event_bus
+                .borrow()
+                .notify(Notification::State(state));
+
+            match state {
+                State::Playing => glib::Continue(true),
+                _ => glib::Continue(false),
+            }
+        });
     }
-    /*
-        pub fn pause(&mut self) -> Result<(), failure::Error> {
-            self.session.pause()
-        }
-    */
+
+    pub fn play_or_pause(&mut self, monitor: &RSessionControler) {
+        //        let mut this = session_controler_reference.borrow_mut();
+
+        let res = match self.session.state() {
+            State::Stopped => {
+                SessionControler::monitor_state(monitor);
+                self.session.start()
+            }
+            State::Playing => self.session.pause(),
+            State::Paused => {
+                SessionControler::monitor_state(monitor);
+                self.session.play()
+            }
+            State::Exited => Err(failure::err_msg("Player exited")),
+        };
+        self.manage_state_result(res);
+    }
+
     pub fn stop(&mut self) {
         let res = self.session.stop();
-        self.manage_result(res);
+        self.manage_state_result(res);
     }
 }
