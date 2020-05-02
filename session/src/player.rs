@@ -24,6 +24,7 @@ use std::time::Duration;
 use talker::audio_format::AudioFormat;
 
 use crate::band::Band;
+use crate::feedback;
 use crate::state::State;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
@@ -45,7 +46,6 @@ impl Order {
             Order::Play => "Play",
             Order::Pause => "Pause",
             Order::Stop => "Stop",
-            //            Order::SetTimeRange(s, e) => format!("SetTimeRange({}, {})", s, e),
             Order::SetTimeRange(_, _) => "SetTimeRange",
             Order::Exit => "Exit",
         })
@@ -73,7 +73,8 @@ impl Player {
             State::Exited
         } else {
             let _join_handle = thread::spawn(move || {
-                let mut band = Band::make(band_description.as_ref(), true)?;
+                let mut band = Band::make(band_description.as_ref())?;
+                band.add_output(feedback::MODEL)?;
                 let mut res = Ok(());
                 let mut tick: i64 = 0;
                 let mut start_tick: i64 = 0;
@@ -89,14 +90,7 @@ impl Player {
                     channels.push(vec![0.; chunk_size]);
                 }
 
-                band.open()?;
-
-                let mut state = State::Stopped;
-                //                let mut previous_state = state;
-
                 let send_state = |order: Order, state: State| {
-                    //if state != previous_state && order != Order::Nil {
-                    //                    state = new_state;
                     match state_sender.send(state) {
                         Err(e) => eprintln!("Player state sender error : {}", e),
                         Ok(()) => (),
@@ -107,32 +101,33 @@ impl Player {
                         state.to_string()
                     );
                     state
-                    //previous_state = state;
-                    //}
                 };
 
+                let mut state = State::Stopped;
                 let mut oorder = Ok(Order::Stop);
 
                 loop {
                     match oorder {
                         Ok(order) => match order {
                             Order::Start => {
-                                state = send_state(order, State::Playing);
+                                band.open()?;
                                 tick = start_tick;
+                                state = send_state(order, State::Playing);
                             }
                             Order::Pause => {
-                                state = send_state(order, State::Paused);
                                 band.pause()?;
+                                state = send_state(order, State::Paused);
                                 oorder = order_receiver.recv();
                                 continue;
                             }
                             Order::Play => {
-                                state = send_state(order, State::Playing);
                                 band.run()?;
+                                state = send_state(order, State::Playing);
                             }
                             Order::Stop => {
-                                state = send_state(order, State::Stopped);
+                                band.close()?;
                                 tick = start_tick;
+                                state = send_state(order, State::Stopped);
                                 oorder = order_receiver.recv();
                                 continue;
                             }
@@ -146,7 +141,7 @@ impl Player {
                                 }
                             }
                             Order::Exit => {
-                                state = send_state(order, State::Exited);
+                                send_state(order, State::Exited);
                                 break;
                             }
                             Order::Nil => {}
@@ -211,20 +206,19 @@ impl Player {
             state,
         })
     }
-    /*
-        pub fn new_ref(filename: &str) -> Result<RPlayer, failure::Error> {
-            Ok(Rc::new(RefCell::new(Player::new(filename)?)))
-        }
-    */
+
     pub fn state(&mut self) -> State {
         match self.state {
             State::Exited => {}
-            _ => match self.state_receiver.try_recv() {
-                Err(_) => {}
-                Ok(state) => {
-                    self.state = state;
+            _ => {
+                thread::sleep(Duration::from_millis(60));
+                match self.state_receiver.try_recv() {
+                    Err(_) => {}
+                    Ok(state) => {
+                        self.state = state;
+                    }
                 }
-            },
+            }
         }
         self.state
     }
@@ -242,66 +236,39 @@ impl Player {
             .send(Order::Start)
             .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?;
 
-        //        self.state = State::Playing;
-        thread::sleep(Duration::from_millis(1));
         Ok(self.state())
     }
 
     pub fn play(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
-        /*      let (state, res) = */
+
         match self.state {
-            State::Playing => // (State::Playing, Ok(self.state())),
-                self.order_sender
-                    .send(Order::Pause)
-                    .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
-            _ =>
-            // (
-            //State::Playing,
-//            {
-                self.order_sender
-                    .send(Order::Play)
-                    .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?
-  //          }
-            //),
-        } //;
-          //        self.state = state;
-        thread::sleep(Duration::from_millis(1));
-        //        res
+            State::Playing => self
+                .order_sender
+                .send(Order::Pause)
+                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
+            _ => self
+                .order_sender
+                .send(Order::Play)
+                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
+        }
         Ok(self.state())
     }
 
     pub fn pause(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
-        /*let (state, res) = */
+
         match self.state {
-            State::Playing =>
-            //(
-            //                State::Paused,
-            //            {
-            {
-                self.order_sender
-                    .send(Order::Pause)
-                    .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?
-            }
-            //            }
-            //      ),
-            State::Paused =>
-            //(
-            //                State::Playing,
-            //            {
-            {
-                self.order_sender
-                    .send(Order::Play)
-                    .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?
-            }
-            //            }
-            //          ),
-            _ => (), //(State::Stopped, Ok(self.state())),
+            State::Playing => self
+                .order_sender
+                .send(Order::Pause)
+                .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
+            State::Paused => self
+                .order_sender
+                .send(Order::Play)
+                .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
+            _ => (),
         };
-        //        self.state = state;
-        thread::sleep(Duration::from_millis(1));
-        //        res
         Ok(self.state())
     }
 
@@ -309,16 +276,11 @@ impl Player {
         self.check_not_exited()?;
         match self.state {
             State::Stopped => {}
-            _ =>
-            //{
-            {
-                self.order_sender
-                    .send(Order::Stop)
-                    .map_err(|e| failure::err_msg(format!("Player::stop error : {}", e)))?
-            } //                self.state = State::Stopped;
-              //   }
+            _ => self
+                .order_sender
+                .send(Order::Stop)
+                .map_err(|e| failure::err_msg(format!("Player::stop error : {}", e)))?,
         }
-        thread::sleep(Duration::from_millis(1));
         Ok(self.state())
     }
 
@@ -332,18 +294,9 @@ impl Player {
             .send(Order::SetTimeRange(start_tick, end_tick))
             .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
 
-        thread::sleep(Duration::from_millis(1));
         Ok(self.state())
     }
-    /*
-        pub fn send_order(&mut self, order: Order) -> Result<State, failure::Error> {
-            self.order_sender
-                .send(order)
-                .map_err(|e| failure::err_msg(format!("Player::send_order error : {}", e)))?;
-            thread::sleep(Duration::from_millis(1));
-            Ok(self.state())
-        }
-    */
+
     pub fn exit(&mut self) -> Result<State, failure::Error> {
         match self.state {
             State::Exited => {}
@@ -356,18 +309,11 @@ impl Player {
                 //     .join()
                 //     .map_err(|e| failure::err_msg(format!("Player::join error : {:?}", e)))?;
 
-                thread::sleep(Duration::from_millis(20));
+                //            thread::sleep(Duration::from_millis(20));
 
-                self.state = State::Exited;
+                //                self.state = State::Exited;
             }
         }
         Ok(self.state())
     }
 }
-/*
-impl Drop for Player {
-    fn drop(&mut self) {
-        let _ = self.exit();
-    }
-}
-*/

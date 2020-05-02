@@ -155,6 +155,10 @@ impl Output for Playback {
         &self.identifier
     }
 
+    fn model(&self) -> &str {
+        MODEL
+    }
+
     fn nb_channels(&self) -> usize {
         self.nb_channels
     }

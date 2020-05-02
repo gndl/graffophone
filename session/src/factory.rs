@@ -6,10 +6,10 @@ use talker::identifier::RIdentifier;
 use talker::talker::RTalker;
 use talker::talker::Talker;
 
+use crate::feedback;
+use crate::feedback::Feedback;
 use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;
-use crate::playback;
-use crate::playback::Playback;
 use crate::plugins_manager::PluginsManager;
 use crate::track::Track;
 
@@ -23,8 +23,6 @@ static mut OPT_INSTANCE: Option<Arc<Mutex<Factory>>> = None;
 
 impl Factory {
     pub fn new() -> Factory {
-        //        let mut plugins_manager = PluginsManager::new();
-        //        plugins_manager.load_plugins();
         Self {
             plugins_manager: PluginsManager::new(),
         }
@@ -78,12 +76,13 @@ impl Factory {
         model: &str,
         _attributs: Option<&Vec<(&str, &str, &str)>>,
     ) -> Result<ROutput, failure::Error> {
-        if model != playback::MODEL {
-            return Err(failure::err_msg(format!("Unknown output model {}!", model)));
+        if model == feedback::MODEL {
+            let output = Feedback::new_ref(2, AudioFormat::chunk_size())?;
+            Factory::set_identity(output.borrow().identifier(), oid, oname);
+            Ok(output)
+        } else {
+            Err(failure::err_msg(format!("Unknown output model {}!", model)))
         }
-        let output = Playback::new_ref(2, AudioFormat::chunk_size())?;
-        Factory::set_identity(output.borrow().identifier(), oid, oname);
-        Ok(output)
     }
 
     fn set_identity(identifier: &RIdentifier, oid: Option<u32>, oname: Option<&str>) {

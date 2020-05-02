@@ -59,6 +59,17 @@ impl Mixer {
         self.outputs.push(output);
     }
 
+    pub fn remove_output(&mut self, model: &str) {
+        let mut outputs = Vec::new();
+
+        for output in &self.outputs {
+            if output.borrow().model() != model {
+                outputs.push(output.clone());
+            }
+        }
+        self.outputs = outputs;
+    }
+
     pub fn open(&mut self) -> Result<(), failure::Error> {
         for o in &self.outputs {
             o.borrow_mut().open()?;

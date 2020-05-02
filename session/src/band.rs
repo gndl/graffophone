@@ -34,7 +34,6 @@ use crate::mixer;
 use crate::mixer::RMixer;
 use crate::output;
 use crate::output::ROutput;
-use crate::playback;
 use crate::track;
 use crate::track::{RTrack, Track};
 
@@ -299,11 +298,7 @@ impl Band {
         Ok(rmixer)
     }
 
-    pub fn build(
-        factory: &Factory,
-        description_buffer: &[u8],
-        add_playback: bool,
-    ) -> Result<Band, failure::Error> {
+    pub fn build(factory: &Factory, description_buffer: &[u8]) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
         let mut band = Band::new(None, None, None, None, None);
         let description_reader = BufReader::new(description_buffer);
@@ -337,20 +332,16 @@ impl Band {
             band.add_mixer(rmixer);
         }
 
-        if add_playback {
-            band.add_playback(factory)?;
-        }
-
         Ok(band)
     }
-    pub fn make(description_buffer: &[u8], add_playback: bool) -> Result<Band, failure::Error> {
-        Factory::visit(|factory| Band::build(factory, description_buffer, add_playback))
+    pub fn make(description_buffer: &[u8]) -> Result<Band, failure::Error> {
+        Factory::visit(|factory| Band::build(factory, description_buffer))
     }
 
     pub fn load_file(filename: &str) -> Result<Band, failure::Error> {
         let description_buffer = fs::read(filename)?;
 
-        let mut band = Factory::visit(|factory| Band::build(factory, &description_buffer, false))?;
+        let mut band = Factory::visit(|factory| Band::build(factory, &description_buffer))?;
 
         band.filename = filename.to_string();
 
@@ -522,14 +513,20 @@ impl Band {
         Factory::visit(|factory| self.build_talker(factory, model, oid, oname))
     }
 
-    pub fn add_playback(&mut self, factory: &Factory) -> Result<(), failure::Error> {
+    pub fn add_output(&mut self, model: &str) -> Result<(), failure::Error> {
+        Factory::visit(|factory| {
+            for rmixer in self.mixers.values() {
+                rmixer
+                    .borrow_mut()
+                    .add_output(factory.make_output(None, None, model, None)?);
+            }
+            Ok(())
+        })
+    }
+
+    pub fn remove_output(&mut self, model: &str) -> Result<(), failure::Error> {
         for rmixer in self.mixers.values() {
-            rmixer.borrow_mut().add_output(factory.make_output(
-                None,
-                None,
-                playback::MODEL,
-                None,
-            )?);
+            rmixer.borrow_mut().remove_output(model);
         }
         Ok(())
     }

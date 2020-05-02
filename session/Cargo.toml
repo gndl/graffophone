@@ -5,7 +5,8 @@ authors = ["gndl"]
 
 [dependencies]
 failure = "0.1.5"
-cpal = "0.11.0"
+ringbuf = "0.2.1"
+cpal = {git = "https://github.com/RustAudio/cpal"}
 lv2 = { path = "../lv2" }
 lilv = { path = "../lilv" }
 talker = { path = "../talker" }

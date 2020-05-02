@@ -20,6 +20,9 @@ pub trait Output {
     fn id(&self) -> u32 {
         self.identifier().borrow().id()
     }
+
+    fn model(&self) -> &str;
+
     fn name(&self) -> String {
         self.identifier().borrow().name().to_string()
     }

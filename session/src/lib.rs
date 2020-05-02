@@ -2,15 +2,16 @@ extern crate cpal;
 extern crate failure;
 extern crate lilv;
 extern crate lv2;
+extern crate ringbuf;
 extern crate talker;
 
 pub mod audio_data;
 pub mod band;
 pub mod event_bus;
 pub mod factory;
+pub mod feedback;
 pub mod mixer;
 pub mod output;
-pub mod playback;
 pub mod player;
 pub mod plugins_manager;
 pub mod session;

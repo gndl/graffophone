@@ -15,6 +15,7 @@ path = "playone/src/main.rs"
 
 [dependencies]
 failure = "0.1.5"
+ringbuf = "0.2.1"
 glib = "^0"
 gdk = "^0"
 cairo-rs = "^0"
