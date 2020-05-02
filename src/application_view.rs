@@ -19,12 +19,14 @@ use session::event_bus::{Notification, REventBus};
 use session::state::State;
 
 use crate::graph_view::GraphView;
-use crate::session_controler::RSessionControler;
+use crate::session_controler::{RSessionControler, SessionControler};
 
 pub struct ApplicationView {
-    play_button: gtk::Button,
-    //    stop_button: gtk::Button,
     talkers_tree: gtk::TreeView,
+    play_or_pause_button: gtk::Button,
+    stop_button: gtk::Button,
+    play_icon: gtk::Image,
+    pause_icon: gtk::Image,
 }
 
 pub type RApplicationView = Rc<RefCell<ApplicationView>>;
@@ -38,10 +40,11 @@ impl ApplicationView {
 
         // header bar
         let headerbar = gtk::HeaderBar::new();
-        /*
-                let talkers_tree_toggle =
-                    gtk::Button::new_from_icon_name(Some("gtk-index"), IconSize::SmallToolbar);
-        */
+        headerbar.set_title(Some("Graffophone"));
+        headerbar.set_show_close_button(true);
+
+        // header bar left controls
+
         let talkers_tree_toggle = gtk::ToggleButton::new();
         talkers_tree_toggle.set_image(Some(&gtk::Image::new_from_icon_name(
             Some("gtk-index"),
@@ -49,11 +52,29 @@ impl ApplicationView {
         )));
         talkers_tree_toggle.set_active(true);
 
-        headerbar.set_title(Some("Graffophone"));
-        headerbar.set_show_close_button(true);
-
-        // header bar left controls
         headerbar.pack_start(&talkers_tree_toggle);
+
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&separator);
+
+        let new_session_button =
+            gtk::Button::new_from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
+        headerbar.pack_start(&new_session_button);
+
+        let open_session_button = gtk::MenuButton::new();
+        open_session_button.set_image(Some(&gtk::Image::new_from_icon_name(
+            Some("gtk-open"),
+            IconSize::SmallToolbar,
+        )));
+        headerbar.pack_start(&open_session_button);
+
+        let save_session_button =
+            gtk::Button::new_from_icon_name(Some("gtk-save"), IconSize::SmallToolbar);
+        headerbar.pack_start(&save_session_button);
+
+        let save_as_session_button =
+            gtk::Button::new_from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
+        headerbar.pack_start(&new_session_button);
 
         // header bar right controls
         let stop_button =
@@ -61,10 +82,16 @@ impl ApplicationView {
 
         headerbar.pack_end(&stop_button);
 
-        let play_button =
+        let play_or_pause_button =
             gtk::Button::new_from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
 
-        headerbar.pack_end(&play_button);
+        let play_icon =
+            gtk::Image::new_from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
+
+        let pause_icon =
+            gtk::Image::new_from_icon_name(Some("gtk-media-pause"), IconSize::SmallToolbar);
+
+        headerbar.pack_end(&play_or_pause_button);
 
         // Split pane
         let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 10);
@@ -115,10 +142,18 @@ impl ApplicationView {
             }
         });
 
+        // New session
+        let new_ctrl = session_controler.clone();
+        new_session_button.connect_clicked(move |_| {
+            new_ctrl.borrow_mut().new_session();
+        });
+
         // Play
-        let play_ctrl = session_controler.clone();
-        play_button.connect_clicked(move |_| {
-            play_ctrl.borrow_mut().play();
+        let play_or_pause_ctrl = session_controler.clone();
+        play_or_pause_button.connect_clicked(move |_| {
+            play_or_pause_ctrl
+                .borrow_mut()
+                .play_or_pause(&play_or_pause_ctrl);
         });
 
         // Stop
@@ -166,9 +201,11 @@ impl ApplicationView {
         window.show_all();
 
         Ok(Self {
-            play_button,
-            //            stop_button,
             talkers_tree,
+            play_or_pause_button,
+            stop_button,
+            play_icon,
+            pause_icon,
         })
     }
 
@@ -235,24 +272,38 @@ impl ApplicationView {
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
                 Notification::State(state) => match state {
-                    State::Playing => obs.borrow_mut().play_button.set_image(Some(
-                        &gtk::Image::new_from_icon_name(
-                            Some("gtk-media-pause"),
-                            IconSize::SmallToolbar,
-                        ),
-                    )),
-                    _ => obs.borrow_mut().play_button.set_image(Some(
-                        &gtk::Image::new_from_icon_name(
-                            Some("gtk-media-play"),
-                            IconSize::SmallToolbar,
-                        ),
-                    )),
+                    State::Playing => {
+                        obs.borrow()
+                            .play_or_pause_button
+                            .set_image(Some(&obs.borrow().pause_icon));
+                        obs.borrow().stop_button.set_sensitive(true);
+                    }
+                    State::Paused => {
+                        obs.borrow()
+                            .play_or_pause_button
+                            .set_image(Some(&obs.borrow().play_icon));
+                        obs.borrow().stop_button.set_sensitive(true);
+                    }
+                    State::Stopped => {
+                        obs.borrow()
+                            .play_or_pause_button
+                            .set_image(Some(&obs.borrow().play_icon));
+                        obs.borrow().play_or_pause_button.set_sensitive(true);
+                        obs.borrow().stop_button.set_sensitive(false);
+                    }
+                    State::Exited => {
+                        obs.borrow()
+                            .play_or_pause_button
+                            .set_image(Some(&obs.borrow().play_icon));
+                        obs.borrow().play_or_pause_button.set_sensitive(false);
+                        obs.borrow().stop_button.set_sensitive(false);
+                    }
                 },
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
                 Notification::TimeRange(st, et) => {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)
                 }
-                Notification::TalkersRange(talkers) => obs.borrow_mut().fill_talkers_tree(&talkers),
+                Notification::TalkersRange(talkers) => obs.borrow().fill_talkers_tree(&talkers),
                 Notification::CurveAdded => println!("Todo : Applicationview.CurveAdded"),
                 Notification::CurveRemoved => println!("Todo : Applicationview.CurveRemoved"),
                 Notification::Info(msg) => println!("Todo : Applicationview.display_info {}", msg),
