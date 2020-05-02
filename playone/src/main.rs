@@ -61,8 +61,8 @@ mixer 5#mixer_5
 
 fn main() {
     {
-        let mut session = Session::new();
-        session.init(GSR.to_string());
+        let mut session = Session::new(GSR.to_string()).unwrape();
+
         for _ in 0..5 {
             let _ = session.play();
             std::thread::sleep(std::time::Duration::from_secs(2));
