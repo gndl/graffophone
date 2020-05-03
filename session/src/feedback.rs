@@ -71,7 +71,7 @@ impl Feedback {
         let ring = RingBuffer::new(latency_samples * 5);
         let (producer, mut consumer) = ring.split();
 
-        let output_data_fn = move |data: &mut [f32]| {
+        let output_data_fn = move |data: &mut [f32], _: &_| {
             for sample in data {
                 let mut ov = consumer.pop();
 
