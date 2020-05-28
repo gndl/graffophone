@@ -14,12 +14,20 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+use std::collections::HashMap;
+
+use talker::talker::{RTalker, Talker};
+
 use crate::band::{Band, RBand};
+use crate::mixer;
+use crate::mixer::RMixer;
 use crate::player::Player;
 use crate::state::State;
+use crate::track;
+use crate::track::{RTrack, Track};
 
 pub struct Session {
-    band: RBand,
+    band: Band,
     player: Player,
     player_synchronized: bool,
     start_tick: i64,
@@ -29,12 +37,25 @@ pub struct Session {
 impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
         Ok(Self {
-            band: Band::make(band_description.as_ref())?.to_ref(),
+            //            band: Band::make(band_description.as_ref())?.to_ref(),
+            band: Band::make(band_description.as_ref())?,
             player: Player::new(band_description)?,
             player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
         })
+    }
+
+    pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
+        self.band.talkers()
+    }
+
+    pub fn add_talker(&mut self, talker_model: &str) {
+        self.band.add_talker(talker_model, None, None);
+    }
+
+    pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
+        self.band.mixers()
     }
 
     pub fn state(&mut self) -> State {
@@ -74,13 +95,14 @@ impl Session {
         &self.player
     }
     pub fn new_band(&mut self) -> Result<(), failure::Error> {
-        self.band = Band::new_ref(None, None, None, None, None);
+        self.band = Band::new(None, None, None, None, None);
         self.player = Player::new("".to_string())?;
         Ok(())
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
-        self.band = Band::make(band_description.as_ref())?.to_ref();
+        //        self.band = Band::make(band_description.as_ref())?.to_ref();
+        self.band = Band::make(band_description.as_ref())?;
         self.player = Player::new(band_description)?;
         Ok(())
     }

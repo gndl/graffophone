@@ -14,7 +14,10 @@ use std::env::args;
 
 mod application_view;
 mod graph_view;
+mod mixer_control;
 mod session_controler;
+mod talker_control;
+mod util;
 
 use application_view::ApplicationView;
 use session_controler::SessionControler;

@@ -25,7 +25,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use talker::ear::{Ear, Talk};
-use talker::identifier::Identifier;
+use talker::identifier::{Id, Identifier};
 use talker::talker::{RTalker, Talker};
 
 //use crate::factory;
@@ -39,8 +39,8 @@ use crate::track::{RTrack, Track};
 
 pub struct Band {
     filename: String,
-    talkers: HashMap<u32, RTalker>,
-    mixers: HashMap<u32, RMixer>,
+    talkers: HashMap<Id, RTalker>,
+    mixers: HashMap<Id, RMixer>,
 }
 
 pub type RBand = Rc<RefCell<Band>>;
@@ -65,10 +65,10 @@ impl<'a> Module<'a> {
 impl Band {
     pub fn new(
         filename: Option<&str>,
-        talkers: Option<HashMap<u32, RTalker>>,
-        _tracks: Option<HashMap<u32, RTrack>>,
-        mixers: Option<HashMap<u32, RMixer>>,
-        _outputs: Option<HashMap<u32, ROutput>>,
+        talkers: Option<HashMap<Id, RTalker>>,
+        _tracks: Option<HashMap<Id, RTrack>>,
+        mixers: Option<HashMap<Id, RMixer>>,
+        _outputs: Option<HashMap<Id, ROutput>>,
     ) -> Band {
         Self {
             filename: filename.unwrap_or("NewBand.gsr").to_string(),
@@ -79,10 +79,10 @@ impl Band {
 
     pub fn new_ref(
         filename: Option<&str>,
-        talkers: Option<HashMap<u32, RTalker>>,
-        tracks: Option<HashMap<u32, RTrack>>,
-        mixers: Option<HashMap<u32, RMixer>>,
-        outputs: Option<HashMap<u32, ROutput>>,
+        talkers: Option<HashMap<Id, RTalker>>,
+        tracks: Option<HashMap<Id, RTrack>>,
+        mixers: Option<HashMap<Id, RMixer>>,
+        outputs: Option<HashMap<Id, ROutput>>,
     ) -> RBand {
         Rc::new(RefCell::new(Band::new(
             filename, talkers, tracks, mixers, outputs,
@@ -92,11 +92,14 @@ impl Band {
     pub fn filename<'a>(&'a self) -> &'a str {
         &self.filename
     }
-    pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
+    pub fn talkers<'a>(&'a self) -> &'a HashMap<Id, RTalker> {
+        &self.talkers
+    }
+    pub fn mixers<'a>(&'a self) -> &'a HashMap<Id, RMixer> {
         &self.mixers
     }
 
-    fn mref(id: u32, name: &str) -> String {
+    fn mref(id: Id, name: &str) -> String {
         format!("{}#{}", id, name.replace(" ", "_").replace("\t", "_"))
     }
 
@@ -110,9 +113,9 @@ impl Band {
         }
     }
 
-    fn id_from_mref(mref: &str) -> Result<u32, failure::Error> {
+    fn id_from_mref(mref: &str) -> Result<Id, failure::Error> {
         let parts: Vec<&str> = mref.split('#').collect();
-        match u32::from_str(parts[0]) {
+        match Id::from_str(parts[0]) {
             Ok(id) => Ok(id),
             Err(e) => Err(failure::err_msg(format!(
                 "Failed to get id from mref {} : {}!",
@@ -352,11 +355,11 @@ impl Band {
         Rc::new(RefCell::new(self))
     }
 
-    fn talk_dep_line<'a>(mut file: &'a File, talk: &Talk) -> Result<&'a File, failure::Error> {
+    fn talk_dep_line<'a>(talk: &Talk, mut file: &'a File) -> Result<&'a File, failure::Error> {
         let tkr = &talk.talker().borrow();
 
         if tkr.is_hidden() {
-            writeln!(file, "> {} {}", talk.tag(), tkr.get_data_string())?;
+            writeln!(file, "> {} {}", talk.tag(), tkr.data_string())?;
         } else {
             let voice_tag = tkr.voice_tag(talk.port())?;
 
@@ -496,7 +499,7 @@ impl Band {
         &mut self,
         factory: &Factory,
         model: &str,
-        oid: Option<u32>,
+        oid: Option<Id>,
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
         let tkr = factory.make_talker(model, oid, oname)?;
@@ -507,7 +510,7 @@ impl Band {
     pub fn add_talker(
         &mut self,
         model: &str,
-        oid: Option<u32>,
+        oid: Option<Id>,
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
         Factory::visit(|factory| self.build_talker(factory, model, oid, oname))

@@ -4,8 +4,11 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
+pub type Id = u32;
+pub type Index = usize;
+
 pub struct Identifier {
-    id: u32,
+    id: Id,
     name: String,
 }
 
@@ -43,10 +46,10 @@ impl Identifier {
         Self { id, name }
     }
 
-    pub fn id(&self) -> u32 {
+    pub fn id(&self) -> Id {
         self.id
     }
-    pub fn set_id(&mut self, id: u32) {
+    pub fn set_id(&mut self, id: Id) {
         self.id = id;
         if id >= ID_COUNT.load(Ordering::SeqCst) {
             ID_COUNT.store(id + 1, Ordering::SeqCst);
@@ -59,7 +62,7 @@ impl Identifier {
         self.name = name.to_string();
     }
 
-    pub fn depends_of(&self, id: u32) -> bool {
+    pub fn depends_of(&self, id: Id) -> bool {
         self.id == id
     }
 }
@@ -67,8 +70,8 @@ impl Identifier {
 pub type RIdentifier = RefCell<Identifier>;
 
 pub trait Identifiable {
-    fn id(&self) -> u32;
-    fn set_id(&self, id: u32);
+    fn id(&self) -> Id;
+    fn set_id(&self, id: Id);
     fn name(&self) -> String;
     fn set_name(&self, name: &str);
 }

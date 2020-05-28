@@ -1,4 +1,5 @@
 extern crate failure;
+use std::cell::RefCell;
 use std::str::FromStr;
 
 pub enum Data {
@@ -9,6 +10,7 @@ pub enum Data {
     Text(String),
     File(String),
 }
+pub type RData = RefCell<Data>;
 
 impl Data {
     pub fn type_str(&self) -> &'static str {

@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
@@ -18,8 +19,7 @@ pub struct Mixer {
     productive: bool,
 }
 
-//pub type RMixer = Rc<RefCell<Mixer>>;
-pub type RMixer = RefCell<Mixer>;
+pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
     pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
@@ -36,7 +36,7 @@ impl Mixer {
         }
     }
     pub fn new_ref(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> RMixer {
-        RefCell::new(Mixer::new(tracks, outputs))
+        Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
     }
 
     pub fn kind() -> &'static str {

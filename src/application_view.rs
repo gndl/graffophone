@@ -19,7 +19,7 @@ use session::event_bus::{Notification, REventBus};
 use session::state::State;
 
 use crate::graph_view::GraphView;
-use crate::session_controler::{RSessionControler, SessionControler};
+use crate::session_controler::RSessionControler;
 
 pub struct ApplicationView {
     talkers_tree: gtk::TreeView,

@@ -5,6 +5,7 @@ use audio_talker::AudioTalker;
 use control_talker::ControlTalker;
 use cv_talker::CvTalker;
 use horn::{AudioBuf, CvBuf, Horn};
+use identifier::Index;
 use talker::RTalker;
 use voice::PortType;
 
@@ -14,7 +15,7 @@ pub struct Talk {
     port_type: PortType,
     tag: String,
     tkr: RTalker,
-    port: usize,
+    port: Index,
 }
 
 impl Talk {
@@ -27,7 +28,7 @@ impl Talk {
     pub fn talker<'a>(&'a self) -> &'a RTalker {
         &self.tkr
     }
-    pub fn port(&self) -> usize {
+    pub fn port(&self) -> Index {
         self.port
     }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
@@ -75,7 +76,7 @@ impl Talks {
         self.talks.push(new_talk_value(&self.port_type, value));
         Ok(())
     }
-    pub fn add_talk_voice(&mut self, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
+    pub fn add_talk_voice(&mut self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
         if talker.borrow().voice_port_type_is(port, self.port_type) {
             self.talks.push(new_talk_voice(talker, port));
             Ok(())
@@ -135,18 +136,25 @@ impl Ear {
 
     pub fn fold_talks<P, F>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
-        F: FnMut(P, &Talk) -> Result<P, failure::Error>,
+        F: FnMut(&Talk, P) -> Result<P, failure::Error>,
     {
         match self {
-            Ear::Talk(talk) => f(p, &talk.borrow()),
+            Ear::Talk(talk) => f(&talk.borrow(), p),
             Ear::Talks(talks) => {
                 let mut acc = p;
                 for talk in &talks.borrow().talks {
-                    acc = f(acc, &talk.borrow())?;
+                    acc = f(&talk.borrow(), acc)?;
                 }
                 Ok(acc)
             }
         }
+    }
+
+    pub fn fold_talkers<P, F>(&self, mut f: F, p: P) -> Result<P, failure::Error>
+    where
+        F: FnMut(&RTalker, P) -> Result<P, failure::Error>,
+    {
+        self.fold_talks(|tlk, p| f(&tlk.tkr, p), p)
     }
 
     pub fn visit_horn<F>(&self, f: F)
@@ -202,7 +210,7 @@ pub fn control(tag: Option<&str>, value: Option<f32>) -> Ear {
     Ear::Talk(def_control_talk(tag, value))
 }
 
-pub fn audio(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
+pub fn audio(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, Index)>) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_audio_talk(tag, value)),
         None => match talker_port {
@@ -216,7 +224,7 @@ pub fn audio(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalke
         },
     }
 }
-pub fn cv(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, usize)>) -> Ear {
+pub fn cv(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, Index)>) -> Ear {
     match value {
         Some(_v) => Ear::Talk(def_cv_talk(tag, value)),
         None => match talker_port {
@@ -273,7 +281,7 @@ pub fn set_talk_value(talk: &RTalk, value: f32) -> Result<(), failure::Error> {
     }
     Ok(())
 }
-pub fn set_talk_voice(talk: &RTalk, talker: &RTalker, port: usize) -> Result<(), failure::Error> {
+pub fn set_talk_voice(talk: &RTalk, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
     if talker
         .borrow()
         .voice_port_type_is(port, talk.borrow().port_type())
@@ -301,7 +309,7 @@ pub fn new_talk_value(port_type: &PortType, value: f32) -> RTalk {
     }
 }
 
-pub fn new_talk_voice(talker: &RTalker, port: usize) -> RTalk {
+pub fn new_talk_voice(talker: &RTalker, port: Index) -> RTalk {
     let port_type;
     {
         port_type = talker.borrow().voice_port_type(port);
@@ -330,7 +338,7 @@ pub fn listen_talk(talk: &Talk, tick: i64, len: usize) -> usize {
 
 pub fn visit_ear_flatten_index<F>(
     ears: &Vec<Ear>,
-    index: usize,
+    index: Index,
     mut f: F,
 ) -> Result<(), failure::Error>
 where

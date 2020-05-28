@@ -3,16 +3,17 @@ use std::rc::Rc;
 
 extern crate failure;
 
-use crate::data::Data;
+use crate::data::{Data, RData};
 use crate::ear;
 use crate::ear::Ear;
 use crate::horn::{AudioBuf, CvBuf};
-use crate::identifier::{Identifiable, Identifier, RIdentifier};
+use crate::identifier::{Id, Identifiable, Identifier, RIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
 
 pub struct TalkerBase {
     identifier: RIdentifier,
+    data: RData,
     ears: Vec<Ear>,
     voices: Vec<MVoice>,
     //    ear_call: bool,
@@ -20,15 +21,33 @@ pub struct TalkerBase {
 }
 
 impl TalkerBase {
-    pub fn new(name: &str, model: &str) -> Self {
+    pub fn new_data(name: &str, model: &str, data: Data) -> Self {
         Self {
             identifier: RefCell::new(Identifier::new(name, model)),
+            data: RefCell::new(data),
             ears: Vec::new(),
             voices: Vec::new(),
             //            ear_call: false,
             hidden: false,
         }
     }
+    pub fn new(name: &str, model: &str) -> Self {
+        TalkerBase::new_data(name, model, Data::Nil)
+    }
+
+    fn data<'a>(&'a self) -> &'a RData {
+        &self.data
+    }
+    fn set_data(&self, data: Data) {
+        *self.data.borrow_mut() = data;
+    }
+    fn data_string(&self) -> String {
+        self.data.borrow().to_string()
+    }
+    fn data_float(&self) -> Result<f32, failure::Error> {
+        self.data.borrow().to_f()
+    }
+
     pub fn add_ear<'a>(&'a mut self, ear: Ear) {
         self.ears.push(ear);
     }
@@ -47,10 +66,10 @@ impl TalkerBase {
 }
 
 impl Identifiable for TalkerBase {
-    fn id(&self) -> u32 {
+    fn id(&self) -> Id {
         self.identifier.borrow().id()
     }
-    fn set_id(&self, id: u32) {
+    fn set_id(&self, id: Id) {
         self.identifier.borrow_mut().set_id(id);
     }
     fn name(&self) -> String {
@@ -67,10 +86,10 @@ pub trait Talker {
         self.base().identifier()
     }
 
-    fn id(&self) -> u32 {
+    fn id(&self) -> Id {
         self.base().id()
     }
-    fn set_id(&self, id: u32) {
+    fn set_id(&self, id: Id) {
         self.base().set_id(id);
     }
     fn name(&self) -> String {
@@ -84,27 +103,27 @@ pub trait Talker {
     fn is_hidden(&self) -> bool {
         self.base().is_hidden()
     }
-    fn depends_of(&self, id: u32) -> bool {
+    fn depends_of(&self, id: Id) -> bool {
         self.base().id() == id
     }
 
-    fn data(&self) -> Data {
-        Data::Nil
+    fn data_string(&self) -> String {
+        self.base().data_string()
+    }
+    fn data_float(&self) -> Result<f32, failure::Error> {
+        self.base().data_float()
     }
     fn set_data(&mut self, data: Data) -> Result<(), failure::Error> {
         Err(data.notify_incompatibility("Nil"))
     }
-    fn get_data_string(&self) -> String {
-        self.data().to_string()
-    }
     fn set_data_from_string(&mut self, s: &str) -> Result<(), failure::Error> {
-        match self.data().birth(s) {
-            Ok(d) => self.set_data(d),
+        match self.base().data().borrow().birth(s) {
+            Ok(d) => {
+                self.base().set_data(d);
+                Ok(())
+            }
             Err(e) => Err(e),
         }
-    }
-    fn get_float_data(&self) -> Result<f32, failure::Error> {
-        self.data().to_f()
     }
 
     fn ears<'a>(&'a self) -> &'a Vec<Ear> {
@@ -255,7 +274,7 @@ pub trait Talker {
     }
 
     fn backup<'a>(&'a self) -> (&str, String, &Vec<ear::Ear>) {
-        (self.model(), self.get_data_string(), self.ears())
+        (self.model(), self.base().data_string(), self.ears())
     }
 }
 

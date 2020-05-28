@@ -6,18 +6,17 @@ pub const MODEL: &str = "CvTalker";
 
 pub struct CvTalker {
     base: TalkerBase,
-    value: f32,
 }
 
 impl CvTalker {
     pub fn new(ovalue: Option<f32>, hidden: Option<bool>) -> CvTalker {
-        let mut base = TalkerBase::new("", MODEL);
-	let value = ovalue.unwrap_or(0.);
+        let value = ovalue.unwrap_or(0.);
+        let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
         let voice = voice::cv(None, Some(value), None);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
-        Self { base, value }
+        Self { base }
     }
 }
 
@@ -27,9 +26,6 @@ impl Talker for CvTalker {
     }
     fn model(&self) -> &str {
         MODEL
-    }
-    fn data(&self) -> Data {
-        Data::f(self.value)
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {

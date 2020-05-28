@@ -1,6 +1,9 @@
-use crate::state::State;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use talker::identifier::{Id, Index};
+
+use crate::state::State;
 
 pub enum Notification {
     State(State),
@@ -13,14 +16,14 @@ pub enum Notification {
     TalkersRange(Vec<(String, Vec<(String, String)>)>),
     NewTalker,
     TalkerChanged,
-    TalkerRenamed(i64),
-    TalkerSelected(i64),
-    TalkerUnselected(i64),
-    EarSelected(i64, i64),
-    EarUnselected(i64, i64),
-    VoiceSelected(i64, i64),
-    VoiceUnselected(i64, i64),
-    TalkSelected(i64, i64),
+    TalkerRenamed(Id),
+    TalkerSelected(Id),
+    TalkerUnselected(Id),
+    EarSelected(Id, Index),
+    EarUnselected(Id, Index),
+    VoiceSelected(Id, Index),
+    VoiceUnselected(Id, Index),
+    TalkSelected(Id, Index),
     CurveAdded,
     CurveRemoved,
     Info(String),

@@ -22,7 +22,6 @@ mixer 5#mixer_5
 
 pub struct SessionControler {
     session: Session,
-    talkers: Vec<String>,
     event_bus: REventBus,
 }
 pub type RSessionControler = Rc<RefCell<SessionControler>>;
@@ -31,13 +30,16 @@ impl SessionControler {
     pub fn new() -> SessionControler {
         Self {
             session: Session::new(GSR.to_string()).unwrap(),
-            talkers: Vec::new(),
             event_bus: EventBus::new_ref(),
         }
     }
 
     pub fn new_ref() -> RSessionControler {
         Rc::new(RefCell::new(SessionControler::new()))
+    }
+
+    pub fn session<'a>(&'a self) -> &'a Session {
+        &self.session
     }
 
     pub fn event_bus<'a>(&'a self) -> &'a REventBus {
@@ -76,11 +78,8 @@ impl SessionControler {
             .notify(Notification::State(self.session.state()))
     }
 
-    pub fn talkers<'a>(&'a self) -> &'a Vec<String> {
-        &self.talkers
-    }
     pub fn add_talker(&mut self, talker_model: &str) {
-        self.talkers.push(talker_model.to_string());
+        self.session.add_talker(talker_model);
     }
 
     pub fn set_start_tick(&mut self, t: i64) {
