@@ -19,8 +19,9 @@ use session::event_bus::{Notification, REventBus};
 
 use crate::mixer_control::MixerControl;
 use crate::session_controler::RSessionControler;
-use crate::talker_control::{RTalkerControl, TalkerControlBase};
-//use crate::util;
+use crate::talker_control;
+use crate::talker_control::RTalkerControl;
+//use crate::talker_control:: TalkerControlBase;
 
 const MARGE: f64 = 50.;
 const PADDING: f64 = 5.;
@@ -40,33 +41,48 @@ impl ColumnProperty {
         }
     }
 }
-fn provide_column_property<'a>(
+//fn provide_column_property<'a>(
+fn visit_column_property<F, P, R>(
     n: i32,
-    column_properties: &'a mut BTreeMap<i32, ColumnProperty>,
-) -> &'a mut ColumnProperty {
-    match column_properties.get(&n) {
-        Some(cp) => &mut cp,
+    column_properties: &mut BTreeMap<i32, ColumnProperty>,
+    mut f: F,
+    p: P,
+) -> R
+where
+    F: FnMut(&mut ColumnProperty, P) -> R,
+{
+    match column_properties.get_mut(&n) {
+        Some(cp) => f(cp, p),
         None => {
             let mut cp = ColumnProperty::new(0., 0., 0);
+            let r = f(&mut cp, p);
             column_properties.insert(n, cp);
-            &mut cp
+            r
         }
     }
 }
 
-fn provide_talker_control<'a>(
+fn visit_talker_control<F, P, R>(
     tkr: &RTalker,
-    talker_controls: &'a mut HashMap<Id, RTalkerControl>,
-) -> (bool, &'a mut RTalkerControl) {
-    match talker_controls.get(&tkr.borrow().id()) {
-        Some(mut tkrc) => (false, &mut tkrc),
+    talker_controls: &mut HashMap<Id, RTalkerControl>,
+    mut f: F,
+    p: P,
+) -> R
+where
+    F: FnMut(&mut RTalkerControl, bool, P) -> R,
+{
+    let id = tkr.borrow().id();
+    match talker_controls.get_mut(&id) {
+        Some(tkrc) => f(tkrc, false, p),
         None => {
-            let tkrc = TalkerControlBase::new_ref(tkr);
-            talker_controls.insert(tkrc.id(), tkrc);
-            (true, &mut tkrc)
+            let mut tkrc = talker_control::new_ref(tkr);
+            let r = f(&mut tkrc, true, p);
+            talker_controls.insert(id, tkrc);
+            r
         }
     }
 }
+
 struct Collector {
     row: i32,
     column: i32,
@@ -99,7 +115,7 @@ impl GraphView {
             talker_controls: HashMap::new(),
         }));
         GraphView::connect_area(&rgv, rgv.borrow().area());
-        GraphView::observe(&rgv, controler.borrow().event_bus());
+        GraphView::observe(&rgv, rgv.borrow().controler.borrow().event_bus());
 
         rgv
     }
@@ -134,8 +150,8 @@ impl GraphView {
         let (x, y) = ev.get_position();
         let mut operated = false;
 
-        for tkrc in self.talker_controls.values() {
-            operated = tkrc.on_button_release(x, y, &self.controler);
+        for tkrc in self.talker_controls.values_mut() {
+            operated = tkrc.borrow().on_button_release(x, y, &self.controler);
 
             if operated {
                 break;
@@ -145,12 +161,13 @@ impl GraphView {
     }
 
     fn on_draw(&mut self, area: &DrawingArea, cr: &Context) -> Inhibit {
-        let talkers = self.controler.borrow().session().talkers();
+        let controler = self.controler.borrow();
+        let talkers = controler.session().talkers();
 
-        for (id, tkrc) in self.talker_controls {
+        for (id, tkrc) in &self.talker_controls {
             match talkers.get(&id) {
                 Some(talker) => {
-                    tkrc.draw(area, cr, talker, &self.talker_controls);
+                    tkrc.borrow().draw(area, cr, talker, &self.talker_controls);
                 }
                 None => (),
             }
@@ -216,11 +233,17 @@ impl GraphView {
     ) -> (f64, f64) {
         /* define columns thickness */
         for tkrc in talker_controls.values() {
-            let column_property = provide_column_property(tkrc.column(), columns_properties);
-
-            if column_property.thickness < tkrc.width() {
-                column_property.thickness = tkrc.width();
-            }
+            visit_column_property(
+                tkrc.borrow().column(),
+                columns_properties,
+                |column_property, width| {
+                    if column_property.thickness < width {
+                        column_property.thickness = width;
+                    }
+                    ()
+                },
+                tkrc.borrow().width(),
+            );
         }
 
         /* define graph width and row count */
@@ -242,26 +265,29 @@ impl GraphView {
             let mut col_tkrcs: BTreeMap<i32, &RTalkerControl> = BTreeMap::new();
 
             for tkrc in talker_controls.values() {
-                if tkrc.column() == *col_nbr {
-                    col_tkrcs.insert(tkrc.row(), tkrc);
+                if tkrc.borrow().column() == *col_nbr {
+                    col_tkrcs.insert(tkrc.borrow().row(), tkrc);
                 }
             }
 
             let mut prev_row = -1;
             let mut prev_bottom = 0.;
 
-            for tkrc in col_tkrcs.values() {
-                let x = prev_x - (tkrc.width() + column_property.thickness) * 0.5;
+            for tkrc in col_tkrcs.values_mut() {
+                let x = prev_x - (tkrc.borrow().width() + column_property.thickness) * 0.5;
 
                 let mut y = prev_bottom;
-                if tkrc.row() > prev_row + 1 {
-                    y = f64::max(prev_bottom, prev_rows_y[tkrc.dependent_row() as usize]);
+                if tkrc.borrow().row() > prev_row + 1 {
+                    y = f64::max(
+                        prev_bottom,
+                        prev_rows_y[tkrc.borrow().dependent_row() as usize],
+                    );
                 }
-                tkrc.move_to(x + x0, y + y0);
+                tkrc.borrow_mut().move_to(x + x0, y + y0);
 
-                prev_rows_y[tkrc.row() as usize] = y;
-                prev_row = tkrc.row();
-                prev_bottom = y + tkrc.height() + PADDING;
+                prev_rows_y[tkrc.borrow().row() as usize] = y;
+                prev_row = tkrc.borrow().row();
+                prev_bottom = y + tkrc.borrow().height() + PADDING;
             }
             prev_x = prev_x - column_property.thickness - MARGE;
             h = f64::max(prev_bottom, h);
@@ -275,48 +301,61 @@ impl GraphView {
     ) -> Result<&'a mut Collector, failure::Error> {
         // create GTalkers and define there row and column
         if !talker.borrow().is_hidden() {
-            //            let (row, column, columns_properties, talker_controls) = collector;
+            visit_talker_control(
+                talker,
+                &mut collector.talker_controls,
+                |tkrc, is_new_talker_control, mut collector| {
+                    let mut talks_count = 0;
 
-            let (is_new_talker_control, tkrc) =
-                provide_talker_control(talker, &mut collector.talker_controls);
+                    for ear in talker.borrow().ears() {
+                        talks_count = ear.fold_talks(|_, tc| Ok(tc + 1), talks_count)?;
+                    }
 
-            let mut talks_count = 0;
+                    let row = collector.row;
+                    let column = collector.column;
 
-            for ear in talker.borrow().ears() {
-                talks_count = ear.fold_talks(|_, tc| Ok(tc + 1), talks_count)?;
-            }
+                    if is_new_talker_control
+                        || (tkrc.borrow().column() < column && talks_count == 0)
+                    {
+                        tkrc.borrow().set_column(column);
 
-            let row = collector.row;
-            let column = collector.column;
+                        let tkrc_row = visit_column_property(
+                            column,
+                            &mut collector.columns_properties,
+                            |column_property, row| {
+                                let tkrc_row = i32::max(row, column_property.count);
+                                column_property.count = tkrc_row + 1;
+                                tkrc_row
+                            },
+                            row,
+                        );
+                        tkrc.borrow().set_row(tkrc_row);
 
-            if is_new_talker_control || (tkrc.column() < column && talks_count == 0) {
-                tkrc.set_column(column);
+                        if is_new_talker_control {
+                            tkrc.borrow().set_dependent_row(row);
+                        }
 
-                let column_property =
-                    provide_column_property(column, &mut collector.columns_properties);
-                let tkrc_row = i32::max(row, column_property.count);
-                tkrc.set_row(tkrc_row);
-                column_property.count = tkrc_row + 1;
+                        // let dep_row = i32::max(0, tkrc_row - talks_count / 2);
+                        // let dep_column = column + 1;
+                        // let mut acc = (dep_row, dep_column, columns_properties, talker_controls);
+                        //        let mut dep_collector = Collector::new(i32::max(0, tkrc_row - talks_count / 2),collector.column + 1);
+                        collector.row = i32::max(0, tkrc_row - talks_count / 2);
+                        collector.column = collector.column + 1;
 
-                if is_new_talker_control {
-                    tkrc.set_dependent_row(row);
-                }
-
-                // let dep_row = i32::max(0, tkrc_row - talks_count / 2);
-                // let dep_column = column + 1;
-                // let mut acc = (dep_row, dep_column, columns_properties, talker_controls);
-                //        let mut dep_collector = Collector::new(i32::max(0, tkrc_row - talks_count / 2),collector.column + 1);
-                collector.row = i32::max(0, tkrc_row - talks_count / 2);
-                collector.column = collector.column + 1;
-
-                for ear in talker.borrow().ears() {
-                    collector = ear.fold_talkers(GraphView::make_talker_controls, collector)?;
-                }
-                collector.row = row;
-                collector.column = column;
-            }
+                        for ear in talker.borrow().ears() {
+                            collector =
+                                ear.fold_talkers(GraphView::make_talker_controls, collector)?;
+                        }
+                        collector.row = row;
+                        collector.column = column;
+                    }
+                    Ok(collector)
+                },
+                collector,
+            )
+        } else {
+            Ok(collector)
         }
-        Ok(collector)
     }
 
     fn create_graph(&mut self) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
@@ -342,7 +381,7 @@ impl GraphView {
             .enumerate()
         {
             collector.row = row as i32;
-            let mxrc = MixerControl::new(mixer, collector.row, 0);
+            let mxrc = MixerControl::new_ref(mixer, collector.row, 0);
 
             /* create GTalkers by covering talkers for each track */
             //            let mut acc = (row, 1, &columns_properties, &talker_controls);
@@ -360,7 +399,7 @@ impl GraphView {
                     acc, //                    (row, 1, &columns_properties, &talker_controls),
                 )?;
             }
-            collector.talker_controls.insert(*mxr_id, Box::new(mxrc));
+            collector.talker_controls.insert(*mxr_id, mxrc);
         }
 
         /* position GTalkers */
@@ -438,7 +477,7 @@ impl GraphView {
         */
         /* draw connections */
         // for tkrc in talker_controls.values() {
-        //     tkrc.draw_connections(&talker_controls);
+        //     tkrc.borrow().draw_connections(&talker_controls);
         // }
 
         // canvas#set_scroll_region ~x1:0. ~y1:(-.PADDING)
@@ -452,7 +491,7 @@ impl GraphView {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
-                                    tkrc.set_actions(&self.controler.borrow());
+                                    tkrc.borrow().set_actions(&self.controler.borrow());
                                 }
                 */
                 self.talker_controls = talker_controls;
@@ -473,32 +512,32 @@ impl GraphView {
                 }
                 Notification::TalkerSelected(tkr_id) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.select()
+                        tkrc.borrow_mut().select()
                     }
                 }
                 Notification::TalkerUnselected(tkr_id) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.unselect()
+                        tkrc.borrow_mut().unselect()
                     }
                 }
                 Notification::EarSelected(tkr_id, idx) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.select_ear(*idx)
+                        tkrc.borrow_mut().select_ear(*idx)
                     }
                 }
                 Notification::EarUnselected(tkr_id, idx) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.unselect_ear(*idx)
+                        tkrc.borrow_mut().unselect_ear(*idx)
                     }
                 }
                 Notification::VoiceSelected(tkr_id, idx) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.select_voice(*idx)
+                        tkrc.borrow_mut().select_voice(*idx)
                     }
                 }
                 Notification::VoiceUnselected(tkr_id, idx) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.unselect_voice(*idx)
+                        tkrc.borrow_mut().unselect_voice(*idx)
                     }
                 }
                 Notification::NewTalker => obs.borrow_mut().build(),

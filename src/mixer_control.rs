@@ -19,10 +19,10 @@ let separatorProperties = [
   `WIDTH_PIXELS 1]
 */
 
-//use std::cell::RefCell;
+use std::cell::RefCell;
 //use std::collections::BTreeMap;
 use std::collections::HashMap;
-//use std::rc::Rc;
+use std::rc::Rc;
 
 //use gdk::EventMask;
 //use gio::prelude::*;
@@ -40,29 +40,32 @@ use talker::talker::{RTalker, Talker};
 use session::mixer::RMixer;
 
 //use crate::graph_control::GraphControl;
-use crate::session_controler::RSessionControler;
-use crate::talker_control::{RTalkerControl, TalkerControl, TalkerControlBase};
+//use crate::session_controler::RSessionControler;
+use crate::talker_control::{RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase};
 
 pub struct TrackControl {
-    base: TalkerControlBase,
+    base: RTalkerControlBase,
 }
 
 pub struct MixerControl {
-    base: TalkerControlBase,
+    base: RTalkerControlBase,
     track_controls: Vec<TrackControl>,
 }
 
 impl MixerControl {
     pub fn new(mixer: &RMixer, row: i32, column: i32) -> MixerControl {
-        let mut base = TalkerControlBase::new(mixer.borrow().base());
+        let mut base = TalkerControlBase::new_ref(mixer.borrow().base());
 
-        base.row = row;
-        base.column = column;
+        base.borrow_mut().row = row;
+        base.borrow_mut().column = column;
 
         Self {
             base,
             track_controls: Vec::new(),
         }
+    }
+    pub fn new_ref(mixer: &RMixer, row: i32, column: i32) -> RTalkerControl {
+        Rc::new(RefCell::new(MixerControl::new(mixer, row, column)))
     }
 
     pub fn track_controls<'a>(&'a self) -> &'a Vec<TrackControl> {
@@ -70,8 +73,14 @@ impl MixerControl {
     }
 }
 impl TalkerControl for MixerControl {
-    fn base<'a>(&'a self) -> &'a TalkerControlBase {
-        &self.base
+    // fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+    //     &self.base
+    // }
+    fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
+    where
+        F: FnMut(&mut TalkerControlBase, P) -> R,
+    {
+        f(self.base.borrow_mut(), p)
     }
     /*
      _______________
@@ -131,13 +140,14 @@ impl TalkerControl for MixerControl {
          */
     }
 
-    fn move_to(&mut self, _x: f64, _y: f64) {}
-
-    fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
-        if self.base().on_button_release(x, y, controler) {
-            true
-        } else {
-            false
+    //    fn move_to(&mut self, _x: f64, _y: f64) {}
+    /*
+        fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
+            if self.base().borrow_mut().on_button_release(x, y, controler) {
+                true
+            } else {
+                false
+            }
         }
-    }
+    */
 }

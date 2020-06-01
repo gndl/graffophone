@@ -1,4 +1,4 @@
-use std::boxed::Box;
+//use std::boxed::Box;
 //use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -77,14 +77,13 @@ pub struct TalkerControlBase {
     width: f64,
     height: f64,
     box_top: f64,
-    model_area: Option<Area>,
-    name_area: Option<Area>,
-    main_value_area: Option<Area>,
-    box_area: Option<Area>,
+    model_area: Area,
+    name_area: Area,
+    main_value_area: Area,
+    box_area: Area,
     ears: Vec<Ear>,
     voices: Vec<Voice>,
 }
-
 pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
 
 impl TalkerControlBase {
@@ -98,16 +97,19 @@ impl TalkerControlBase {
             width: 0.,
             height: 0.,
             box_top: 0.,
-            model_area: None,
-            name_area: None,
-            main_value_area: None,
-            box_area: None,
+            model_area: Area::new(0., 0., 0., 0.),
+            name_area: Area::new(0., 0., 0., 0.),
+            main_value_area: Area::new(0., 0., 0., 0.),
+            box_area: Area::new(0., 0., 0., 0.),
             ears: Vec::new(),
             voices: Vec::new(),
         }
     }
-    pub fn new_ref(talker: &RTalker) -> RTalkerControl {
-        Box::new(TalkerControlBase::new(talker.borrow().base()))
+    // pub fn new_base_ref(talker: &RTalker) -> RTalkerControlBase {
+    //     Rc::new(RefCell::new(TalkerControlBase::new(talker.borrow().base())))
+    // }
+    pub fn new_ref(talker_base: &TalkerBase) -> RTalkerControlBase {
+        Rc::new(RefCell::new(TalkerControlBase::new(talker_base)))
     }
     /*                           MODEL
                     _______________________________
@@ -266,36 +268,40 @@ pub trait TalkerControl {
     // fn to_ref(self) -> RefCell<dyn TalkerControl> {
     //     RefCell::new(self)
     // }
-
-    fn base<'a>(&'a self) -> &'a TalkerControlBase;
+    /*
+        fn base<'a>(&'a self) -> &'a RTalkerControlBase;
+    */
+    fn visit_base<F, P, R>(&mut self, f: F, p: P) -> R
+    where
+        F: FnMut(&mut TalkerControlBase, P) -> R;
 
     fn id(&self) -> Id {
-        self.base().id()
+        self.visit_base(|base, _| base.id, ())
     }
 
     fn row(&self) -> i32 {
-        self.base().row
+        self.visit_base(|base, _| base.row, ())
     }
     fn set_row(&mut self, row: i32) {
-        self.base().row = row;
+        self.visit_base(|base, _| base.row = row, ())
     }
     fn column(&self) -> i32 {
-        self.base().column
+        self.visit_base(|base, _| base.column, ())
     }
     fn set_column(&mut self, column: i32) {
-        self.base().column = column;
+        self.visit_base(|base, column| base.column = column, column)
     }
     fn dependent_row(&self) -> i32 {
-        self.base().dependent_row
+        self.visit_base(|base, _| base.dependent_row, ())
     }
     fn set_dependent_row(&mut self, row: i32) {
-        self.base().dependent_row = row;
+        self.visit_base(|base, row| base.dependent_row = row, row)
     }
     fn width(&self) -> f64 {
-        self.base().width
+        self.visit_base(|base, _| base.width, ())
     }
     fn height(&self) -> f64 {
-        self.base().height
+        self.visit_base(|base, _| base.height, ())
     }
 
     fn draw(
@@ -305,56 +311,76 @@ pub trait TalkerControl {
         talker: &RTalker,
         talker_controls: &HashMap<Id, RTalkerControl>,
     ) {
-        let base = self.base();
-        base.draw_connections(drawing_area, cr, talker, talker_controls);
-        base.draw_header(drawing_area, cr, talker, 0., true, true, true);
-        base.draw_ears_and_voices(drawing_area, cr, talker, 0.);
-        base.draw_box(drawing_area, cr, talker, 0., 0.);
+        self.visit_base(
+            |base, _| {
+                base.draw_connections(drawing_area, cr, talker, talker_controls);
+                base.draw_header(drawing_area, cr, talker, 0., true, true, true);
+                base.draw_ears_and_voices(drawing_area, cr, talker, 0.);
+                base.draw_box(drawing_area, cr, talker, 0., 0.);
+            },
+            (),
+        );
     }
 
     fn move_to(&mut self, _x: f64, _y: f64) {}
 
     fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
-        if self.base().area.is_under(x, y) {
-            true
-        } else {
-            false
-        }
+        self.visit_base(
+            |base, controler| {
+                if base.area.is_under(x, y) {
+                    true
+                } else {
+                    false
+                }
+            },
+            controler,
+        )
     }
 
     fn select(&mut self) {
-        if let Some(area) = &self.base().box_area {
-            area.selected = true;
-        }
+        self.visit_base(|base, _| base.box_area.selected = true, ());
     }
 
     fn unselect(&mut self) {
-        if let Some(area) = &self.base().box_area {
-            area.selected = false;
-        }
+        self.visit_base(|base, _| base.box_area.selected = false, ());
     }
 
     fn select_ear(&mut self, index: Index) {
-        self.base().ears[index].area.selected = true;
+        self.visit_base(|base, index| base.ears[index].area.selected = true, index);
     }
 
     fn unselect_ear(&mut self, index: Index) {
-        self.base().ears[index].area.selected = false;
+        self.visit_base(|base, index| base.ears[index].area.selected = false, index);
     }
 
     fn select_voice(&mut self, index: Index) {
-        self.base().voices[index].area.selected = true;
+        self.visit_base(|base, index| base.voices[index].area.selected = true, index);
     }
 
     fn unselect_voice(&mut self, index: Index) {
-        self.base().voices[index].area.selected = false;
+        self.visit_base(
+            |base, index| base.voices[index].area.selected = false,
+            index,
+        );
     }
 }
 
-pub type RTalkerControl = Box<dyn TalkerControl>;
+pub type RTalkerControl = Rc<RefCell<dyn TalkerControl>>;
 
 impl TalkerControl for TalkerControlBase {
-    fn base<'a>(&'a self) -> &'a TalkerControlBase {
-        &self
+    fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
+    where
+        F: FnMut(&mut TalkerControlBase, P) -> R,
+    {
+        f(self, p)
     }
+    /*
+        fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+            &self
+        }
+    */
+}
+
+pub fn new_ref(talker: &RTalker) -> RTalkerControl {
+    Rc::new(RefCell::new(TalkerControlBase::new(talker.borrow().base())))
 }

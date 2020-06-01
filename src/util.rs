@@ -2,7 +2,7 @@ use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub fn hashmap_visit<K: Hash + Eq, V, F>(hashmap: HashMap<K, V>, key: K, f: F)
+pub fn hashmap_visit<K: Hash + Eq, V, F>(hashmap: HashMap<K, V>, key: K, mut f: F)
 where
     F: FnMut(&V),
 {
@@ -11,7 +11,7 @@ where
     }
 }
 
-pub fn option_visit<V, F>(option: Option<V>, f: F)
+pub fn option_visit<V, F>(option: Option<V>, mut f: F)
 where
     F: FnMut(&V),
 {
