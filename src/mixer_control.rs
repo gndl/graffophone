@@ -73,15 +73,15 @@ impl MixerControl {
     }
 }
 impl TalkerControl for MixerControl {
-    // fn base<'a>(&'a self) -> &'a RTalkerControlBase {
-    //     &self.base
-    // }
-    fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
-    where
-        F: FnMut(&mut TalkerControlBase, P) -> R,
-    {
-        f(self.base.borrow_mut(), p)
+    fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+        &self.base
     }
+    // fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
+    // where
+    //     F: FnMut(&mut TalkerControlBase, P) -> R,
+    // {
+    //     f(self.base.borrow_mut(), p)
+    // }
     /*
      _______________
     |     NAME      |

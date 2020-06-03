@@ -151,7 +151,7 @@ impl GraphView {
         let mut operated = false;
 
         for tkrc in self.talker_controls.values_mut() {
-            operated = tkrc.borrow().on_button_release(x, y, &self.controler);
+            operated = tkrc.borrow_mut().on_button_release(x, y, &self.controler);
 
             if operated {
                 break;
@@ -304,7 +304,7 @@ impl GraphView {
             visit_talker_control(
                 talker,
                 &mut collector.talker_controls,
-                |tkrc, is_new_talker_control, mut collector| {
+                |tkrc, is_new_talker_control, _| {
                     let mut talks_count = 0;
 
                     for ear in talker.borrow().ears() {
@@ -317,7 +317,7 @@ impl GraphView {
                     if is_new_talker_control
                         || (tkrc.borrow().column() < column && talks_count == 0)
                     {
-                        tkrc.borrow().set_column(column);
+                        tkrc.borrow_mut().set_column(column);
 
                         let tkrc_row = visit_column_property(
                             column,
@@ -329,10 +329,10 @@ impl GraphView {
                             },
                             row,
                         );
-                        tkrc.borrow().set_row(tkrc_row);
+                        tkrc.borrow_mut().set_row(tkrc_row);
 
                         if is_new_talker_control {
-                            tkrc.borrow().set_dependent_row(row);
+                            tkrc.borrow_mut().set_dependent_row(row);
                         }
 
                         // let dep_row = i32::max(0, tkrc_row - talks_count / 2);
@@ -351,7 +351,7 @@ impl GraphView {
                     }
                     Ok(collector)
                 },
-                collector,
+                (),
             )
         } else {
             Ok(collector)

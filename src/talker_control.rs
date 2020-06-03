@@ -268,13 +268,90 @@ pub trait TalkerControl {
     // fn to_ref(self) -> RefCell<dyn TalkerControl> {
     //     RefCell::new(self)
     // }
+
+    fn base<'a>(&'a self) -> &'a RTalkerControlBase;
     /*
-        fn base<'a>(&'a self) -> &'a RTalkerControlBase;
-    */
     fn visit_base<F, P, R>(&mut self, f: F, p: P) -> R
     where
         F: FnMut(&mut TalkerControlBase, P) -> R;
+    */
+    fn id(&self) -> Id {
+        self.base().borrow().id
+    }
 
+    fn row(&self) -> i32 {
+        self.base().borrow().row
+    }
+    fn set_row(&mut self, row: i32) {
+        self.base().borrow_mut().row = row;
+    }
+    fn column(&self) -> i32 {
+        self.base().borrow().column
+    }
+    fn set_column(&mut self, column: i32) {
+        self.base().borrow_mut().column = column;
+    }
+    fn dependent_row(&self) -> i32 {
+        self.base().borrow().dependent_row
+    }
+    fn set_dependent_row(&mut self, row: i32) {
+        self.base().borrow_mut().dependent_row = row;
+    }
+    fn width(&self) -> f64 {
+        self.base().borrow().width
+    }
+    fn height(&self) -> f64 {
+        self.base().borrow().height
+    }
+
+    fn draw(
+        &self,
+        drawing_area: &DrawingArea,
+        cr: &Context,
+        talker: &RTalker,
+        talker_controls: &HashMap<Id, RTalkerControl>,
+    ) {
+        let base = self.base().borrow_mut();
+        base.draw_connections(drawing_area, cr, talker, talker_controls);
+        base.draw_header(drawing_area, cr, talker, 0., true, true, true);
+        base.draw_ears_and_voices(drawing_area, cr, talker, 0.);
+        base.draw_box(drawing_area, cr, talker, 0., 0.);
+    }
+
+    fn move_to(&mut self, _x: f64, _y: f64) {}
+
+    fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
+        if self.base().borrow().area.is_under(x, y) {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn select(&mut self) {
+        self.base().borrow_mut().box_area.selected = true;
+    }
+
+    fn unselect(&mut self) {
+        self.base().borrow_mut().box_area.selected = false;
+    }
+
+    fn select_ear(&mut self, index: Index) {
+        self.base().borrow_mut().ears[index].area.selected = true;
+    }
+
+    fn unselect_ear(&mut self, index: Index) {
+        self.base().borrow_mut().ears[index].area.selected = false;
+    }
+
+    fn select_voice(&mut self, index: Index) {
+        self.base().borrow_mut().voices[index].area.selected = true;
+    }
+
+    fn unselect_voice(&mut self, index: Index) {
+        self.base().borrow_mut().voices[index].area.selected = false;
+    }
+    /*
     fn id(&self) -> Id {
         self.visit_base(|base, _| base.id, ())
     }
@@ -362,25 +439,37 @@ pub trait TalkerControl {
             |base, index| base.voices[index].area.selected = false,
             index,
         );
-    }
+    }*/
 }
 
 pub type RTalkerControl = Rc<RefCell<dyn TalkerControl>>;
 
-impl TalkerControl for TalkerControlBase {
+pub struct TalkerControlImpl {
+    base: RTalkerControlBase,
+}
+
+impl TalkerControlImpl {
+    pub fn new(talker: &RTalker) -> TalkerControlImpl {
+        Self {
+            base: TalkerControlBase::new_ref(talker.borrow().base()),
+        }
+    }
+}
+
+impl TalkerControl for TalkerControlImpl {
+    /*
     fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
     where
         F: FnMut(&mut TalkerControlBase, P) -> R,
     {
         f(self, p)
     }
-    /*
-        fn base<'a>(&'a self) -> &'a RTalkerControlBase {
-            &self
-        }
     */
+    fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+        &self.base
+    }
 }
 
 pub fn new_ref(talker: &RTalker) -> RTalkerControl {
-    Rc::new(RefCell::new(TalkerControlBase::new(talker.borrow().base())))
+    Rc::new(RefCell::new(TalkerControlImpl::new(talker)))
 }
