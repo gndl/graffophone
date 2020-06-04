@@ -79,7 +79,13 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
-        self.session.add_talker(talker_model);
+        match self.session.add_talker(talker_model) {
+            Ok(_) => (),
+            Err(e) => self
+                .event_bus()
+                .borrow()
+                .notify(Notification::Error(format!("{}", e))),
+        }
     }
 
     pub fn set_start_tick(&mut self, t: i64) {
