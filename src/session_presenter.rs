@@ -20,22 +20,22 @@ mixer 5#mixer_5
 > track 2#track_2
 ";
 
-pub struct SessionControler {
+pub struct SessionPresenter {
     session: Session,
     event_bus: REventBus,
 }
-pub type RSessionControler = Rc<RefCell<SessionControler>>;
+pub type RSessionPresenter = Rc<RefCell<SessionPresenter>>;
 
-impl SessionControler {
-    pub fn new() -> SessionControler {
+impl SessionPresenter {
+    pub fn new() -> SessionPresenter {
         Self {
             session: Session::new(GSR.to_string()).unwrap(),
             event_bus: EventBus::new_ref(),
         }
     }
 
-    pub fn new_ref() -> RSessionControler {
-        Rc::new(RefCell::new(SessionControler::new()))
+    pub fn new_ref() -> RSessionPresenter {
+        Rc::new(RefCell::new(SessionPresenter::new()))
     }
 
     pub fn session<'a>(&'a self) -> &'a Session {
@@ -99,8 +99,8 @@ impl SessionControler {
         self.session = Session::new(GSR.to_string()).unwrap();
     }
 
-    fn monitor_state(session_controler_reference: &RSessionControler) {
-        let this = session_controler_reference.clone();
+    fn monitor_state(session_presenter_reference: &RSessionPresenter) {
+        let this = session_presenter_reference.clone();
 
         gtk::timeout_add_seconds(1, move || {
             let state = this.borrow_mut().session.state();
@@ -116,17 +116,17 @@ impl SessionControler {
         });
     }
 
-    pub fn play_or_pause(&mut self, monitor: &RSessionControler) {
-        //        let mut this = session_controler_reference.borrow_mut();
+    pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {
+        //        let mut this = session_presenter_reference.borrow_mut();
 
         let res = match self.session.state() {
             State::Stopped => {
-                SessionControler::monitor_state(monitor);
+                SessionPresenter::monitor_state(monitor);
                 self.session.start()
             }
             State::Playing => self.session.pause(),
             State::Paused => {
-                SessionControler::monitor_state(monitor);
+                SessionPresenter::monitor_state(monitor);
                 self.session.play()
             }
             State::Exited => Err(failure::err_msg("Player exited")),

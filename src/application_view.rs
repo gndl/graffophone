@@ -19,7 +19,7 @@ use session::event_bus::{Notification, REventBus};
 use session::state::State;
 
 use crate::graph_view::GraphView;
-use crate::session_controler::RSessionControler;
+use crate::session_presenter::RSessionPresenter;
 
 pub struct ApplicationView {
     talkers_tree: gtk::TreeView,
@@ -34,7 +34,7 @@ pub type RApplicationView = Rc<RefCell<ApplicationView>>;
 impl ApplicationView {
     fn new(
         application: &gtk::Application,
-        session_controler: &RSessionControler,
+        session_presenter: &RSessionPresenter,
     ) -> Result<ApplicationView, failure::Error> {
         let selected_talker_label = gtk::Label::new(Some("Selected talkers :"));
 
@@ -118,7 +118,7 @@ impl ApplicationView {
         split_pane.pack_start(&talkers_tree_scrolledwindow, false, true, 0);
 
         // Graph view
-        let graph_view = GraphView::new_ref(session_controler.clone());
+        let graph_view = GraphView::new_ref(session_presenter.clone());
 
         //            let graph_area = DrawingArea::new();
 
@@ -143,13 +143,13 @@ impl ApplicationView {
         });
 
         // New session
-        let new_ctrl = session_controler.clone();
+        let new_ctrl = session_presenter.clone();
         new_session_button.connect_clicked(move |_| {
             new_ctrl.borrow_mut().new_session();
         });
 
         // Play
-        let play_or_pause_ctrl = session_controler.clone();
+        let play_or_pause_ctrl = session_presenter.clone();
         play_or_pause_button.connect_clicked(move |_| {
             play_or_pause_ctrl
                 .borrow_mut()
@@ -157,13 +157,13 @@ impl ApplicationView {
         });
 
         // Stop
-        let stop_ctrl = session_controler.clone();
+        let stop_ctrl = session_presenter.clone();
         stop_button.connect_clicked(move |_| {
             stop_ctrl.borrow_mut().stop();
         });
 
         // talkers tree selection
-        let session_ctrl = session_controler.clone();
+        let session_ctrl = session_presenter.clone();
         talkers_tree.connect_cursor_changed(move |tree_view| {
             let selection = tree_view.get_selection();
 
@@ -211,11 +211,11 @@ impl ApplicationView {
 
     pub fn new_ref(
         application: &gtk::Application,
-        session_controler: &RSessionControler,
+        session_presenter: &RSessionPresenter,
     ) -> Result<RApplicationView, failure::Error> {
-        let av = ApplicationView::new(application, session_controler)?;
+        let av = ApplicationView::new(application, session_presenter)?;
         let rav = Rc::new(RefCell::new(av));
-        ApplicationView::observe(&rav, session_controler.borrow().event_bus());
+        ApplicationView::observe(&rav, session_presenter.borrow().event_bus());
         Ok(rav)
     }
 

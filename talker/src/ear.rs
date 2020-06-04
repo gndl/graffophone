@@ -134,7 +134,22 @@ impl Ear {
         }
     }
 
-    pub fn fold_talks<P, F>(&self, mut f: F, p: P) -> Result<P, failure::Error>
+    pub fn iter_talks<F, P>(&self, mut f: F, p: &mut P) -> Result<(), failure::Error>
+    where
+        F: FnMut(&Talk, &mut P) -> Result<(), failure::Error>,
+    {
+        match self {
+            Ear::Talk(talk) => f(&talk.borrow(), p),
+            Ear::Talks(talks) => {
+                for talk in &talks.borrow().talks {
+                    f(&talk.borrow(), p)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub fn fold_talks<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
         F: FnMut(&Talk, P) -> Result<P, failure::Error>,
     {
@@ -150,7 +165,14 @@ impl Ear {
         }
     }
 
-    pub fn fold_talkers<P, F>(&self, mut f: F, p: P) -> Result<P, failure::Error>
+    pub fn iter_talkers<F, P>(&self, mut f: F, p: &mut P) -> Result<(), failure::Error>
+    where
+        F: FnMut(&RTalker, &mut P) -> Result<(), failure::Error>,
+    {
+        self.iter_talks(|tlk, p| f(&tlk.tkr, p), p)
+    }
+
+    pub fn fold_talkers<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
         F: FnMut(&RTalker, P) -> Result<P, failure::Error>,
     {

@@ -40,7 +40,7 @@ use talker::talker::{RTalker, Talker};
 use session::mixer::RMixer;
 
 //use crate::graph_control::GraphControl;
-//use crate::session_controler::RSessionControler;
+//use crate::session_controler::RSessionPresenter;
 use crate::talker_control::{RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase};
 
 pub struct TrackControl {
@@ -54,7 +54,7 @@ pub struct MixerControl {
 
 impl MixerControl {
     pub fn new(mixer: &RMixer, row: i32, column: i32) -> MixerControl {
-        let mut base = TalkerControlBase::new_ref(mixer.borrow().base());
+        let base = TalkerControlBase::new_ref(mixer.borrow().base());
 
         base.borrow_mut().row = row;
         base.borrow_mut().column = column;
@@ -142,7 +142,7 @@ impl TalkerControl for MixerControl {
 
     //    fn move_to(&mut self, _x: f64, _y: f64) {}
     /*
-        fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
+        fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionPresenter) -> bool {
             if self.base().borrow_mut().on_button_release(x, y, controler) {
                 true
             } else {

@@ -18,7 +18,7 @@ use talker::talker::{RTalker, Talker};
 use session::event_bus::{Notification, REventBus};
 
 use crate::mixer_control::MixerControl;
-use crate::session_controler::RSessionControler;
+use crate::session_presenter::RSessionPresenter;
 use crate::talker_control;
 use crate::talker_control::RTalkerControl;
 //use crate::talker_control:: TalkerControlBase;
@@ -101,21 +101,21 @@ impl Collector {
 }
 
 pub struct GraphView {
-    controler: RSessionControler,
+    presenter: RSessionPresenter,
     area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
 }
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(controler: RSessionControler) -> RGraphView {
+    pub fn new_ref(presenter: RSessionPresenter) -> RGraphView {
         let rgv = Rc::new(RefCell::new(Self {
-            controler,
+            presenter,
             area: DrawingArea::new(),
             talker_controls: HashMap::new(),
         }));
         GraphView::connect_area(&rgv, rgv.borrow().area());
-        GraphView::observe(&rgv, rgv.borrow().controler.borrow().event_bus());
+        GraphView::observe(&rgv, rgv.borrow().presenter.borrow().event_bus());
 
         rgv
     }
@@ -151,7 +151,7 @@ impl GraphView {
         let mut operated = false;
 
         for tkrc in self.talker_controls.values_mut() {
-            operated = tkrc.borrow_mut().on_button_release(x, y, &self.controler);
+            operated = tkrc.borrow_mut().on_button_release(x, y, &self.presenter);
 
             if operated {
                 break;
@@ -161,8 +161,8 @@ impl GraphView {
     }
 
     fn on_draw(&mut self, area: &DrawingArea, cr: &Context) -> Inhibit {
-        let controler = self.controler.borrow();
-        let talkers = controler.session().talkers();
+        let presenter = self.presenter.borrow();
+        let talkers = presenter.session().talkers();
 
         for (id, tkrc) in &self.talker_controls {
             match talkers.get(&id) {
@@ -190,7 +190,7 @@ impl GraphView {
             let mut x = 10.;
             let mut y = 10.;
 
-            for talker in self.controler.borrow().talkers() {
+            for talker in self.presenter.borrow().talkers() {
                 let p = cr.text_extents(talker);
 
                 x = x + 10.;
@@ -295,10 +295,10 @@ impl GraphView {
         (w, h)
     }
 
-    fn make_talker_controls<'a>(
+    fn make_talker_controls(
         talker: &RTalker,
-        collector: &'a mut Collector,
-    ) -> Result<&'a mut Collector, failure::Error> {
+        collector: &mut Collector,
+    ) -> Result<(), failure::Error> {
         // create GTalkers and define there row and column
         if !talker.borrow().is_hidden() {
             visit_talker_control(
@@ -343,37 +343,35 @@ impl GraphView {
                         collector.column = collector.column + 1;
 
                         for ear in talker.borrow().ears() {
-                            collector =
-                                ear.fold_talkers(GraphView::make_talker_controls, collector)?;
+                            ear.iter_talkers(GraphView::make_talker_controls, collector)?;
                         }
                         collector.row = row;
                         collector.column = column;
                     }
-                    Ok(collector)
+                    Ok(())
                 },
                 (),
             )
         } else {
-            Ok(collector)
+            Ok(())
         }
     }
 
     fn create_graph(&mut self) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
+        let presenter = self.presenter.borrow();
+
         let mut collector = Collector::new(0, 1);
         //        let mut columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
 
         /* create graph by covering mixers */
-        let mixers_column_property = ColumnProperty::new(
-            0.,
-            0.,
-            self.controler.borrow().session().mixers().len() as i32,
-        );
+        let mixers_column_property =
+            ColumnProperty::new(0., 0., presenter.session().mixers().len() as i32);
         collector
             .columns_properties
             .insert(0, mixers_column_property);
 
         for (row, (mxr_id, mixer)) in self
-            .controler
+            .presenter
             .borrow()
             .session()
             .mixers()
@@ -385,18 +383,20 @@ impl GraphView {
 
             /* create GTalkers by covering talkers for each track */
             //            let mut acc = (row, 1, &columns_properties, &talker_controls);
-            let mut acc = &mut collector;
+            //            let mut acc = &mut collector;
 
             for track in mixer.borrow().tracks() {
                 for ear in track.ears() {
-                    acc = ear.fold_talkers(GraphView::make_talker_controls, acc)?;
+                    //                    acc =
+                    ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
                 }
             }
 
             for ear in mixer.borrow().ears() {
-                acc = ear.fold_talkers(
+                //                acc =
+                ear.iter_talkers(
                     GraphView::make_talker_controls,
-                    acc, //                    (row, 1, &columns_properties, &talker_controls),
+                    &mut collector, //                    (row, 1, &columns_properties, &talker_controls),
                 )?;
             }
             collector.talker_controls.insert(*mxr_id, mxrc);
@@ -417,7 +417,7 @@ impl GraphView {
         /* list the unused talkers e.g not in the talker_controls list */
         let mut unused_talkers = Vec::new();
 
-        for (id, tkr) in self.controler.borrow().session().talkers() {
+        for (id, tkr) in presenter.session().talkers() {
             if !tkr.borrow().is_hidden() && !collector.talker_controls.contains_key(id) {
                 unused_talkers.push(tkr);
             }
@@ -426,19 +426,19 @@ impl GraphView {
         /* define the unused talkers reference count */
         let mut root_unused_talkers: BTreeMap<Id, &RTalker> = BTreeMap::new();
 
-        for tkr in unused_talkers {
+        for tkr in &unused_talkers {
             root_unused_talkers.insert(tkr.borrow().id(), tkr);
         }
 
-        for tkr in unused_talkers {
+        for tkr in &unused_talkers {
             for ear in tkr.borrow().ears() {
-                let _ = ear.fold_talkers(
+                ear.iter_talkers(
                     |dep_tkr, _| {
                         let _ = root_unused_talkers.remove(&dep_tkr.borrow().id());
                         Ok(())
                     },
-                    (),
-                );
+                    &mut (),
+                )?;
             }
         }
 
@@ -449,10 +449,11 @@ impl GraphView {
         in order to have the newest talker at the top of the sandbox */
         //        let mut acc = (0, 0, &sandbox_columns_properties, &unused_talker_controls);
         let mut sandbox_collector = Collector::new(0, 0);
-        let mut acc = &mut sandbox_collector;
+        //        let mut acc = &mut sandbox_collector;
 
         for tkr in root_unused_talkers.values() {
-            acc = GraphView::make_talker_controls(tkr, acc)?;
+            //            acc =
+            GraphView::make_talker_controls(tkr, &mut sandbox_collector)?;
         }
 
         /* position unused GTalkers under used GTalkers e.g the sandbox zone */
@@ -491,7 +492,7 @@ impl GraphView {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
-                                    tkrc.borrow().set_actions(&self.controler.borrow());
+                                    tkrc.borrow().set_actions(&self.presenter.borrow());
                                 }
                 */
                 self.talker_controls = talker_controls;
@@ -505,7 +506,7 @@ impl GraphView {
 
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
-                Notification::State(state) => match state {},
+                //                Notification::State(state) => match state {},
                 Notification::Session => obs.borrow_mut().build(),
                 Notification::TalkerChanged | Notification::TalkerRenamed(_) => {
                     obs.borrow_mut().build()

@@ -15,12 +15,12 @@ use std::env::args;
 mod application_view;
 mod graph_view;
 mod mixer_control;
-mod session_controler;
+mod session_presenter;
 mod talker_control;
 mod util;
 
 use application_view::ApplicationView;
-use session_controler::SessionControler;
+use session_presenter::SessionPresenter;
 
 fn main() {
     let application =
@@ -28,11 +28,11 @@ fn main() {
             .expect("Initialization failed...");
 
     application.connect_activate(|app| {
-        let session_controler = SessionControler::new_ref();
+        let session_presenter = SessionPresenter::new_ref();
 
-        match ApplicationView::new_ref(app, &session_controler) {
+        match ApplicationView::new_ref(app, &session_presenter) {
             Ok(_) => {
-                session_controler.borrow_mut().init();
+                session_presenter.borrow_mut().init();
             }
             Err(e) => eprintln!("{}", e),
         }

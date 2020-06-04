@@ -17,7 +17,7 @@ use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
 use talker::talker::{RTalker, TalkerBase};
 
-use crate::session_controler::RSessionControler;
+use crate::session_presenter::RSessionPresenter;
 
 struct Area {
     b_x: f64,
@@ -320,7 +320,7 @@ pub trait TalkerControl {
 
     fn move_to(&mut self, _x: f64, _y: f64) {}
 
-    fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
+    fn on_button_release(&mut self, x: f64, y: f64, presenter: &RSessionPresenter) -> bool {
         if self.base().borrow().area.is_under(x, y) {
             true
         } else {
@@ -401,16 +401,16 @@ pub trait TalkerControl {
 
     fn move_to(&mut self, _x: f64, _y: f64) {}
 
-    fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionControler) -> bool {
+    fn on_button_release(&mut self, x: f64, y: f64, presenter: &RSessionPresenter) -> bool {
         self.visit_base(
-            |base, controler| {
+            |base, presenter| {
                 if base.area.is_under(x, y) {
                     true
                 } else {
                     false
                 }
             },
-            controler,
+            presenter,
         )
     }
 
