@@ -130,7 +130,7 @@ impl TalkerControlBase {
         draw_name: bool,
         draw_main_value: bool,
     ) {
-        /*      mBoxTop <- if draw_model{
+self.box_top <- if draw_model{
                   mKindItem <- Some(GnoCanvas.text ~text:talker#getKind ~y:pY
                                       ~props:modelProperties ~anchor: `NORTH mGroup);
 
@@ -141,14 +141,14 @@ impl TalkerControlBase {
               let mainValueY = if drawName && talker#getName <> "" then (
                   let text = formatName talker#getName in
 
-                  let nameItem = GnoCanvas.text ~text ~y:mBoxTop
+                  let nameItem = GnoCanvas.text ~text ~y:self.box_top
                       ~props:nameProperties ~anchor: `NORTH mGroup in
 
                   mWidth <- nameItem#text_width;
                   self#setNameItem nameItem;
-                  mBoxTop +. textHeight
+                  self.box_top +. textHeight
                 )
-                else mBoxTop in
+                else self.box_top in
 
               let mainValueText = formatValue talker#getStringOfValue in
 
@@ -162,7 +162,6 @@ impl TalkerControlBase {
                   mainValueY +. textHeight -. pY
                 )
                 else mainValueY -. pY;
-        */
     }
 
     fn draw_ears_and_voices(
@@ -182,18 +181,18 @@ impl TalkerControlBase {
         px: f64,
         py: f64,
     ) {
-        let w = self.area.e_x - self.area.b_x;
-        let h = self.area.e_y - self.area.b_y;
+        let w = self.box_area.e_x - self.box_area.b_x;
+        let h = self.box_area.e_y - self.box_area.b_y;
         cr.set_line_width(5.);
         cr.set_source_rgb(0., 0., 0.);
-        cr.rectangle(self.area.b_x, self.area.b_y, w, h);
+        cr.rectangle(self.box_area.b_x, self.box_area.b_y, w, h);
         cr.stroke();
         //    cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
         cr.set_font_size(12.);
         let p = cr.text_extents(&talker.borrow().name());
 
-        let x = self.area.b_x;
-        let y = self.area.b_y;
+        let x = self.box_area.b_x;
+        let y = self.box_area.b_y;
 
         cr.move_to(x, y);
         cr.show_text(&talker.borrow().name());
@@ -207,6 +206,7 @@ impl TalkerControlBase {
         p.x_advance,
         p.y_advance);
     }
+
     fn draw_connections(
         &self,
         drawing_area: &DrawingArea,
