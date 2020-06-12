@@ -81,7 +81,7 @@ impl Collector {
 
 pub struct GraphView {
     presenter: RSessionPresenter,
-    area: DrawingArea,
+    drawing_area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
 }
 pub type RGraphView = Rc<RefCell<GraphView>>;
@@ -90,42 +90,43 @@ impl GraphView {
     pub fn new_ref(presenter: RSessionPresenter) -> RGraphView {
         let rgv = Rc::new(RefCell::new(Self {
             presenter,
-            area: DrawingArea::new(),
+            drawing_area: DrawingArea::new(),
             talker_controls: HashMap::new(),
         }));
-        GraphView::connect_area(&rgv, rgv.borrow().area());
+        GraphView::connect_area(&rgv, rgv.borrow().drawing_area());
         GraphView::observe(&rgv, rgv.borrow().presenter.borrow().event_bus());
 
         rgv
     }
 
-    fn connect_area(rgraphview: &RGraphView, area: &DrawingArea) {
-        area.add_events(
+    fn connect_area(rgraphview: &RGraphView, drawing_area: &DrawingArea) {
+        drawing_area.add_events(
             // gdk::EventMask::KEY_PRESS_MASK |
             gdk::EventMask::BUTTON_PRESS_MASK | gdk::EventMask::BUTTON_RELEASE_MASK,
         );
 
-        //            area.set_can_focus(true);
-        // area.connect_key_press_event(|_, ev| {
+        //            drawing_area.set_can_focus(true);
+        // drawing_area.connect_key_press_event(|_, ev| {
         //     println!("Key {} pressed", ev.get_keyval());
         //     Inhibit(false)
         // });
         let rgv = rgraphview.clone();
-        area.connect_button_release_event(move |w, ev| rgv.borrow_mut().on_button_release(w, ev));
+        drawing_area
+            .connect_button_release_event(move |w, ev| rgv.borrow_mut().on_button_release(w, ev));
 
         let rgv = rgraphview.clone();
-        area.connect_draw(move |w, cr| rgv.borrow_mut().on_draw(w, cr));
+        drawing_area.connect_draw(move |w, cr| rgv.borrow_mut().on_draw(w, cr));
     }
 
-    pub fn area<'a>(&'a self) -> &'a DrawingArea {
-        &self.area
+    pub fn drawing_area<'a>(&'a self) -> &'a DrawingArea {
+        &self.drawing_area
     }
 
     pub fn draw(&self) {
-        self.area.queue_draw();
+        self.drawing_area.queue_draw();
     }
 
-    fn on_button_release(&mut self, _area: &DrawingArea, ev: &gdk::EventButton) -> Inhibit {
+    fn on_button_release(&mut self, _drawing_area: &DrawingArea, ev: &gdk::EventButton) -> Inhibit {
         let (x, y) = ev.get_position();
         let mut operated = false;
 
@@ -139,14 +140,15 @@ impl GraphView {
         Inhibit(operated)
     }
 
-    fn on_draw(&mut self, area: &DrawingArea, cr: &Context) -> Inhibit {
+    fn on_draw(&mut self, drawing_area: &DrawingArea, cr: &Context) -> Inhibit {
         let presenter = self.presenter.borrow();
         let talkers = presenter.session().talkers();
 
         for (id, tkrc) in &self.talker_controls {
             match talkers.get(&id) {
                 Some(talker) => {
-                    tkrc.borrow().draw(area, cr, talker, &self.talker_controls);
+                    tkrc.borrow()
+                        .draw(drawing_area, cr, talker, &self.talker_controls);
                 }
                 None => (),
             }
@@ -159,12 +161,12 @@ impl GraphView {
 
             // let w = extents.width + 20.;
             // let h = extents.height + 20.;
-            // area.set_size_request(w as i32, h as i32);
-            //        let (w0, h0) = area.get_size_request();
+            // drawing_area.set_size_request(w as i32, h as i32);
+            //        let (w0, h0) = drawing_area.get_size_request();
             let w = 2048;
             let h = 1024;
-            area.set_size_request(w, h);
-            //    let (w, h) = area.get_size_request();
+            drawing_area.set_size_request(w, h);
+            //    let (w, h) = drawing_area.get_size_request();
 
             let mut x = 10.;
             let mut y = 10.;
@@ -192,10 +194,10 @@ impl GraphView {
         Inhibit(false)
     }
     /*
-    fn draw_graph(area: &DrawingArea, cr: &Context, text: &str) -> Inhibit {
+    fn draw_graph(drawing_area: &DrawingArea, cr: &Context, text: &str) -> Inhibit {
         let w = 2048;
         let h = 1024;
-        area.set_size_request(w, h);
+        drawing_area.set_size_request(w, h);
         cr.set_line_width(5.);
         cr.set_source_rgb(0., 0., 0.);
         cr.rectangle(5., 5., 2038., 1014.);
