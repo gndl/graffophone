@@ -123,20 +123,20 @@ impl TalkerControlBase {
     fn draw_header(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         py: f64,
         draw_model: bool,
         draw_name: bool,
         draw_main_value: bool,
     ) {
-self.box_top <- if draw_model{
+        self.box_top = if draw_model{
                   mKindItem <- Some(GnoCanvas.text ~text:talker#getKind ~y:pY
                                       ~props:modelProperties ~anchor: `NORTH mGroup);
 
                   pY +. textHeight +. boxRadius
               }
-                 else{ pY +. boxRadius;}
+                 else{ pY +. boxRadius}
 
               let mainValueY = if drawName && talker#getName <> "" then (
                   let text = formatName talker#getName in
@@ -167,7 +167,7 @@ self.box_top <- if draw_model{
     fn draw_ears_and_voices(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         py: f64,
     ) {
@@ -176,26 +176,26 @@ self.box_top <- if draw_model{
     fn draw_box(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         px: f64,
         py: f64,
     ) {
         let w = self.box_area.e_x - self.box_area.b_x;
         let h = self.box_area.e_y - self.box_area.b_y;
-        cr.set_line_width(5.);
-        cr.set_source_rgb(0., 0., 0.);
-        cr.rectangle(self.box_area.b_x, self.box_area.b_y, w, h);
-        cr.stroke();
-        //    cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-        cr.set_font_size(12.);
-        let p = cr.text_extents(&talker.borrow().name());
+        cc.set_line_width(5.);
+        cc.set_source_rgb(0., 0., 0.);
+        cc.rectangle(self.box_area.b_x, self.box_area.b_y, w, h);
+        cc.stroke();
+        //    cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
+        cc.set_font_size(12.);
+        let p = cc.text_extents(&talker.borrow().name());
 
         let x = self.box_area.b_x;
         let y = self.box_area.b_y;
 
-        cr.move_to(x, y);
-        cr.show_text(&talker.borrow().name());
+        cc.move_to(x, y);
+        cc.show_text(&talker.borrow().name());
 
         println!(
         "Talker {} :\n x_bearing {}, y_bearing {}, width {}, height {}, x_advance {}, y_advance {}", &talker.borrow().name(),
@@ -210,7 +210,7 @@ self.box_top <- if draw_model{
     fn draw_connections(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         talker_controls: &HashMap<Id, RTalkerControl>,
     ) { /*
@@ -307,15 +307,15 @@ pub trait TalkerControl {
     fn draw(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         talker_controls: &HashMap<Id, RTalkerControl>,
     ) {
         let base = self.base().borrow_mut();
-        base.draw_connections(drawing_area, cr, talker, talker_controls);
-        base.draw_header(drawing_area, cr, talker, 0., true, true, true);
-        base.draw_ears_and_voices(drawing_area, cr, talker, 0.);
-        base.draw_box(drawing_area, cr, talker, 0., 0.);
+        base.draw_connections(drawing_area, cc, talker, talker_controls);
+        base.draw_header(drawing_area, cc, talker, 0., true, true, true);
+        base.draw_ears_and_voices(drawing_area, cc, talker, 0.);
+        base.draw_box(drawing_area, cc, talker, 0., 0.);
     }
 
     fn move_to(&mut self, _x: f64, _y: f64) {}
@@ -384,16 +384,16 @@ pub trait TalkerControl {
     fn draw(
         &self,
         drawing_area: &DrawingArea,
-        cr: &Context,
+        cc: &Context,
         talker: &RTalker,
         talker_controls: &HashMap<Id, RTalkerControl>,
     ) {
         self.visit_base(
             |base, _| {
-                base.draw_connections(drawing_area, cr, talker, talker_controls);
-                base.draw_header(drawing_area, cr, talker, 0., true, true, true);
-                base.draw_ears_and_voices(drawing_area, cr, talker, 0.);
-                base.draw_box(drawing_area, cr, talker, 0., 0.);
+                base.draw_connections(drawing_area, cc, talker, talker_controls);
+                base.draw_header(drawing_area, cc, talker, 0., true, true, true);
+                base.draw_ears_and_voices(drawing_area, cc, talker, 0.);
+                base.draw_box(drawing_area, cc, talker, 0., 0.);
             },
             (),
         );

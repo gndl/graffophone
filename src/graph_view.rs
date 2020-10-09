@@ -115,7 +115,7 @@ impl GraphView {
             .connect_button_release_event(move |w, ev| rgv.borrow_mut().on_button_release(w, ev));
 
         let rgv = rgraphview.clone();
-        drawing_area.connect_draw(move |w, cr| rgv.borrow_mut().on_draw(w, cr));
+        drawing_area.connect_draw(move |w, cc| rgv.borrow_mut().on_draw(w, cc));
     }
 
     pub fn drawing_area<'a>(&'a self) -> &'a DrawingArea {
@@ -140,68 +140,15 @@ impl GraphView {
         Inhibit(operated)
     }
 
-    fn on_draw(&mut self, drawing_area: &DrawingArea, cr: &Context) -> Inhibit {
-        let presenter = self.presenter.borrow();
-        let talkers = presenter.session().talkers();
-
-        for (id, tkrc) in &self.talker_controls {
-            match talkers.get(&id) {
-                Some(talker) => {
-                    tkrc.borrow()
-                        .draw(drawing_area, cr, talker, &self.talker_controls);
-                }
-                None => (),
-            }
-        }
-        /*
-            //    cr.scale(1000f64, 1000f64);
-
-            //    cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-            cr.set_font_size(12.);
-
-            // let w = extents.width + 20.;
-            // let h = extents.height + 20.;
-            // drawing_area.set_size_request(w as i32, h as i32);
-            //        let (w0, h0) = drawing_area.get_size_request();
-            let w = 2048;
-            let h = 1024;
-            drawing_area.set_size_request(w, h);
-            //    let (w, h) = drawing_area.get_size_request();
-
-            let mut x = 10.;
-            let mut y = 10.;
-
-            for talker in self.presenter.borrow().talkers() {
-                let p = cr.text_extents(talker);
-
-                x = x + 10.;
-                y = y + p.height + 10.;
-
-                cr.move_to(x, y);
-                cr.show_text(talker);
-
-                println!(
-            "Talker {} :\n x_bearing {}, y_bearing {}, width {}, height {}, x_advance {}, y_advance {}", talker,
-            p.x_bearing,
-            p.y_bearing,
-            p.width,
-            p.height,
-            p.x_advance,
-            p.y_advance
-        );
-            }
-            */
-        Inhibit(false)
-    }
     /*
-    fn draw_graph(drawing_area: &DrawingArea, cr: &Context, text: &str) -> Inhibit {
+    fn draw_graph(drawing_area: &DrawingArea, cc: &Context, text: &str) -> Inhibit {
         let w = 2048;
         let h = 1024;
         drawing_area.set_size_request(w, h);
-        cr.set_line_width(5.);
-        cr.set_source_rgb(0., 0., 0.);
-        cr.rectangle(5., 5., 2038., 1014.);
-        cr.stroke();
+        cc.set_line_width(5.);
+        cc.set_source_rgb(0., 0., 0.);
+        cc.rectangle(5., 5., 2038., 1014.);
+        cc.stroke();
         Inhibit(false)
     }
      */
@@ -324,7 +271,7 @@ impl GraphView {
                     // let dep_row = i32::max(0, tkrc_row - talks_count / 2);
                     // let dep_column = column + 1;
                     // let mut acc = (dep_row, dep_column, columns_properties, talker_controls);
-                    //        let mut dep_collector = Collector::new(i32::max(0, tkrc_row - talks_count / 2),collector.column + 1);
+                    // let mut dep_collector = Collector::new(i32::max(0, tkrc_row - talks_count / 2),collector.column + 1);
                     collector.row = i32::max(0, tkrc_row - talks_count / 2);
                     collector.column = collector.column + 1;
 
@@ -339,11 +286,15 @@ impl GraphView {
         Ok(())
     }
 
-    fn create_graph(&mut self) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
+    fn create_graph(
+        &mut self,
+        drawing_area: &DrawingArea,
+        cc: &Context,
+    ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
         let presenter = self.presenter.borrow();
 
         let mut collector = Collector::new(0, 1);
-        //        let mut columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
+        // let mut columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
 
         /* create graph by covering mixers */
         let mixers_column_property =
@@ -469,8 +420,8 @@ impl GraphView {
         Ok(talker_controls)
     }
 
-    fn build(&mut self) {
-        match self.create_graph() {
+    fn build(&mut self, drawing_area: &DrawingArea, cc: &Context) {
+        match self.create_graph(drawing_area, cc) {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
@@ -483,15 +434,70 @@ impl GraphView {
         }
     }
 
+    fn on_draw(&mut self, drawing_area: &DrawingArea, cc: &Context) -> Inhibit {
+        self.build(drawing_area, cc);
+
+        let presenter = self.presenter.borrow();
+        let talkers = presenter.session().talkers();
+
+        for (id, tkrc) in &self.talker_controls {
+            match talkers.get(&id) {
+                Some(talker) => {
+                    tkrc.borrow()
+                        .draw(drawing_area, cc, talker, &self.talker_controls);
+                }
+                None => (),
+            }
+        }
+        /*
+            //    cc.scale(1000f64, 1000f64);
+            //    cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
+            cc.set_font_size(12.);
+
+            // let w = extents.width + 20.;
+            // let h = extents.height + 20.;
+            // drawing_area.set_size_request(w as i32, h as i32);
+            //        let (w0, h0) = drawing_area.get_size_request();
+            let w = 2048;
+            let h = 1024;
+            drawing_area.set_size_request(w, h);
+            //    let (w, h) = drawing_area.get_size_request();
+
+            let mut x = 10.;
+            let mut y = 10.;
+
+            for talker in self.presenter.borrow().talkers() {
+                let p = cc.text_extents(talker);
+
+                x = x + 10.;
+                y = y + p.height + 10.;
+
+                cc.move_to(x, y);
+                cc.show_text(talker);
+
+                println!(
+            "Talker {} :\n x_bearing {}, y_bearing {}, width {}, height {}, x_advance {}, y_advance {}", talker,
+            p.x_bearing,
+            p.y_bearing,
+            p.width,
+            p.height,
+            p.x_advance,
+            p.y_advance
+        );
+            }
+            */
+        Inhibit(false)
+    }
+
     fn observe(observer: &RGraphView, bus: &REventBus) {
         let obs = observer.clone();
 
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
                 //                Notification::State(state) => match state {},
-                Notification::Session => obs.borrow_mut().build(),
+                Notification::Session => obs.borrow_mut().draw(),
                 Notification::TalkerChanged | Notification::TalkerRenamed(_) => {
-                    obs.borrow_mut().build()
+                    obs.borrow_mut().draw()
                 }
                 Notification::TalkerSelected(tkr_id) => {
                     if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
@@ -523,7 +529,7 @@ impl GraphView {
                         tkrc.borrow_mut().unselect_voice(*idx)
                     }
                 }
-                Notification::NewTalker => obs.borrow_mut().build(),
+                Notification::NewTalker => obs.borrow_mut().draw(),
                 _ => (),
             }))
     }
