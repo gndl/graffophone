@@ -16,6 +16,7 @@ mod application_view;
 mod graph_view;
 mod mixer_control;
 mod session_presenter;
+mod style;
 mod talker_control;
 mod util;
 

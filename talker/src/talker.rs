@@ -175,11 +175,16 @@ pub trait Talker {
         ear.cv_buffer()
     }
     /*
-        fn ear_talks(&self, port: usize) -> Option<MTalks> {
-            let ear = self.ears().get(port)?;
-            ear.talks()
-        }
+       fn ear_talks(&self, port: usize) -> Option<MTalks> {
+           let ear = self.ears().get(port)?;
+           ear.talks()
+       }
     */
+
+    fn voice_value(&self, _port: usize) -> Option<f32> {
+        None
+    }
+
     fn set_ear_value_by_tag(&mut self, tag: &str, value: f32) -> Result<(), failure::Error> {
         for ear in self.ears() {
             match ear {

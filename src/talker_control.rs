@@ -18,6 +18,16 @@ use talker::identifier::{Id, Index};
 use talker::talker::{RTalker, TalkerBase};
 
 use crate::session_presenter::RSessionPresenter;
+use crate::style;
+
+pub const INPUT_TAG: &str = " I ";
+pub const OUTPUT_TAG: &str = " O ";
+pub const ADD_TAG: &str = " + ";
+pub const SUP_TAG: &str = " - ";
+pub const VAL_TAG: &str = " # ";
+
+const MARGE: f64 = 4.;
+const SPACE: f64 = 4.;
 
 struct Area {
     b_x: f64,
@@ -46,26 +56,50 @@ struct Control {
     action: String,
 }
 
-pub enum EarType {
-    Value(),
-    Talk(),
+pub enum InputType {
+    Value,
+    Talk,
     Add,
 }
 
-struct Ear {
+struct TalkControl {
     area: Area,
+    tag: String,
+    tag_area: Area,
+    value: Option<String>,
     value_area: Area,
-    add_area: Area,
-    sup_area: Area,
-    y: f64,
-    ear_type: EarType,
-    root_index: i32,
+    sup_area: Option<Area>,
+    input_type: InputType,
+    //    root_index: i32,
 }
 
-struct Voice {
+struct EarControl {
     area: Area,
-    y: f64,
-    color: i64,
+    talks: Vec<TalkControl>,
+}
+
+struct VoiceControl {
+    tag: String,
+    area: Area,
+    //    color: i64,
+}
+
+fn format_label(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        s[0..max_len].to_string() + "..."
+    } else {
+        s.to_string()
+    }
+}
+
+fn format_name(s: &str) -> String {
+    format_label(s, 12)
+}
+fn format_data(s: &str) -> String {
+    format_label(s, 6)
+}
+fn format_value(v: &f32) -> String {
+    format_label(&f32::to_string(v), 6)
 }
 
 pub struct TalkerControlBase {
@@ -74,18 +108,28 @@ pub struct TalkerControlBase {
     pub row: i32,
     pub column: i32,
     dependent_row: i32,
+    x: f64,
+    y: f64,
     width: f64,
     height: f64,
-    box_top: f64,
     model_area: Area,
     name_area: Area,
-    main_value_area: Area,
+    data_area: Area,
     box_area: Area,
-    ears: Vec<Ear>,
-    voices: Vec<Voice>,
+    ears: Vec<EarControl>,
+    voices: Vec<VoiceControl>,
 }
 pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
 
+/*                           MODEL
+                _______________________________
+               |              NAME             |
+               |             [DATA]            |
+               |TAG_INPUT_1 [1]  [TAG_OUTPUT_1]|
+               |TAG_INPUT_2 [2]                |
+               |TAG_INPUT_3 [3]  [TAG_OUTPUT_2]|
+               |_______________________________|
+*/
 impl TalkerControlBase {
     pub fn new(talker_base: &TalkerBase) -> TalkerControlBase {
         Self {
@@ -94,12 +138,13 @@ impl TalkerControlBase {
             row: -1,
             column: -1,
             dependent_row: -1,
+            x: 0.,
+            y: 0.,
             width: 0.,
             height: 0.,
-            box_top: 0.,
             model_area: Area::new(0., 0., 0., 0.),
             name_area: Area::new(0., 0., 0., 0.),
-            main_value_area: Area::new(0., 0., 0., 0.),
+            data_area: Area::new(0., 0., 0., 0.),
             box_area: Area::new(0., 0., 0., 0.),
             ears: Vec::new(),
             voices: Vec::new(),
@@ -110,67 +155,6 @@ impl TalkerControlBase {
     // }
     pub fn new_ref(talker_base: &TalkerBase) -> RTalkerControlBase {
         Rc::new(RefCell::new(TalkerControlBase::new(talker_base)))
-    }
-    /*                           MODEL
-                    _______________________________
-                   |              NAME             |
-                   |            [VALUE]            |
-                   |TAG_INPUT_1 [1]  [TAG_OUTPUT_1]|
-                   |TAG_INPUT_2 [2]                |
-                   |TAG_INPUT_3 [3]  [TAG_OUTPUT_2]|
-                   |_______________________________|
-    */
-    fn draw_header(
-        &self,
-        drawing_area: &DrawingArea,
-        cc: &Context,
-        talker: &RTalker,
-        py: f64,
-        draw_model: bool,
-        draw_name: bool,
-        draw_main_value: bool,
-    ) {
-        self.box_top = if draw_model{
-                  mKindItem <- Some(GnoCanvas.text ~text:talker#getKind ~y:pY
-                                      ~props:modelProperties ~anchor: `NORTH mGroup);
-
-                  pY +. textHeight +. boxRadius
-              }
-                 else{ pY +. boxRadius}
-
-              let mainValueY = if drawName && talker#getName <> "" then (
-                  let text = formatName talker#getName in
-
-                  let nameItem = GnoCanvas.text ~text ~y:self.box_top
-                      ~props:nameProperties ~anchor: `NORTH mGroup in
-
-                  mWidth <- nameItem#text_width;
-                  self#setNameItem nameItem;
-                  self.box_top +. textHeight
-                )
-                else self.box_top in
-
-              let mainValueText = formatValue talker#getStringOfValue in
-
-              mHeight <- if drawMainValue && S.length mainValueText > 0 then (
-
-                  let mainValueItem = GnoCanvas.text ~text:mainValueText
-                      ~y:mainValueY ~props:valueProperties ~anchor: `NORTH mGroup in
-
-                  mMainValueItem <- Some mainValueItem;
-                  mWidth <- max mWidth mainValueItem#text_width;
-                  mainValueY +. textHeight -. pY
-                )
-                else mainValueY -. pY;
-    }
-
-    fn draw_ears_and_voices(
-        &self,
-        drawing_area: &DrawingArea,
-        cc: &Context,
-        talker: &RTalker,
-        py: f64,
-    ) {
     }
 
     fn draw_box(
@@ -183,28 +167,88 @@ impl TalkerControlBase {
     ) {
         let w = self.box_area.e_x - self.box_area.b_x;
         let h = self.box_area.e_y - self.box_area.b_y;
-        cc.set_line_width(5.);
-        cc.set_source_rgb(0., 0., 0.);
-        cc.rectangle(self.box_area.b_x, self.box_area.b_y, w, h);
+        style::box_background(cc);
+        cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
+        cc.fill();
+        style::box_border(cc);
+        cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.stroke();
-        //    cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-        cc.set_font_size(12.);
-        let p = cc.text_extents(&talker.borrow().name());
+    }
 
-        let x = self.box_area.b_x;
-        let y = self.box_area.b_y;
+    fn draw_header(
+        &self,
+        drawing_area: &DrawingArea,
+        cc: &Context,
+        talker: &RTalker,
+        py: f64,
+        draw_model: bool,
+        draw_name: bool,
+        draw_main_data: bool,
+    ) {
+        style::model(cc);
+        cc.move_to(self.x + self.model_area.b_x, self.y + self.model_area.e_y);
+        cc.show_text(talker.borrow().model());
 
-        cc.move_to(x, y);
+        style::name(cc);
+        cc.move_to(self.x + self.name_area.b_x, self.y + self.name_area.e_y);
         cc.show_text(&talker.borrow().name());
 
-        println!(
-        "Talker {} :\n x_bearing {}, y_bearing {}, width {}, height {}, x_advance {}, y_advance {}", &talker.borrow().name(),
-        p.x_bearing,
-        p.y_bearing,
-        p.width,
-        p.height,
-        p.x_advance,
-        p.y_advance);
+        style::value(cc);
+        cc.move_to(self.x + self.data_area.b_x, self.y + self.data_area.e_y);
+        cc.show_text(&format_data(&talker.borrow().data_string()));
+    }
+
+    fn draw_ears_and_voices(
+        &self,
+        drawing_area: &DrawingArea,
+        cc: &Context,
+        talker: &RTalker,
+        py: f64,
+    ) {
+        for ear in &self.ears {
+            for talk in &ear.talks {
+                match talk.input_type {
+                    InputType::Add => {
+                        style::add(cc);
+                        cc.move_to(self.x + talk.area.b_x, self.y + talk.area.e_y);
+                        cc.show_text(ADD_TAG);
+                    }
+                    _ => {
+                        if talk.tag_area.selected {
+                            style::selected_ear(cc);
+                        } else {
+                            style::ear(cc);
+                        }
+                        cc.move_to(self.x + talk.tag_area.b_x, self.y + talk.tag_area.e_y);
+                        cc.show_text(&talk.tag);
+
+                        style::value(cc);
+                        cc.move_to(self.x + talk.value_area.b_x, self.y + talk.value_area.e_y);
+                        if let Some(v) = &talk.value {
+                            cc.show_text(&v);
+                        } else {
+                            cc.show_text(VAL_TAG);
+                        }
+
+                        if let Some(sa) = &talk.sup_area {
+                            style::sup(cc);
+                            cc.move_to(self.x + sa.b_x, self.y + sa.e_y);
+                            cc.show_text(SUP_TAG);
+                        }
+                    }
+                }
+            }
+        }
+
+        for voice in &self.voices {
+            if voice.area.selected {
+                style::selected_voice(cc);
+            } else {
+                style::voice(cc);
+            }
+            cc.move_to(self.x + voice.area.b_x, self.y + voice.area.e_y);
+            cc.show_text(&voice.tag);
+        }
     }
 
     fn draw_connections(
@@ -270,11 +314,7 @@ pub trait TalkerControl {
     // }
 
     fn base<'a>(&'a self) -> &'a RTalkerControlBase;
-    /*
-    fn visit_base<F, P, R>(&mut self, f: F, p: P) -> R
-    where
-        F: FnMut(&mut TalkerControlBase, P) -> R;
-    */
+
     fn id(&self) -> Id {
         self.base().borrow().id
     }
@@ -313,15 +353,21 @@ pub trait TalkerControl {
     ) {
         let base = self.base().borrow_mut();
         base.draw_connections(drawing_area, cc, talker, talker_controls);
+        base.draw_box(drawing_area, cc, talker, 0., 0.);
         base.draw_header(drawing_area, cc, talker, 0., true, true, true);
         base.draw_ears_and_voices(drawing_area, cc, talker, 0.);
-        base.draw_box(drawing_area, cc, talker, 0., 0.);
     }
 
-    fn move_to(&mut self, _x: f64, _y: f64) {}
+    fn move_to(&mut self, x: f64, y: f64) {
+        self.base().borrow_mut().x = x;
+        self.base().borrow_mut().y = y;
+    }
 
     fn on_button_release(&mut self, x: f64, y: f64, presenter: &RSessionPresenter) -> bool {
-        if self.base().borrow().area.is_under(x, y) {
+        let rx = x - self.base().borrow().x;
+        let ry = y - self.base().borrow().y;
+
+        if self.base().borrow().area.is_under(rx, ry) {
             true
         } else {
             false
@@ -351,95 +397,6 @@ pub trait TalkerControl {
     fn unselect_voice(&mut self, index: Index) {
         self.base().borrow_mut().voices[index].area.selected = false;
     }
-    /*
-    fn id(&self) -> Id {
-        self.visit_base(|base, _| base.id, ())
-    }
-
-    fn row(&self) -> i32 {
-        self.visit_base(|base, _| base.row, ())
-    }
-    fn set_row(&mut self, row: i32) {
-        self.visit_base(|base, _| base.row = row, ())
-    }
-    fn column(&self) -> i32 {
-        self.visit_base(|base, _| base.column, ())
-    }
-    fn set_column(&mut self, column: i32) {
-        self.visit_base(|base, column| base.column = column, column)
-    }
-    fn dependent_row(&self) -> i32 {
-        self.visit_base(|base, _| base.dependent_row, ())
-    }
-    fn set_dependent_row(&mut self, row: i32) {
-        self.visit_base(|base, row| base.dependent_row = row, row)
-    }
-    fn width(&self) -> f64 {
-        self.visit_base(|base, _| base.width, ())
-    }
-    fn height(&self) -> f64 {
-        self.visit_base(|base, _| base.height, ())
-    }
-
-    fn draw(
-        &self,
-        drawing_area: &DrawingArea,
-        cc: &Context,
-        talker: &RTalker,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
-        self.visit_base(
-            |base, _| {
-                base.draw_connections(drawing_area, cc, talker, talker_controls);
-                base.draw_header(drawing_area, cc, talker, 0., true, true, true);
-                base.draw_ears_and_voices(drawing_area, cc, talker, 0.);
-                base.draw_box(drawing_area, cc, talker, 0., 0.);
-            },
-            (),
-        );
-    }
-
-    fn move_to(&mut self, _x: f64, _y: f64) {}
-
-    fn on_button_release(&mut self, x: f64, y: f64, presenter: &RSessionPresenter) -> bool {
-        self.visit_base(
-            |base, presenter| {
-                if base.area.is_under(x, y) {
-                    true
-                } else {
-                    false
-                }
-            },
-            presenter,
-        )
-    }
-
-    fn select(&mut self) {
-        self.visit_base(|base, _| base.box_area.selected = true, ());
-    }
-
-    fn unselect(&mut self) {
-        self.visit_base(|base, _| base.box_area.selected = false, ());
-    }
-
-    fn select_ear(&mut self, index: Index) {
-        self.visit_base(|base, index| base.ears[index].area.selected = true, index);
-    }
-
-    fn unselect_ear(&mut self, index: Index) {
-        self.visit_base(|base, index| base.ears[index].area.selected = false, index);
-    }
-
-    fn select_voice(&mut self, index: Index) {
-        self.visit_base(|base, index| base.voices[index].area.selected = true, index);
-    }
-
-    fn unselect_voice(&mut self, index: Index) {
-        self.visit_base(
-            |base, index| base.voices[index].area.selected = false,
-            index,
-        );
-    }*/
 }
 
 pub type RTalkerControl = Rc<RefCell<dyn TalkerControl>>;
@@ -457,14 +414,6 @@ impl TalkerControlImpl {
 }
 
 impl TalkerControl for TalkerControlImpl {
-    /*
-    fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
-    where
-        F: FnMut(&mut TalkerControlBase, P) -> R,
-    {
-        f(self, p)
-    }
-    */
     fn base<'a>(&'a self) -> &'a RTalkerControlBase {
         &self.base
     }
@@ -472,4 +421,211 @@ impl TalkerControl for TalkerControlImpl {
 
 pub fn new_ref(talker: &RTalker) -> RTalkerControl {
     Rc::new(RefCell::new(TalkerControlImpl::new(talker)))
+}
+
+#[derive(Debug, Copy, Clone)]
+struct Dim {
+    w: f64,
+    h: f64,
+}
+impl Dim {
+    pub fn new(w: f64, h: f64) -> Dim {
+        Self { w, h }
+    }
+    pub fn of(cc: &Context, txt: &str) -> Dim {
+        let te = cc.text_extents(txt);
+        Dim::new(te.x_advance, te.height)
+    }
+}
+
+pub struct Builder<'a> {
+    cc: &'a Context,
+    input_dim: Dim,
+    output_dim: Dim,
+    add_dim: Dim,
+    sup_dim: Dim,
+    val_dim: Dim,
+}
+
+fn text_extents_to_dim(te: &cairo::TextExtents) -> Dim {
+    Dim::new(te.x_advance, te.height)
+}
+
+fn dim_to_area(dim: &Dim, x: f64, y: f64) -> Area {
+    Area::new(x, x + dim.w, y, y + dim.h)
+}
+
+impl<'a> Builder<'a> {
+    pub fn new(cc: &'a Context) -> Builder<'a> {
+        //    cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
+        cc.set_font_size(12.);
+        Self {
+            cc,
+            input_dim: Dim::of(cc, INPUT_TAG),
+            output_dim: Dim::of(cc, OUTPUT_TAG),
+            add_dim: Dim::of(cc, ADD_TAG),
+            sup_dim: Dim::of(cc, SUP_TAG),
+            val_dim: Dim::of(cc, VAL_TAG),
+        }
+    }
+
+    pub fn build(&self, rtalker: &RTalker) -> Result<RTalkerControl, failure::Error> {
+        let talker = rtalker.borrow();
+        let model_dim = Dim::of(self.cc, talker.model());
+        let name = talker.name();
+        let name_dim = Dim::of(self.cc, &name);
+        let data = format_data(&talker.data_string());
+        let data_dim = Dim::of(self.cc, &data);
+
+        let header_e_y = model_dim.h + MARGE + MARGE + name_dim.h + SPACE + data_dim.h + SPACE;
+        let mut ears_e_y = header_e_y;
+
+        let mut ears_e_x = 0.;
+        let mut ears = Vec::new();
+
+        for ear in talker.ears() {
+            let mut talks = Vec::new();
+            let ear_is_multi_talk = ear.is_multi_talk();
+
+            let (b_x, e_y, ear_e_x) = ear.fold_talks(
+                |talk, (b_x, b_y, ear_e_x)| {
+                    let tag_dim = Dim::of(self.cc, talk.tag());
+                    let (input_type, value, value_dim) = match talk.value() {
+                        Some(v) => {
+                            let value = format_value(&v);
+                            let value_dim = Dim::of(self.cc, &value);
+                            (InputType::Value, Some(value), value_dim)
+                        }
+                        None => (InputType::Talk, None, self.val_dim),
+                    };
+                    let mut e_x = b_x + tag_dim.w + MARGE + value_dim.w;
+                    let e_y = b_y + tag_dim.h;
+                    let tag_e_x = b_x + tag_dim.w;
+                    let value_b_x = tag_e_x + MARGE;
+                    let value_e_x = value_b_x + value_dim.w;
+
+                    let sup_area = if ear_is_multi_talk {
+                        e_x += self.sup_dim.w;
+                        Some(Area::new(value_e_x, value_e_x + self.sup_dim.w, b_y, e_y))
+                    } else {
+                        None
+                    };
+
+                    let talk_ctrl = TalkControl {
+                        area: Area::new(b_x, e_x, b_y, e_y),
+                        tag: talk.tag().to_string(),
+                        tag_area: Area::new(b_x, tag_e_x, b_y, e_y),
+                        value,
+                        value_area: Area::new(value_b_x, value_e_x, b_y, e_y),
+                        sup_area,
+                        //    b_y,
+                        input_type,
+                        //    root_index: i32,
+                    };
+                    talks.push(talk_ctrl);
+                    Ok((b_x, e_y + SPACE, f64::max(ear_e_x, e_x)))
+                },
+                (MARGE, ears_e_y, 0.),
+            )?;
+            let mut ear_e_y = e_y;
+
+            if ear_is_multi_talk {
+                ear_e_y += self.add_dim.h;
+
+                let add_ctrl = TalkControl {
+                    area: Area::new(b_x, ear_e_x, e_y, ear_e_y),
+                    tag: ADD_TAG.to_string(),
+                    tag_area: Area::new(0., -1., 0., -1.),
+                    value: None,
+                    value_area: Area::new(0., -1., 0., -1.),
+                    sup_area: None,
+                    //  b_y: e_y,
+                    input_type: InputType::Add,
+                    //    root_index: i32,
+                };
+                talks.push(add_ctrl);
+            }
+            let ear_ctrl = EarControl {
+                area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
+                talks,
+            };
+            ears.push(ear_ctrl);
+            ears_e_y = ear_e_y;
+            ears_e_x = f64::max(ears_e_x, ear_e_x);
+        }
+
+        let mut tmp_voices = Vec::new();
+        let voices_b_x = ears_e_x + MARGE;
+        let mut voices_e_x = MARGE + f64::max(name_dim.w, data_dim.w);
+        let mut voices_e_y = header_e_y;
+
+        for voice in talker.voices() {
+            let tag = voice.borrow().tag().to_string();
+            let tag_dim = Dim::of(self.cc, &tag);
+            let e_x = voices_b_x + tag_dim.w;
+            let e_y = voices_e_y + tag_dim.h;
+
+            let vc = VoiceControl {
+                tag,
+                area: Area::new(voices_b_x, e_x, voices_e_y, e_y),
+            };
+            tmp_voices.push(vc);
+            voices_e_x = f64::max(voices_e_x, e_x);
+            voices_e_y = e_y + SPACE;
+        }
+
+        let mut voices = Vec::new();
+
+        for voice in tmp_voices {
+            let b_x = voices_b_x + voices_e_x - voice.area.e_x;
+            let vc = VoiceControl {
+                tag: voice.tag,
+                area: Area::new(b_x, voices_e_x, voice.area.b_y, voice.area.e_y),
+            };
+            voices.push(vc);
+        }
+
+        let width = voices_e_x + MARGE;
+        let height = f64::max(ears_e_y, voices_e_y) + MARGE;
+
+        let model_b_x = (width - model_dim.w) / 2.;
+        let model_area = Area::new(model_b_x, model_b_x + model_dim.w, 0., model_dim.h);
+
+        let name_b_x = (width - name_dim.w) / 2.;
+        let name_b_y = model_dim.h + MARGE;
+        let name_e_y = name_b_y + name_dim.h;
+        let name_area = Area::new(name_b_x, name_b_x + name_dim.w, name_b_y, name_e_y);
+
+        let data_b_x = (width - data_dim.w) / 2.;
+        let data_e_y = name_e_y + SPACE;
+        let data_area = Area::new(
+            data_b_x,
+            data_b_x + data_dim.w,
+            data_e_y,
+            data_e_y + data_dim.h,
+        );
+
+        let box_area = Area::new(0., width, model_dim.h + MARGE, height);
+
+        let base = TalkerControlBase {
+            id: talker.id(),
+            area: Area::new(0., width, 0., height),
+            row: -1,
+            column: -1,
+            dependent_row: -1,
+            x: 0.,
+            y: 0.,
+            width,
+            height,
+            model_area,
+            name_area,
+            data_area,
+            box_area,
+            ears,
+            voices,
+        };
+        Ok(Rc::new(RefCell::new(TalkerControlImpl {
+            base: Rc::new(RefCell::new(base)),
+        })))
+    }
 }

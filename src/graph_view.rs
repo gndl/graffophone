@@ -22,6 +22,7 @@ use crate::session_presenter::RSessionPresenter;
 use crate::talker_control;
 use crate::talker_control::RTalkerControl;
 //use crate::talker_control:: TalkerControlBase;
+use crate::style;
 
 const MARGE: f64 = 50.;
 const PADDING: f64 = 5.;
@@ -62,19 +63,32 @@ where
     }
 }
 
-struct Collector {
+struct Collector<'c> {
+    builder: &'c talker_control::Builder<'c>,
     row: i32,
     column: i32,
     columns_properties: BTreeMap<i32, ColumnProperty>,
     talker_controls: HashMap<Id, RTalkerControl>,
 }
-impl Collector {
-    pub fn new(row: i32, column: i32) -> Collector {
+impl<'c> Collector<'c> {
+    pub fn new(builder: &'c talker_control::Builder, row: i32, column: i32) -> Collector<'c> {
         Self {
+            builder,
             row,
             column,
             columns_properties: BTreeMap::new(),
             talker_controls: HashMap::new(),
+        }
+    }
+
+    pub fn add(&mut self, talker: &RTalker) -> Result<bool, failure::Error> {
+        let id = talker.borrow().id();
+
+        if self.talker_controls.contains_key(&id) {
+            Ok(false)
+        } else {
+            self.talker_controls.insert(id, self.builder.build(talker)?);
+            Ok(true)
         }
     }
 }
@@ -83,6 +97,9 @@ pub struct GraphView {
     presenter: RSessionPresenter,
     drawing_area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
+    width: f64,
+    height: f64,
+    build_needed: bool,
 }
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
@@ -92,24 +109,22 @@ impl GraphView {
             presenter,
             drawing_area: DrawingArea::new(),
             talker_controls: HashMap::new(),
+            width: 0.,
+            height: 0.,
+            build_needed: true,
         }));
-        GraphView::connect_area(&rgv, rgv.borrow().drawing_area());
+        GraphView::connect_drawing_area(&rgv, rgv.borrow().drawing_area());
         GraphView::observe(&rgv, rgv.borrow().presenter.borrow().event_bus());
 
         rgv
     }
 
-    fn connect_area(rgraphview: &RGraphView, drawing_area: &DrawingArea) {
+    fn connect_drawing_area(rgraphview: &RGraphView, drawing_area: &DrawingArea) {
         drawing_area.add_events(
             // gdk::EventMask::KEY_PRESS_MASK |
             gdk::EventMask::BUTTON_PRESS_MASK | gdk::EventMask::BUTTON_RELEASE_MASK,
         );
 
-        //            drawing_area.set_can_focus(true);
-        // drawing_area.connect_key_press_event(|_, ev| {
-        //     println!("Key {} pressed", ev.get_keyval());
-        //     Inhibit(false)
-        // });
         let rgv = rgraphview.clone();
         drawing_area
             .connect_button_release_event(move |w, ev| rgv.borrow_mut().on_button_release(w, ev));
@@ -122,7 +137,8 @@ impl GraphView {
         &self.drawing_area
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
+        self.build_needed = true;
         self.drawing_area.queue_draw();
     }
 
@@ -139,19 +155,6 @@ impl GraphView {
         }
         Inhibit(operated)
     }
-
-    /*
-    fn draw_graph(drawing_area: &DrawingArea, cc: &Context, text: &str) -> Inhibit {
-        let w = 2048;
-        let h = 1024;
-        drawing_area.set_size_request(w, h);
-        cc.set_line_width(5.);
-        cc.set_source_rgb(0., 0., 0.);
-        cc.rectangle(5., 5., 2038., 1014.);
-        cc.stroke();
-        Inhibit(false)
-    }
-     */
 
     fn column_layout(
         x0: f64,
@@ -229,15 +232,8 @@ impl GraphView {
     ) -> Result<(), failure::Error> {
         // create GTalkers and define there row and column
         if !talker.borrow().is_hidden() {
-            let mut is_new_talker_control = false;
+            let is_new_talker_control = collector.add(talker)?;
             let id = talker.borrow().id();
-
-            if !collector.talker_controls.contains_key(&id) {
-                collector
-                    .talker_controls
-                    .insert(id, talker_control::new_ref(talker));
-                is_new_talker_control = true;
-            }
 
             if let Some(tkrc) = &collector.talker_controls.get_mut(&id) {
                 let mut talks_count = 0;
@@ -289,11 +285,11 @@ impl GraphView {
     fn create_graph(
         &mut self,
         drawing_area: &DrawingArea,
-        cc: &Context,
+        builder: &talker_control::Builder,
     ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
         let presenter = self.presenter.borrow();
 
-        let mut collector = Collector::new(0, 1);
+        let mut collector = Collector::new(builder, 0, 1);
         // let mut columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
 
         /* create graph by covering mixers */
@@ -336,7 +332,7 @@ impl GraphView {
         }
 
         /* position GTalkers */
-        let (w, h) = GraphView::column_layout(
+        let (graph_w, graph_h) = GraphView::column_layout(
             0.,
             0.,
             &mut collector.talker_controls,
@@ -381,7 +377,7 @@ impl GraphView {
         /* sort the root unused talkers in decreasing order
         in order to have the newest talker at the top of the sandbox */
         //        let mut acc = (0, 0, &sandbox_columns_properties, &unused_talker_controls);
-        let mut sandbox_collector = Collector::new(0, 0);
+        let mut sandbox_collector = Collector::new(builder, 0, 0);
         //        let mut acc = &mut sandbox_collector;
 
         for tkr in root_unused_talkers.values() {
@@ -392,7 +388,7 @@ impl GraphView {
         /* position unused GTalkers under used GTalkers e.g the sandbox zone */
         let (sandbox_w, sandbox_h) = GraphView::column_layout(
             MARGE,
-            h + MARGE,
+            graph_h + MARGE,
             &mut sandbox_collector.talker_controls,
             &mut sandbox_collector.columns_properties,
         );
@@ -415,13 +411,18 @@ impl GraphView {
         // }
 
         // canvas#set_scroll_region ~x1:0. ~y1:(-.PADDING)
-        //   ~x2:((max w sandbox_w) +. PADDING) ~y2:(h +. MARGE +. sandbox_h +. PADDING);
+        //   ~x2:((max graph_w sandbox_w) +. PADDING) ~y2:(graph_h +. MARGE +. sandbox_h +. PADDING);
+
+        self.width = MARGE + f64::max(graph_w, sandbox_w) + MARGE;
+        self.height = graph_h + MARGE + sandbox_h + PADDING;
 
         Ok(talker_controls)
     }
 
     fn build(&mut self, drawing_area: &DrawingArea, cc: &Context) {
-        match self.create_graph(drawing_area, cc) {
+        let builder = talker_control::Builder::new(cc);
+
+        match self.create_graph(drawing_area, &builder) {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
@@ -429,13 +430,24 @@ impl GraphView {
                                 }
                 */
                 self.talker_controls = talker_controls;
+                drawing_area.set_size_request(self.width as i32, self.height as i32);
+                self.build_needed = false;
             }
             Err(e) => eprintln!("{}", e),
         }
     }
 
     fn on_draw(&mut self, drawing_area: &DrawingArea, cc: &Context) -> Inhibit {
-        self.build(drawing_area, cc);
+        if self.build_needed {
+            println!("GraphView::on_draw with build needed");
+
+            self.build(drawing_area, cc);
+        } else {
+            println!("GraphView::on_draw without build needed");
+        }
+        style::background(cc);
+        cc.rectangle(0., 0., self.width, self.height);
+        cc.fill();
 
         let presenter = self.presenter.borrow();
         let talkers = presenter.session().talkers();

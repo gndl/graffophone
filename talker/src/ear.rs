@@ -31,6 +31,9 @@ impl Talk {
     pub fn port(&self) -> Index {
         self.port
     }
+    pub fn value(&self) -> Option<f32> {
+        self.tkr.borrow().voice_value(self.port)
+    }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
         let tkr = self.tkr.borrow();
@@ -99,6 +102,13 @@ pub enum Ear {
 }
 
 impl Ear {
+    pub fn is_multi_talk(&self) -> bool {
+        match self {
+            Ear::Talks(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         match self {
             Ear::Talk(talk) => talk.borrow().audio_buffer(),

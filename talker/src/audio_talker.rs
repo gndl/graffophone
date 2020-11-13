@@ -6,6 +6,7 @@ pub const MODEL: &str = "AudioTalker";
 
 pub struct AudioTalker {
     base: TalkerBase,
+    value: f32,
 }
 
 impl AudioTalker {
@@ -16,7 +17,7 @@ impl AudioTalker {
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
-        Self { base }
+        Self { base, value }
     }
 }
 
@@ -36,5 +37,20 @@ impl Talker for AudioTalker {
             vc.set_tick(tick);
         }
         len
+    }
+
+    fn voice_value(&self, port: usize) -> Option<f32> {
+        if port == 0 && self.is_hidden() {
+            /*            let res;
+            {
+                let voice = self.voices().get(0).unwrap();
+                res = voice.borrow().audio_buffer().get()[0];
+            }
+            Some(res)
+                */
+            Some(self.value)
+        } else {
+            None
+        }
     }
 }

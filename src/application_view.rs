@@ -124,7 +124,7 @@ impl ApplicationView {
 
         let graph_view_scrolledwindow =
             gtk::ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-        graph_view_scrolledwindow.add(graph_view.borrow().area());
+        graph_view_scrolledwindow.add(graph_view.borrow().drawing_area());
         split_pane.pack_start(&graph_view_scrolledwindow, true, true, 0);
 
         // Vertical box
@@ -172,7 +172,7 @@ impl ApplicationView {
                     Ok(otalker_model) => match otalker_model {
                         Some(talker_model) => {
                             session_ctrl.borrow_mut().add_talker(&talker_model);
-                            graph_view.borrow().draw();
+                            graph_view.borrow_mut().draw();
                         }
                         None => {
                             if let Some(path) = model.get_path(&iter) {
