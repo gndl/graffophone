@@ -3,17 +3,18 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
-use talker::talker::{Talker, TalkerBase};
+use talker::talker::{RTalker, Talker, TalkerBase};
 
 use crate::audio_data::Vector;
 use crate::output::ROutput;
-use crate::track::Track;
+use crate::track::{RTrack, Track};
 
 pub const KIND: &str = "mixer";
 
 pub struct Mixer {
     base: TalkerBase,
-    tracks: Vec<Track>,
+    //    talker: RTalker,
+    tracks: Vec<RTrack>,
     outputs: Vec<ROutput>,
     tick: i64,
     productive: bool,
@@ -22,32 +23,43 @@ pub struct Mixer {
 pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
-    pub fn new(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> Mixer {
+    pub fn new(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> Mixer {
         let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::cv(Some("volume"), Some(1.), None));
 
         Self {
             base,
+            //            talker: ear::def_audio_talker(None),
             tracks: tracks.unwrap_or(Vec::new()),
             outputs: outputs.unwrap_or(Vec::new()),
             tick: 0,
             productive: false,
         }
     }
-    pub fn new_ref(tracks: Option<Vec<Track>>, outputs: Option<Vec<ROutput>>) -> RMixer {
+    pub fn new_ref(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> RMixer {
         Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
     }
+
+    // pub fn new_ref(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> RMixer {
+    //     let rmixer = Rc::new(RefCell::new(Mixer::new(tracks, outputs)));
+    //     rmixer.borrow_mut().talker = rmixer.clone();
+    //     rmixer
+    // }
 
     pub fn kind() -> &'static str {
         KIND
     }
 
-    pub fn tracks<'a>(&'a self) -> &'a Vec<Track> {
+    // pub fn talker<'a>(&'a self) -> &'a RTalker {
+    //     &self.talker
+    // }
+
+    pub fn tracks<'a>(&'a self) -> &'a Vec<RTrack> {
         &self.tracks
     }
 
-    pub fn add_track(&mut self, track: Track) {
+    pub fn add_track(&mut self, track: RTrack) {
         self.tracks.push(track);
     }
 
@@ -112,7 +124,7 @@ impl Mixer {
 
         match self.tracks.get(0) {
             Some(track) => {
-                ln = track.set(tick, buf, ln, channels);
+                ln = track.borrow().set(tick, buf, ln, channels);
             }
             _ => (),
         };
@@ -120,7 +132,7 @@ impl Mixer {
         for i in 1..self.tracks.len() {
             match self.tracks.get(i) {
                 Some(track) => {
-                    ln = track.add(tick, buf, ln, channels);
+                    ln = track.borrow().add(tick, buf, ln, channels);
                 }
                 _ => (),
             };

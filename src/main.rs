@@ -18,6 +18,7 @@ mod mixer_control;
 mod session_presenter;
 mod style;
 mod talker_control;
+mod track_control;
 mod util;
 
 use application_view::ApplicationView;

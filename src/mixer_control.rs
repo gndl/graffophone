@@ -13,62 +13,95 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-/*
-let separatorProperties = [
-  `FILL_COLOR_RGBA GTkr.boxBorderColor;
-  `WIDTH_PIXELS 1]
-*/
-
 use std::cell::RefCell;
-//use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-//use gdk::EventMask;
-//use gio::prelude::*;
-//use gtk::gtk_sys::GtkScrolledWindow;
-//use gtk::prelude::*;
-use gtk::DrawingArea;
-
-//use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
 use talker::identifier::Id;
 use talker::talker::{RTalker, Talker};
 
 //use session::event_bus::{Notification, REventBus};
-use session::mixer::RMixer;
+use session::mixer::{Mixer, RMixer};
 
-//use crate::graph_control::GraphControl;
+use crate::track_control::{RTrackControl, TrackControl};
 //use crate::session_controler::RSessionPresenter;
-use crate::talker_control::{RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase};
-
-pub struct TrackControl {
-    base: RTalkerControlBase,
-}
+use crate::talker_control::{
+    ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
+};
 
 pub struct MixerControl {
     base: RTalkerControlBase,
-    track_controls: Vec<TrackControl>,
+    track_controls: Vec<RTalkerControl>,
+    track_controls_b_y: f64,
 }
 
 impl MixerControl {
-    pub fn new(mixer: &RMixer, row: i32, column: i32) -> MixerControl {
-        let base = TalkerControlBase::new_ref(mixer.borrow().base());
+    pub fn new(
+        rmixer: &RMixer,
+        control_supply: &ControlSupply,
+    ) -> Result<MixerControl, failure::Error> {
+        let rtalker: RTalker = rmixer.clone();
+        let base = TalkerControlBase::new_ref(&rtalker, control_supply, false, true, false)?;
 
-        base.borrow_mut().row = row;
-        base.borrow_mut().column = column;
+        let mut track_controls = Vec::new();
 
-        Self {
-            base,
-            track_controls: Vec::new(),
+        let mut width = base.borrow_mut().width();
+        let mut height = base.borrow_mut().height();
+        let track_controls_b_y = height;
+
+        for track in rmixer.borrow().tracks() {
+            let track_control = TrackControl::new_ref(track, control_supply)?;
+
+            width = f64::max(width, track_control.borrow().width());
+            height += track_control.borrow().height();
+
+            track_controls.push(track_control);
         }
+
+        for tc in &track_controls {
+            tc.borrow_mut().set_width(width);
+        }
+
+        base.borrow_mut().set_width(width);
+        base.borrow_mut().set_width(height);
+        /*
+                        let topTrackY = self#getHeight +. GTkr.space in
+
+                        let (w, h, gTrks) = L.fold_left mixingConsole#getTracks
+                            ~init:(self#getWidth +. 20., topTrackY, [])
+                            ~f:(fun (w, h, gTrks) track ->
+                                let gTrk = new GTrack.c track ~group:self#getGroup canvas in
+
+                                gTrk#setWidth w;
+
+                                gTrk#draw (1. -. GTkr.boxRadius) h;
+
+                                (max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
+                              ) in
+
+                        self#setWidth(w -. GTkr.boxRadius);
+                        self#setHeight(h +. GTkr.marge -. pY);
+                        mGTracks <- gTrks;
+        */
+        Ok(Self {
+            base,
+            track_controls,
+            track_controls_b_y,
+        })
     }
-    pub fn new_ref(mixer: &RMixer, row: i32, column: i32) -> RTalkerControl {
-        Rc::new(RefCell::new(MixerControl::new(mixer, row, column)))
+    pub fn new_ref(
+        mixer: &RMixer,
+        control_supply: &ControlSupply,
+    ) -> Result<RTalkerControl, failure::Error> {
+        Ok(Rc::new(RefCell::new(MixerControl::new(
+            mixer,
+            control_supply,
+        )?)))
     }
 
-    pub fn track_controls<'a>(&'a self) -> &'a Vec<TrackControl> {
+    pub fn track_controls<'a>(&'a self) -> &'a Vec<RTalkerControl> {
         &self.track_controls
     }
 }
@@ -76,12 +109,6 @@ impl TalkerControl for MixerControl {
     fn base<'a>(&'a self) -> &'a RTalkerControlBase {
         &self.base
     }
-    // fn visit_base<F, P, R>(&mut self, mut f: F, p: P) -> R
-    // where
-    //     F: FnMut(&mut TalkerControlBase, P) -> R,
-    // {
-    //     f(self.base.borrow_mut(), p)
-    // }
     /*
      _______________
     |     NAME      |
@@ -93,54 +120,50 @@ impl TalkerControl for MixerControl {
     |volume #       |
     |_______________|
     */
-    fn draw(
-        &self,
-        drawing_area: &DrawingArea,
-        cr: &Context,
-        talker: &RTalker,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
+    fn draw(&self, cc: &Context, talker: &RTalker, talker_controls: &HashMap<Id, RTalkerControl>) {
+        let base = self.base.borrow();
+        base.draw_connections(cc, talker, talker_controls);
+        base.draw_box(cc, talker, 0., 0.);
+        base.draw_header(cc, talker, 0.);
+
+        base.draw_ears_and_voices(cc, talker, 0.);
+
+        for trkc in &self.track_controls {
+            trkc.borrow().draw(cc, talker, talker_controls);
+        }
         /*
-        self#drawHeader pY false true false;
+                        self#drawHeader pY false true false;
 
-        let topTrackY = self#getHeight +. GTkr.space in
 
-        let (w, h, gTrks) = L.fold_left mixingConsole#getTracks
-            ~init:(self#getWidth +. 20., topTrackY, [])
-            ~f:(fun (w, h, gTrks) track ->
-                let gTrk = new GTrack.c track ~group:self#getGroup canvas in
+                      self#drawEarsVoices pY;
+                      self#drawBox pX pY;
 
-                gTrk#setWidth w;
+                      let w = self#getWidth in
+                      let points = [|pX; topTrackY; pX +. w; topTrackY|] in
 
-                gTrk#draw (1. -. GTkr.boxRadius) h;
+                      ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
 
-                (max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
-              ) in
+                      ignore(L.fold_left gTrks ~init:topTrackY
+                               ~f:(fun y gTkr ->
+                                   let y = y +. gTkr#getHeight in
+                                   let points = [|pX; y; pX +. w; y|] in
 
-        self#setWidth(w -. GTkr.boxRadius);
-        self#setHeight(h +. GTkr.marge -. pY);
-        mGTracks <- gTrks;
+                                   ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
+                                   y
+                                 ));
 
-        self#drawEarsVoices pY;
-        self#drawBox pX pY;
-
-        let w = self#getWidth in
-        let points = [|pX; topTrackY; pX +. w; topTrackY|] in
-
-        ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-
-        ignore(L.fold_left gTrks ~init:topTrackY
-                 ~f:(fun y gTkr ->
-                     let y = y +. gTkr#getHeight in
-                     let points = [|pX; y; pX +. w; y|] in
-
-                     ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-                     y
-                   ));
-         */
+        */
     }
 
-    //    fn move_to(&mut self, _x: f64, _y: f64) {}
+    fn move_to(&mut self, x: f64, y: f64) {
+        let mut trkc_b_y = y + self.track_controls_b_y;
+        for trkc in &self.track_controls {
+            trkc.borrow().base().borrow_mut().move_to(x, trkc_b_y);
+            trkc_b_y += trkc.borrow().height();
+        }
+
+        self.base().borrow_mut().move_to(x, y);
+    }
     /*
         fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionPresenter) -> bool {
             if self.base().borrow_mut().on_button_release(x, y, controler) {

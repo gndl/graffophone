@@ -220,32 +220,42 @@ impl Band {
     }
 
     fn make_track(
+        &mut self,
         factory: &Factory,
         talkers: &HashMap<&str, RTalker>,
         module: &Module,
-    ) -> Result<Track, failure::Error> {
-        let mut track = factory.make_track(
+    ) -> Result<RTrack, failure::Error> {
+        let rtrack = factory.make_track(
             Some(Band::id_from_mref(module.mref)?),
             Some(Band::name_from_mref(module.mref)),
         )?;
+        {
+            let mut track = rtrack.borrow_mut();
 
-        for (tag, dpn, tkn) in &module.attributs {
-            match f32::from_str(&dpn) {
-                Ok(value) => track.set_ear_value_by_tag(&tag, value)?,
-                Err(_) => match talkers.get(dpn) {
-                    Some(tkr) => {
-                        track.set_ear_voice_by_tag(&tag, tkr, tkr.borrow().voice_port(&tkn)?)?
-                    }
-                    None => {
-                        return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
-                    }
-                },
+            for (tag, dpn, tkn) in &module.attributs {
+                match f32::from_str(&dpn) {
+                    Ok(value) => track.set_ear_value_by_tag(&tag, value)?,
+                    Err(_) => match talkers.get(dpn) {
+                        Some(tkr) => {
+                            track.set_ear_voice_by_tag(&tag, tkr, tkr.borrow().voice_port(&tkn)?)?
+                        }
+                        None => {
+                            return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
+                        }
+                    },
+                }
             }
         }
-        Ok(track)
+        // let id = rtrack.borrow().id();
+        // self.talkers.insert(id, rtrack.clone());
+        Ok(rtrack)
     }
 
-    fn make_output(factory: &Factory, module: &Module) -> Result<ROutput, failure::Error> {
+    fn make_output(
+        &mut self,
+        factory: &Factory,
+        module: &Module,
+    ) -> Result<ROutput, failure::Error> {
         factory.make_output(
             Some(Band::id_from_mref(module.mref)?),
             Some(Band::name_from_mref(module.mref)),
@@ -255,6 +265,7 @@ impl Band {
     }
 
     fn make_mixer(
+        &mut self,
         factory: &Factory,
         talkers: &HashMap<&str, RTalker>,
         trk_decs: &HashMap<&str, Module>,
@@ -273,12 +284,12 @@ impl Band {
             for (tag, dpn, tkn) in &module.attributs {
                 if tag == &Track::kind() {
                     match trk_decs.get(dpn) {
-                        Some(trk) => mixer.add_track(Band::make_track(factory, &talkers, trk)?),
+                        Some(trk) => mixer.add_track(self.make_track(factory, &talkers, trk)?),
                         None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
                     }
                 } else if tag == &output::KIND {
                     match otp_decs.get(dpn) {
-                        Some(otp) => mixer.add_output(Band::make_output(factory, otp)?),
+                        Some(otp) => mixer.add_output(self.make_output(factory, otp)?),
                         None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
                     }
                 } else {
@@ -331,7 +342,7 @@ impl Band {
         }
 
         for (_, module) in mxr_decs {
-            let rmixer = Band::make_mixer(factory, &talkers, &trk_decs, &otp_decs, &module)?;
+            let rmixer = band.make_mixer(factory, &talkers, &trk_decs, &otp_decs, &module)?;
             band.add_mixer(rmixer);
         }
 
@@ -411,10 +422,10 @@ impl Band {
                     file,
                     "\n{} {}",
                     track::KIND,
-                    Band::mref(trk.id(), &trk.name())
+                    Band::mref(trk.borrow().id(), &trk.borrow().name())
                 )?;
 
-                for ear in trk.ears() {
+                for ear in trk.borrow().ears() {
                     ear.fold_talks(Band::talk_dep_line, &file)?;
                 }
             }
@@ -435,7 +446,7 @@ impl Band {
                     file,
                     "> {} {}",
                     track::KIND,
-                    Band::mref(trk.id(), &trk.name())
+                    Band::mref(trk.borrow().id(), &trk.borrow().name())
                 )?;
             }
 
@@ -476,7 +487,10 @@ impl Band {
     }
 
     pub fn add_mixer(&mut self, rmixer: RMixer) {
-        let id = rmixer.borrow_mut().id();
+        let id = rmixer.borrow().id();
+        self.talkers.insert(id, rmixer.clone());
+
+        //        self.talkers.insert(id, rmixer.borrow().talker().clone());
         self.mixers.insert(id, rmixer);
     }
 

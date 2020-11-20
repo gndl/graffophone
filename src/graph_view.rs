@@ -9,7 +9,6 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk::{DrawingArea, WidgetExt};
 
-//use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
 use talker::identifier::Id;
@@ -20,7 +19,7 @@ use session::event_bus::{Notification, REventBus};
 use crate::mixer_control::MixerControl;
 use crate::session_presenter::RSessionPresenter;
 use crate::talker_control;
-use crate::talker_control::RTalkerControl;
+use crate::talker_control::{ControlSupply, RTalkerControl};
 //use crate::talker_control:: TalkerControlBase;
 use crate::style;
 
@@ -64,16 +63,16 @@ where
 }
 
 struct Collector<'c> {
-    builder: &'c talker_control::Builder<'c>,
+    control_supply: &'c ControlSupply<'c>,
     row: i32,
     column: i32,
     columns_properties: BTreeMap<i32, ColumnProperty>,
     talker_controls: HashMap<Id, RTalkerControl>,
 }
 impl<'c> Collector<'c> {
-    pub fn new(builder: &'c talker_control::Builder, row: i32, column: i32) -> Collector<'c> {
+    pub fn new(control_supply: &'c ControlSupply, row: i32, column: i32) -> Collector<'c> {
         Self {
-            builder,
+            control_supply,
             row,
             column,
             columns_properties: BTreeMap::new(),
@@ -81,13 +80,14 @@ impl<'c> Collector<'c> {
         }
     }
 
-    pub fn add(&mut self, talker: &RTalker) -> Result<bool, failure::Error> {
+    pub fn add_if_new(&mut self, talker: &RTalker) -> Result<bool, failure::Error> {
         let id = talker.borrow().id();
 
         if self.talker_controls.contains_key(&id) {
             Ok(false)
         } else {
-            self.talker_controls.insert(id, self.builder.build(talker)?);
+            self.talker_controls
+                .insert(id, talker_control::new_ref(talker, self.control_supply)?);
             Ok(true)
         }
     }
@@ -232,7 +232,7 @@ impl GraphView {
     ) -> Result<(), failure::Error> {
         // create GTalkers and define there row and column
         if !talker.borrow().is_hidden() {
-            let is_new_talker_control = collector.add(talker)?;
+            let is_new_talker_control = collector.add_if_new(talker)?;
             let id = talker.borrow().id();
 
             if let Some(tkrc) = &collector.talker_controls.get_mut(&id) {
@@ -285,144 +285,137 @@ impl GraphView {
     fn create_graph(
         &mut self,
         drawing_area: &DrawingArea,
-        builder: &talker_control::Builder,
+        control_supply: &ControlSupply,
     ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
         let presenter = self.presenter.borrow();
-
-        let mut collector = Collector::new(builder, 0, 1);
-        // let mut columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
-
-        /* create graph by covering mixers */
-        let mixers_column_property =
-            ColumnProperty::new(0., 0., presenter.session().mixers().len() as i32);
-        collector
-            .columns_properties
-            .insert(0, mixers_column_property);
-
-        for (row, (mxr_id, mixer)) in self
-            .presenter
-            .borrow()
-            .session()
-            .mixers()
-            .iter()
-            .enumerate()
+        let session = presenter.session();
         {
-            collector.row = row as i32;
-            let mxrc = MixerControl::new_ref(mixer, collector.row, 0);
+            let mut collector = Collector::new(control_supply, 0, 1);
 
-            /* create GTalkers by covering talkers for each track */
-            //            let mut acc = (row, 1, &columns_properties, &talker_controls);
-            //            let mut acc = &mut collector;
+            /* create graph by covering mixers */
+            let mixers_column_property = ColumnProperty::new(0., 0., session.mixers().len() as i32);
+            collector
+                .columns_properties
+                .insert(0, mixers_column_property);
 
-            for track in mixer.borrow().tracks() {
-                for ear in track.ears() {
-                    //                    acc =
-                    ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
-                }
-            }
+            for (row, (mxr_id, mixer)) in session.mixers().iter().enumerate() {
+                collector.row = row as i32;
+                let mxrc = MixerControl::new_ref(mixer, control_supply)?;
 
-            for ear in mixer.borrow().ears() {
-                //                acc =
-                ear.iter_talkers(
-                    GraphView::make_talker_controls,
-                    &mut collector, //                    (row, 1, &columns_properties, &talker_controls),
-                )?;
-            }
-            collector.talker_controls.insert(*mxr_id, mxrc);
-        }
+                mxrc.borrow_mut().set_row(collector.row);
+                mxrc.borrow_mut().set_column(0);
 
-        /* position GTalkers */
-        let (graph_w, graph_h) = GraphView::column_layout(
-            0.,
-            0.,
-            &mut collector.talker_controls,
-            &mut collector.columns_properties,
-        );
+                /* create GTalkers by covering talkers for each track */
+                //            let mut acc = (row, 1, &columns_properties, &talker_controls);
+                //            let mut acc = &mut collector;
 
-        /*********** SANDBOX ***********/
-        /* create unused GTalkers */
-        /*let (uW, uH) = positionUnusedTalkers MARGE (h +. MARGE) talker_controls canvas in*/
-
-        /* list the unused talkers e.g not in the talker_controls list */
-        let mut unused_talkers = Vec::new();
-
-        for (id, tkr) in presenter.session().talkers() {
-            if !tkr.borrow().is_hidden() && !collector.talker_controls.contains_key(id) {
-                unused_talkers.push(tkr);
-            }
-        }
-
-        /* define the unused talkers reference count */
-        let mut root_unused_talkers: BTreeMap<Id, &RTalker> = BTreeMap::new();
-
-        for tkr in &unused_talkers {
-            root_unused_talkers.insert(tkr.borrow().id(), tkr);
-        }
-
-        for tkr in &unused_talkers {
-            for ear in tkr.borrow().ears() {
-                ear.iter_talkers(
-                    |dep_tkr, _| {
-                        let _ = root_unused_talkers.remove(&dep_tkr.borrow().id());
-                        Ok(())
-                    },
-                    &mut (),
-                )?;
-            }
-        }
-
-        // let mut unused_talker_controls: HashMap<Id, RTalkerControl> = HashMap::new();
-        // let mut sandbox_columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
-
-        /* sort the root unused talkers in decreasing order
-        in order to have the newest talker at the top of the sandbox */
-        //        let mut acc = (0, 0, &sandbox_columns_properties, &unused_talker_controls);
-        let mut sandbox_collector = Collector::new(builder, 0, 0);
-        //        let mut acc = &mut sandbox_collector;
-
-        for tkr in root_unused_talkers.values() {
-            //            acc =
-            GraphView::make_talker_controls(tkr, &mut sandbox_collector)?;
-        }
-
-        /* position unused GTalkers under used GTalkers e.g the sandbox zone */
-        let (sandbox_w, sandbox_h) = GraphView::column_layout(
-            MARGE,
-            graph_h + MARGE,
-            &mut sandbox_collector.talker_controls,
-            &mut sandbox_collector.columns_properties,
-        );
-
-        let mut talker_controls: HashMap<Id, RTalkerControl> = HashMap::new();
-        talker_controls.extend(collector.talker_controls);
-        talker_controls.extend(sandbox_collector.talker_controls);
-
-        /* add GTracks in GTalkers list for connection and action */
-        /*
-                for mxrc in mxrcs {
-                    for trkc in mxrc.tracks() {
-                        talker_controls.insert(trkc.talker.borrow().id(), tkrc);
+                for track in mixer.borrow().tracks() {
+                    for ear in track.borrow().ears() {
+                        //                    acc =
+                        ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
                     }
                 }
-        */
-        /* draw connections */
-        // for tkrc in talker_controls.values() {
-        //     tkrc.borrow().draw_connections(&talker_controls);
-        // }
 
-        // canvas#set_scroll_region ~x1:0. ~y1:(-.PADDING)
-        //   ~x2:((max graph_w sandbox_w) +. PADDING) ~y2:(graph_h +. MARGE +. sandbox_h +. PADDING);
+                for ear in mixer.borrow().ears() {
+                    //                acc =
+                    ear.iter_talkers(
+                        GraphView::make_talker_controls,
+                        &mut collector, //                    (row, 1, &columns_properties, &talker_controls),
+                    )?;
+                }
+                collector.talker_controls.insert(*mxr_id, mxrc);
+            }
 
-        self.width = MARGE + f64::max(graph_w, sandbox_w) + MARGE;
-        self.height = graph_h + MARGE + sandbox_h + PADDING;
+            /* position GTalkers */
+            let (graph_w, graph_h) = GraphView::column_layout(
+                MARGE,
+                MARGE,
+                &mut collector.talker_controls,
+                &mut collector.columns_properties,
+            );
 
-        Ok(talker_controls)
+            /*********** SANDBOX ***********/
+            /* create unused GTalkers */
+            /*let (uW, uH) = positionUnusedTalkers MARGE (h +. MARGE) talker_controls canvas in*/
+
+            /* list the unused talkers e.g not in the talker_controls list */
+            let mut unused_talkers = Vec::new();
+
+            for (id, tkr) in session.talkers() {
+                if !tkr.borrow().is_hidden() && !collector.talker_controls.contains_key(id) {
+                    unused_talkers.push(tkr);
+                }
+            }
+
+            /* define the unused talkers reference count */
+            let mut root_unused_talkers: BTreeMap<Id, &RTalker> = BTreeMap::new();
+
+            for tkr in &unused_talkers {
+                root_unused_talkers.insert(tkr.borrow().id(), tkr);
+            }
+
+            for tkr in &unused_talkers {
+                for ear in tkr.borrow().ears() {
+                    ear.iter_talkers(
+                        |dep_tkr, _| {
+                            let _ = root_unused_talkers.remove(&dep_tkr.borrow().id());
+                            Ok(())
+                        },
+                        &mut (),
+                    )?;
+                }
+            }
+
+            // let mut unused_talker_controls: HashMap<Id, RTalkerControl> = HashMap::new();
+            // let mut sandbox_columns_properties: BTreeMap<i32, ColumnProperty> = BTreeMap::new();
+
+            /* sort the root unused talkers in decreasing order
+            in order to have the newest talker at the top of the sandbox */
+            //        let mut acc = (0, 0, &sandbox_columns_properties, &unused_talker_controls);
+            let mut sandbox_collector = Collector::new(control_supply, 0, 0);
+            //        let mut acc = &mut sandbox_collector;
+
+            for tkr in root_unused_talkers.values() {
+                //            acc =
+                GraphView::make_talker_controls(tkr, &mut sandbox_collector)?;
+            }
+
+            /* position unused GTalkers under used GTalkers e.g the sandbox zone */
+            let (sandbox_w, sandbox_h) = GraphView::column_layout(
+                MARGE,
+                graph_h + MARGE,
+                &mut sandbox_collector.talker_controls,
+                &mut sandbox_collector.columns_properties,
+            );
+
+            let mut talker_controls: HashMap<Id, RTalkerControl> = HashMap::new();
+            talker_controls.extend(collector.talker_controls);
+            talker_controls.extend(sandbox_collector.talker_controls);
+
+            /* add GTracks in GTalkers list for connection and action */
+            /*
+                                    for mxrc in mxrcs {
+                                        for trkc in mxrc.tracks() {
+                                            talker_controls.insert(trkc.borrow().id(), tkrc);
+                                        }
+                                    }
+            */
+            /* draw connections */
+            // for tkrc in talker_controls.values() {
+            //     tkrc.borrow().draw_connections(&talker_controls);
+            // }
+
+            self.width = f64::max(MARGE + f64::max(graph_w, sandbox_w) + MARGE, 1024.);
+            self.height = f64::max(graph_h + MARGE + sandbox_h + PADDING, 768.);
+
+            Ok(talker_controls)
+        }
     }
 
     fn build(&mut self, drawing_area: &DrawingArea, cc: &Context) {
-        let builder = talker_control::Builder::new(cc);
+        let control_supply = ControlSupply::new(cc);
 
-        match self.create_graph(drawing_area, &builder) {
+        match self.create_graph(drawing_area, &control_supply) {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
@@ -449,55 +442,14 @@ impl GraphView {
         cc.rectangle(0., 0., self.width, self.height);
         cc.fill();
 
-        let presenter = self.presenter.borrow();
-        let talkers = presenter.session().talkers();
-
         for (id, tkrc) in &self.talker_controls {
-            match talkers.get(&id) {
+            match self.presenter.borrow().session().talkers().get(&id) {
                 Some(talker) => {
-                    tkrc.borrow()
-                        .draw(drawing_area, cc, talker, &self.talker_controls);
+                    tkrc.borrow().draw(cc, talker, &self.talker_controls);
                 }
                 None => (),
             }
         }
-        /*
-            //    cc.scale(1000f64, 1000f64);
-            //    cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-            cc.set_font_size(12.);
-
-            // let w = extents.width + 20.;
-            // let h = extents.height + 20.;
-            // drawing_area.set_size_request(w as i32, h as i32);
-            //        let (w0, h0) = drawing_area.get_size_request();
-            let w = 2048;
-            let h = 1024;
-            drawing_area.set_size_request(w, h);
-            //    let (w, h) = drawing_area.get_size_request();
-
-            let mut x = 10.;
-            let mut y = 10.;
-
-            for talker in self.presenter.borrow().talkers() {
-                let p = cc.text_extents(talker);
-
-                x = x + 10.;
-                y = y + p.height + 10.;
-
-                cc.move_to(x, y);
-                cc.show_text(talker);
-
-                println!(
-            "Talker {} :\n x_bearing {}, y_bearing {}, width {}, height {}, x_advance {}, y_advance {}", talker,
-            p.x_bearing,
-            p.y_bearing,
-            p.width,
-            p.height,
-            p.x_advance,
-            p.y_advance
-        );
-            }
-            */
         Inhibit(false)
     }
 

@@ -11,7 +11,7 @@ use crate::feedback::Feedback;
 use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;
 use crate::plugins_manager::PluginsManager;
-use crate::track::Track;
+use crate::track::{RTrack, Track};
 
 pub struct Factory {
     plugins_manager: PluginsManager,
@@ -51,21 +51,21 @@ impl Factory {
         &self,
         oid: Option<u32>,
         oname: Option<&str>,
-    ) -> Result<Track, failure::Error> {
-        let trk = Track::new();
-        Factory::set_identity(trk.identifier(), oid, oname);
-        Ok(trk)
+    ) -> Result<RTrack, failure::Error> {
+        let rtrk = Track::new_ref();
+        Factory::set_identity(rtrk.borrow().identifier(), oid, oname);
+        Ok(rtrk)
     }
 
     pub fn make_mixer(
         &self,
         oid: Option<u32>,
         oname: Option<&str>,
-        tracks: Option<Vec<Track>>,
+        tracks: Option<Vec<RTrack>>,
         outputs: Option<Vec<ROutput>>,
     ) -> Result<RMixer, failure::Error> {
         let rmixer = Mixer::new_ref(tracks, outputs);
-        Factory::set_identity(rmixer.borrow_mut().identifier(), oid, oname);
+        Factory::set_identity(rmixer.borrow().identifier(), oid, oname);
         Ok(rmixer)
     }
 

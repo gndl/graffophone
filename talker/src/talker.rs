@@ -35,21 +35,27 @@ impl TalkerBase {
         TalkerBase::new_data(name, model, Data::Nil)
     }
 
-    fn data<'a>(&'a self) -> &'a RData {
+    pub fn data<'a>(&'a self) -> &'a RData {
         &self.data
     }
-    fn set_data(&self, data: Data) {
+    pub fn set_data(&self, data: Data) {
         *self.data.borrow_mut() = data;
     }
-    fn data_string(&self) -> String {
+    pub fn data_string(&self) -> String {
         self.data.borrow().to_string()
     }
-    fn data_float(&self) -> Result<f32, failure::Error> {
+    pub fn data_float(&self) -> Result<f32, failure::Error> {
         self.data.borrow().to_f()
     }
 
+    pub fn ears<'a>(&'a self) -> &'a Vec<Ear> {
+        &self.ears
+    }
     pub fn add_ear<'a>(&'a mut self, ear: Ear) {
         self.ears.push(ear);
+    }
+    pub fn voices<'a>(&'a self) -> &'a Vec<MVoice> {
+        &self.voices
     }
     pub fn add_voice<'a>(&'a mut self, voice: MVoice) {
         self.voices.push(voice);
