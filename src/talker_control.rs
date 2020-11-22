@@ -1,5 +1,3 @@
-//use std::boxed::Box;
-//use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -10,7 +8,6 @@ use std::rc::Rc;
 //use gtk::prelude::*;
 use gtk::DrawingArea;
 
-//use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
 use talker::identifier::Identifiable;
@@ -19,6 +16,7 @@ use talker::talker::{RTalker, Talker, TalkerBase};
 
 use crate::session_presenter::RSessionPresenter;
 use crate::style;
+use crate::style::Color;
 
 pub const INPUT_TAG: &str = " I ";
 pub const OUTPUT_TAG: &str = " O ";
@@ -81,7 +79,7 @@ struct EarControl {
 struct VoiceControl {
     tag: String,
     area: Area,
-    //    color: i64,
+    color: Color,
 }
 
 fn format_label(s: &str, max_len: usize) -> String {
@@ -93,7 +91,7 @@ fn format_label(s: &str, max_len: usize) -> String {
 }
 
 fn format_name(s: &str) -> String {
-    format_label(s, 12)
+    format_label(s, 24)
 }
 fn format_data(s: &str) -> String {
     format_label(s, 6)
@@ -155,13 +153,6 @@ impl<'a> ControlSupply<'a> {
             val_dim,
         }
     }
-    /*
-    pub fn build(&self, rtalker: &RTalker) -> Result<RTalkerControl, failure::Error> {
-        Ok(Rc::new(RefCell::new(TalkerControlImpl {
-            base: Rc::new(RefCell::new(base)),
-        })))
-    }
-     */
     fn dim_of(&self, txt: &str) -> Dim {
         Dim::of(self.cc, txt)
     }
@@ -169,6 +160,7 @@ impl<'a> ControlSupply<'a> {
 
 pub struct TalkerControlBase {
     id: Id,
+    talker: RTalker,
     area: Area,
     pub row: i32,
     pub column: i32,
@@ -227,8 +219,7 @@ impl TalkerControlBase {
 
         if draw_name {
             style::name(control_supply.cc);
-
-            let name_dim = control_supply.dim_of(&tkr.name());
+            let name_dim = control_supply.dim_of(&format_name(&tkr.name()));
             name_w = name_dim.w;
             name_h = name_dim.h;
             header_e_y += name_h + SPACE;
@@ -241,8 +232,7 @@ impl TalkerControlBase {
 
         if draw_data {
             style::data(control_supply.cc);
-            let data = format_data(&tkr.data_string());
-            let data_dim = control_supply.dim_of(&data);
+            let data_dim = control_supply.dim_of(&format_data(&tkr.data_string()));
             data_w = data_dim.w;
             data_h = data_dim.h;
             header_e_y += data_h + SPACE;
@@ -250,7 +240,6 @@ impl TalkerControlBase {
         let data_e_y = data_b_y + data_h;
 
         let mut ears_e_y = header_e_y;
-
         let mut ears_e_x = 0.;
         let mut ears = Vec::new();
 
@@ -305,7 +294,7 @@ impl TalkerControlBase {
                 },
                 (MARGE, ears_e_y, 0.),
             )?;
-            let mut ear_e_y = e_y;
+            let mut ear_e_y = e_y + SPACE;
 
             if ear_is_multi_talk {
                 ear_e_y += control_supply.add_dim.h;
@@ -335,10 +324,13 @@ impl TalkerControlBase {
         let mut tmp_voices = Vec::new();
         let voices_b_x = ears_e_x + MARGE;
         let mut voices_e_x = f64::max(voices_b_x, MARGE + f64::max(name_w, data_w));
-        let mut voices_e_y = header_e_y;
+        let mut voices_e_y = header_e_y + SPACE;
+
+        let tkr_id = tkr.id();
 
         style::voice(control_supply.cc);
-        for voice in tkr.voices() {
+
+        for (port, voice) in tkr.voices().iter().enumerate() {
             let tag = voice.borrow().tag().to_string();
             let tag_dim = control_supply.dim_of(&tag);
             let e_x = voices_b_x + tag_dim.w;
@@ -347,10 +339,11 @@ impl TalkerControlBase {
             let vc = VoiceControl {
                 tag,
                 area: Area::new(voices_b_x, e_x, voices_e_y, e_y),
+                color: style::make_color(tkr_id as u64, port as u64),
             };
             tmp_voices.push(vc);
             voices_e_x = f64::max(voices_e_x, e_x);
-            voices_e_y = e_y + SPACE;
+            voices_e_y = e_y + SPACE + SPACE;
         }
 
         let mut voices = Vec::new();
@@ -360,6 +353,7 @@ impl TalkerControlBase {
             let vc = VoiceControl {
                 tag: voice.tag,
                 area: Area::new(b_x, voices_e_x, voice.area.b_y, voice.area.e_y),
+                color: voice.color,
             };
             voices.push(vc);
         }
@@ -392,6 +386,7 @@ impl TalkerControlBase {
 
         Ok(Self {
             id: tkr.id(),
+            talker: talker.clone(),
             area: Area::new(0., width, 0., height),
             row: -1,
             column: -1,
@@ -487,7 +482,7 @@ impl TalkerControlBase {
         if let Some(name_area) = &self.name_area {
             style::name(cc);
             cc.move_to(self.x + name_area.b_x, self.y + name_area.e_y);
-            cc.show_text(&talker.borrow().name());
+            cc.show_text(&format_name(&talker.borrow().name()));
         }
         if let Some(data_area) = &self.data_area {
             style::data(cc);
@@ -548,62 +543,65 @@ impl TalkerControlBase {
         cc: &Context,
         talker: &RTalker,
         talker_controls: &HashMap<Id, RTalkerControl>,
-    ) { /*
-               A.fold_left mGEars ~init:0
-                 ~f:(fun index gEar ->
-                     try match gEar.earType with
-                       | GWord _ -> index + 1
-                       | GTalk talk ->
-                         let tkr = Ear.getTalkTalker talk in
-                         let gTkr = L.assoc tkr#getId gpTalkers in
+    ) {
+        for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
+            if let Some(ear_ctrl) = self.ears.get(ear_idx) {
+                let _ = ear.fold_talks(
+                    |talk, talk_idx| {
+                        if let Some(talk_ctrl) = ear_ctrl.talks.get(talk_idx) {
+                            if let None = talk.value() {
+                                if let Some(voice_rtkrc) =
+                                    &talker_controls.get(&talk.talker().borrow().id())
+                                {
+                                    let voice_tkrc = voice_rtkrc.borrow();
+                                    let voice_tkrcb = voice_tkrc.base().borrow();
 
-                         let port = Ear.getTalkPort talk in
+                                    if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
+                                        style::connection(cc, voice.color);
 
-                         if port < A.length gTkr#getGVoices then (
+                                        let x1 = voice_tkrcb.x + voice.area.e_x;
+                                        let y1 =
+                                            voice_tkrcb.y + (voice.area.b_y + voice.area.e_y) * 0.5;
+                                        let x2 = self.x + talk_ctrl.area.b_x;
+                                        let y2 = self.y
+                                            + (talk_ctrl.area.b_y + talk_ctrl.area.e_y) * 0.5;
+                                        let tab = MARGE + SPACE;
 
-                           let voice = gTkr#getGVoices.(port)  in
+                                        cc.move_to(x1, y1);
+                                        cc.line_to(x1 + tab, y1);
 
-                           let (x1, y1) = gTkr#getGroup#i2w ~x:gTkr#getWidth ~y:voice.voiceY in
-                           let (x2, y2) = mGroup#i2w ~x:0. ~y:gEar.earY in
+                                        if x2 >= x1 {
+                                            let dx = (x2 - x1) * 0.5;
+                                            cc.curve_to(x1 + dx, y1, x2 - dx, y2, x2 - tab, y2);
+                                        } else {
+                                            let dx = 10. * tab;
+                                            let dy = (y2 - y1) * 0.5;
+                                            cc.curve_to(
+                                                x1 + dx,
+                                                y1 + dy,
+                                                x2 - dx,
+                                                y2 - dy,
+                                                x2 - tab,
+                                                y2,
+                                            );
+                                        }
 
-                           let tab = boxRadius +. marge in
-                           let props = [`OUTLINE_COLOR_RGBA voice.voiceColor; `WIDTH_PIXELS 2] in
-
-                           let bpath = GnomeCanvas.PathDef.new_path ~size:4 () in
-
-                           GnomeCanvas.PathDef.moveto bpath x1 y1;
-                           GnomeCanvas.PathDef.lineto bpath (x1 +. tab) y1;
-
-                           if x2 >= x1 then (
-                             let dx = (x2 -. x1) /. 2. in
-                             GnomeCanvas.PathDef.curveto bpath
-                               (x1 +. dx) y1 (x2 -. dx) y2 (x2 -. tab) y2;
-                           )
-                           else (
-                             let dx = 10. *. tab in
-                             let dy = (y2 -. y1) /. 2. in
-                             GnomeCanvas.PathDef.curveto bpath
-                               (x1 +. dx) (y1 +. dy) (x2 -. dx) (y2 -. dy) (x2 -. tab) y2;
-                           );
-
-                           GnomeCanvas.PathDef.lineto bpath x2 y2;
-
-                           let line = GnoCanvas.bpath ~bpath ~props canvas#root in
-                           line#lower_to_bottom();
-                         );
-                         index + 1
-                       | GAdd -> index
-                     with Not_found -> index + 1
-                   ) |> ignore
-         */
+                                        cc.line_to(x2, y2);
+                                        cc.stroke();
+                                    }
+                                }
+                            }
+                        }
+                        Ok(talk_idx + 1)
+                    },
+                    0,
+                );
+            }
+        }
     }
 }
 
 pub trait TalkerControl {
-    // fn to_ref(self) -> RefCell<dyn TalkerControl> {
-    //     RefCell::new(self)
-    // }
-
     fn base<'a>(&'a self) -> &'a RTalkerControlBase;
 
     fn id(&self) -> Id {

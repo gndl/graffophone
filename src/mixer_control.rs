@@ -43,7 +43,7 @@ impl MixerControl {
         control_supply: &ControlSupply,
     ) -> Result<MixerControl, failure::Error> {
         let rtalker: RTalker = rmixer.clone();
-        let base = TalkerControlBase::new_ref(&rtalker, control_supply, false, true, false)?;
+        let base = TalkerControlBase::new_ref(&rtalker, control_supply, true, false, false)?;
 
         let mut track_controls = Vec::new();
 
@@ -65,7 +65,7 @@ impl MixerControl {
         }
 
         base.borrow_mut().set_width(width);
-        base.borrow_mut().set_width(height);
+        base.borrow_mut().set_height(height);
         /*
                         let topTrackY = self#getHeight +. GTkr.space in
 

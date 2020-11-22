@@ -16,7 +16,7 @@
 //use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
-type Color = (f64, f64, f64);
+pub type Color = (f64, f64, f64);
 
 pub fn set_color(cc: &Context, (r, g, b): Color) {
     cc.set_source_rgb(r, g, b);
@@ -118,11 +118,17 @@ pub fn selected_voice(cc: &Context) {
     cc.set_font_size(FONT_SIZE);
 }
 
+pub fn connection(cc: &Context, color: Color) {
+    set_color(cc, color);
+    cc.set_line_width(2.);
+}
+
 //pub fn flow            (cc: &Context,) {set_color(cc, _COLOR);} //Color.ofString "0x00FFFFFF" /* "cyan" */
 //pub fn marker          (cc: &Context,) {set_color(cc, _COLOR);} //Color.ofString "0xFF8000FF" /* "orange" */
-/*
-pub fn makeVoiceColor voice =
-  let v = (Voice.getTalker voice)#getId + (Voice.getPort voice lsl 14) in
-  let r = 95 + (v mod 3) * 80 in let g = 95 + (v mod 5) * 40 in let b = 75 + (v mod 7) * 30 in
-  Color.ofRgb8 r g b
-*/
+pub fn make_color(d1: u64, d2: u64) -> Color {
+    let v = d1 + (d2 << 14);
+    let r = (95 + (v % 3) * 80) as f64 / 255.;
+    let g = (95 + (v % 5) * 40) as f64 / 255.;
+    let b = (75 + (v % 7) * 30) as f64 / 255.;
+    (r, g, b)
+}
