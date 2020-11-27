@@ -254,19 +254,50 @@ pub trait Talker {
         )))
     }
 
-    fn set_ear_value_by_index(&self, index: usize, value: f32) -> Result<(), failure::Error> {
-        ear::visit_ear_flatten_index(self.ears(), index, |talk| ear::set_talk_value(talk, value))
+    fn set_ear_value_by_index(
+        &self,
+        ear_idx: usize,
+        talk_idx: usize,
+        value: f32,
+    ) -> Result<(), failure::Error> {
+        match &self.ears()[ear_idx] {
+            Ear::Talk(talk) => ear::set_talk_value(&talk, value),
+            Ear::Talks(talks) => ear::set_talk_value(&talks.borrow().talks()[talk_idx], value),
+        }
     }
 
     fn set_ear_voice_by_index(
         &self,
-        index: usize,
+        ear_idx: usize,
+        talk_idx: usize,
         talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        ear::visit_ear_flatten_index(self.ears(), index, |talk| {
-            ear::set_talk_voice(talk, talker, port)
-        })
+        match &self.ears()[ear_idx] {
+            Ear::Talk(talk) => ear::set_talk_voice(&talk, talker, port),
+            Ear::Talks(talks) => {
+                ear::set_talk_voice(&talks.borrow().talks()[talk_idx], talker, port)
+            }
+        }
+    }
+
+    fn add_ear_value_by_index(&self, ear_idx: usize, value: f32) -> Result<(), failure::Error> {
+        match &self.ears()[ear_idx] {
+            Ear::Talks(talks) => talks.borrow_mut().add_talk_value(value),
+            _ => Ok(()),
+        }
+    }
+
+    fn add_ear_voice_by_index(
+        &self,
+        ear_idx: usize,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        match &self.ears()[ear_idx] {
+            Ear::Talks(talks) => talks.borrow_mut().add_talk_voice(talker, port),
+            _ => Ok(()),
+        }
     }
 
     fn activate(&mut self) {}
