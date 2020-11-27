@@ -46,23 +46,25 @@ impl SessionPresenter {
         &self.event_bus
     }
 
+    pub fn notify(&self, notification: Notification) {
+        self.event_bus().borrow().notify(notification);
+    }
+
+    pub fn notify_error(&self, error: failure::Error) {
+        self.notify(Notification::Error(format!("{}", error)));
+    }
+
     pub fn manage_result(&mut self, result: Result<(), failure::Error>) {
         match result {
             Ok(()) => {}
-            Err(e) => self
-                .event_bus()
-                .borrow()
-                .notify(Notification::Error(format!("{}", e))),
+            Err(e) => self.notify_error(e),
         }
     }
 
     pub fn manage_state_result(&mut self, result: Result<State, failure::Error>) {
         match result {
             Ok(state) => self.event_bus.borrow().notify(Notification::State(state)),
-            Err(e) => self
-                .event_bus()
-                .borrow()
-                .notify(Notification::Error(format!("{}", e))),
+            Err(e) => self.notify_error(e),
         }
     }
 
@@ -73,18 +75,14 @@ impl SessionPresenter {
             )))
         });
         self.manage_result(res);
-        self.event_bus
-            .borrow()
-            .notify(Notification::State(self.session.state()))
+        let state = self.session.state();
+        self.notify(Notification::State(state))
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
         match self.session.add_talker(talker_model) {
             Ok(_) => (),
-            Err(e) => self
-                .event_bus()
-                .borrow()
-                .notify(Notification::Error(format!("{}", e))),
+            Err(e) => self.notify_error(e),
         }
     }
 
@@ -110,10 +108,7 @@ impl SessionPresenter {
 
         gtk::timeout_add_seconds(1, move || {
             let state = this.borrow_mut().session.state();
-            this.borrow()
-                .event_bus
-                .borrow()
-                .notify(Notification::State(state));
+            this.borrow().notify(Notification::State(state));
 
             match state {
                 State::Playing => glib::Continue(true),

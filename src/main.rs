@@ -13,6 +13,7 @@ use gio::prelude::*;
 use std::env::args;
 
 mod application_view;
+mod graph_controler;
 mod graph_view;
 mod mixer_control;
 mod session_presenter;

@@ -651,10 +651,22 @@ pub trait TalkerControl {
     }
 
     fn on_button_release(&mut self, x: f64, y: f64, presenter: &RSessionPresenter) -> bool {
-        let rx = x - self.base().borrow().x;
-        let ry = y - self.base().borrow().y;
+        let base = self.base().borrow();
 
-        if self.base().borrow().area.is_under(rx, ry) {
+        let rx = x - base.x;
+        let ry = y - base.y;
+
+        if base.area.is_under(rx, ry) {
+            for (ear_idx, ear) in base.ears.iter().enumerate() {
+                if ear.area.is_under(rx, ry) {
+                    for (talk_idx, talk) in ear.talks.iter().enumerate() {
+                        if talk.tag_area.is_under(rx, ry) {
+                            //                            presenter.select_ear();
+                            return true;
+                        }
+                    }
+                }
+            }
             true
         } else {
             false

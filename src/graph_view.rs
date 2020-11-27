@@ -16,12 +16,12 @@ use talker::talker::{RTalker, Talker};
 
 use session::event_bus::{Notification, REventBus};
 
+use crate::graph_controler::{GraphControler, RGraphControler};
 use crate::mixer_control::MixerControl;
 use crate::session_presenter::RSessionPresenter;
+use crate::style;
 use crate::talker_control;
 use crate::talker_control::{ControlSupply, RTalkerControl};
-//use crate::talker_control:: TalkerControlBase;
-use crate::style;
 
 const MARGE: f64 = 10.;
 const ROW_SPACING: f64 = 5.;
@@ -95,7 +95,8 @@ impl<'c> Collector<'c> {
 }
 
 pub struct GraphView {
-    presenter: RSessionPresenter,
+    session_presenter: RSessionPresenter,
+    graph_controler: RGraphControler,
     drawing_area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
     width: f64,
@@ -105,9 +106,12 @@ pub struct GraphView {
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(presenter: RSessionPresenter) -> RGraphView {
+    pub fn new_ref(session_presenter: RSessionPresenter) -> RGraphView {
+        let graph_controler = GraphControler::new_ref(session_presenter.clone());
+
         let rgv = Rc::new(RefCell::new(Self {
-            presenter,
+            session_presenter,
+            graph_controler,
             drawing_area: DrawingArea::new(),
             talker_controls: HashMap::new(),
             width: 0.,
@@ -115,7 +119,7 @@ impl GraphView {
             build_needed: true,
         }));
         GraphView::connect_drawing_area(&rgv, rgv.borrow().drawing_area());
-        GraphView::observe(&rgv, rgv.borrow().presenter.borrow().event_bus());
+        GraphView::observe(&rgv, rgv.borrow().session_presenter.borrow().event_bus());
 
         rgv
     }
@@ -148,7 +152,9 @@ impl GraphView {
         let mut operated = false;
 
         for tkrc in self.talker_controls.values_mut() {
-            operated = tkrc.borrow_mut().on_button_release(x, y, &self.presenter);
+            operated = tkrc
+                .borrow_mut()
+                .on_button_release(x, y, &self.session_presenter);
 
             if operated {
                 break;
@@ -287,8 +293,8 @@ impl GraphView {
         drawing_area: &DrawingArea,
         control_supply: &ControlSupply,
     ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
-        let presenter = self.presenter.borrow();
-        let session = presenter.session();
+        let session_presenter = self.session_presenter.borrow();
+        let session = session_presenter.session();
         {
             let mut collector = Collector::new(control_supply, 0, 1);
 
@@ -403,7 +409,7 @@ impl GraphView {
             Ok(talker_controls) => {
                 /*
                                 for tkrc in talker_controls.values() {
-                                    tkrc.borrow().set_actions(&self.presenter.borrow());
+                                    tkrc.borrow().set_actions(&self.session_presenter.borrow());
                                 }
                 */
                 self.talker_controls = talker_controls;
@@ -427,7 +433,7 @@ impl GraphView {
         cc.fill();
 
         for (id, tkrc) in &self.talker_controls {
-            if let Some(talker) = self.presenter.borrow().session().talkers().get(&id) {
+            if let Some(talker) = self.session_presenter.borrow().session().talkers().get(&id) {
                 tkrc.borrow().draw(cc, talker, &self.talker_controls);
             }
         }
