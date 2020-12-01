@@ -203,9 +203,9 @@ impl Band {
     ) -> Result<(), failure::Error> {
         for (tag, dpn, tkn) in &module.attributs {
             match f32::from_str(&dpn) {
-                Ok(value) => talker.borrow_mut().set_ear_value_by_tag(&tag, value)?,
+                Ok(value) => talker.borrow_mut().set_ear_talk_value_by_tag(&tag, value)?,
                 Err(_) => match talkers.get(dpn) {
-                    Some(tkr) => talker.borrow_mut().set_ear_voice_by_tag(
+                    Some(tkr) => talker.borrow_mut().set_ear_talk_voice_by_tag(
                         &tag,
                         tkr,
                         tkr.borrow().voice_port(&tkn)?,
@@ -234,11 +234,13 @@ impl Band {
 
             for (tag, dpn, tkn) in &module.attributs {
                 match f32::from_str(&dpn) {
-                    Ok(value) => track.set_ear_value_by_tag(&tag, value)?,
+                    Ok(value) => track.set_ear_talk_value_by_tag(&tag, value)?,
                     Err(_) => match talkers.get(dpn) {
-                        Some(tkr) => {
-                            track.set_ear_voice_by_tag(&tag, tkr, tkr.borrow().voice_port(&tkn)?)?
-                        }
+                        Some(tkr) => track.set_ear_talk_voice_by_tag(
+                            &tag,
+                            tkr,
+                            tkr.borrow().voice_port(&tkn)?,
+                        )?,
                         None => {
                             return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
                         }
@@ -294,9 +296,9 @@ impl Band {
                     }
                 } else {
                     match f32::from_str(&dpn) {
-                        Ok(value) => mixer.set_ear_value_by_tag(&tag, value)?,
+                        Ok(value) => mixer.set_ear_talk_value_by_tag(&tag, value)?,
                         Err(_) => match talkers.get(dpn) {
-                            Some(tkr) => mixer.set_ear_voice_by_tag(
+                            Some(tkr) => mixer.set_ear_talk_voice_by_tag(
                                 &tag,
                                 tkr,
                                 tkr.borrow().voice_port(&tkn)?,
@@ -530,6 +532,10 @@ impl Band {
         Factory::visit(|factory| self.build_talker(factory, model, oid, oname))
     }
 
+    pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
+        Ok(()) // TODO
+    }
+
     pub fn add_output(&mut self, model: &str) -> Result<(), failure::Error> {
         Factory::visit(|factory| {
             for rmixer in self.mixers.values() {
@@ -541,7 +547,7 @@ impl Band {
         })
     }
 
-    pub fn remove_output(&mut self, model: &str) -> Result<(), failure::Error> {
+    pub fn sup_output(&mut self, model: &str) -> Result<(), failure::Error> {
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().remove_output(model);
         }

@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use talker::identifier::Id;
+use talker::talker::{RTalker, Talker};
+
 use session::event_bus::{EventBus, Notification, REventBus};
 use session::factory::Factory;
 use session::session::Session;
@@ -79,8 +82,19 @@ impl SessionPresenter {
         self.notify(Notification::State(state))
     }
 
+    pub fn find_talker<'a>(&'a self, talker_id: Id) -> Option<&'a RTalker> {
+        self.session.talkers().get(&talker_id)
+    }
+
     pub fn add_talker(&mut self, talker_model: &str) {
         match self.session.add_talker(talker_model) {
+            Ok(_) => (),
+            Err(e) => self.notify_error(e),
+        }
+    }
+
+    pub fn sup_talker(&mut self, talker: &RTalker) {
+        match self.session.sup_talker(talker) {
             Ok(_) => (),
             Err(e) => self.notify_error(e),
         }

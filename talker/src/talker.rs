@@ -191,7 +191,7 @@ pub trait Talker {
         None
     }
 
-    fn set_ear_value_by_tag(&mut self, tag: &str, value: f32) -> Result<(), failure::Error> {
+    fn set_ear_talk_value_by_tag(&mut self, tag: &str, value: f32) -> Result<(), failure::Error> {
         for ear in self.ears() {
             match ear {
                 Ear::Talk(talk) => {
@@ -220,7 +220,7 @@ pub trait Talker {
             tag
         )))
     }
-    fn set_ear_voice_by_tag(
+    fn set_ear_talk_voice_by_tag(
         &mut self,
         tag: &str,
         talker: &RTalker,
@@ -254,7 +254,7 @@ pub trait Talker {
         )))
     }
 
-    fn set_ear_value_by_index(
+    fn set_ear_talk_value_by_index(
         &self,
         ear_idx: usize,
         talk_idx: usize,
@@ -266,7 +266,7 @@ pub trait Talker {
         }
     }
 
-    fn set_ear_voice_by_index(
+    fn set_ear_talk_voice_by_index(
         &self,
         ear_idx: usize,
         talk_idx: usize,
@@ -281,14 +281,18 @@ pub trait Talker {
         }
     }
 
-    fn add_ear_value_by_index(&self, ear_idx: usize, value: f32) -> Result<(), failure::Error> {
+    fn add_ear_talk_value_by_index(
+        &self,
+        ear_idx: usize,
+        value: f32,
+    ) -> Result<(), failure::Error> {
         match &self.ears()[ear_idx] {
             Ear::Talks(talks) => talks.borrow_mut().add_talk_value(value),
             _ => Ok(()),
         }
     }
 
-    fn add_ear_voice_by_index(
+    fn add_ear_talk_voice_by_index(
         &self,
         ear_idx: usize,
         talker: &RTalker,
@@ -296,6 +300,13 @@ pub trait Talker {
     ) -> Result<(), failure::Error> {
         match &self.ears()[ear_idx] {
             Ear::Talks(talks) => talks.borrow_mut().add_talk_voice(talker, port),
+            _ => Ok(()),
+        }
+    }
+
+    fn sup_ear_talk_by_index(&self, ear_idx: usize, talk_idx: usize) -> Result<(), failure::Error> {
+        match &self.ears()[ear_idx] {
+            Ear::Talks(talks) => talks.borrow_mut().sup_talk(talk_idx),
             _ => Ok(()),
         }
     }

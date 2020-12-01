@@ -94,9 +94,54 @@ impl<'c> Collector<'c> {
     }
 }
 
+pub struct EventReceiver {
+    session_presenter: RSessionPresenter,
+    graph_controler: GraphControler,
+    talker_controls: Vec<RTalkerControl>,
+}
+pub type REventReceiver = Rc<RefCell<EventReceiver>>;
+
+impl EventReceiver {
+    pub fn new_ref(session_presenter: &RSessionPresenter) -> REventReceiver {
+        Rc::new(RefCell::new(Self {
+            session_presenter: session_presenter.clone(),
+            graph_controler: GraphControler::new(session_presenter),
+            talker_controls: Vec::new(),
+        }))
+    }
+    pub fn set_talker_controls(&mut self, talker_controls: &HashMap<Id, RTalkerControl>) {
+        self.talker_controls.clear();
+
+        for tkrc in talker_controls.values() {
+            self.talker_controls.push(tkrc.clone());
+        }
+    }
+
+    pub fn on_button_release(&mut self, ev: &gdk::EventButton) -> Inhibit {
+        let (x, y) = ev.get_position();
+
+        for tkrc in &self.talker_controls {
+            match tkrc
+                .borrow()
+                .on_button_release(x, y, &mut self.graph_controler)
+            {
+                Ok(None) => (),
+                Ok(Some(notifications)) => {
+                    for notification in notifications {
+                        self.session_presenter.borrow().notify(notification);
+                    }
+                    return Inhibit(true);
+                }
+                Err(e) => self.session_presenter.borrow().notify_error(e),
+            }
+        }
+        Inhibit(false)
+    }
+}
+
 pub struct GraphView {
     session_presenter: RSessionPresenter,
-    graph_controler: RGraphControler,
+    event_receiver: REventReceiver,
     drawing_area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
     width: f64,
@@ -106,12 +151,10 @@ pub struct GraphView {
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(session_presenter: RSessionPresenter) -> RGraphView {
-        let graph_controler = GraphControler::new_ref(session_presenter.clone());
-
+    pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphView {
         let rgv = Rc::new(RefCell::new(Self {
-            session_presenter,
-            graph_controler,
+            session_presenter: session_presenter.clone(),
+            event_receiver: EventReceiver::new_ref(session_presenter),
             drawing_area: DrawingArea::new(),
             talker_controls: HashMap::new(),
             width: 0.,
@@ -130,12 +173,12 @@ impl GraphView {
             gdk::EventMask::BUTTON_PRESS_MASK | gdk::EventMask::BUTTON_RELEASE_MASK,
         );
 
-        let rgv = rgraphview.clone();
+        let er = rgraphview.borrow().event_receiver.clone();
         drawing_area
-            .connect_button_release_event(move |w, ev| rgv.borrow_mut().on_button_release(w, ev));
+            .connect_button_release_event(move |_, ev| er.borrow_mut().on_button_release(ev));
 
-        let rgv = rgraphview.clone();
-        drawing_area.connect_draw(move |w, cc| rgv.borrow_mut().on_draw(w, cc));
+        let gv_drawer = rgraphview.clone();
+        drawing_area.connect_draw(move |w, cc| gv_drawer.borrow_mut().on_draw(w, cc));
     }
 
     pub fn drawing_area<'a>(&'a self) -> &'a DrawingArea {
@@ -145,22 +188,6 @@ impl GraphView {
     pub fn draw(&mut self) {
         self.build_needed = true;
         self.drawing_area.queue_draw();
-    }
-
-    fn on_button_release(&mut self, _drawing_area: &DrawingArea, ev: &gdk::EventButton) -> Inhibit {
-        let (x, y) = ev.get_position();
-        let mut operated = false;
-
-        for tkrc in self.talker_controls.values_mut() {
-            operated = tkrc
-                .borrow_mut()
-                .on_button_release(x, y, &self.session_presenter);
-
-            if operated {
-                break;
-            }
-        }
-        Inhibit(operated)
     }
 
     fn column_layout(
@@ -408,10 +435,13 @@ impl GraphView {
         match self.create_graph(drawing_area, &control_supply) {
             Ok(talker_controls) => {
                 /*
-                                for tkrc in talker_controls.values() {
-                                    tkrc.borrow().set_actions(&self.session_presenter.borrow());
-                                }
+                               for tkrc in talker_controls.values() {
+                                   tkrc.borrow().set_actions(&self.session_presenter.borrow());
+                               }
                 */
+                self.event_receiver
+                    .borrow_mut()
+                    .set_talker_controls(&talker_controls);
                 self.talker_controls = talker_controls;
                 drawing_area.set_size_request(self.width as i32, self.height as i32);
                 self.build_needed = false;
@@ -452,33 +482,33 @@ impl GraphView {
                     obs.borrow_mut().draw()
                 }
                 Notification::TalkerSelected(tkr_id) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().select()
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().select()
                     }
                 }
                 Notification::TalkerUnselected(tkr_id) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().unselect()
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().unselect()
                     }
                 }
-                Notification::EarSelected(tkr_id, idx) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().select_ear(*idx)
+                Notification::EarSelected(tkr_id, ear_idx, talk_idx) => {
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().select_ear(*ear_idx)
                     }
                 }
-                Notification::EarUnselected(tkr_id, idx) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().unselect_ear(*idx)
+                Notification::EarUnselected(tkr_id, ear_idx, talk_idx) => {
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().unselect_ear(*ear_idx)
                     }
                 }
                 Notification::VoiceSelected(tkr_id, idx) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().select_voice(*idx)
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().select_voice(*idx)
                     }
                 }
                 Notification::VoiceUnselected(tkr_id, idx) => {
-                    if let Some(tkrc) = &obs.borrow_mut().talker_controls.get(tkr_id) {
-                        tkrc.borrow_mut().unselect_voice(*idx)
+                    if let Some(tkrc) = &obs.borrow().talker_controls.get(tkr_id) {
+                        tkrc.borrow().unselect_voice(*idx)
                     }
                 }
                 Notification::NewTalker => obs.borrow_mut().draw(),

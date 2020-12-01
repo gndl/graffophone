@@ -118,7 +118,7 @@ impl ApplicationView {
         split_pane.pack_start(&talkers_tree_scrolledwindow, false, true, 0);
 
         // Graph view
-        let graph_view = GraphView::new_ref(session_presenter.clone());
+        let graph_view = GraphView::new_ref(&session_presenter);
 
         //            let graph_area = DrawingArea::new();
 

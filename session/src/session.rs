@@ -54,6 +54,10 @@ impl Session {
         self.band.add_talker(talker_model, None, None)
     }
 
+    pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
+        self.band.sup_talker(talker)
+    }
+
     pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
         self.band.mixers()
     }

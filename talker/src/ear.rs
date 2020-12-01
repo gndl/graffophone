@@ -92,6 +92,10 @@ impl Talks {
             )))
         }
     }
+    pub fn sup_talk(&mut self, index: Index) -> Result<(), failure::Error> {
+        let _ = self.talks.remove(index);
+        Ok(())
+    }
 }
 
 pub type RTalks = RefCell<Talks>;
