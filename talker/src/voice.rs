@@ -3,7 +3,7 @@ use crate::horn;
 use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use std::cell::RefCell;
 
-pub const DEF_OUTPUT_TAG: &'static str = "O";
+pub const DEF_OUTPUT_TAG: &'static str = "Out";
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum PortType {

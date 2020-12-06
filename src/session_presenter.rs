@@ -15,7 +15,7 @@ Sinusoidal 1#Sinusoidal_1
 > phase 0
 
 track 2#track_2
-> I 1#Sinusoidal_1:O
+> In 1#Sinusoidal_1:Out
 > gain 1
 
 mixer 5#mixer_5

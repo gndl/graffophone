@@ -9,7 +9,7 @@ use identifier::Index;
 use talker::RTalker;
 use voice::PortType;
 
-pub const DEF_INPUT_TAG: &'static str = "I";
+pub const DEF_INPUT_TAG: &'static str = "In";
 
 pub struct Talk {
     port_type: PortType,
