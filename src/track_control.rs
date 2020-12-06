@@ -24,6 +24,7 @@ use talker::talker::{RTalker, Talker};
 
 use session::track::{RTrack, Track};
 
+use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
@@ -68,13 +69,18 @@ impl TalkerControl for TrackControl {
     |_____________________|
          */
 
-    fn draw(&self, cc: &Context, talker: &RTalker, talker_controls: &HashMap<Id, RTalkerControl>) {
+    fn draw(
+        &self,
+        cc: &Context,
+        graph_presenter: &GraphPresenter,
+        talker_controls: &HashMap<Id, RTalkerControl>,
+    ) {
         let base = self.base.borrow();
-        base.draw_connections(cc, talker, talker_controls);
-        base.draw_box(cc, talker, 0., 0.);
-        //        base.draw_header(cc, talker, 0.);
+        base.draw_connections(cc, talker_controls);
+        base.draw_box(cc, graph_presenter);
+        //        base.draw_header(cc);
 
-        base.draw_ears_and_voices(cc, talker, 0.);
+        base.draw_ears_and_voices(cc, graph_presenter);
     }
     /*    method! draw _ pY =
 

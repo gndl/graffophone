@@ -23,10 +23,12 @@ use talker::identifier::Id;
 use talker::talker::{RTalker, Talker};
 
 //use session::event_bus::{Notification, REventBus};
+use session::event_bus::{Notification, REventBus};
 use session::mixer::{Mixer, RMixer};
 
 use crate::track_control::{RTrackControl, TrackControl};
 //use crate::session_controler::RSessionPresenter;
+use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
@@ -120,16 +122,21 @@ impl TalkerControl for MixerControl {
     |volume #       |
     |_______________|
     */
-    fn draw(&self, cc: &Context, talker: &RTalker, talker_controls: &HashMap<Id, RTalkerControl>) {
+    fn draw(
+        &self,
+        cc: &Context,
+        graph_presenter: &GraphPresenter,
+        talker_controls: &HashMap<Id, RTalkerControl>,
+    ) {
         let base = self.base.borrow();
-        base.draw_connections(cc, talker, talker_controls);
-        base.draw_box(cc, talker, 0., 0.);
-        base.draw_header(cc, talker, 0.);
+        base.draw_connections(cc, talker_controls);
+        base.draw_box(cc, graph_presenter);
+        base.draw_header(cc);
 
-        base.draw_ears_and_voices(cc, talker, 0.);
+        base.draw_ears_and_voices(cc, graph_presenter);
 
         for trkc in &self.track_controls {
-            trkc.borrow().draw(cc, talker, talker_controls);
+            trkc.borrow().draw(cc, graph_presenter, talker_controls);
         }
         /*
                         self#drawHeader pY false true false;
@@ -164,6 +171,25 @@ impl TalkerControl for MixerControl {
 
         self.base().borrow_mut().move_to(x, y);
     }
+
+    fn on_button_release(
+        &self,
+        x: f64,
+        y: f64,
+        graph_presenter: &mut GraphPresenter,
+    ) -> Result<Option<Vec<Notification>>, failure::Error> {
+        for trkc in &self.track_controls {
+            match trkc.borrow().on_button_release(x, y, graph_presenter)? {
+                None => (),
+                Some(notifications) => return Ok(Some(notifications)),
+            }
+        }
+
+        self.base()
+            .borrow()
+            .on_button_release(x, y, graph_presenter)
+    }
+
     /*
         fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionPresenter) -> bool {
             if self.base().borrow_mut().on_button_release(x, y, controler) {
