@@ -9,7 +9,7 @@ use talker::talker::{RTalker, Talker, TalkerBase};
 use crate::session_presenter::RSessionPresenter;
 use session::event_bus::{Notification, REventBus};
 
-pub struct GraphControler {
+pub struct GraphPresenter {
     selected_talk: Option<(Id, Index, Index)>,
     selected_voice: Option<(Id, Index)>,
     new_talker: Option<Id>,
@@ -20,10 +20,10 @@ pub struct GraphControler {
     session_presenter: RSessionPresenter,
 }
 
-pub type RGraphControler = Rc<RefCell<GraphControler>>;
+pub type RGraphPresenter = Rc<RefCell<GraphPresenter>>;
 
-impl GraphControler {
-    pub fn new(session_presenter: &RSessionPresenter) -> GraphControler {
+impl GraphPresenter {
+    pub fn new(session_presenter: &RSessionPresenter) -> GraphPresenter {
         Self {
             selected_talk: None,
             selected_voice: None,
@@ -36,8 +36,28 @@ impl GraphControler {
         }
     }
 
-    pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphControler {
-        Rc::new(RefCell::new(GraphControler::new(session_presenter)))
+    pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphPresenter {
+        Rc::new(RefCell::new(GraphPresenter::new(session_presenter)))
+    }
+
+    pub fn talker_selected(&self, talker_id: Id) -> bool {
+        self.selected_talkers.contains(&talker_id)
+    }
+
+    pub fn voice_selected(&self, talker_id: Id, voice_idx: Index) -> bool {
+        match self.selected_voice {
+            None => false,
+            Some((tkr_id, vc_idx)) => talker_id == tkr_id && voice_idx == vc_idx,
+        }
+    }
+
+    pub fn ear_talk_selected(&self, talker_id: Id, ear_idx: Index, talk_idx: Index) -> bool {
+        match self.selected_talk {
+            None => false,
+            Some((tkr_id, e_idx, t_idx)) => {
+                talker_id == tkr_id && ear_idx == e_idx && talk_idx == t_idx
+            }
+        }
     }
 
     pub fn set_control_key_pressed(&mut self, v: bool) {
@@ -70,6 +90,7 @@ impl GraphControler {
             self.selected_talkers.insert(tkr_id);
             notifications.push(Notification::TalkerSelected(tkr_id));
         }
+        notifications.push(Notification::SelectionChanged);
         Ok(notifications)
     }
 
@@ -79,7 +100,10 @@ impl GraphControler {
         v: &str,
     ) -> Result<Vec<Notification>, failure::Error> {
         talker.borrow_mut().set_name(v);
-        Ok(vec![Notification::TalkerRenamed(talker.borrow().id())])
+        Ok(vec![
+            Notification::TalkerRenamed(talker.borrow().id()),
+            Notification::TalkerChanged,
+        ])
     }
 
     pub fn set_talker_data(
@@ -99,8 +123,8 @@ impl GraphControler {
     pub fn set_talker_ear_talk_value_by_index(
         &mut self,
         talker: &RTalker,
-        ear_idx: usize,
-        talk_idx: usize,
+        ear_idx: Index,
+        talk_idx: Index,
         value: f32,
         fly: bool,
     ) -> Result<Vec<Notification>, failure::Error> {
@@ -116,7 +140,7 @@ impl GraphControler {
     pub fn add_talker_ear_talk_value_by_index(
         &mut self,
         talker: &RTalker,
-        ear_idx: usize,
+        ear_idx: Index,
         value: f32,
     ) -> Result<Vec<Notification>, failure::Error> {
         talker
@@ -128,8 +152,8 @@ impl GraphControler {
     pub fn select_ear_talk(
         &mut self,
         talker: &RTalker,
-        ear_idx: usize,
-        talk_idx: usize,
+        ear_idx: Index,
+        talk_idx: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         let tkr_id = talker.borrow().id();
         let mut notifications = Vec::new();
@@ -147,25 +171,31 @@ impl GraphControler {
                     prev_ear_idx,
                     prev_talk_idx,
                 ));
+                notifications.push(Notification::SelectionChanged);
             }
             None => match self.selected_voice {
                 None => {
                     self.selected_talk = Some((tkr_id, ear_idx, talk_idx));
                     notifications.push(Notification::EarSelected(tkr_id, ear_idx, talk_idx));
+                    notifications.push(Notification::SelectionChanged);
                 }
                 Some((voice_tkr_id, voice_port)) => {
-                    if voice_tkr_id != tkr_id {
-                        if let Some(voice_tkr) =
-                            self.session_presenter.borrow().find_talker(voice_tkr_id)
-                        {
+                    if let Some(voice_tkr) =
+                        self.session_presenter.borrow().find_talker(voice_tkr_id)
+                    {
+                        if voice_tkr_id == tkr_id {
+                            self.selected_talk = Some((tkr_id, ear_idx, talk_idx));
+                            notifications
+                                .push(Notification::EarSelected(tkr_id, ear_idx, talk_idx));
+                            notifications.push(Notification::SelectionChanged);
+                        } else {
                             talker.borrow().set_ear_talk_voice_by_index(
                                 ear_idx, talk_idx, voice_tkr, voice_port,
                             )?;
-                            self.selected_voice = None;
-                            notifications
-                                .push(Notification::VoiceUnselected(voice_tkr_id, voice_port));
                             notifications.push(Notification::TalkerChanged);
                         }
+                        self.selected_voice = None;
+                        notifications.push(Notification::VoiceUnselected(voice_tkr_id, voice_port));
                     }
                 }
             },
@@ -176,7 +206,7 @@ impl GraphControler {
     pub fn select_voice(
         &mut self,
         talker: &RTalker,
-        port: usize,
+        port: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         let tkr_id = talker.borrow().id();
         let mut notifications = Vec::new();
@@ -191,25 +221,29 @@ impl GraphControler {
                 }
                 self.selected_voice = Some((tkr_id, port));
                 notifications.push(Notification::VoiceUnselected(prev_tkr_id, prev_port));
+                notifications.push(Notification::SelectionChanged);
             }
             None => match self.selected_talk {
                 None => {
                     self.selected_voice = Some((tkr_id, port));
                     notifications.push(Notification::VoiceSelected(tkr_id, port));
+                    notifications.push(Notification::SelectionChanged);
                 }
                 Some((ear_tkr_id, ear_idx, talk_idx)) => {
-                    if tkr_id != ear_tkr_id {
-                        if let Some(ear_tkr) =
-                            self.session_presenter.borrow().find_talker(ear_tkr_id)
-                        {
+                    if let Some(ear_tkr) = self.session_presenter.borrow().find_talker(ear_tkr_id) {
+                        if tkr_id == ear_tkr_id {
+                            self.selected_voice = Some((tkr_id, port));
+                            notifications.push(Notification::VoiceSelected(tkr_id, port));
+                            notifications.push(Notification::SelectionChanged);
+                        } else {
                             talker
                                 .borrow()
                                 .set_ear_talk_voice_by_index(ear_idx, talk_idx, talker, port)?;
-                            self.selected_talk = None;
-                            notifications
-                                .push(Notification::EarUnselected(ear_tkr_id, ear_idx, talk_idx));
                             notifications.push(Notification::TalkerChanged);
                         }
+                        self.selected_talk = None;
+                        notifications
+                            .push(Notification::EarUnselected(ear_tkr_id, ear_idx, talk_idx));
                     }
                 }
             },
@@ -220,10 +254,13 @@ impl GraphControler {
     pub fn show_voice(
         &self,
         talker: &RTalker,
-        port: usize,
+        port: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         //trace("showVoice tkr "^soi talker#getId^" port "^soi port);
-        Ok(vec![Notification::TalkSelected(talker.borrow().id(), port)])
+        Ok(vec![
+            Notification::TalkSelected(talker.borrow().id(), port),
+            Notification::SelectionChanged,
+        ])
     }
 
     pub fn add_ear_talk(
@@ -248,8 +285,8 @@ impl GraphControler {
     pub fn sup_ear_talk(
         &self,
         talker: &RTalker,
-        ear_idx: usize,
-        talk_idx: usize,
+        ear_idx: Index,
+        talk_idx: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         talker
             .borrow_mut()
@@ -285,6 +322,7 @@ impl GraphControler {
         }
 
         self.new_talker = Some(talker.borrow().id());
+        notifications.push(Notification::TalkerChanged);
         Ok(notifications)
     }
 

@@ -72,7 +72,7 @@ pub fn box_border(cc: &Context) {
     set_color(cc, BOX_BORDER_COLOR);
     cc.set_line_width(0.5);
 }
-pub fn selected_box(cc: &Context) {
+pub fn selected_box_background(cc: &Context) {
     set_color(cc, SELECTION_COLOR);
 }
 

@@ -14,14 +14,14 @@ use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
 use talker::talker::{RTalker, Talker, TalkerBase};
 
-use crate::graph_controler::{GraphControler, RGraphControler};
+use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::style::Color;
 use session::event_bus::{Notification, REventBus};
 
-pub const INPUT_TAG: &str = " I ";
-pub const OUTPUT_TAG: &str = " O ";
+pub const INPUT_TAG: &str = "In";
+pub const OUTPUT_TAG: &str = "Out";
 pub const ADD_TAG: &str = " + ";
 pub const SUP_TAG: &str = " - ";
 pub const VAL_TAG: &str = " # ";
@@ -48,6 +48,17 @@ impl Area {
     }
     pub fn is_under(&self, x: f64, y: f64) -> bool {
         x >= self.b_x && x <= self.e_x && y >= self.b_y && y <= self.e_y
+    }
+    pub fn is_under_log(&self, tag: &str, x: f64, y: f64) -> bool {
+        let res = x >= self.b_x && x <= self.e_x && y >= self.b_y && y <= self.e_y;
+
+        if res {
+            println!(
+                "Area {} (b_x= {} e_x={} b_y={} e_y={}) is_under x={} y={} ",
+                tag, self.b_x, self.e_x, self.b_y, self.e_y, x, y
+            );
+        }
+        res
     }
 }
 
@@ -161,6 +172,7 @@ impl<'a> ControlSupply<'a> {
 }
 
 pub struct TalkerControlBase {
+    id: Id,
     talker: RTalker,
     area: Area,
     pub row: i32,
@@ -386,6 +398,7 @@ impl TalkerControlBase {
         let box_area = Area::new(0., width, box_b_y, height);
 
         Ok(Self {
+            id: tkr_id,
             talker: talker.clone(),
             area: Area::new(0., width, 0., height),
             row: -1,
@@ -457,11 +470,15 @@ impl TalkerControlBase {
         self.y = y;
     }
 
-    pub fn draw_box(&self, cc: &Context, talker: &RTalker, px: f64, py: f64) {
+    pub fn draw_box(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let w = self.width; //self.box_area.e_x - self.box_area.b_x;
         let h = self.box_area.e_y - self.box_area.b_y;
 
-        style::box_background(cc);
+        if graph_presenter.talker_selected(self.id) {
+            style::selected_box_background(cc);
+        } else {
+            style::box_background(cc);
+        }
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.fill();
 
@@ -470,27 +487,27 @@ impl TalkerControlBase {
         cc.stroke();
     }
 
-    pub fn draw_header(&self, cc: &Context, talker: &RTalker, py: f64) {
+    pub fn draw_header(&self, cc: &Context) {
         if let Some(model_area) = &self.model_area {
             style::model(cc);
             cc.move_to(self.x + model_area.b_x, self.y + model_area.e_y);
-            cc.show_text(talker.borrow().model());
+            cc.show_text(self.talker.borrow().model());
         }
         if let Some(name_area) = &self.name_area {
             style::name(cc);
             cc.move_to(self.x + name_area.b_x, self.y + name_area.e_y);
-            cc.show_text(&format_name(&talker.borrow().name()));
+            cc.show_text(&format_name(&self.talker.borrow().name()));
         }
         if let Some(data_area) = &self.data_area {
             style::data(cc);
             cc.move_to(self.x + data_area.b_x, self.y + data_area.e_y);
-            cc.show_text(&format_data(&talker.borrow().data_string()));
+            cc.show_text(&format_data(&self.talker.borrow().data_string()));
         }
     }
 
-    pub fn draw_ears_and_voices(&self, cc: &Context, talker: &RTalker, py: f64) {
-        for ear in &self.ears {
-            for talk in &ear.talks {
+    pub fn draw_ears_and_voices(&self, cc: &Context, graph_presenter: &GraphPresenter) {
+        for (ear_idx, ear) in self.ears.iter().enumerate() {
+            for (talk_idx, talk) in ear.talks.iter().enumerate() {
                 match talk.input_type {
                     InputType::Add => {
                         style::add(cc);
@@ -498,7 +515,7 @@ impl TalkerControlBase {
                         cc.show_text(ADD_TAG);
                     }
                     _ => {
-                        if talk.tag_area.selected {
+                        if graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx) {
                             style::selected_ear(cc);
                         } else {
                             style::ear(cc);
@@ -524,8 +541,8 @@ impl TalkerControlBase {
             }
         }
 
-        for voice in &self.voices {
-            if voice.area.selected {
+        for (voice_idx, voice) in self.voices.iter().enumerate() {
+            if graph_presenter.voice_selected(self.id, voice_idx) {
                 style::selected_voice(cc);
             } else {
                 style::voice(cc);
@@ -535,12 +552,7 @@ impl TalkerControlBase {
         }
     }
 
-    pub fn draw_connections(
-        &self,
-        cc: &Context,
-        talker: &RTalker,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
+    pub fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
             if let Some(ear_ctrl) = self.ears.get(ear_idx) {
                 let _ = ear.fold_talks(
@@ -596,15 +608,84 @@ impl TalkerControlBase {
             }
         }
     }
+
+    pub fn on_button_release(
+        &self,
+        x: f64,
+        y: f64,
+        graph_presenter: &mut GraphPresenter,
+    ) -> Result<Option<Vec<Notification>>, failure::Error> {
+        let rx = x - self.x;
+        let ry = y - self.y;
+
+        if self.area.is_under(rx, ry) {
+            for (ear_idx, ear) in self.ears.iter().enumerate() {
+                if ear.area.is_under(rx, ry) {
+                    for (talk_idx, talk) in ear.talks.iter().enumerate() {
+                        if talk.area.is_under(rx, ry) {
+                            if talk.tag_area.is_under(rx, ry) {
+                                let notifications = match &talk.input_type {
+                                    InputType::Add => {
+                                        graph_presenter.add_ear_talk(&self.talker, ear_idx)?
+                                    }
+                                    _ => graph_presenter.select_ear_talk(
+                                        &self.talker,
+                                        ear_idx,
+                                        talk_idx,
+                                    )?,
+                                };
+                                return Ok(Some(notifications));
+                            }
+
+                            if talk.value_area.is_under(rx, ry) {
+                                // TODO : display float delector
+                                let notifications = graph_presenter
+                                    .set_talker_ear_talk_value_by_index(
+                                        &self.talker,
+                                        ear_idx,
+                                        talk_idx,
+                                        100.,
+                                        false,
+                                    )?;
+                                return Ok(Some(notifications));
+                            }
+
+                            if let Some(sup_area) = &talk.sup_area {
+                                if sup_area.is_under(rx, ry) {
+                                    let notifications = graph_presenter.sup_ear_talk(
+                                        &self.talker,
+                                        ear_idx,
+                                        talk_idx,
+                                    )?;
+                                    return Ok(Some(notifications));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (port, voice) in self.voices.iter().enumerate() {
+                if voice.area.is_under(rx, ry) {
+                    let notifications = graph_presenter.select_voice(&self.talker, port)?;
+                    return Ok(Some(notifications));
+                }
+            }
+            // TODO : edit talker name and data
+            let notifications = graph_presenter.select_talker(&self.talker)?;
+            Ok(Some(notifications))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 pub trait TalkerControl {
     fn base<'a>(&'a self) -> &'a RTalkerControlBase;
-    /*
-        fn id(&self) -> Id {
-            self.base().borrow().id
-        }
-    */
+
+    fn id(&self) -> Id {
+        self.base().borrow().id
+    }
+
     fn row(&self) -> i32 {
         self.base().borrow().row()
     }
@@ -636,12 +717,17 @@ pub trait TalkerControl {
         self.base().borrow_mut().set_height(height);
     }
 
-    fn draw(&self, cc: &Context, talker: &RTalker, talker_controls: &HashMap<Id, RTalkerControl>) {
+    fn draw(
+        &self,
+        cc: &Context,
+        graph_presenter: &GraphPresenter,
+        talker_controls: &HashMap<Id, RTalkerControl>,
+    ) {
         let base = self.base().borrow();
-        base.draw_connections(cc, talker, talker_controls);
-        base.draw_box(cc, talker, 0., 0.);
-        base.draw_header(cc, talker, 0.);
-        base.draw_ears_and_voices(cc, talker, 0.);
+        base.draw_connections(cc, talker_controls);
+        base.draw_box(cc, graph_presenter);
+        base.draw_header(cc);
+        base.draw_ears_and_voices(cc, graph_presenter);
     }
 
     fn move_to(&mut self, x: f64, y: f64) {
@@ -652,61 +738,11 @@ pub trait TalkerControl {
         &self,
         x: f64,
         y: f64,
-        graph_controler: &mut GraphControler,
+        graph_presenter: &mut GraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
-        let base = self.base().borrow();
-
-        let rx = x - base.x;
-        let ry = y - base.y;
-
-        if base.area.is_under(rx, ry) {
-            for (ear_idx, ear) in base.ears.iter().enumerate() {
-                if ear.area.is_under(rx, ry) {
-                    for (talk_idx, talk) in ear.talks.iter().enumerate() {
-                        if talk.area.is_under(rx, ry) {
-                            if talk.tag_area.is_under(rx, ry) {
-                                let notifications = match &talk.input_type {
-                                    Add => graph_controler.add_ear_talk(&base.talker, ear_idx)?,
-                                    _ => graph_controler.select_ear_talk(
-                                        &base.talker,
-                                        ear_idx,
-                                        talk_idx,
-                                    )?,
-                                };
-                                return Ok(Some(notifications));
-                            }
-
-                            if talk.value_area.is_under(rx, ry) {
-                                // TODO                            graph_controler.select_ear_talk(&base.talker, ear_idx, talk_idx);
-                                return Ok(Some(notifications));
-                            }
-
-                            if let Some(sup_area) = &talk.sup_area {
-                                if sup_area.is_under(rx, ry) {
-                                    let notifications = graph_controler.sup_ear_talk(
-                                        &base.talker,
-                                        ear_idx,
-                                        talk_idx,
-                                    )?;
-                                    return Ok(Some(notifications));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            for (port, voice) in base.voices.iter().enumerate() {
-                if voice.area.is_under(rx, ry) {
-                    let notifications = graph_controler.select_voice(&base.talker, port)?;
-                    return Ok(Some(notifications));
-                }
-            }
-            // TODO : edit talker name and data
-            let notifications = graph_controler.select_talker(&base.talker)?;
-            Ok(Some(notifications))
-        } else {
-            Ok(None)
-        }
+        self.base()
+            .borrow()
+            .on_button_release(x, y, graph_presenter)
     }
 
     fn select(&self) {
@@ -715,11 +751,27 @@ pub trait TalkerControl {
     fn unselect(&self) {
         self.base().borrow_mut().box_area.selected = false;
     }
-    fn select_ear(&self, index: Index) {
-        self.base().borrow_mut().ears[index].area.selected = true;
+    fn select_ear(&self, ear_idx: Index, talk_idx: Index) {
+        self.base().borrow_mut().ears[ear_idx].talks[talk_idx]
+            .tag_area
+            .selected = true;
+        println!(
+            "Talker {} ear {} talk {} selected",
+            self.base().borrow().talker.borrow().id(),
+            ear_idx,
+            talk_idx
+        );
     }
-    fn unselect_ear(&self, index: Index) {
-        self.base().borrow_mut().ears[index].area.selected = false;
+    fn unselect_ear(&self, ear_idx: Index, talk_idx: Index) {
+        self.base().borrow_mut().ears[ear_idx].talks[talk_idx]
+            .tag_area
+            .selected = false;
+        println!(
+            "Talker {} ear {} talk {} unselected",
+            self.base().borrow().talker.borrow().id(),
+            ear_idx,
+            talk_idx
+        );
     }
     fn select_voice(&self, index: Index) {
         self.base().borrow_mut().voices[index].area.selected = true;
