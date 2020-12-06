@@ -50,6 +50,11 @@ impl SessionPresenter {
     }
 
     pub fn notify(&self, notification: Notification) {
+        match notification {
+            Notification::TalkerChanged => self.update_player_band(),
+            _ => (),
+        }
+
         self.event_bus().borrow().notify(notification);
     }
 
@@ -152,5 +157,12 @@ impl SessionPresenter {
     pub fn stop(&mut self) {
         let res = self.session.stop();
         self.manage_state_result(res);
+    }
+
+    pub fn update_player_band(&self) {
+        match self.session.update_player_band() {
+            Ok(_) => (),
+            Err(e) => self.notify_error(e),
+        }
     }
 }

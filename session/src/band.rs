@@ -16,11 +16,9 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
 use std::io::BufReader;
-use std::io::Write;
+//use std::io::Write;
+use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
 use std::str::FromStr;
 
@@ -38,7 +36,6 @@ use crate::track;
 use crate::track::{RTrack, Track};
 
 pub struct Band {
-    filename: String,
     talkers: HashMap<Id, RTalker>,
     mixers: HashMap<Id, RMixer>,
 }
@@ -64,34 +61,33 @@ impl<'a> Module<'a> {
 
 impl Band {
     pub fn new(
-        filename: Option<&str>,
         talkers: Option<HashMap<Id, RTalker>>,
         _tracks: Option<HashMap<Id, RTrack>>,
         mixers: Option<HashMap<Id, RMixer>>,
         _outputs: Option<HashMap<Id, ROutput>>,
     ) -> Band {
         Self {
-            filename: filename.unwrap_or("NewBand.gsr").to_string(),
             talkers: talkers.unwrap_or(HashMap::new()),
             mixers: mixers.unwrap_or(HashMap::new()),
         }
     }
 
+    pub fn empty() -> Band {
+        Self {
+            talkers: HashMap::new(),
+            mixers: HashMap::new(),
+        }
+    }
+
     pub fn new_ref(
-        filename: Option<&str>,
         talkers: Option<HashMap<Id, RTalker>>,
         tracks: Option<HashMap<Id, RTrack>>,
         mixers: Option<HashMap<Id, RMixer>>,
         outputs: Option<HashMap<Id, ROutput>>,
     ) -> RBand {
-        Rc::new(RefCell::new(Band::new(
-            filename, talkers, tracks, mixers, outputs,
-        )))
+        Rc::new(RefCell::new(Band::new(talkers, tracks, mixers, outputs)))
     }
 
-    pub fn filename<'a>(&'a self) -> &'a str {
-        &self.filename
-    }
     pub fn talkers<'a>(&'a self) -> &'a HashMap<Id, RTalker> {
         &self.talkers
     }
@@ -144,7 +140,7 @@ impl Band {
     }
 
     fn make_decs<'a>(
-        lines: &'a Vec<String>,
+        description: &'a String,
     ) -> Result<
         (
             HashMap<&'a str, Module<'a>>,
@@ -162,7 +158,7 @@ impl Band {
         );
         let mut module = Module::new("", "", "");
 
-        for line in lines {
+        for line in description.lines() {
             let words: Vec<&str> = line.trim().split(|c| c == ' ' || c == '\t').collect();
 
             match (words.get(0), words.get(1), words.get(2)) {
@@ -314,12 +310,12 @@ impl Band {
         Ok(rmixer)
     }
 
-    pub fn build(factory: &Factory, description_buffer: &[u8]) -> Result<Band, failure::Error> {
+    pub fn build(factory: &Factory, description: &String) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
-        let mut band = Band::new(None, None, None, None, None);
-        let description_reader = BufReader::new(description_buffer);
-        let lines = description_reader.lines().map(|l| l.unwrap()).collect();
-        let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Band::make_decs(&lines)?;
+        let mut band = Band::empty();
+        //        let description_reader = BufReader::new(description_buffer);
+        //        let lines = description.lines().map(|l| l).collect();
+        let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Band::make_decs(&description)?;
 
         let mut talkers = HashMap::new();
         let mut talkers_modules = Vec::new();
@@ -350,42 +346,35 @@ impl Band {
 
         Ok(band)
     }
-    pub fn make(description_buffer: &[u8]) -> Result<Band, failure::Error> {
+    pub fn make(description_buffer: &String /*[u8]*/) -> Result<Band, failure::Error> {
         Factory::visit(|factory| Band::build(factory, description_buffer))
-    }
-
-    pub fn load_file(filename: &str) -> Result<Band, failure::Error> {
-        let description_buffer = fs::read(filename)?;
-
-        let mut band = Factory::visit(|factory| Band::build(factory, &description_buffer))?;
-
-        band.filename = filename.to_string();
-
-        Ok(band)
     }
 
     pub fn to_ref(self) -> RBand {
         Rc::new(RefCell::new(self))
     }
 
-    fn talk_dep_line<'a>(talk: &Talk, mut file: &'a File) -> Result<&'a File, failure::Error> {
+    fn talk_dep_line<'a>(
+        talk: &Talk,
+        buf: &'a mut String,
+    ) -> Result<&'a mut String, failure::Error> {
         let tkr = &talk.talker().borrow();
 
         if tkr.is_hidden() {
-            writeln!(file, "> {} {}", talk.tag(), tkr.data_string())?;
+            writeln!(buf, "> {} {}", talk.tag(), tkr.data_string())?;
         } else {
             let voice_tag = tkr.voice_tag(talk.port())?;
 
             if voice_tag == "" {
                 writeln!(
-                    file,
+                    buf,
                     "> {} {}",
                     talk.tag(),
                     Band::mref(tkr.id(), &tkr.name())
                 )?;
             } else {
                 writeln!(
-                    file,
+                    buf,
                     "> {} {}:{}",
                     talk.tag(),
                     Band::mref(tkr.id(), &tkr.name()),
@@ -393,18 +382,18 @@ impl Band {
                 )?;
             }
         }
-        Ok(file)
+        Ok(buf)
     }
 
-    pub fn save(&self) -> Result<(), failure::Error> {
-        let mut file = File::create(&self.filename)?;
+    pub fn serialize(&self) -> Result<String, failure::Error> {
+        let mut buf = String::new();
 
         for rtkr in self.talkers.values() {
             let tkr = rtkr.borrow();
             let (model, feature, ears): (&str, String, &Vec<Ear>) = tkr.backup();
 
             writeln!(
-                file,
+                buf,
                 "\n{} {} {}",
                 model,
                 Band::mref(tkr.id(), &tkr.name()),
@@ -412,7 +401,7 @@ impl Band {
             )?;
 
             for ear in ears {
-                ear.fold_talks(Band::talk_dep_line, &file)?;
+                ear.fold_talks(Band::talk_dep_line, &mut buf)?;
             }
         }
 
@@ -421,31 +410,31 @@ impl Band {
 
             for trk in mixer.tracks() {
                 writeln!(
-                    file,
+                    buf,
                     "\n{} {}",
                     track::KIND,
                     Band::mref(trk.borrow().id(), &trk.borrow().name())
                 )?;
 
                 for ear in trk.borrow().ears() {
-                    ear.fold_talks(Band::talk_dep_line, &file)?;
+                    ear.fold_talks(Band::talk_dep_line, &mut buf)?;
                 }
             }
 
             writeln!(
-                file,
+                buf,
                 "\n{} {}",
                 mixer::KIND,
                 Band::mref(mixer.id(), &mixer.name())
             )?;
 
             for ear in mixer.ears() {
-                ear.fold_talks(Band::talk_dep_line, &file)?;
+                ear.fold_talks(Band::talk_dep_line, &mut buf)?;
             }
 
             for trk in mixer.tracks() {
                 writeln!(
-                    file,
+                    buf,
                     "> {} {}",
                     track::KIND,
                     Band::mref(trk.borrow().id(), &trk.borrow().name())
@@ -456,7 +445,7 @@ impl Band {
                 let output = routput.borrow();
                 let (kind, _, _) = output.backup();
                 writeln!(
-                    file,
+                    buf,
                     "> {} {}",
                     kind,
                     Band::mref(output.id(), &output.name())
@@ -467,7 +456,7 @@ impl Band {
                 let output = routput.borrow();
                 let (kind, model, properties) = output.backup();
                 writeln!(
-                    file,
+                    buf,
                     "\n{} {} {}",
                     kind,
                     Band::mref(output.id(), &output.name()),
@@ -475,17 +464,11 @@ impl Band {
                 )?;
 
                 for (tag, value) in properties {
-                    writeln!(file, "> {} {}", tag, value)?;
+                    writeln!(buf, "> {} {}", tag, value)?;
                 }
             }
         }
-        Ok(())
-    }
-
-    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
-        self.filename = filename.to_string();
-        self.save()?;
-        Ok(())
+        Ok(buf)
     }
 
     pub fn add_mixer(&mut self, rmixer: RMixer) {

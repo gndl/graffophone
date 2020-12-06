@@ -27,7 +27,8 @@ use crate::band::Band;
 use crate::feedback;
 use crate::state::State;
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+//#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum Order {
     Nil,
     Start,
@@ -35,6 +36,7 @@ enum Order {
     Pause,
     Stop,
     SetTimeRange(i64, i64),
+    ModifyBand(String),
     Exit,
 }
 
@@ -47,10 +49,37 @@ impl Order {
             Order::Pause => "Pause",
             Order::Stop => "Stop",
             Order::SetTimeRange(_, _) => "SetTimeRange",
+            Order::ModifyBand(_) => "ModifyBand",
             Order::Exit => "Exit",
         })
         .to_string()
     }
+}
+
+fn create_band(
+    band_description: &String,
+    with_feedback: bool,
+    channels: &mut Vec<Vec<f32>>,
+    chunk_size: usize,
+) -> Result<Band, failure::Error> {
+    let mut band = Band::make(band_description)?;
+
+    if with_feedback {
+        band.add_output(feedback::MODEL)?;
+    }
+
+    if channels.len() < band.nb_channels() {
+        for _ in channels.len()..band.nb_channels() {
+            channels.push(vec![0.; chunk_size]);
+        }
+    } else if channels.len() > band.nb_channels() {
+        let nb_over = channels.len() - band.nb_channels();
+
+        for _ in 0..nb_over {
+            let _ = channels.pop();
+        }
+    }
+    Ok(band)
 }
 
 pub struct Player {
@@ -73,8 +102,20 @@ impl Player {
             State::Exited
         } else {
             let _join_handle = thread::spawn(move || {
-                let mut band = Band::make(band_description.as_ref())?;
-                band.add_output(feedback::MODEL)?;
+                let send_state_log = |order: &String, state: State| {
+                    match state_sender.send(state) {
+                        Err(e) => eprintln!("Player state sender error : {}", e),
+                        Ok(()) => (),
+                    }
+                    println!("Player received order {} -> {}", order, state.to_string());
+                    state
+                };
+
+                let send_state = |state: State| match state_sender.send(state) {
+                    Err(e) => eprintln!("Player state sender error : {}", e),
+                    Ok(()) => (),
+                };
+
                 let mut res = Ok(());
                 let mut tick: i64 = 0;
                 let mut start_tick: i64 = 0;
@@ -82,29 +123,13 @@ impl Player {
                 let chunk_size = AudioFormat::chunk_size();
 
                 let mut buf: Vec<f32> = vec![0.; chunk_size];
+                let mut channels: Vec<Vec<f32>> = Vec::new();
 
-                let nb_channels = band.nb_channels();
-                let mut channels: Vec<Vec<f32>> = Vec::with_capacity(nb_channels);
-
-                for _ in 0..nb_channels {
-                    channels.push(vec![0.; chunk_size]);
-                }
-
-                let send_state = |order: Order, state: State| {
-                    match state_sender.send(state) {
-                        Err(e) => eprintln!("Player state sender error : {}", e),
-                        Ok(()) => (),
-                    }
-                    println!(
-                        "Player received order {} -> {}",
-                        order.to_string(),
-                        state.to_string()
-                    );
-                    state
-                };
+                let mut band = create_band(&band_description, true, &mut channels, chunk_size)?;
 
                 let mut state = State::Stopped;
-                let mut oorder = Ok(Order::Stop);
+                let mut oorder = order_receiver.recv();
+                // oorder = Ok(Order::Stop);
 
                 loop {
                     match oorder {
@@ -112,22 +137,22 @@ impl Player {
                             Order::Start => {
                                 band.open()?;
                                 tick = start_tick;
-                                state = send_state(order, State::Playing);
+                                state = send_state_log(&order.to_string(), State::Playing);
                             }
                             Order::Pause => {
                                 band.pause()?;
-                                state = send_state(order, State::Paused);
+                                state = send_state_log(&order.to_string(), State::Paused);
                                 oorder = order_receiver.recv();
                                 continue;
                             }
                             Order::Play => {
                                 band.run()?;
-                                state = send_state(order, State::Playing);
+                                state = send_state_log(&order.to_string(), State::Playing);
                             }
                             Order::Stop => {
                                 band.close()?;
                                 tick = start_tick;
-                                state = send_state(order, State::Stopped);
+                                state = send_state_log(&order.to_string(), State::Stopped);
                                 oorder = order_receiver.recv();
                                 continue;
                             }
@@ -140,8 +165,26 @@ impl Player {
                                     continue;
                                 }
                             }
+                            Order::ModifyBand(band_desc) => {
+                                //                                band.close()?;
+                                band = create_band(&band_desc, true, &mut channels, chunk_size)?;
+
+                                match state {
+                                    State::Playing => band.open()?,
+                                    State::Paused => {
+                                        band.open()?;
+                                        oorder = Ok(Order::Pause);
+                                        continue;
+                                    }
+                                    State::Stopped => {
+                                        oorder = Ok(Order::Stop);
+                                        continue;
+                                    }
+                                    State::Exited => (),
+                                }
+                            }
                             Order::Exit => {
-                                send_state(order, State::Exited);
+                                send_state_log(&order.to_string(), State::Exited);
                                 break;
                             }
                             Order::Nil => {}
@@ -284,17 +327,22 @@ impl Player {
         Ok(self.state())
     }
 
-    pub fn set_time_range(
-        &mut self,
-        start_tick: i64,
-        end_tick: i64,
-    ) -> Result<State, failure::Error> {
+    pub fn set_time_range(&self, start_tick: i64, end_tick: i64) -> Result<State, failure::Error> {
         self.check_not_exited()?;
         self.order_sender
             .send(Order::SetTimeRange(start_tick, end_tick))
             .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
 
-        Ok(self.state())
+        Ok(self.state)
+    }
+
+    pub fn modify_band(&self, band_description: String) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
+        self.order_sender
+            .send(Order::ModifyBand(band_description))
+            .map_err(|e| failure::err_msg(format!("Player::modify_band error : {}", e)))?;
+
+        Ok(self.state)
     }
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {

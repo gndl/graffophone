@@ -15,6 +15,10 @@
  */
 
 use std::collections::HashMap;
+use std::fs;
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
 
 use talker::talker::{RTalker, Talker};
 
@@ -27,6 +31,7 @@ use crate::track;
 use crate::track::{RTrack, Track};
 
 pub struct Session {
+    filename: String,
     band: Band,
     player: Player,
     player_synchronized: bool,
@@ -37,13 +42,38 @@ pub struct Session {
 impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
         Ok(Self {
-            //            band: Band::make(band_description.as_ref())?.to_ref(),
-            band: Band::make(band_description.as_ref())?,
+            filename: "NewBand.gsr".to_string(),
+            band: Band::make(&band_description)?,
             player: Player::new(band_description)?,
             player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
         })
+    }
+
+    pub fn from_file(filename: &str) -> Result<Session, failure::Error> {
+        let mut band_description = String::new();
+
+        let mut f = File::open(filename)?;
+        f.read_to_string(&mut band_description)?;
+
+        Ok(Self {
+            filename: filename.to_string(),
+            band: Band::make(&band_description)?,
+            player: Player::new(band_description)?,
+            player_synchronized: false,
+            start_tick: 0,
+            end_tick: 0,
+        })
+    }
+    /*
+        pub fn load_file(filename: &str) -> Result<Band, failure::Error> {
+            let description_buffer = fs::read(filename)?;
+            Band::make(&description_buffer)
+        }
+    */
+    pub fn filename<'a>(&'a self) -> &'a str {
+        &self.filename
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
@@ -99,14 +129,14 @@ impl Session {
         &self.player
     }
     pub fn new_band(&mut self) -> Result<(), failure::Error> {
-        self.band = Band::new(None, None, None, None, None);
+        self.band = Band::empty();
         self.player = Player::new("".to_string())?;
         Ok(())
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
         //        self.band = Band::make(band_description.as_ref())?.to_ref();
-        self.band = Band::make(band_description.as_ref())?;
+        self.band = Band::make(&band_description)?;
         self.player = Player::new(band_description)?;
         Ok(())
     }
@@ -140,5 +170,23 @@ impl Session {
         self.synchronize_player()?;
         let state = self.player.stop()?;
         Ok(state)
+    }
+
+    pub fn update_player_band(&self) -> Result<State, failure::Error> {
+        //        self.synchronize_player()?;
+        let state = self.player.modify_band(self.band.serialize()?)?;
+        Ok(state)
+    }
+
+    pub fn save(&self) -> Result<(), failure::Error> {
+        let mut file = File::create(&self.filename)?;
+
+        writeln!(file, "{}", self.band.serialize()?)?;
+        Ok(())
+    }
+    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
+        self.filename = filename.to_string();
+        self.save()?;
+        Ok(())
     }
 }
