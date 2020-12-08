@@ -36,26 +36,38 @@ const HEE: f64 = 238. / 255.;
 
 const BACKGROUND_COLOR: Color = (H00, H00, H00);
 const DELIMITATION_COLOR: Color = (H50, H50, H50);
-const SELECTION_COLOR: Color = (HFF, H80, H00);
+const TALKER_SELECTION_COLOR: Color = (1., 0.5, 0.);
+const SELECTION_COLOR: Color = (0.8, 0.4, 0.);
 const REVERSE_SELECTION_COLOR: Color = (HE0, HFF, HE0);
 const BOX_BACKGROUND_COLOR: Color = (H20, H20, H20);
 const BOX_BORDER_COLOR: Color = (H50, H50, H50);
 const MODEL_COLOR: Color = (HD3, HD3, HD3); // lightgray
 const NAME_COLOR: Color = (HFF, HFF, HFF); // white
-const DATA_COLOR: Color = (H00, HFF, HFF); // cyan
-const EAR_COLOR: Color = (HFF, HFF, H00); // yellow
-const SELECTED_EAR_COLOR: Color = (HFF, H00, HFF); // magenta
-const VALUE_COLOR: Color = (H00, HFF, HFF); // cyan
-const SUP_COLOR: Color = (HFF, H00, H00); // lightgreen
-const ADD_COLOR: Color = (H90, HEE, H90); // lightgreen
-const VOICE_COLOR: Color = (H90, HEE, H90); // lightgreen
-const SELECTED_VOICE_COLOR: Color = (HFF, H00, HFF); // magenta
+const DATA_COLOR: Color = (H90, HEE, H90); // lightgreen
+const AUDIO_EAR_COLOR: Color = (0., 1., 1.); // cyan
+const CONTROL_EAR_COLOR: Color = (1., 1., 0.); // yellow
+const CV_EAR_COLOR: Color = (1., 0., 1.); // magenta
+const EAR_COLOR: Color = (0.7, 0.7, 0.7);
+const AUDIO_VOICE_COLOR: Color = (0.4, 1., 1.); // cyan
+const CONTROL_VOICE_COLOR: Color = (1., 1., 0.4); // yellow
+const CV_VOICE_COLOR: Color = (1., 0.4, 1.); // magenta
+const VOICE_COLOR: Color = (8., 8., 8.);
+//const SELECTED_EAR_COLOR: Color = (HFF, H00, HFF);
+const VALUE_COLOR: Color = (0.5, 0.5, 1.); // cyan
+const SUP_COLOR: Color = (HFF, H00, H00); // red
+const ADD_COLOR: Color = (0., 1., 0.); // green
+                                       //const VOICE_COLOR: Color = (H90, HEE, H90); // lightgreen
+                                       //const SELECTED_VOICE_COLOR: Color = (HFF, H00, HFF); // magenta
 
 pub fn background(cc: &Context) {
     set_color(cc, BACKGROUND_COLOR);
 }
 pub fn delimitation(cc: &Context) {
     set_color(cc, DELIMITATION_COLOR);
+}
+pub fn talker_selection(cc: &Context) {
+    set_color(cc, TALKER_SELECTION_COLOR);
+    cc.set_font_size(FONT_SIZE);
 }
 pub fn selection(cc: &Context) {
     set_color(cc, SELECTION_COLOR);
@@ -73,7 +85,7 @@ pub fn box_border(cc: &Context) {
     cc.set_line_width(0.5);
 }
 pub fn selected_box_background(cc: &Context) {
-    set_color(cc, SELECTION_COLOR);
+    set_color(cc, TALKER_SELECTION_COLOR);
 }
 
 pub fn model(cc: &Context) {
@@ -89,12 +101,20 @@ pub fn data(cc: &Context) {
     set_color(cc, DATA_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
-pub fn ear(cc: &Context) {
-    set_color(cc, EAR_COLOR);
+pub fn audio_ear(cc: &Context) {
+    set_color(cc, AUDIO_EAR_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
-pub fn selected_ear(cc: &Context) {
-    set_color(cc, SELECTED_EAR_COLOR);
+pub fn control_ear(cc: &Context) {
+    set_color(cc, CONTROL_EAR_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
+pub fn cv_ear(cc: &Context) {
+    set_color(cc, CV_EAR_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
+pub fn ear(cc: &Context) {
+    set_color(cc, EAR_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
 pub fn value(cc: &Context) {
@@ -109,15 +129,28 @@ pub fn add(cc: &Context) {
     set_color(cc, ADD_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
+pub fn audio_voice(cc: &Context) {
+    set_color(cc, AUDIO_VOICE_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
+pub fn control_voice(cc: &Context) {
+    set_color(cc, CONTROL_VOICE_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
+pub fn cv_voice(cc: &Context) {
+    set_color(cc, CV_VOICE_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
 pub fn voice(cc: &Context) {
     set_color(cc, VOICE_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
+/*
 pub fn selected_voice(cc: &Context) {
     set_color(cc, SELECTED_VOICE_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
-
+*/
 pub fn connection(cc: &Context, color: Color) {
     set_color(cc, color);
     cc.set_line_width(2.);
