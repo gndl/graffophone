@@ -2,10 +2,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-//use gdk::EventMask;
-//use gio::prelude::*;
-//use gtk::gtk_sys::GtkScrolledWindow;
-//use gtk::prelude::*;
 use gtk::DrawingArea;
 
 use cairo::Context;
@@ -21,13 +17,10 @@ use crate::style;
 use crate::style::Color;
 use session::event_bus::{Notification, REventBus};
 
-pub const INPUT_TAG: &str = "In";
-pub const OUTPUT_TAG: &str = "Out";
 pub const ADD_TAG: &str = " + ";
 pub const SUP_TAG: &str = " - ";
 pub const VAL_TAG: &str = " # ";
 
-const MARGE: f64 = 3.;
 const SPACE: f64 = 4.;
 
 const H_PADDING: f64 = 6.;
@@ -85,25 +78,32 @@ impl Area {
         self.e_x = e_x;
         self.content_b_x += dx;
     }
+    pub fn center(&mut self, l: f64, r: f64) {
+        let w = self.e_x - self.b_x;
+        let b_x = (l + r - w) * 0.5;
+
+        self.b_x = b_x;
+        self.e_x = b_x + w;
+        self.content_b_x = b_x + H_PADDING;
+    }
+
+    pub fn centered(&self, l: f64, r: f64) -> Area {
+        let w = self.e_x - self.b_x;
+        let b_x = (l + r - w) * 0.5;
+        Self {
+            b_x: b_x,
+            e_x: b_x + w,
+            b_y: self.b_y,
+            e_y: self.e_y,
+            content_b_x: b_x + H_PADDING,
+            content_e_y: self.content_e_y,
+            selected: self.selected,
+        }
+    }
+
     pub fn is_under(&self, x: f64, y: f64) -> bool {
         x >= self.b_x && x < self.e_x && y >= self.b_y && y < self.e_y
     }
-    pub fn is_under_log(&self, tag: &str, x: f64, y: f64) -> bool {
-        let res = x >= self.b_x && x < self.e_x && y >= self.b_y && y < self.e_y;
-
-        if res {
-            println!(
-                "Area {} (b_x= {} e_x={} b_y={} e_y={}) is_under x={} y={} ",
-                tag, self.b_x, self.e_x, self.b_y, self.e_y, x, y
-            );
-        }
-        res
-    }
-}
-
-struct Control {
-    area: Area,
-    action: String,
 }
 
 pub enum InputType {
@@ -170,8 +170,6 @@ impl Dim {
 
 pub struct ControlSupply<'a> {
     cc: &'a Context,
-    input_dim: Dim,
-    output_dim: Dim,
     add_dim: Dim,
     sup_dim: Dim,
     val_dim: Dim,
@@ -183,10 +181,6 @@ fn dim_to_area(b_x: f64, b_y: f64, dim: &Dim) -> Area {
 
 impl<'a> ControlSupply<'a> {
     pub fn new(cc: &'a Context) -> ControlSupply<'a> {
-        style::ear(cc);
-        let input_dim = Dim::of(cc, INPUT_TAG);
-        style::voice(cc);
-        let output_dim = Dim::of(cc, OUTPUT_TAG);
         style::add(cc);
         let add_dim = Dim::of(cc, ADD_TAG);
         style::sup(cc);
@@ -195,8 +189,6 @@ impl<'a> ControlSupply<'a> {
         let val_dim = Dim::of(cc, VAL_TAG);
         Self {
             cc,
-            input_dim,
-            output_dim,
             add_dim,
             sup_dim,
             val_dim,
@@ -250,47 +242,40 @@ impl TalkerControlBase {
     ) -> Result<TalkerControlBase, failure::Error> {
         let tkr = talker.borrow();
 
-        let mut model_w = 0.;
-        let mut model_h = 0.;
-
+        let mut box_e_x = 0.;
         let mut box_b_y = 0.;
 
         let mut header_e_y = SPACE;
 
-        if draw_model {
+        let model_area = if draw_model {
             style::model(control_supply.cc);
-            let model_dim = control_supply.dim_of(tkr.model());
-            model_w = model_dim.w;
-            model_h = model_dim.h;
-            box_b_y = model_h + MARGE;
+            let m_a = control_supply.area_of(tkr.model(), 0., 0.);
+            box_b_y = m_a.e_y;
             header_e_y += box_b_y;
-        }
+            Some(m_a)
+        } else {
+            None
+        };
 
-        let mut name_w = 0.;
-        let mut name_h = 0.;
-        let name_b_y = header_e_y;
-
-        if draw_name {
+        let mut name_area = if draw_name {
             style::name(control_supply.cc);
-            let name_dim = control_supply.dim_of(&format_name(&tkr.name()));
-            name_w = name_dim.w;
-            name_h = name_dim.h;
-            header_e_y += name_h + SPACE;
-        }
-        let name_e_y = name_b_y + name_h;
+            let n_a = control_supply.area_of(&format_name(&tkr.name()), 0., header_e_y);
+            box_e_x = n_a.e_x;
+            header_e_y = n_a.e_y;
+            Some(n_a)
+        } else {
+            None
+        };
 
-        let mut data_w = 0.;
-        let mut data_h = 0.;
-        let data_b_y = header_e_y;
-
-        if draw_data {
+        let data_area = if draw_data {
             style::data(control_supply.cc);
-            let data_dim = control_supply.dim_of(&format_data(&tkr.data_string()));
-            data_w = data_dim.w;
-            data_h = data_dim.h;
-            header_e_y += data_h + SPACE;
-        }
-        let data_e_y = data_b_y + data_h;
+            let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y);
+            box_e_x = f64::max(box_e_x, d_a.e_x);
+            header_e_y = d_a.e_y;
+            Some(d_a)
+        } else {
+            None
+        };
 
         let mut ears_e_y = header_e_y;
         let mut ears_e_x = 0.;
@@ -302,7 +287,7 @@ impl TalkerControlBase {
 
             let (b_x, e_y, ear_e_x) = ear.fold_talks(
                 |talk, (b_x, b_y, ear_e_x)| {
-                    style::ear(control_supply.cc);
+                    style::io(control_supply.cc);
                     let tag_area = control_supply.area_of(talk.tag(), b_x, b_y);
 
                     let (input_type, value, value_area) = match talk.value() {
@@ -375,12 +360,12 @@ impl TalkerControlBase {
 
         let mut voices = Vec::new();
         let voices_b_x = ears_e_x;
-        let mut voices_e_x = f64::max(voices_b_x, f64::max(name_w, data_w));
+        let mut voices_e_x = f64::max(voices_b_x, box_e_x);
         let mut voices_e_y = header_e_y;
 
         let tkr_id = tkr.id();
 
-        style::voice(control_supply.cc);
+        style::io(control_supply.cc);
 
         for (port, voice) in tkr.voices().iter().enumerate() {
             let tag = voice.borrow().tag().to_string();
@@ -397,35 +382,12 @@ impl TalkerControlBase {
             voices.push(vc);
         }
 
-        for mut voice in &mut voices {
+        for voice in &mut voices {
             voice.area.right_align(voices_e_x);
         }
 
         let width = voices_e_x;
-        let height = f64::max(ears_e_y, voices_e_y) + MARGE;
-
-        let model_area = if draw_model {
-            let model_b_x = (width - model_w) / 2.;
-            Some(Area::new(model_b_x, model_b_x + model_w, 0., model_h))
-        } else {
-            None
-        };
-
-        let name_area = if draw_name {
-            let name_b_x = (width - name_w) / 2.;
-            Some(Area::new(name_b_x, name_b_x + name_w, name_b_y, name_e_y))
-        } else {
-            None
-        };
-
-        let data_area = if draw_data {
-            let data_b_x = (width - data_w) / 2.;
-            Some(Area::new(data_b_x, data_b_x + data_w, data_b_y, data_e_y))
-        } else {
-            None
-        };
-
-        let box_area = Area::new(0., width, box_b_y, height);
+        let height = f64::max(ears_e_y, voices_e_y) + SPACE;
 
         Ok(Self {
             id: tkr_id,
@@ -438,10 +400,10 @@ impl TalkerControlBase {
             y: 0.,
             width,
             height,
-            model_area,
-            name_area,
-            data_area,
-            box_area,
+            model_area: model_area.map(|a| a.centered(0., width)),
+            name_area: name_area.map(|a| a.centered(0., width)),
+            data_area: data_area.map(|a| a.centered(0., width)),
+            box_area: Area::new(0., width, box_b_y, height),
             ears,
             voices,
         })
@@ -504,55 +466,85 @@ impl TalkerControlBase {
         let w = self.box_area.e_x - self.box_area.b_x; //self.width;
         let h = self.box_area.e_y - self.box_area.b_y;
 
-        if graph_presenter.talker_selected(self.id) {
-            style::selected_box_background(cc);
-        } else {
-            style::box_background(cc);
-        }
+        style::box_background(cc);
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.fill();
 
-        style::box_border(cc);
-        cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
+        if graph_presenter.talker_selected(self.id) {
+            style::selected(cc);
+            cc.rectangle(
+                self.x + self.box_area.b_x - 2.,
+                self.y + self.box_area.b_y - 2.,
+                w + 4.,
+                h + 4.,
+            );
+        } else {
+            style::box_border(cc);
+            cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
+        }
         cc.stroke();
     }
 
     pub fn draw_header(&self, cc: &Context) {
         if let Some(model_area) = &self.model_area {
             style::model(cc);
-            cc.move_to(self.x + model_area.b_x, self.y + model_area.e_y);
+            cc.move_to(
+                self.x + model_area.content_b_x,
+                self.y + model_area.content_e_y,
+            );
             cc.show_text(self.talker.borrow().model());
         }
         if let Some(name_area) = &self.name_area {
             style::name(cc);
-            cc.move_to(self.x + name_area.b_x, self.y + name_area.e_y);
+            cc.move_to(
+                self.x + name_area.content_b_x,
+                self.y + name_area.content_e_y,
+            );
             cc.show_text(&format_name(&self.talker.borrow().name()));
         }
         if let Some(data_area) = &self.data_area {
             style::data(cc);
-            cc.move_to(self.x + data_area.b_x, self.y + data_area.e_y);
+            cc.move_to(
+                self.x + data_area.content_b_x,
+                self.y + data_area.content_e_y,
+            );
             cc.show_text(&format_data(&self.talker.borrow().data_string()));
         }
     }
 
-    pub fn draw_selected(&self, cc: &Context, selected_area: &Area) {
-        style::selection(cc);
+    pub fn draw_io(
+        &self,
+        cc: &Context,
+        area: &Area,
+        txt: &String,
+        port_type: PortType,
+        selected: bool,
+    ) {
+        if selected {
+            style::selected_io_background(cc);
 
-        cc.rectangle(
-            self.x + selected_area.b_x,
-            self.y + selected_area.b_y,
-            selected_area.e_x - selected_area.b_x,
-            selected_area.e_y - selected_area.b_y,
-        );
-        cc.fill();
+            cc.rectangle(
+                self.x + area.b_x,
+                self.y + area.b_y,
+                area.e_x - area.b_x,
+                area.e_y - area.b_y,
+            );
+            cc.fill();
 
-        cc.rectangle(
-            self.x + self.box_area.b_x,
-            self.y + self.box_area.b_y,
-            self.box_area.e_x - self.box_area.b_x,
-            self.box_area.e_y - self.box_area.b_y,
-        );
-        cc.stroke();
+            match port_type {
+                PortType::Audio => style::selected_audio(cc),
+                PortType::Control => style::selected_control(cc),
+                PortType::Cv => style::selected_cv(cc),
+            }
+        } else {
+            match port_type {
+                PortType::Audio => style::audio(cc),
+                PortType::Control => style::control(cc),
+                PortType::Cv => style::cv(cc),
+            }
+        }
+        cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
+        cc.show_text(txt);
     }
 
     pub fn draw_ears_and_voices(&self, cc: &Context, graph_presenter: &GraphPresenter) {
@@ -568,20 +560,13 @@ impl TalkerControlBase {
                         cc.show_text(ADD_TAG);
                     }
                     _ => {
-                        if graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx) {
-                            self.draw_selected(cc, &talk.tag_area);
-                        }
-                        match talk.port_type {
-                            PortType::Audio => style::audio_ear(cc),
-                            PortType::Control => style::control_ear(cc),
-                            PortType::Cv => style::cv_ear(cc),
-                        }
-
-                        cc.move_to(
-                            self.x + talk.tag_area.content_b_x,
-                            self.y + talk.tag_area.content_e_y,
+                        self.draw_io(
+                            cc,
+                            &talk.tag_area,
+                            &talk.tag,
+                            talk.port_type,
+                            graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx),
                         );
-                        cc.show_text(&talk.tag);
 
                         style::value(cc);
                         cc.move_to(
@@ -605,20 +590,13 @@ impl TalkerControlBase {
         }
 
         for (voice_idx, voice) in self.voices.iter().enumerate() {
-            if graph_presenter.voice_selected(self.id, voice_idx) {
-                self.draw_selected(cc, &voice.area);
-            }
-            match voice.port_type {
-                PortType::Audio => style::audio_voice(cc),
-                PortType::Control => style::control_voice(cc),
-                PortType::Cv => style::cv_voice(cc),
-            }
-
-            cc.move_to(
-                self.x + voice.area.content_b_x,
-                self.y + voice.area.content_e_y,
+            self.draw_io(
+                cc,
+                &voice.area,
+                &voice.tag,
+                voice.port_type,
+                graph_presenter.voice_selected(self.id, voice_idx),
             );
-            cc.show_text(&voice.tag);
         }
     }
 
@@ -644,7 +622,7 @@ impl TalkerControlBase {
                                         let x2 = self.x + talk_ctrl.area.b_x;
                                         let y2 = self.y
                                             + (talk_ctrl.area.b_y + talk_ctrl.area.e_y) * 0.5;
-                                        let tab = MARGE + SPACE;
+                                        let tab = SPACE;
 
                                         cc.move_to(x1, y1);
                                         cc.line_to(x1 + tab, y1);
