@@ -22,16 +22,14 @@ use cairo::Context;
 use talker::identifier::Id;
 use talker::talker::{RTalker, Talker};
 
-//use session::event_bus::{Notification, REventBus};
 use session::event_bus::{Notification, REventBus};
 use session::mixer::{Mixer, RMixer};
 
-use crate::track_control::{RTrackControl, TrackControl};
-//use crate::session_controler::RSessionPresenter;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
+use crate::track_control::{RTrackControl, TrackControl};
 
 pub struct MixerControl {
     base: RTalkerControlBase,
@@ -68,25 +66,7 @@ impl MixerControl {
 
         base.borrow_mut().set_width(width);
         base.borrow_mut().set_height(height);
-        /*
-                        let topTrackY = self#getHeight +. GTkr.space in
 
-                        let (w, h, gTrks) = L.fold_left mixingConsole#getTracks
-                            ~init:(self#getWidth +. 20., topTrackY, [])
-                            ~f:(fun (w, h, gTrks) track ->
-                                let gTrk = new GTrack.c track ~group:self#getGroup canvas in
-
-                                gTrk#setWidth w;
-
-                                gTrk#draw (1. -. GTkr.boxRadius) h;
-
-                                (max w gTrk#getWidth, h +. gTrk#getHeight, gTrk::gTrks)
-                              ) in
-
-                        self#setWidth(w -. GTkr.boxRadius);
-                        self#setHeight(h +. GTkr.marge -. pY);
-                        mGTracks <- gTrks;
-        */
         Ok(Self {
             base,
             track_controls,
@@ -114,52 +94,31 @@ impl TalkerControl for MixerControl {
     /*
      _______________
     |     NAME      |
+    |volume #       |
     |---------------|
     |[TRACK 1]      |
     |---------------|
     |[TRACK 2]      |
-    |---------------|
-    |volume #       |
     |_______________|
     */
-    fn draw(
-        &self,
-        cc: &Context,
-        graph_presenter: &GraphPresenter,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
+    fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
+        self.base.borrow().draw_connections(cc, talker_controls);
+
+        for trkc in &self.track_controls {
+            trkc.borrow().draw_connections(cc, talker_controls);
+        }
+    }
+
+    fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base.borrow();
-        base.draw_connections(cc, talker_controls);
         base.draw_box(cc, graph_presenter);
         base.draw_header(cc);
 
         base.draw_ears_and_voices(cc, graph_presenter);
 
         for trkc in &self.track_controls {
-            trkc.borrow().draw(cc, graph_presenter, talker_controls);
+            trkc.borrow().draw(cc, graph_presenter);
         }
-        /*
-                        self#drawHeader pY false true false;
-
-
-                      self#drawEarsVoices pY;
-                      self#drawBox pX pY;
-
-                      let w = self#getWidth in
-                      let points = [|pX; topTrackY; pX +. w; topTrackY|] in
-
-                      ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-
-                      ignore(L.fold_left gTrks ~init:topTrackY
-                               ~f:(fun y gTkr ->
-                                   let y = y +. gTkr#getHeight in
-                                   let points = [|pX; y; pX +. w; y|] in
-
-                                   ignore(GnoCanvas.line ~points ~props:separatorProperties mGroup);
-                                   y
-                                 ));
-
-        */
     }
 
     fn move_to(&mut self, x: f64, y: f64) {
@@ -189,14 +148,4 @@ impl TalkerControl for MixerControl {
             .borrow()
             .on_button_release(x, y, graph_presenter)
     }
-
-    /*
-        fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionPresenter) -> bool {
-            if self.base().borrow_mut().on_button_release(x, y, controler) {
-                true
-            } else {
-                false
-            }
-        }
-    */
 }

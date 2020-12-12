@@ -69,51 +69,14 @@ impl TalkerControl for TrackControl {
     |_____________________|
          */
 
-    fn draw(
-        &self,
-        cc: &Context,
-        graph_presenter: &GraphPresenter,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
+    fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base.borrow();
-        base.draw_connections(cc, talker_controls);
         base.draw_box(cc, graph_presenter);
         //        base.draw_header(cc);
 
         base.draw_ears_and_voices(cc, graph_presenter);
     }
-    /*    method! draw _ pY =
-
-          self#drawHeader pY false true false;
-
-          self#drawEarsVoices (pY +. GTkr.marge);
-
-          self#setWidth(self#getWidth +. GTkr.space);
-          self#setHeight(self#getHeight +. GTkr.space);
-
-          //self#drawBox ~pX ~pY ();
-          self#positionTags();
-
-
-        method! drawBox pX pY =
-
-          let x2 = pX +. mWidth in
-          let y2 = pY +. mHeight in
-
-          let box = GnoCanvas.rect ~x1:pX ~y1:pY ~x2 ~y2 ~props:boxProperties mGroup
-          in
-          box#lower_to_bottom();
-    */
 
     fn move_to(&mut self, _x: f64, _y: f64) { // the move is managed by the mixer
     }
-    /*
-        fn on_button_release(&mut self, x: f64, y: f64, controler: &RSessionPresenter) -> bool {
-            if self.base().borrow_mut().on_button_release(x, y, controler) {
-                true
-            } else {
-                false
-            }
-        }
-    */
 }

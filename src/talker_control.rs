@@ -23,7 +23,7 @@ pub const VAL_TAG: &str = " # ";
 
 const SPACE: f64 = 4.;
 
-const H_PADDING: f64 = 6.;
+const H_PADDING: f64 = 4.;
 const V_PADDING: f64 = 3.;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -34,7 +34,6 @@ struct Area {
     e_y: f64,
     content_b_x: f64,
     content_e_y: f64,
-    selected: bool,
 }
 impl Area {
     pub fn new(b_x: f64, e_x: f64, b_y: f64, e_y: f64) -> Area {
@@ -45,7 +44,6 @@ impl Area {
             e_y,
             content_b_x: b_x,
             content_e_y: e_y,
-            selected: false,
         }
     }
     pub fn of_content(b_x: f64, b_y: f64, w: f64, h: f64) -> Area {
@@ -56,7 +54,6 @@ impl Area {
             e_y: b_y + V_PADDING + h + V_PADDING + 1.,
             content_b_x: b_x + H_PADDING,
             content_e_y: b_y + V_PADDING + h,
-            selected: false,
         }
     }
     pub fn copy(&self) -> Area {
@@ -67,7 +64,6 @@ impl Area {
             e_y: self.e_y,
             content_b_x: self.content_b_x,
             content_e_y: self.content_e_y,
-            selected: self.selected,
         }
     }
 
@@ -97,7 +93,6 @@ impl Area {
             e_y: self.e_y,
             content_b_x: b_x + H_PADDING,
             content_e_y: self.content_e_y,
-            selected: self.selected,
         }
     }
 
@@ -148,6 +143,9 @@ fn format_name(s: &str) -> String {
 }
 fn format_data(s: &str) -> String {
     format_label(s, 6)
+}
+fn format_tag(s: &str) -> String {
+    s[0..1].to_uppercase() + &s[1..s.len()]
 }
 fn format_value(v: &f32) -> String {
     format_label(&f32::to_string(v), 6)
@@ -288,7 +286,8 @@ impl TalkerControlBase {
             let (b_x, e_y, ear_e_x) = ear.fold_talks(
                 |talk, (b_x, b_y, ear_e_x)| {
                     style::io(control_supply.cc);
-                    let tag_area = control_supply.area_of(talk.tag(), b_x, b_y);
+                    let tag = format_tag(talk.tag());
+                    let tag_area = control_supply.area_of(&tag, b_x, b_y);
 
                     let (input_type, value, value_area) = match talk.value() {
                         Some(v) => {
@@ -318,7 +317,7 @@ impl TalkerControlBase {
 
                     let talk_ctrl = TalkControl {
                         area: Area::new(b_x, e_x, b_y, e_y),
-                        tag: talk.tag().to_string(),
+                        tag,
                         tag_area,
                         value,
                         value_area,
@@ -368,7 +367,7 @@ impl TalkerControlBase {
         style::io(control_supply.cc);
 
         for (port, voice) in tkr.voices().iter().enumerate() {
-            let tag = voice.borrow().tag().to_string();
+            let tag = format_tag(voice.borrow().tag());
             let area = control_supply.area_of(&tag, voices_b_x, voices_e_y);
 
             voices_e_x = f64::max(voices_e_x, area.e_x);
@@ -472,16 +471,10 @@ impl TalkerControlBase {
 
         if graph_presenter.talker_selected(self.id) {
             style::selected(cc);
-            cc.rectangle(
-                self.x + self.box_area.b_x - 2.,
-                self.y + self.box_area.b_y - 2.,
-                w + 4.,
-                h + 4.,
-            );
         } else {
             style::box_border(cc);
-            cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         }
+        cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.stroke();
     }
 
@@ -622,7 +615,7 @@ impl TalkerControlBase {
                                         let x2 = self.x + talk_ctrl.area.b_x;
                                         let y2 = self.y
                                             + (talk_ctrl.area.b_y + talk_ctrl.area.e_y) * 0.5;
-                                        let tab = SPACE;
+                                        let tab = 2.;
 
                                         cc.move_to(x1, y1);
                                         cc.line_to(x1 + tab, y1);
@@ -674,13 +667,10 @@ impl TalkerControlBase {
                             if talk.tag_area.is_under(rx, ry) {
                                 let notifications = match &talk.input_type {
                                     InputType::Add => {
-                                        graph_presenter.add_ear_talk(&self.talker, ear_idx)?
+                                        graph_presenter.add_ear_talk(self.id, ear_idx)?
                                     }
-                                    _ => graph_presenter.select_ear_talk(
-                                        &self.talker,
-                                        ear_idx,
-                                        talk_idx,
-                                    )?,
+                                    _ => graph_presenter
+                                        .select_ear_talk(self.id, ear_idx, talk_idx)?,
                                 };
                                 return Ok(Some(notifications));
                             }
@@ -689,22 +679,15 @@ impl TalkerControlBase {
                                 // TODO : display float delector
                                 let notifications = graph_presenter
                                     .set_talker_ear_talk_value_by_index(
-                                        &self.talker,
-                                        ear_idx,
-                                        talk_idx,
-                                        100.,
-                                        false,
+                                        self.id, ear_idx, talk_idx, 100., false,
                                     )?;
                                 return Ok(Some(notifications));
                             }
 
                             if let Some(sup_area) = &talk.sup_area {
                                 if sup_area.is_under(rx, ry) {
-                                    let notifications = graph_presenter.sup_ear_talk(
-                                        &self.talker,
-                                        ear_idx,
-                                        talk_idx,
-                                    )?;
+                                    let notifications =
+                                        graph_presenter.sup_ear_talk(self.id, ear_idx, talk_idx)?;
                                     return Ok(Some(notifications));
                                 }
                             }
@@ -714,12 +697,12 @@ impl TalkerControlBase {
             }
             for (port, voice) in self.voices.iter().enumerate() {
                 if voice.area.is_under(rx, ry) {
-                    let notifications = graph_presenter.select_voice(&self.talker, port)?;
+                    let notifications = graph_presenter.select_voice(self.id, port)?;
                     return Ok(Some(notifications));
                 }
             }
             // TODO : edit talker name and data
-            let notifications = graph_presenter.select_talker(&self.talker)?;
+            let notifications = graph_presenter.select_talker(self.id)?;
             Ok(Some(notifications))
         } else {
             Ok(None)
@@ -765,14 +748,12 @@ pub trait TalkerControl {
         self.base().borrow_mut().set_height(height);
     }
 
-    fn draw(
-        &self,
-        cc: &Context,
-        graph_presenter: &GraphPresenter,
-        talker_controls: &HashMap<Id, RTalkerControl>,
-    ) {
+    fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
+        self.base().borrow().draw_connections(cc, talker_controls);
+    }
+
+    fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base().borrow();
-        base.draw_connections(cc, talker_controls);
         base.draw_box(cc, graph_presenter);
         base.draw_header(cc);
         base.draw_ears_and_voices(cc, graph_presenter);
@@ -791,41 +772,6 @@ pub trait TalkerControl {
         self.base()
             .borrow()
             .on_button_release(x, y, graph_presenter)
-    }
-
-    fn select(&self) {
-        self.base().borrow_mut().box_area.selected = true;
-    }
-    fn unselect(&self) {
-        self.base().borrow_mut().box_area.selected = false;
-    }
-    fn select_ear(&self, ear_idx: Index, talk_idx: Index) {
-        self.base().borrow_mut().ears[ear_idx].talks[talk_idx]
-            .tag_area
-            .selected = true;
-        println!(
-            "Talker {} ear {} talk {} selected",
-            self.base().borrow().talker.borrow().id(),
-            ear_idx,
-            talk_idx
-        );
-    }
-    fn unselect_ear(&self, ear_idx: Index, talk_idx: Index) {
-        self.base().borrow_mut().ears[ear_idx].talks[talk_idx]
-            .tag_area
-            .selected = false;
-        println!(
-            "Talker {} ear {} talk {} unselected",
-            self.base().borrow().talker.borrow().id(),
-            ear_idx,
-            talk_idx
-        );
-    }
-    fn select_voice(&self, index: Index) {
-        self.base().borrow_mut().voices[index].area.selected = true;
-    }
-    fn unselect_voice(&self, index: Index) {
-        self.base().borrow_mut().voices[index].area.selected = false;
     }
 }
 
