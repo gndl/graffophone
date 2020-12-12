@@ -45,18 +45,6 @@ impl ApplicationView {
 
         // header bar left controls
 
-        let talkers_tree_toggle = gtk::ToggleButton::new();
-        talkers_tree_toggle.set_image(Some(&gtk::Image::new_from_icon_name(
-            Some("gtk-index"),
-            IconSize::SmallToolbar,
-        )));
-        talkers_tree_toggle.set_active(true);
-
-        headerbar.pack_start(&talkers_tree_toggle);
-
-        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
-        headerbar.pack_start(&separator);
-
         let new_session_button =
             gtk::Button::new_from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
@@ -75,6 +63,18 @@ impl ApplicationView {
         let save_as_session_button =
             gtk::Button::new_from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
+
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&separator);
+
+        let talkers_tree_toggle = gtk::ToggleButton::new();
+        talkers_tree_toggle.set_image(Some(&gtk::Image::new_from_icon_name(
+            Some("gtk-index"),
+            IconSize::SmallToolbar,
+        )));
+        talkers_tree_toggle.set_active(true);
+
+        headerbar.pack_start(&talkers_tree_toggle);
 
         // header bar right controls
         let stop_button =
