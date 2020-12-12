@@ -28,7 +28,7 @@ pub struct Feedback {
 }
 
 impl Feedback {
-    pub fn new(_nb_channels: usize, nb_samples: usize) -> Result<Feedback, failure::Error> {
+    pub fn new(nb_samples: usize) -> Result<Feedback, failure::Error> {
         // Default devices.
         let output_device = cpal::default_host()
             .default_output_device()
@@ -48,11 +48,8 @@ impl Feedback {
         })
     }
 
-    pub fn new_ref(nb_channels: usize, nb_samples: usize) -> Result<ROutput, failure::Error> {
-        Ok(Rc::new(RefCell::new(Feedback::new(
-            nb_channels,
-            nb_samples,
-        )?)))
+    pub fn new_ref(nb_samples: usize) -> Result<ROutput, failure::Error> {
+        Ok(Rc::new(RefCell::new(Feedback::new(nb_samples)?)))
     }
 
     fn make_audio_stream(

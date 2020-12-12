@@ -77,7 +77,7 @@ impl Factory {
         _attributs: Option<&Vec<(&str, &str, &str)>>,
     ) -> Result<ROutput, failure::Error> {
         if model == feedback::MODEL {
-            let output = Feedback::new_ref(2, AudioFormat::chunk_size())?;
+            let output = Feedback::new_ref(AudioFormat::chunk_size())?;
             Factory::set_identity(output.borrow().identifier(), oid, oname);
             Ok(output)
         } else {
@@ -102,11 +102,10 @@ impl Factory {
     {
         unsafe {
             match &OPT_INSTANCE {
-                Some(factory) => {
-                    let factory = factory.clone();
-                    let factory = factory.lock().unwrap();
-                    f(&factory)
-                }
+                Some(factory) => match factory.clone().lock() {
+                    Ok(factory) => f(&factory),
+                    Err(_) => Err(failure::err_msg("Factory::visite failed on lock!")),
+                },
                 None => {
                     OPT_INSTANCE = Some(Arc::new(Mutex::new(Factory::new())));
                     Factory::visit(f)

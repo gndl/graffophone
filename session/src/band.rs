@@ -60,12 +60,7 @@ impl<'a> Module<'a> {
 }
 
 impl Band {
-    pub fn new(
-        talkers: Option<HashMap<Id, RTalker>>,
-        _tracks: Option<HashMap<Id, RTrack>>,
-        mixers: Option<HashMap<Id, RMixer>>,
-        _outputs: Option<HashMap<Id, ROutput>>,
-    ) -> Band {
+    pub fn new(talkers: Option<HashMap<Id, RTalker>>, mixers: Option<HashMap<Id, RMixer>>) -> Band {
         Self {
             talkers: talkers.unwrap_or(HashMap::new()),
             mixers: mixers.unwrap_or(HashMap::new()),
@@ -81,11 +76,9 @@ impl Band {
 
     pub fn new_ref(
         talkers: Option<HashMap<Id, RTalker>>,
-        tracks: Option<HashMap<Id, RTrack>>,
         mixers: Option<HashMap<Id, RMixer>>,
-        outputs: Option<HashMap<Id, ROutput>>,
     ) -> RBand {
-        Rc::new(RefCell::new(Band::new(talkers, tracks, mixers, outputs)))
+        Rc::new(RefCell::new(Band::new(talkers, mixers)))
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<Id, RTalker> {
@@ -313,8 +306,7 @@ impl Band {
     pub fn build(factory: &Factory, description: &String) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
         let mut band = Band::empty();
-        //        let description_reader = BufReader::new(description_buffer);
-        //        let lines = description.lines().map(|l| l).collect();
+
         let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Band::make_decs(&description)?;
 
         let mut talkers = HashMap::new();
@@ -346,7 +338,7 @@ impl Band {
 
         Ok(band)
     }
-    pub fn make(description_buffer: &String /*[u8]*/) -> Result<Band, failure::Error> {
+    pub fn make(description_buffer: &String) -> Result<Band, failure::Error> {
         Factory::visit(|factory| Band::build(factory, description_buffer))
     }
 
@@ -475,7 +467,6 @@ impl Band {
         let id = rmixer.borrow().id();
         self.talkers.insert(id, rmixer.clone());
 
-        //        self.talkers.insert(id, rmixer.borrow().talker().clone());
         self.mixers.insert(id, rmixer);
     }
 

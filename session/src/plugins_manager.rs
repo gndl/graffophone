@@ -186,8 +186,6 @@ impl PluginsManager {
         let mut categories_vec: Vec<(String, Vec<(String, String)>)> = Vec::new();
 
         for (model, ph) in self.handlers.iter() {
-            //            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
-
             match categories_map.get_mut(ph.base.category()) {
                 Some(category_talkers) => {
                     category_talkers.push((ph.base.label(), model));
