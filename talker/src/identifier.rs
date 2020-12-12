@@ -7,6 +7,10 @@ static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 pub type Id = u32;
 pub type Index = usize;
 
+pub fn get_next_id() -> Id {
+    ID_COUNT.load(Ordering::SeqCst)
+}
+
 pub struct Identifier {
     id: Id,
     name: String,

@@ -20,9 +20,10 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
+use talker::identifier;
 use talker::talker::{RTalker, Talker};
 
-use crate::band::{Band, RBand};
+use crate::band::{Band, Operation, RBand};
 use crate::mixer;
 use crate::mixer::RMixer;
 use crate::player::Player;
@@ -80,14 +81,17 @@ impl Session {
         self.band.talkers()
     }
 
-    pub fn add_talker(&mut self, talker_model: &str) -> Result<RTalker, failure::Error> {
-        self.band.add_talker(talker_model, None, None)
+    pub fn add_talker(&mut self, talker_model: &str) -> Result<(), failure::Error> {
+        self.modify_band(&Operation::AddTalker(
+            identifier::get_next_id(),
+            talker_model.to_string(),
+        ))
     }
-
-    pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
-        self.band.sup_talker(talker)
-    }
-
+    /*
+        pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
+            self.band.sup_talker(talker)
+        }
+    */
     pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
         self.band.mixers()
     }
@@ -135,9 +139,31 @@ impl Session {
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
-        //        self.band = Band::make(band_description.as_ref())?.to_ref();
         self.band = Band::make(&band_description)?;
         self.player = Player::new(band_description)?;
+        Ok(())
+    }
+
+    pub fn load_band(&self) -> Result<State, failure::Error> {
+        let state = self.player.load_band(self.band.serialize()?)?;
+        Ok(state)
+    }
+
+    pub fn modify_band(&mut self, operation: &Operation) -> Result<(), failure::Error> {
+        self.player.modify_band(operation)?;
+        self.band.modify(operation)?;
+        Ok(())
+    }
+
+    pub fn save(&self) -> Result<(), failure::Error> {
+        let mut file = File::create(&self.filename)?;
+
+        writeln!(file, "{}", self.band.serialize()?)?;
+        Ok(())
+    }
+    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
+        self.filename = filename.to_string();
+        self.save()?;
         Ok(())
     }
 
@@ -170,23 +196,5 @@ impl Session {
         self.synchronize_player()?;
         let state = self.player.stop()?;
         Ok(state)
-    }
-
-    pub fn update_player_band(&self) -> Result<State, failure::Error> {
-        //        self.synchronize_player()?;
-        let state = self.player.modify_band(self.band.serialize()?)?;
-        Ok(state)
-    }
-
-    pub fn save(&self) -> Result<(), failure::Error> {
-        let mut file = File::create(&self.filename)?;
-
-        writeln!(file, "{}", self.band.serialize()?)?;
-        Ok(())
-    }
-    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
-        self.filename = filename.to_string();
-        self.save()?;
-        Ok(())
     }
 }

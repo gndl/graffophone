@@ -94,6 +94,11 @@ impl Factory {
             Some(name) => identifier.borrow_mut().set_name(name),
             None => (),
         };
+        println!(
+            "identifier {} : {}",
+            identifier.borrow().id(),
+            identifier.borrow().name()
+        );
     }
 
     pub fn visit<F, R>(mut f: F) -> Result<R, failure::Error>

@@ -16,17 +16,15 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::BufReader;
-//use std::io::Write;
 use std::fmt::Write as FmtWrite;
+use std::io::BufReader;
 use std::rc::Rc;
 use std::str::FromStr;
 
 use talker::ear::{Ear, Talk};
-use talker::identifier::{Id, Identifier};
+use talker::identifier::{Id, Identifier, Index};
 use talker::talker::{RTalker, Talker};
 
-//use crate::factory;
 use crate::factory::Factory;
 use crate::mixer;
 use crate::mixer::RMixer;
@@ -34,6 +32,18 @@ use crate::output;
 use crate::output::ROutput;
 use crate::track;
 use crate::track::{RTrack, Track};
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Operation {
+    AddTalker(Id, String),
+    SupTalker(Id),
+    SetTalkerData(Id, String),
+    SetEarVoice(Id, Index, Index, Id, Index),
+    SetEarValue(Id, Index, Index, f32),
+    AddValueToEar(Id, Index, f32),
+    AddVoiceToEar(Id, Index, Id, Index),
+    SupEar(Id, Index, Index),
+}
 
 pub struct Band {
     talkers: HashMap<Id, RTalker>,
@@ -237,8 +247,8 @@ impl Band {
                 }
             }
         }
-        // let id = rtrack.borrow().id();
-        // self.talkers.insert(id, rtrack.clone());
+        let id = rtrack.borrow().id();
+        self.talkers.insert(id, rtrack.clone());
         Ok(rtrack)
     }
 
@@ -502,12 +512,20 @@ impl Band {
         model: &str,
         oid: Option<Id>,
         oname: Option<&str>,
-    ) -> Result<RTalker, failure::Error> {
-        Factory::visit(|factory| self.build_talker(factory, model, oid, oname))
+    ) -> Result<(), failure::Error> {
+        if let Some(id) = oid {
+            println!("Band.add_talker {}", id);
+        }
+        Factory::visit(|factory| {
+            let _ = self.build_talker(factory, model, oid, oname)?;
+            Ok(())
+        })
     }
 
-    pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
-        Ok(()) // TODO
+    pub fn sup_talker(&self, talker_id: &Id) -> Result<(), failure::Error> {
+        // TODO
+        //                let tkr = self.fetch_talker(talker_id)?;
+        Ok(())
     }
 
     pub fn add_output(&mut self, model: &str) -> Result<(), failure::Error> {
@@ -527,20 +545,95 @@ impl Band {
         }
         Ok(())
     }
-    /*
-        pub fn open_outputs(&mut self) -> Result<(), failure::Error> {
-            for rmixer in self.mixers.values() {
-                rmixer.borrow_mut().open_outputs()?;
-            }
-            Ok(())
+
+    pub fn fetch_talker<'a>(&'a self, talker_id: &Id) -> Result<&'a RTalker, failure::Error> {
+        match self.talkers.get(talker_id) {
+            Some(tkr) => Ok(tkr),
+            None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
         }
-        pub fn close_outputs(&mut self) -> Result<(), failure::Error> {
-            for rmixer in self.mixers.values() {
-                rmixer.borrow_mut().close_outputs()?;
+    }
+
+    pub fn modify(&mut self, operation: &Operation) -> Result<(), failure::Error> {
+        match operation {
+            Operation::AddTalker(tkr_id, model) => {
+                self.add_talker(&model, Some(*tkr_id), None)?;
             }
-            Ok(())
+            Operation::SupTalker(tkr_id) => {
+                self.sup_talker(tkr_id)?;
+            }
+            Operation::SetTalkerData(tkr_id, data) => {
+                let tkr = self.fetch_talker(tkr_id)?;
+
+                tkr.borrow_mut().deactivate();
+
+                tkr.borrow_mut().set_data_from_string(&data)?;
+
+                tkr.borrow_mut().activate();
+            }
+            Operation::SetEarVoice(ear_tkr_id, ear_idx, talk_idx, voice_tkr_id, voice_port) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+                let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr.borrow().set_ear_talk_voice_by_index(
+                    *ear_idx,
+                    *talk_idx,
+                    &voice_tkr,
+                    *voice_port,
+                )?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::SetEarValue(ear_tkr_id, ear_idx, talk_idx, value) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .set_ear_talk_value_by_index(*ear_idx, *talk_idx, *value)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::AddValueToEar(ear_tkr_id, ear_idx, value) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .add_ear_talk_value_by_index(*ear_idx, *value)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::AddVoiceToEar(ear_tkr_id, ear_idx, voice_tkr_id, voice_port) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+                let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .add_ear_talk_voice_by_index(*ear_idx, &voice_tkr, *voice_port)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::SupEar(ear_tkr_id, ear_idx, talk_idx) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .sup_ear_talk_by_index(*ear_idx, *talk_idx)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
         }
-    */
+        Ok(())
+    }
+
     pub fn activate_talkers(&self) {
         for tkr in self.talkers.values() {
             tkr.borrow_mut().activate();

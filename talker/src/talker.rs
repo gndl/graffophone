@@ -295,11 +295,11 @@ pub trait Talker {
     fn add_ear_talk_voice_by_index(
         &self,
         ear_idx: usize,
-        talker: &RTalker,
+        voice_talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
         match &self.ears()[ear_idx] {
-            Ear::Talks(talks) => talks.borrow_mut().add_talk_voice(talker, port),
+            Ear::Talks(talks) => talks.borrow_mut().add_talk_voice(voice_talker, port),
             _ => Ok(()),
         }
     }

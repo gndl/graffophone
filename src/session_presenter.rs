@@ -4,6 +4,7 @@ use std::rc::Rc;
 use talker::identifier::Id;
 use talker::talker::{RTalker, Talker};
 
+use session::band::Operation;
 use session::event_bus::{EventBus, Notification, REventBus};
 use session::factory::Factory;
 use session::session::Session;
@@ -41,6 +42,10 @@ impl SessionPresenter {
         Rc::new(RefCell::new(SessionPresenter::new()))
     }
 
+    pub fn new_session(&mut self) {
+        self.session = Session::new(GSR.to_string()).unwrap();
+    }
+
     pub fn session<'a>(&'a self) -> &'a Session {
         &self.session
     }
@@ -50,11 +55,6 @@ impl SessionPresenter {
     }
 
     pub fn notify(&self, notification: Notification) {
-        match notification {
-            Notification::TalkerChanged => self.update_player_band(),
-            _ => (),
-        }
-
         self.event_bus().borrow().notify(notification);
     }
 
@@ -93,13 +93,21 @@ impl SessionPresenter {
 
     pub fn add_talker(&mut self, talker_model: &str) {
         match self.session.add_talker(talker_model) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => self.notify_error(e),
         }
     }
+    /*
+        pub fn sup_talker(&mut self, talker: &RTalker) {
+            match self.session.sup_talker(talker) {
+                Ok(_) => (),
+                Err(e) => self.notify_error(e),
+            }
+        }
+    */
 
-    pub fn sup_talker(&mut self, talker: &RTalker) {
-        match self.session.sup_talker(talker) {
+    pub fn modify_band(&mut self, operation: &Operation) {
+        match self.session.modify_band(operation) {
             Ok(_) => (),
             Err(e) => self.notify_error(e),
         }
@@ -118,10 +126,6 @@ impl SessionPresenter {
         self.manage_state_result(res);
     }
 
-    pub fn new_session(&mut self) {
-        self.session = Session::new(GSR.to_string()).unwrap();
-    }
-
     fn monitor_state(session_presenter_reference: &RSessionPresenter) {
         let this = session_presenter_reference.clone();
 
@@ -137,8 +141,6 @@ impl SessionPresenter {
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {
-        //        let mut this = session_presenter_reference.borrow_mut();
-
         let res = match self.session.state() {
             State::Stopped => {
                 SessionPresenter::monitor_state(monitor);
@@ -157,12 +159,5 @@ impl SessionPresenter {
     pub fn stop(&mut self) {
         let res = self.session.stop();
         self.manage_state_result(res);
-    }
-
-    pub fn update_player_band(&self) {
-        match self.session.update_player_band() {
-            Ok(_) => (),
-            Err(e) => self.notify_error(e),
-        }
     }
 }
