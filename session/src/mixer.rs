@@ -13,7 +13,6 @@ pub const KIND: &str = "mixer";
 
 pub struct Mixer {
     base: TalkerBase,
-    //    talker: RTalker,
     tracks: Vec<RTrack>,
     outputs: Vec<ROutput>,
     tick: i64,
@@ -30,7 +29,6 @@ impl Mixer {
 
         Self {
             base,
-            //            talker: ear::def_audio_talker(None),
             tracks: tracks.unwrap_or(Vec::new()),
             outputs: outputs.unwrap_or(Vec::new()),
             tick: 0,
@@ -41,19 +39,9 @@ impl Mixer {
         Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
     }
 
-    // pub fn new_ref(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> RMixer {
-    //     let rmixer = Rc::new(RefCell::new(Mixer::new(tracks, outputs)));
-    //     rmixer.borrow_mut().talker = rmixer.clone();
-    //     rmixer
-    // }
-
     pub fn kind() -> &'static str {
         KIND
     }
-
-    // pub fn talker<'a>(&'a self) -> &'a RTalker {
-    //     &self.talker
-    // }
 
     pub fn tracks<'a>(&'a self) -> &'a Vec<RTrack> {
         &self.tracks
@@ -119,6 +107,7 @@ impl Mixer {
         buf: &mut Vector,
         channels: &mut Vec<Vector>,
         len: usize,
+        extra_outputs: &Vec<ROutput>,
     ) -> Result<usize, failure::Error> {
         let mut ln = self.listen_ears(tick, len);
 
@@ -153,6 +142,10 @@ impl Mixer {
                 }
                 ch[i] = sample;
             }
+        }
+
+        for o in extra_outputs {
+            o.borrow_mut().write(channels, ln)?;
         }
 
         for o in &self.outputs {

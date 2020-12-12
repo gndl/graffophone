@@ -25,6 +25,7 @@ use talker::audio_format::AudioFormat;
 
 use crate::band::Band;
 use crate::feedback;
+use crate::feedback::Feedback;
 use crate::state::State;
 
 //#[derive(PartialEq, Eq, Debug, Copy, Clone)]
@@ -58,22 +59,20 @@ impl Order {
 
 fn create_band(
     band_description: &String,
-    with_feedback: bool,
     channels: &mut Vec<Vec<f32>>,
+    min_channels: usize,
     chunk_size: usize,
 ) -> Result<Band, failure::Error> {
-    let mut band = Band::make(band_description)?;
+    let band = Band::make(band_description)?;
 
-    if with_feedback {
-        band.add_output(feedback::MODEL)?;
-    }
+    let nb_channels = usize::max(min_channels, band.nb_channels());
 
-    if channels.len() < band.nb_channels() {
-        for _ in channels.len()..band.nb_channels() {
+    if channels.len() < nb_channels {
+        for _ in channels.len()..nb_channels {
             channels.push(vec![0.; chunk_size]);
         }
-    } else if channels.len() > band.nb_channels() {
-        let nb_over = channels.len() - band.nb_channels();
+    } else if channels.len() > nb_channels {
+        let nb_over = channels.len() - nb_channels;
 
         for _ in 0..nb_over {
             let _ = channels.pop();
@@ -84,7 +83,6 @@ fn create_band(
 
 pub struct Player {
     order_sender: Sender<Order>,
-    //    join_handle: JoinHandle<Result<(), failure::Error>>,
     state_receiver: Receiver<State>,
     state: State,
 }
@@ -125,7 +123,13 @@ impl Player {
                 let mut buf: Vec<f32> = vec![0.; chunk_size];
                 let mut channels: Vec<Vec<f32>> = Vec::new();
 
-                let mut band = create_band(&band_description, true, &mut channels, chunk_size)?;
+                let feedback = Feedback::new_ref(chunk_size)?;
+                let min_channels = feedback.borrow().nb_channels();
+                let mut extra_outputs = Vec::new();
+                extra_outputs.push(feedback.clone());
+
+                let mut band =
+                    create_band(&band_description, &mut channels, min_channels, chunk_size)?;
 
                 let mut state = State::Stopped;
                 let mut oorder = order_receiver.recv();
@@ -136,21 +140,26 @@ impl Player {
                         Ok(order) => match order {
                             Order::Start => {
                                 band.open()?;
+                                feedback.borrow_mut().open()?;
+
                                 tick = start_tick;
                                 state = send_state_log(&order.to_string(), State::Playing);
                             }
                             Order::Pause => {
                                 band.pause()?;
+                                feedback.borrow_mut().pause()?;
                                 state = send_state_log(&order.to_string(), State::Paused);
                                 oorder = order_receiver.recv();
                                 continue;
                             }
                             Order::Play => {
                                 band.run()?;
+                                feedback.borrow_mut().run()?;
                                 state = send_state_log(&order.to_string(), State::Playing);
                             }
                             Order::Stop => {
                                 band.close()?;
+                                feedback.borrow_mut().close()?;
                                 tick = start_tick;
                                 state = send_state_log(&order.to_string(), State::Stopped);
                                 oorder = order_receiver.recv();
@@ -167,7 +176,12 @@ impl Player {
                             }
                             Order::ModifyBand(band_desc) => {
                                 //                                band.close()?;
-                                band = create_band(&band_desc, true, &mut channels, chunk_size)?;
+                                band = create_band(
+                                    &band_desc,
+                                    &mut channels,
+                                    min_channels,
+                                    chunk_size,
+                                )?;
 
                                 match state {
                                     State::Playing => band.open()?,
@@ -208,10 +222,13 @@ impl Player {
                     };
 
                     for rmixer in band.mixers().values() {
-                        match rmixer
-                            .borrow_mut()
-                            .come_out(tick, &mut buf, &mut channels, len)
-                        {
+                        match rmixer.borrow_mut().come_out(
+                            tick,
+                            &mut buf,
+                            &mut channels,
+                            len,
+                            &extra_outputs,
+                        ) {
                             Ok(ln) => {
                                 len = ln;
 
@@ -238,6 +255,7 @@ impl Player {
                 }
 
                 band.close()?;
+                feedback.borrow_mut().close()?;
                 let _ = state_sender.send(State::Exited)?;
                 res
             });
