@@ -4,11 +4,6 @@ version = "0.1.0"
 authors = ["gndl <gndl@users.noreply.github.com>"]
 edition = "2018"
 
-[lib]
-name = "gramotor_stubs"
-path = "./gramotocaml/src/lib.rs"
-crate-type = ["staticlib", "cdylib"]
-
 [[bin]]
 name = "playone"
 path = "playone/src/main.rs"
