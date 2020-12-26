@@ -512,13 +512,13 @@ impl Band {
         model: &str,
         oid: Option<Id>,
         oname: Option<&str>,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<RTalker, failure::Error> {
         if let Some(id) = oid {
             println!("Band.add_talker {}", id);
         }
         Factory::visit(|factory| {
-            let _ = self.build_talker(factory, model, oid, oname)?;
-            Ok(())
+            let tkr = self.build_talker(factory, model, oid, oname)?;
+            Ok(tkr)
         })
     }
 

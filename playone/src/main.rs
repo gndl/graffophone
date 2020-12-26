@@ -6,6 +6,9 @@ use std::alloc::System;
 use std::cell::RefCell;
 use std::f64::consts::PI;
 use std::fs;
+use std::fs::File;
+use std::io::Read;
+use std::io::Write;
 use std::rc::Rc;
 
 #[global_allocator]
@@ -28,9 +31,9 @@ use talker::talker::Talker;
 
 use session::band::{Band, RBand};
 use session::event_bus::EventBus;
+use session::feedback::Feedback;
 use session::mixer::Mixer;
 use session::output::Output;
-use session::playback::Playback;
 use session::player::Player;
 use session::session::Session;
 use session::talkers::second_degree_frequency_progression;
@@ -61,7 +64,7 @@ mixer 5#mixer_5
 
 fn main() {
     {
-        let mut session = Session::new(GSR.to_string()).unwrape();
+        let mut session = Session::new(GSR.to_string()).unwrap();
 
         for _ in 0..5 {
             let _ = session.play();
@@ -75,7 +78,7 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_secs(50));
     }
     let bus = EventBus::new_ref();
-    let band = Band::new_ref(None, None, None, None, None);
+    let band = Band::new_ref(None, None);
 
     /*
     band.borrow().run();
@@ -127,10 +130,21 @@ fn play(filename: &str) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn load_save_bands() -> Result<(), failure::Error> {
-    let mut lss = Band::load_file("play_sin.gsr")?;
-    lss.save_as("play_sin_dst.gsr")?;
+fn save_band(band: &Band, filename: &str) -> Result<(), failure::Error> {
+    let mut out_file = File::create(filename)?;
+
+    writeln!(out_file, "{}", band.serialize()?)?;
+
     Ok(())
+}
+
+fn load_save_bands() -> Result<(), failure::Error> {
+    let mut band_description = String::new();
+
+    let mut in_file = File::open("play_sin.gsr")?;
+    in_file.read_to_string(&mut band_description)?;
+    let band = Band::make(&band_description)?;
+    save_band(&band, "play_sin_dst.gsr")
 }
 
 fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
@@ -144,18 +158,18 @@ fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
 
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_voice_by_tag("In", &abs_sine_tkr, 0)?;
+        .set_ear_talk_voice_by_tag("In", &abs_sine_tkr, 0)?;
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_value_by_tag("FUZZ", 2f32)?;
+        .set_ear_talk_value_by_tag("FUZZ", 2f32)?;
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_value_by_tag("LEVEL", 0.25f32)?;
+        .set_ear_talk_value_by_tag("LEVEL", 0.25f32)?;
 
     band.borrow().activate_talkers();
 
-    let mut po = Playback::new(CHANNELS, SAMPLES)?;
-    po.open()?;
+    let mut feedback = Feedback::new(SAMPLES)?;
+    feedback.open()?;
     let audio_buf = fuzzface_tkr
         .borrow_mut()
         .voice(0)
@@ -168,9 +182,21 @@ fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
     let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
     println!("Will play fuzzed abs sinusoidal for {} seconds", secs);
 
+    let mut channels: Vec<Vec<f32>> = Vec::new();
+    for n_chan in 0..feedback.nb_channels() {
+        channels.push(vec![0.; SAMPLES]);
+    }
+
     for _ in 0..nb_iter {
         let ln = fuzzface_tkr.borrow_mut().talk(0, tick, len);
-        po.write_mono(&audio_buf, ln)?;
+
+        for n_chan in 0..feedback.nb_channels() {
+            for i in 0..ln {
+                channels[n_chan][i] = audio_buf.get()[i].get();
+            }
+        }
+        feedback.write(&channels, ln)?;
+
         tick += ln as i64;
     }
 
@@ -187,8 +213,8 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
 
     band.borrow().activate_talkers();
 
-    let mut po = Playback::new(CHANNELS, SAMPLES)?;
-    po.open()?;
+    let mut feedback = Feedback::new(SAMPLES)?;
+    feedback.open()?;
     let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
@@ -196,24 +222,39 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
     let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
     println!("Will play sinusoidal for {} seconds", secs);
 
+    let mut channels: Vec<Vec<f32>> = Vec::new();
+    for n_chan in 0..feedback.nb_channels() {
+        channels.push(vec![0.; SAMPLES]);
+    }
+
     for _ in 0..nb_iter {
         let ln = tkr.borrow_mut().talk(0, tick, len);
-        po.write_mono(&audio_buf, ln)?;
+
+        for n_chan in 0..feedback.nb_channels() {
+            for i in 0..ln {
+                channels[n_chan][i] = audio_buf.get()[i].get();
+            }
+        }
+        feedback.write(&channels, ln)?;
+
         tick += ln as i64;
     }
 
     std::thread::sleep(std::time::Duration::from_secs(secs));
     band.borrow().deactivate_talkers();
 
-    let track = Track::new();
-    track.set_ear_voice_by_index(0, &tkr, 0)?;
+    let track = Track::new_ref();
+    track
+        .borrow_mut()
+        .set_ear_talk_voice_by_index(0, 0, &tkr, 0)?;
     let rmixer = Mixer::new_ref(None, None);
-    //    let mut mixer = rmixer.borrow_mut();
+
     rmixer.borrow_mut().add_track(track);
-    rmixer.borrow_mut().add_output(Rc::new(RefCell::new(po)));
+    rmixer
+        .borrow_mut()
+        .add_output(Rc::new(RefCell::new(feedback)));
     band.borrow_mut().add_mixer(rmixer);
-    band.borrow_mut().save_as("play_sin.gsr")?;
-    Ok(())
+    save_band(&band.borrow(), "play_sin_dst.gsr")
 }
 
 fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
@@ -222,8 +263,8 @@ fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
             .add_talker(second_degree_frequency_progression::MODEL, None, None)?;
     band.borrow().activate_talkers();
 
-    let mut po = Playback::new(CHANNELS, SAMPLES)?;
-    po.open()?;
+    let mut feedback = Feedback::new(SAMPLES)?;
+    feedback.open()?;
     let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
@@ -231,9 +272,21 @@ fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
     let secs = ((nb_iter * len) / SAMPLE_RATE) as u64;
     println!("Will play sinusoidal for {} seconds", secs);
 
+    let mut channels: Vec<Vec<f32>> = Vec::new();
+    for n_chan in 0..feedback.nb_channels() {
+        channels.push(vec![0.; SAMPLES]);
+    }
+
     for _ in 0..nb_iter {
         let ln = tkr.borrow_mut().talk(0, tick, len);
-        po.write_mono(&audio_buf, ln)?;
+
+        for n_chan in 0..feedback.nb_channels() {
+            for i in 0..ln {
+                channels[n_chan][i] = audio_buf.get()[i].get();
+            }
+        }
+        feedback.write(&channels, ln)?;
+
         tick += ln as i64;
     }
 
@@ -292,10 +345,15 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
         fuzzface_inst.connect_port(buf.0.clone(), buf.1.clone())
     }
 
-    let mut po = Playback::new(CHANNELS, SAMPLES)?;
-    po.open()?;
+    let mut feedback = Feedback::new(SAMPLES)?;
+    feedback.open()?;
 
     fuzzface_inst.activate();
+
+    let mut channels: Vec<Vec<f32>> = Vec::new();
+    for n_chan in 0..feedback.nb_channels() {
+        channels.push(vec![0.; SAMPLES]);
+    }
 
     for _ in 0..NUM_SECONDS {
         for _ in 0..FRAMES_PER_SECOND {
@@ -306,7 +364,12 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
 
             fuzzface_inst.run(SAMPLES as u32);
 
-            po.write_mono(&out_audio_buf, SAMPLES)?;
+            for n_chan in 0..feedback.nb_channels() {
+                for i in 0..SAMPLES {
+                    channels[n_chan][i] = out_audio_buf.get()[i].get();
+                }
+            }
+            feedback.write(&channels, SAMPLES)?;
         }
         f = 2. * f;
     }
@@ -315,7 +378,7 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
 
     std::thread::sleep(std::time::Duration::from_secs(NUM_SECONDS));
 
-    po.close()?;
+    feedback.close()?;
 
     Ok(())
 }
