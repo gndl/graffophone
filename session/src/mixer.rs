@@ -127,13 +127,14 @@ impl Mixer {
             };
         }
 
-        let master_volume_buf = self.ear_cv_buffer(0).unwrap();
+        let master_volume_horn = self.ear_cv_buffer(0).unwrap();
+        let master_volume_buf = master_volume_horn.borrow();
 
         for cn in 0..channels.len() {
             let ch = &mut channels[cn];
 
             for i in 0..ln {
-                let mut sample = ch[i] * master_volume_buf[i].get();
+                let mut sample = ch[i] * master_volume_buf[i];
 
                 if sample < AudioFormat::MIN_AUDIO {
                     sample = AudioFormat::MIN_AUDIO;

@@ -44,13 +44,15 @@ impl Talker for AbsSine {
             ln = ear.listen(tick, ln);
         }
         for voice in self.voices() {
-            let freq_buf = self.ear_audio_buffer(0).unwrap();
+            let rfreq_buf = self.ear_audio_buffer(0).unwrap();
+            let freq_buf = rfreq_buf.borrow();
             let mut vc = voice.borrow_mut();
-            let voice_buf = vc.audio_buffer().unwrap();
+            let mut rvoice_buf = vc.audio_buffer().unwrap();
+            let mut voice_buf = rvoice_buf.borrow_mut();
 
             for i in 0..ln {
-                let sample = ((tick + i as i64) as f64 * freq_buf[i].get() as f64 * c).sin() as f32;
-                voice_buf.get()[i].set(sample);
+                let sample = ((tick + i as i64) as f64 * freq_buf[i] as f64 * c).sin() as f32;
+                voice_buf[i] = sample;
             }
             vc.set_len(ln);
             vc.set_tick(tick);

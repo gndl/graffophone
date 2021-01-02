@@ -1,16 +1,17 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::ffi::{CStr, CString};
 use std::iter::Extend;
 use std::rc::Rc;
-
-use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
-use lv2::urid::features::{URIDMap, URIDUnmap};
-
-use lilv::world::World;
+use std::sync::atomic::AtomicU32;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 use talker::talker::RTalker;
 use talker::talker_handler::TalkerHandlerBase;
 
+use crate::lv2_resources::{Lv2Resources, UridMapFeature};
 use crate::talkers::abs_sine;
 use crate::talkers::abs_sine::AbsSine;
 use crate::talkers::lv2::Lv2;
@@ -18,7 +19,7 @@ use crate::talkers::second_degree_frequency_progression;
 use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
-
+/*
 struct GpFeatureSet {
     hard_rt_capable: ::lv2::core::features::HardRTCapable,
     urid_map: ::lv2::urid::features::URIDMap,
@@ -37,11 +38,6 @@ impl GpFeatureSet {
     }
     fn init(mut self) -> Self {
         self.buffer = Rc::new(FeatureBuffer::from_vec(vec![
-            /*
-            Feature::descriptor(&self.hard_rt_capable),
-            Feature::descriptor(&self.urid_unmap),
-            Feature::descriptor(&self.urid_map),
-                            */
         ]));
 
         self
@@ -50,9 +46,10 @@ impl GpFeatureSet {
         Rc::clone(&self.buffer)
     }
 }
+*/
 enum PluginType {
     Internal,
-    Lv2,
+    Lv2(lilv::Plugin),
 }
 
 pub struct PluginHandler {
@@ -61,8 +58,8 @@ pub struct PluginHandler {
 }
 
 pub struct PluginsManager {
-    world: World,
-    features: GpFeatureSet,
+    lv2_resources: Lv2Resources,
+    //    features: GpFeatureSet,
     handlers: HashMap<String, PluginHandler>,
 }
 
@@ -77,20 +74,55 @@ impl PluginsManager {
         )
     }
 
-    pub fn make_plugins_handlers(world: &World) -> HashMap<String, PluginHandler> {
+    pub fn make_plugins_handlers(world: &lilv::World) -> HashMap<String, PluginHandler> {
         println!("make_plugins_handlers start");
         let mut handlers = HashMap::new();
 
-        for plugin in world.plugins() {
+        //    let features = [w.new_uri(UridMapFeature::URI)];
+        let supported_features = [world.new_uri(UridMapFeature::URI)];
+
+        for plugin in world.all_plugins().iter() {
+            if plugin.uri().as_uri().is_none() {
+                println!("Could not get uri from {:?}.", plugin.uri().turtle_token());
+                continue;
+            }
+            let mut supported = true;
+            if let Some(required_features) = plugin.required_features() {
+                for feature in required_features.iter() {
+                    if supported_features.iter().find(|f| *f == &feature).is_none() {
+                        supported = false;
+                        println!(
+                            "LV2 plugin {:?} requires feature {:?}.",
+                            plugin.uri().turtle_token(),
+                            feature.turtle_token()
+                        );
+                    }
+                }
+            }
+            if let Some(optional_features) = plugin.optional_features() {
+                for feature in optional_features.iter() {
+                    if supported_features.iter().find(|f| *f == &feature).is_none() {
+                        println!(
+                            "LV2 plugin {:?} has optional feature {:?}.",
+                            plugin.uri().turtle_token(),
+                            feature.turtle_token()
+                        );
+                    }
+                }
+            }
+            if !supported {
+                continue;
+            }
+
             handlers.insert(
-                plugin.uri().to_string(),
+                plugin.uri().turtle_token(),
                 PluginHandler {
                     base: TalkerHandlerBase::new(
-                        plugin.class().label().to_str(),
-                        plugin.uri().to_string().as_str(),
-                        plugin.name().to_str(),
+                        &plugin.class().label().turtle_token(),
+                        &plugin.uri().turtle_token(),
+                        &plugin.name().turtle_token(),
                     ),
-                    plugin_type: PluginType::Lv2,
+                    plugin_type: PluginType::Lv2(plugin),
                 },
             );
         }
@@ -106,53 +138,32 @@ impl PluginsManager {
     }
 
     pub fn new() -> Self {
-        let world = World::new().unwrap();
-        let handlers = PluginsManager::make_plugins_handlers(&world);
+        let lv2_resources = Lv2Resources::new();
+        let handlers = PluginsManager::make_plugins_handlers(&lv2_resources.world);
 
         Self {
-            world,
-            features: GpFeatureSet::new(),
+            lv2_resources,
             handlers,
         }
     }
-
-    pub fn features_buffer(&self) -> SharedFeatureBuffer {
-        self.features.buffer()
-    }
     /*
-    fn add_handler(&mut self, base: TalkerHandlerBase) {
-        self.handlers.insert(
-            base.model().to_string(),
-            PluginHandler {
-                base,
-                plugin_type: PluginType::Internal,
-            },
-        );
-    }
-
-        pub fn load_plugins(&mut self) {
-            println!("load_plugins start");
-            for plugin in self.world.plugins() {
-                self.handlers.insert(
-                    plugin.uri().to_string(),
-                    PluginHandler {
-                        base: TalkerHandlerBase::new(
-                            plugin.class().label().to_str(),
-                            plugin.uri().to_string().as_str(),
-                            plugin.name().to_str(),
-                        ),
-                        plugin_type: PluginType::Lv2,
-                    },
-                );
-            }
-
-            self.add_handler(AbsSine::descriptor());
-            self.add_handler(Sinusoidal::descriptor());
-            self.add_handler(SecondDegreeFrequencyProgression::descriptor());
-
-            println!("load_plugins end");
+        pub fn features_buffer(&self) -> SharedFeatureBuffer {
+            self.features.buffer()
         }
     */
+    //    pub fn make_lv2_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
+    pub fn make_lv2_talker(&self, plugin: &lilv::Plugin) -> Result<RTalker, failure::Error> {
+        let features: Vec<*const lv2_raw::LV2Feature> = vec![
+            self.lv2_resources.urid_map.as_lv2_feature(),
+            std::ptr::null(),
+        ];
+        Lv2::new(
+            &self.lv2_resources,
+            features.as_ptr(),
+            plugin, //            ph.base.model(),
+        )
+    }
+
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == sinusoidal::MODEL {
             Ok(Rc::new(RefCell::new(Sinusoidal::new())))
@@ -169,7 +180,7 @@ impl PluginsManager {
 
     pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
         match &ph.plugin_type {
-            PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.model()),
+            PluginType::Lv2(plugin) => self.make_lv2_talker(&plugin),
             PluginType::Internal => self.make_internal_talker(ph.base.model()),
         }
     }

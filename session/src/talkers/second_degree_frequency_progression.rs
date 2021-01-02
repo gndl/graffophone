@@ -42,13 +42,14 @@ impl Talker for SecondDegreeFrequencyProgression {
 
         for voice in self.voices() {
             let mut vc = voice.borrow_mut();
-            let voice_buf = vc.audio_buffer().unwrap();
+            let rvoice_buf = vc.audio_buffer().unwrap();
+            let mut voice_buf = rvoice_buf.borrow_mut();
 
             for i in 0..len {
                 let t = (tick + i as i64) as f64;
                 println!("tick = {}, i = {}, t = {}", tick, i, t);
                 let sample = (t * f * c).sin() as f32;
-                voice_buf.get()[i].set(sample);
+                voice_buf[i] = sample;
             }
             vc.set_len(len);
             vc.set_tick(tick);

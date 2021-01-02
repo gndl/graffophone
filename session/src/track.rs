@@ -39,11 +39,13 @@ impl Track {
     fn compute_input_gain(&self, tick: i64, buf: &mut Vector, len: usize) -> usize {
         let ln = self.listen_ears(tick, len);
 
-        let in_buf = self.ear_audio_buffer(0).unwrap();
-        let gain_buf = self.ear_audio_buffer(1).unwrap();
+        let in_horn = self.ear_audio_buffer(0).unwrap();
+        let in_buf = in_horn.borrow();
+        let gain_horn = self.ear_audio_buffer(1).unwrap();
+        let gain_buf = gain_horn.borrow();
 
         for i in 0..ln {
-            buf[i] = in_buf[i].get() * gain_buf[i].get();
+            buf[i] = in_buf[i] * gain_buf[i];
         }
         ln
     }
@@ -64,10 +66,11 @@ impl Track {
 
                 for i in 0..n {
                     let ch = &mut channels[i];
-                    let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
+                    let cg_horn = cgs.talks()[i].borrow().cv_buffer().unwrap();
+                    let cg = cg_horn.borrow();
 
                     for j in 0..ln {
-                        ch[j] = cg[j].get() * buf[j];
+                        ch[j] = cg[j] * buf[j];
                     }
                 }
 
@@ -99,10 +102,11 @@ impl Track {
 
                 for i in 0..n {
                     let ch = &mut channels[i];
-                    let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
+                    let cg_horn = cgs.talks()[i].borrow().cv_buffer().unwrap();
+                    let cg = cg_horn.borrow();
 
                     for j in 0..ln {
-                        ch[j] = ch[j] + cg[j].get() * buf[j];
+                        ch[j] = ch[j] + cg[j] * buf[j];
                     }
                 }
 

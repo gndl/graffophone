@@ -63,19 +63,22 @@ impl Talker for Sinusoidal {
             ln = ear.listen(tick, ln);
         }
         for voice in self.voices() {
-            let freq_buf = self.ear_audio_buffer(0).unwrap();
-            let phase_buf = self.ear_audio_buffer(1).unwrap();
+            let rfreq_buf = self.ear_audio_buffer(0).unwrap();
+            let freq_buf = rfreq_buf.borrow();
+            let rphase_buf = self.ear_audio_buffer(1).unwrap();
+            let phase_buf = rphase_buf.borrow();
 
             let mut vc = voice.borrow_mut();
-            let voice_buf = vc.audio_buffer().unwrap();
+            let rvoice_buf = vc.audio_buffer().unwrap();
+            let mut voice_buf = rvoice_buf.borrow_mut();
 
             for i in 0..ln {
-                let p = phase_buf[i].get() as f64 * PI;
+                let p = phase_buf[i] as f64 * PI;
                 let a = last_angle + last_freq * c;
 
                 let sample = (a + p).sin() as f32;
-                voice_buf.get()[i].set(sample);
-                last_freq = freq_buf[i].get() as f64;
+                voice_buf[i] = sample;
+                last_freq = freq_buf[i] as f64;
                 last_angle = a;
             }
             vc.set_len(ln);

@@ -1,5 +1,4 @@
 extern crate failure;
-extern crate lilv;
 
 pub mod audio_format;
 pub mod audio_talker;

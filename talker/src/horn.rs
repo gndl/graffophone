@@ -1,11 +1,14 @@
-use crate::audio_format::AudioFormat;
+use std::cell::RefCell;
+use std::rc::Rc;
+/*
 use lilv::port::buffer::CellBuffer;
 use lilv::port::buffer::VecBuffer;
-use std::rc::Rc;
+*/
+use crate::audio_format::AudioFormat;
 
-pub type AudioBuf = Rc<VecBuffer<f32>>;
-pub type ControlBuf = Rc<CellBuffer<f32>>;
-pub type CvBuf = Rc<VecBuffer<f32>>;
+pub type AudioBuf = Rc<RefCell<Vec<f32>>>;
+pub type ControlBuf = Rc<RefCell<Vec<f32>>>;
+pub type CvBuf = Rc<RefCell<Vec<f32>>>;
 
 pub enum Horn {
     Audio(AudioBuf),
@@ -14,21 +17,21 @@ pub enum Horn {
 }
 
 pub fn audio_buf(value: Option<f32>, len: Option<usize>) -> AudioBuf {
-    Rc::new(VecBuffer::new(
-        value.unwrap_or(0.),
-        len.unwrap_or(AudioFormat::chunk_size()),
-    ))
+    Rc::new(RefCell::new(vec![
+        value.unwrap_or(0.);
+        len.unwrap_or(AudioFormat::chunk_size())
+    ]))
 }
 
 pub fn control_buf(value: Option<f32>) -> ControlBuf {
-    Rc::new(CellBuffer::new(value.unwrap_or(0.)))
+    Rc::new(RefCell::new(vec![value.unwrap_or(0.); 1]))
 }
 
 pub fn cv_buf(value: Option<f32>, len: Option<usize>) -> CvBuf {
-    Rc::new(VecBuffer::new(
-        value.unwrap_or(0.),
-        len.unwrap_or(AudioFormat::chunk_size()),
-    ))
+    Rc::new(RefCell::new(vec![
+        value.unwrap_or(0.);
+        len.unwrap_or(AudioFormat::chunk_size())
+    ]))
 }
 pub fn audio(value: Option<f32>, len: Option<usize>) -> Horn {
     Horn::Audio(audio_buf(value, len))

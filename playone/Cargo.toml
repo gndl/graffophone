@@ -6,8 +6,7 @@ edition = "2018"
 
 [dependencies]
 failure = "0.1.5"
-lv2 = { path = "../lv2" }
-lilv = { path = "../lilv" }
+lilv = { git = "https://github.com/grejppi/lilv-rs.git" }
 granode = { path = "../talker" }
 session = { path = "../session" }
 #ffmpeg = "0.1.1"

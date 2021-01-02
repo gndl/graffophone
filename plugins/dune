@@ -1,6 +1,0 @@
-
-(library
-  (name graffophone_plugins)
-  (libraries graffophone_plugin)
-  (synopsis "Graffophone plugin example")
-)

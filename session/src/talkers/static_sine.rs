@@ -44,8 +44,8 @@ impl Talker for AbsSine {
             let voice_buf = vc.audio_buffer().unwrap();
 
             for i in 0..ln {
-                let sample = ((tick + i as i64) as f64 * freq_buf[i].get() as f64 * c).sin() as f32;
-                voice_buf.get()[i].set(sample);
+                let sample = ((tick + i as i64) as f64 * freq_buf[i] as f64 * c).sin() as f32;
+                voice_buf[i] = sample;
             }
             vc.set_len(ln);
             vc.set_tick(tick);

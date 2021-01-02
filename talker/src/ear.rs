@@ -34,6 +34,18 @@ impl Talk {
     pub fn value(&self) -> Option<f32> {
         self.tkr.borrow().voice_value(self.port)
     }
+    /*
+        pub fn horn<'a>(&'a self) -> &'a Horn {
+            let res;
+            let tkr = self.tkr.borrow();
+            {
+                let voice = &tkr.voices()[self.port];
+                res = voice.borrow().horn();
+            }
+            res
+            //        &self.tkr.borrow().voices()[self.port].borrow().horn()
+        }
+    */
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
         let tkr = self.tkr.borrow();
@@ -192,14 +204,21 @@ impl Ear {
     {
         self.fold_talks(|tlk, p| f(&tlk.tkr, p), p)
     }
-
-    pub fn visit_horn<F>(&self, f: F)
+    /*
+        pub fn horn<'a>(&'a self, talk_idx: usize) -> &'a Horn {
+            match self {
+                Ear::Talk(talk) => talk.borrow().horn(),
+                Ear::Talks(talks) => talks.borrow().talks[talk_idx].borrow().horn(),
+            }
+        }
+    */
+    pub fn visit_horn<F, P>(&self, talk_idx: usize, f: F, p: P)
     where
-        F: FnMut(&Horn),
+        F: FnMut(&Horn, P),
     {
         match self {
-            Ear::Talk(talk) => visit_talk_horn(&talk.borrow(), f),
-            Ear::Talks(_talks) => (),
+            Ear::Talk(talk) => visit_talk_horn(&talk.borrow(), f, p),
+            Ear::Talks(talks) => visit_talk_horn(&talks.borrow().talks[talk_idx].borrow(), f, p),
         }
     }
 }
@@ -403,14 +422,14 @@ where
     res
 }
 
-pub fn visit_talk_horn<F>(talk: &Talk, mut f: F)
+pub fn visit_talk_horn<F, P>(talk: &Talk, mut f: F, p: P)
 where
-    F: FnMut(&Horn),
+    F: FnMut(&Horn, P),
 {
     let tkr = talk.tkr.borrow();
     {
         match tkr.voices().get(talk.port) {
-            Some(voice) => f(voice.borrow().horn()),
+            Some(voice) => f(voice.borrow().horn(), p),
             None => (),
         }
     }

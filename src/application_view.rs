@@ -46,29 +46,29 @@ impl ApplicationView {
         // header bar left controls
 
         let new_session_button =
-            gtk::Button::new_from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
 
         let open_session_button = gtk::MenuButton::new();
-        open_session_button.set_image(Some(&gtk::Image::new_from_icon_name(
+        open_session_button.set_image(Some(&gtk::Image::from_icon_name(
             Some("gtk-open"),
             IconSize::SmallToolbar,
         )));
         headerbar.pack_start(&open_session_button);
 
         let save_session_button =
-            gtk::Button::new_from_icon_name(Some("gtk-save"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("gtk-save"), IconSize::SmallToolbar);
         headerbar.pack_start(&save_session_button);
 
         let save_as_session_button =
-            gtk::Button::new_from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
 
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&separator);
 
         let talkers_tree_toggle = gtk::ToggleButton::new();
-        talkers_tree_toggle.set_image(Some(&gtk::Image::new_from_icon_name(
+        talkers_tree_toggle.set_image(Some(&gtk::Image::from_icon_name(
             Some("gtk-index"),
             IconSize::SmallToolbar,
         )));
@@ -78,18 +78,17 @@ impl ApplicationView {
 
         // header bar right controls
         let stop_button =
-            gtk::Button::new_from_icon_name(Some("gtk-media-stop"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("gtk-media-stop"), IconSize::SmallToolbar);
 
         headerbar.pack_end(&stop_button);
 
         let play_or_pause_button =
-            gtk::Button::new_from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
 
-        let play_icon =
-            gtk::Image::new_from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
+        let play_icon = gtk::Image::from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
 
         let pause_icon =
-            gtk::Image::new_from_icon_name(Some("gtk-media-pause"), IconSize::SmallToolbar);
+            gtk::Image::from_icon_name(Some("gtk-media-pause"), IconSize::SmallToolbar);
 
         headerbar.pack_end(&play_or_pause_button);
 
