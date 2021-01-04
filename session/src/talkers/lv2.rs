@@ -1,16 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/*
-use lilv::instance::PluginInstance;
-use lilv::plugin::Plugin;
-use lilv::port::Port;
-use lilv::port::TypedPort;
-use lilv::port::{UnknownInputPort, UnknownOutputPort};
-use lilv::world::World;
-use lv2::core::ports::{Audio, Control, CV};
-use lv2::core::SharedFeatureBuffer;
-*/
 use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::horn;
@@ -43,21 +33,12 @@ pub struct Lv2 {
 
 impl Lv2 {
     pub fn new(
-        //        world: &World,
         lv2_resources: &Lv2Resources,
         features: *const *const lv2_raw::LV2Feature,
-        //        features: SharedFeatureBuffer,
-        //        uri: &str,
         plugin: &lilv::Plugin,
     ) -> Result<RTalker, failure::Error> {
-        //        let plugin = get_plugin_by_uri(world, uri)?;
         show_plugin(plugin);
-        /*
-        let mut instance = unsafe {
-            plugin
-                .instantiate(AudioFormat::sample_rate() as f64, features)
-                .ok_or(Err(failure::err_msg("PluginInstantiationError")))?
-        };*/
+
         let mut instance = instantiate(plugin, features)?;
 
         let name_node = plugin.name();
@@ -71,38 +52,43 @@ impl Lv2 {
         let mut input_port_handlers = Vec::new();
         let mut output_port_handlers = Vec::new();
 
-        for port_index in 0..plugin.num_ports() {
+        let num_ports = plugin.num_ports();
+        let mut mins = vec![f32::NAN; num_ports];
+        let mut maxes = vec![f32::NAN; num_ports];
+        let mut defaults = vec![f32::NAN; num_ports];
+
+        plugin
+            .port_ranges_float(
+                mins.as_mut_slice(),
+                maxes.as_mut_slice(),
+                defaults.as_mut_slice(),
+            )
+            .map_err(|_| failure::err_msg(format!("Lv2 plugin port ranges error")))?;
+
+        for port_index in 0..num_ports {
             unsafe { instance.connect_port(port_index, &mut (std::ptr::null_mut() as *mut f32)) };
             match plugin.port_by_index(port_index) {
                 Some(port) => {
                     let port_symbol = port.symbol();
                     let port_tag = port_symbol.as_str();
 
+                    let default = if defaults[port_index].is_nan() {
+                        None
+                    } else {
+                        Some(defaults[port_index])
+                    };
+
                     if lv2_resources.is_input(&port) {
                         if lv2_resources.is_audio(&port) {
-                            let ear = ear::audio(port_tag, None, None);
+                            let ear = ear::audio(port_tag, default, None);
                             base.add_ear(ear);
                             input_port_handlers.push(port_index);
                         } else if lv2_resources.is_control(&port) {
-                            let ear = ear::control(port_tag, None);
+                            let ear = ear::control(port_tag, default);
                             base.add_ear(ear);
                             input_port_handlers.push(port_index);
-                            let mut default = None;
-                            port.range(Some(&mut default), None, None);
-                            match default {
-                                Some(default_node) => {
-                                    println!(
-                                        "Plugin port default value {}",
-                                        default_node.turtle_token()
-                                    );
-                                    if let Some(mut def_val) = default_node.as_float() {
-                                        unsafe { instance.connect_port(port_index, &mut def_val) };
-                                    }
-                                }
-                                None => (),
-                            }
                         } else if lv2_resources.is_atom(&port) {
-                            let ear = ear::cv(port_tag, None, None);
+                            let ear = ear::cv(port_tag, default, None);
                             base.add_ear(ear);
                             input_port_handlers.push(port_index);
                         } else {
@@ -110,34 +96,38 @@ impl Lv2 {
                         }
                     } else {
                         if lv2_resources.is_audio(&port) {
-                            let mut /* audio_*/ buf = horn::audio_buf(None, None);
-                            //                            let ab: &mut [f32] = &mut audio_buf;
+                            let mut buf = horn::audio_buf(None, None);
                             unsafe {
-                                instance
-                                    .connect_port(port_index, &mut buf.borrow_mut().as_mut_ptr())
+                                instance.connect_port(
+                                    port_index,
+                                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                                )
                             };
-                            //                            unsafe { instance.connect_port(port_index, &mut ab.as_mut_ptr()) };
-                            //                            instance.connect_port(p.handle().clone(), buf.clone());
+
                             let vc = voice::audio(port_tag, None, Some(buf));
                             base.add_voice(vc);
                             output_port_handlers.push(port_index);
                         } else if lv2_resources.is_control(&port) {
                             let mut buf = horn::control_buf(None);
                             unsafe {
-                                instance
-                                    .connect_port(port_index, &mut buf.borrow_mut().as_mut_ptr())
+                                instance.connect_port(
+                                    port_index,
+                                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                                )
                             };
-                            //                            instance.connect_port(p.handle().clone(), buf.clone());
+
                             let vc = voice::control(port_tag, None, Some(buf));
                             base.add_voice(vc);
                             output_port_handlers.push(port_index);
                         } else if lv2_resources.is_atom(&port) {
                             let mut buf = horn::cv_buf(None, None);
                             unsafe {
-                                instance
-                                    .connect_port(port_index, &mut buf.borrow_mut().as_mut_ptr())
+                                instance.connect_port(
+                                    port_index,
+                                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                                )
                             };
-                            //                            instance.connect_port(p.handle().clone(), buf.clone());
+
                             let vc = voice::cv(port_tag, None, Some(buf));
                             base.add_voice(vc);
                             output_port_handlers.push(port_index);
@@ -153,7 +143,6 @@ impl Lv2 {
         Ok(Rc::new(RefCell::new(Self {
             base,
             model: model.to_string(),
-            //          model: uri.to_string(), //plugin.name().to_str().to_string(),
             instance,
             input_port_handlers,
             output_port_handlers,
@@ -194,62 +183,35 @@ impl Talker for Lv2 {
                 );
             }
         }
-        /*
-                let nb_ears = self.ears().len();
-
-                for ear_idx in 0..nb_ears {
-                    //        for (i, ear) in self.ears().iter().enumerate() {
-                    if let Some(port_index) = self.input_port_handlers.get(ear_idx) {
-                        if let Some(ear) = self.ears().get(ear_idx) {
-                            match ear.horn(0) {
-                                Horn::Audio(buf) => {
-                                    unsafe {
-                                        instance
-                                            .connect_port(*port_index, &mut buf.borrow_mut().as_mut_ptr())
-                                    };
-                                    //                        audio_buffers.push((port_index, buf.clone()));
-                                }
-                                Horn::Control(buf) => {
-                                    unsafe {
-                                        instance
-                                            .connect_port(*port_index, &mut buf.borrow_mut().as_mut_ptr())
-                                    };
-                                    //                      control_buffers.push((port_index, buf.clone()));
-                                }
-                                Horn::Cv(buf) => {
-                                    unsafe {
-                                        instance
-                                            .connect_port(*port_index, &mut buf.borrow_mut().as_mut_ptr())
-                                    };
-                                    //                      cv_buffers.push((port_index, buf.clone()));
-                                }
-                            }
-                        }
-                    }
-                }
-        */
 
         for (port_index, buf) in audio_buffers {
             unsafe {
-                self.instance
-                    .connect_port(port_index, &mut buf.borrow_mut().as_mut_ptr())
+                self.instance.connect_port(
+                    port_index,
+                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                )
             };
         }
         for (port_index, buf) in control_buffers {
             unsafe {
-                self.instance
-                    .connect_port(port_index, &mut &buf.borrow_mut().as_mut_ptr())
+                self.instance.connect_port(
+                    port_index,
+                    &mut &buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                )
             };
         }
         for (port_index, buf) in cv_buffers {
             unsafe {
-                self.instance
-                    .connect_port(port_index, &mut &buf.borrow_mut().as_mut_ptr())
+                self.instance.connect_port(
+                    port_index,
+                    &mut &buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                )
             };
         }
 
         self.instance.activate()
     }
+
     fn deactivate(&mut self) {
         self.instance.deactivate()
     }
