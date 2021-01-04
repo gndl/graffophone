@@ -8,5 +8,6 @@ failure = "0.1.5"
 ringbuf = "0.2.1"
 cpal = {git = "https://github.com/RustAudio/cpal"}
 lv2_raw = "0.2"
-lilv = { git = "https://github.com/grejppi/lilv-rs.git" }
+# lilv = { git = "https://github.com/grejppi/lilv-rs.git" }
+lilv = { path = "../../lilv-rs" }
 talker = { path = "../talker" }
