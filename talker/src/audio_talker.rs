@@ -1,4 +1,5 @@
 use crate::data::Data;
+use crate::horn::AudioVal;
 use crate::talker::{Talker, TalkerBase};
 use crate::voice;
 
@@ -6,7 +7,6 @@ pub const MODEL: &str = "AudioTalker";
 
 pub struct AudioTalker {
     base: TalkerBase,
-    value: f32,
 }
 
 impl AudioTalker {
@@ -17,7 +17,7 @@ impl AudioTalker {
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
-        Self { base, value }
+        Self { base }
     }
 }
 
@@ -39,18 +39,12 @@ impl Talker for AudioTalker {
         len
     }
 
-    fn voice_value(&self, port: usize) -> Option<f32> {
-        if port == 0 && self.is_hidden() {
-            /*            let res;
-            {
-                let voice = self.voices().get(0).unwrap();
-                res = voice.borrow().audio_buffer().get()[0];
+    fn voice_value(&self, port: usize) -> Option<AudioVal> {
+        if self.is_hidden() {
+            if let Some(voice) = self.voices().get(port) {
+                return voice.borrow().audio_value(0);
             }
-            Some(res)
-                */
-            Some(self.value)
-        } else {
-            None
         }
+        None
     }
 }

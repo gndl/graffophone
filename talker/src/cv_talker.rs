@@ -1,4 +1,5 @@
 use crate::data::Data;
+use crate::horn::CvVal;
 use crate::talker::{Talker, TalkerBase};
 use crate::voice;
 
@@ -37,5 +38,14 @@ impl Talker for CvTalker {
         }
 
         len
+    }
+
+    fn voice_value(&self, port: usize) -> Option<CvVal> {
+        if self.is_hidden() {
+            if let Some(voice) = self.voices().get(port) {
+                return voice.borrow().cv_value(0);
+            }
+        }
+        None
     }
 }

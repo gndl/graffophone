@@ -1,4 +1,5 @@
 use crate::data::Data;
+use crate::horn::ControlVal;
 use crate::talker::{Talker, TalkerBase};
 use crate::voice;
 
@@ -9,7 +10,7 @@ pub struct ControlTalker {
 }
 
 impl ControlTalker {
-    pub fn new(ovalue: Option<f32>, hidden: Option<bool>) -> ControlTalker {
+    pub fn new(ovalue: Option<ControlVal>, hidden: Option<bool>) -> ControlTalker {
         let value = ovalue.unwrap_or(1.);
         let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
         let voice = voice::control(None, Some(value), None);
@@ -29,12 +30,20 @@ impl Talker for ControlTalker {
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        //        self.voices().iter().for_each(|voice| {
         for voice in self.voices() {
             let mut vc = voice.borrow_mut();
 
             vc.set_tick(tick);
         }
         len
+    }
+
+    fn voice_value(&self, port: usize) -> Option<ControlVal> {
+        if self.is_hidden() {
+            if let Some(voice) = self.voices().get(port) {
+                return voice.borrow().control_value(0);
+            }
+        }
+        None
     }
 }
