@@ -140,26 +140,20 @@ impl Lv2 {
             }
         }
 
-        Ok(Rc::new(RefCell::new(Self {
+        let mut plugin = Self {
             base,
             model: model.to_string(),
             instance,
             input_port_handlers,
             output_port_handlers,
-        })))
-    }
-}
+        };
 
-impl Talker for Lv2 {
-    fn base<'b>(&'b self) -> &'b TalkerBase {
-        &self.base
+        plugin.connect_ears();
+
+        Ok(Rc::new(RefCell::new(plugin)))
     }
 
-    fn model(&self) -> &str {
-        self.model.as_str()
-    }
-
-    fn activate(&mut self) {
+    fn connect_ears(&mut self) {
         let mut audio_buffers: Vec<(usize, AudioBuf)> = Vec::new();
         let mut control_buffers: Vec<(usize, ControlBuf)> = Vec::new();
         let mut cv_buffers: Vec<(usize, CvBuf)> = Vec::new();
@@ -196,7 +190,7 @@ impl Talker for Lv2 {
             unsafe {
                 self.instance.connect_port(
                     port_index,
-                    &mut &buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
                 )
             };
         }
@@ -204,11 +198,24 @@ impl Talker for Lv2 {
             unsafe {
                 self.instance.connect_port(
                     port_index,
-                    &mut &buf.borrow_mut().as_mut_slice().as_mut_ptr(),
+                    &mut buf.borrow_mut().as_mut_slice().as_mut_ptr(),
                 )
             };
         }
+    }
+}
 
+impl Talker for Lv2 {
+    fn base<'b>(&'b self) -> &'b TalkerBase {
+        &self.base
+    }
+
+    fn model(&self) -> &str {
+        self.model.as_str()
+    }
+
+    fn activate(&mut self) {
+        self.connect_ears();
         self.instance.activate()
     }
 
@@ -222,6 +229,8 @@ impl Talker for Lv2 {
         for ear in self.ears() {
             ln = ear.listen(tick, ln);
         }
+        self.connect_ears();
+
         self.instance.run(ln);
         ln
     }
