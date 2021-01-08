@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::Once;
 use std::sync::{Arc, Mutex};
 
 use talker::audio_format::AudioFormat;
@@ -17,19 +18,34 @@ pub struct Factory {
     plugins_manager: PluginsManager,
 }
 
-pub type RFactory = Rc<Factory>;
+pub type RFactory = Arc<Mutex<Factory>>;
 
-static mut OPT_INSTANCE: Option<Arc<Mutex<Factory>>> = None;
+static mut OPT_INSTANCE: Option<RFactory> = None;
+static INIT: Once = Once::new();
+
+fn provide_instance() -> Result<RFactory, failure::Error> {
+    INIT.call_once(|| {
+        let oinstance = Some(Arc::new(Mutex::new(Factory::new())));
+        unsafe {
+            OPT_INSTANCE = oinstance;
+        }
+    });
+
+    unsafe {
+        match &OPT_INSTANCE {
+            Some(instance) => Ok(instance.clone()),
+            None => Err(failure::err_msg(
+                "Factory::visite failed on instance acces!",
+            )),
+        }
+    }
+}
 
 impl Factory {
     pub fn new() -> Factory {
         Self {
             plugins_manager: PluginsManager::new(),
         }
-    }
-
-    pub fn new_ref() -> RFactory {
-        Rc::new(Factory::new())
     }
 
     pub fn get_categorized_talkers_label_model(&self) -> Vec<(String, Vec<(String, String)>)> {
@@ -105,17 +121,12 @@ impl Factory {
     where
         F: FnMut(&Factory) -> Result<R, failure::Error>,
     {
-        unsafe {
-            match &OPT_INSTANCE {
-                Some(factory) => match factory.clone().lock() {
-                    Ok(factory) => f(&factory),
-                    Err(_) => Err(failure::err_msg("Factory::visite failed on lock!")),
-                },
-                None => {
-                    OPT_INSTANCE = Some(Arc::new(Mutex::new(Factory::new())));
-                    Factory::visit(f)
-                }
-            }
-        }
+        let instance = provide_instance()?;
+
+        let res = match instance.lock() {
+            Ok(factory) => f(&factory),
+            Err(_) => Err(failure::err_msg("Factory::visite failed on lock!")),
+        };
+        res
     }
 }
