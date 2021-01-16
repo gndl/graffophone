@@ -74,14 +74,6 @@ impl Area {
         self.e_x = e_x;
         self.content_b_x += dx;
     }
-    pub fn center(&mut self, l: f64, r: f64) {
-        let w = self.e_x - self.b_x;
-        let b_x = (l + r - w) * 0.5;
-
-        self.b_x = b_x;
-        self.e_x = b_x + w;
-        self.content_b_x = b_x + H_PADDING;
-    }
 
     pub fn centered(&self, l: f64, r: f64) -> Area {
         let w = self.e_x - self.b_x;
@@ -255,7 +247,7 @@ impl TalkerControlBase {
             None
         };
 
-        let mut name_area = if draw_name {
+        let name_area = if draw_name {
             style::name(control_supply.cc);
             let n_a = control_supply.area_of(&format_name(&tkr.name()), 0., header_e_y);
             box_e_x = n_a.e_x;
