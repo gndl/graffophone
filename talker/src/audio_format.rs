@@ -5,7 +5,7 @@ const CHANNELS: usize = 2;
 const DEFAULT_SAMPLE_RATE: usize = 44_100;
 static SAMPLE_RATE: AtomicUsize = AtomicUsize::new(DEFAULT_SAMPLE_RATE);
 //const FRAMES_PER_SECOND: usize = 10;
-const DEFAULT_CHUNK_SIZE: usize = 4410;
+const DEFAULT_CHUNK_SIZE: usize = 2048; //4410;
 static CHUNK_SIZE: AtomicUsize = AtomicUsize::new(DEFAULT_CHUNK_SIZE);
 
 pub struct AudioFormat {
