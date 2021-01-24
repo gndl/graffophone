@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::ear::Ear;
 use talker::talker::{Talker, TalkerBase};
@@ -22,8 +23,14 @@ impl Track {
     pub fn new() -> Track {
         let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::audio(None, None, None));
-        base.add_ear(ear::audio(Some("gain"), Some(1.), None));
+        base.add_ear(ear::audio(
+            None,
+            AudioFormat::MIN_AUDIO,
+            AudioFormat::MAX_AUDIO,
+            AudioFormat::DEF_AUDIO,
+            None,
+        ));
+        base.add_ear(ear::audio(Some("gain"), 0., 1., 1., None));
         base.add_ear(ear::cvs(Some("channelGain")));
 
         Self { base }

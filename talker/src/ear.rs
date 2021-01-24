@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::f32;
 use std::rc::Rc;
 
 use audio_talker::AudioTalker;
@@ -16,6 +17,8 @@ pub struct Talk {
     tag: String,
     tkr: RTalker,
     port: Index,
+    min_value: f32,
+    max_value: f32,
 }
 
 impl Talk {
@@ -33,6 +36,12 @@ impl Talk {
     }
     pub fn value(&self) -> Option<f32> {
         self.tkr.borrow().voice_value(self.port)
+    }
+    pub fn min_value(&self) -> f32 {
+        self.min_value
+    }
+    pub fn max_value(&self) -> f32 {
+        self.max_value
     }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
@@ -204,74 +213,95 @@ impl Ear {
     }
 }
 
-pub fn def_audio_talker(value: Option<f32>) -> RTalker {
-    Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
+pub fn def_audio_talker(def_value: f32) -> RTalker {
+    Rc::new(RefCell::new(AudioTalker::new(def_value, Some(true))))
 }
-pub fn def_audio_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
+pub fn def_audio_talk(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Audio,
         tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
-        tkr: def_audio_talker(value),
+        tkr: def_audio_talker(def_value),
         port: 0,
+        min_value,
+        max_value,
     })
 }
-pub fn def_control_talker(value: Option<f32>) -> RTalker {
-    Rc::new(RefCell::new(ControlTalker::new(value, Some(true))))
+pub fn def_control_talker(def_value: f32) -> RTalker {
+    Rc::new(RefCell::new(ControlTalker::new(def_value, Some(true))))
 }
-pub fn def_control_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
+pub fn def_control_talk(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Control,
         tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
-        tkr: def_control_talker(value),
+        tkr: def_control_talker(def_value),
         port: 0,
+        min_value,
+        max_value,
     })
 }
-pub fn def_cv_talker(value: Option<f32>) -> RTalker {
-    Rc::new(RefCell::new(CvTalker::new(value, Some(true))))
+pub fn def_cv_talker(def_value: f32) -> RTalker {
+    Rc::new(RefCell::new(CvTalker::new(def_value, Some(true))))
 }
-pub fn def_cv_talk(tag: Option<&str>, value: Option<f32>) -> RTalk {
+pub fn def_cv_talk(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> RTalk {
     RefCell::new(Talk {
         port_type: PortType::Cv,
         tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
-        tkr: def_cv_talker(value),
+        tkr: def_cv_talker(def_value),
         port: 0,
+        min_value,
+        max_value,
     })
 }
 
 pub fn def_ear() -> Ear {
-    Ear::Talk(def_control_talk(None, None))
+    Ear::Talk(def_control_talk(None, f32::MIN, f32::MAX, f32::NAN))
 }
 
-pub fn control(tag: Option<&str>, value: Option<f32>) -> Ear {
-    Ear::Talk(def_control_talk(tag, value))
+pub fn control(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
+    Ear::Talk(def_control_talk(tag, min_value, max_value, def_value))
 }
 
-pub fn audio(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, Index)>) -> Ear {
-    match value {
-        Some(_v) => Ear::Talk(def_audio_talk(tag, value)),
-        None => match talker_port {
-            Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
-                port_type: PortType::Audio,
-                tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
-                tkr: Rc::clone(tkr),
-                port: port,
-            })),
-            None => Ear::Talk(def_audio_talk(tag, None)),
-        },
+pub fn audio(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    talker_port: Option<(&RTalker, Index)>,
+) -> Ear {
+    match talker_port {
+        Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
+            port_type: PortType::Audio,
+            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tkr: Rc::clone(tkr),
+            port: port,
+            min_value,
+            max_value,
+        })),
+        None => Ear::Talk(def_audio_talk(tag, min_value, max_value, def_value)),
     }
 }
-pub fn cv(tag: Option<&str>, value: Option<f32>, talker_port: Option<(&RTalker, Index)>) -> Ear {
-    match value {
-        Some(_v) => Ear::Talk(def_cv_talk(tag, value)),
-        None => match talker_port {
-            Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
-                port_type: PortType::Cv,
-                tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
-                tkr: Rc::clone(tkr),
-                port: port,
-            })),
-            None => Ear::Talk(def_cv_talk(tag, None)),
-        },
+pub fn cv(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    talker_port: Option<(&RTalker, Index)>,
+) -> Ear {
+    match talker_port {
+        Some((tkr, port)) => Ear::Talk(RefCell::new(Talk {
+            port_type: PortType::Cv,
+            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tkr: Rc::clone(tkr),
+            port: port,
+            min_value,
+            max_value,
+        })),
+        None => Ear::Talk(def_cv_talk(tag, min_value, max_value, def_value)),
     }
 }
 
@@ -303,15 +333,15 @@ pub fn set_talk_value(talk: &RTalk, value: f32) -> Result<(), failure::Error> {
     let mut tlk = talk.borrow_mut();
     match tlk.port_type {
         PortType::Audio => {
-            tlk.tkr = def_audio_talker(Some(value));
+            tlk.tkr = def_audio_talker(value);
             tlk.port = 0;
         }
         PortType::Control => {
-            tlk.tkr = def_control_talker(Some(value));
+            tlk.tkr = def_control_talker(value);
             tlk.port = 0;
         }
         PortType::Cv => {
-            tlk.tkr = def_cv_talker(Some(value));
+            tlk.tkr = def_cv_talker(value);
             tlk.port = 0;
         }
     }
@@ -339,9 +369,9 @@ pub fn set_talk_voice(talk: &RTalk, talker: &RTalker, port: Index) -> Result<(),
 
 pub fn new_talk_value(port_type: &PortType, value: f32) -> RTalk {
     match port_type {
-        PortType::Audio => def_audio_talk(None, Some(value)),
-        PortType::Control => def_control_talk(None, Some(value)),
-        PortType::Cv => def_cv_talk(None, Some(value)),
+        PortType::Audio => def_audio_talk(None, f32::MIN, f32::MAX, value),
+        PortType::Control => def_control_talk(None, f32::MIN, f32::MAX, value),
+        PortType::Cv => def_cv_talk(None, f32::MIN, f32::MAX, value),
     }
 }
 
@@ -355,6 +385,8 @@ pub fn new_talk_voice(talker: &RTalker, port: Index) -> RTalk {
         tag: DEF_INPUT_TAG.to_string(),
         tkr: talker.clone(),
         port,
+        min_value: f32::MIN,
+        max_value: f32::MAX,
     })
 }
 

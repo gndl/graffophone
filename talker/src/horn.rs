@@ -13,31 +13,31 @@ pub enum Horn {
     Cv(CvBuf),
 }
 
-pub fn audio_buf(value: Option<f32>, len: Option<usize>) -> AudioBuf {
+pub fn audio_buf(value: f32, len: Option<usize>) -> AudioBuf {
     Rc::new(VecBuffer::new(
-        value.unwrap_or(0.),
+        if value.is_nan() { 0. } else { value },
         len.unwrap_or(AudioFormat::chunk_size()),
     ))
 }
 
-pub fn control_buf(value: Option<f32>) -> ControlBuf {
-    Rc::new(CellBuffer::new(value.unwrap_or(0.)))
+pub fn control_buf(value: f32) -> ControlBuf {
+    Rc::new(CellBuffer::new(if value.is_nan() { 1. } else { value }))
 }
 
-pub fn cv_buf(value: Option<f32>, len: Option<usize>) -> CvBuf {
+pub fn cv_buf(value: f32, len: Option<usize>) -> CvBuf {
     Rc::new(VecBuffer::new(
-        value.unwrap_or(0.),
+        if value.is_nan() { 0. } else { value },
         len.unwrap_or(AudioFormat::chunk_size()),
     ))
 }
-pub fn audio(value: Option<f32>, len: Option<usize>) -> Horn {
+pub fn audio(value: f32, len: Option<usize>) -> Horn {
     Horn::Audio(audio_buf(value, len))
 }
 
-pub fn control(value: Option<f32>) -> Horn {
+pub fn control(value: f32) -> Horn {
     Horn::Control(control_buf(value))
 }
 
-pub fn cv(value: Option<f32>, len: Option<usize>) -> Horn {
+pub fn cv(value: f32, len: Option<usize>) -> Horn {
     Horn::Cv(cv_buf(value, len))
 }

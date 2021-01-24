@@ -13,7 +13,7 @@ impl AbsSine {
     pub fn new() -> AbsSine {
         let mut base = TalkerBase::new();
 
-        let freq = ear::audio(Some("frequence".to_string()), Some(440.), None);
+        let freq = ear::audio(Some("frequence".to_string()), 0., 20000., 440., None);
         base.add_ear(freq);
 
         let voice = voice::audio(None, None, None);

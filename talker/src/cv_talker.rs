@@ -9,10 +9,10 @@ pub struct CvTalker {
 }
 
 impl CvTalker {
-    pub fn new(ovalue: Option<f32>, hidden: Option<bool>) -> CvTalker {
-        let value = ovalue.unwrap_or(0.);
+    pub fn new(def_value: f32, hidden: Option<bool>) -> CvTalker {
+        let value = if def_value.is_nan() { 0. } else { def_value };
         let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
-        let voice = voice::cv(None, Some(value), None);
+        let voice = voice::cv(None, value, None);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 

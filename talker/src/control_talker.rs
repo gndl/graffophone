@@ -9,10 +9,10 @@ pub struct ControlTalker {
 }
 
 impl ControlTalker {
-    pub fn new(ovalue: Option<f32>, hidden: Option<bool>) -> ControlTalker {
-        let value = ovalue.unwrap_or(1.);
+    pub fn new(def_value: f32, hidden: Option<bool>) -> ControlTalker {
+        let value = if def_value.is_nan() { 1. } else { def_value };
         let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
-        let voice = voice::control(None, Some(value), None);
+        let voice = voice::control(None, value, None);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 

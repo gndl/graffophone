@@ -1,3 +1,4 @@
+use std::f32;
 use std::f64::consts::PI;
 use talker::audio_format::AudioFormat;
 use talker::ear;
@@ -18,14 +19,10 @@ impl Sinusoidal {
     pub fn new() -> Sinusoidal {
         let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence"), Some(440.), None);
-        base.add_ear(freq);
+        base.add_ear(ear::audio(Some("frequence"), 0., 20000., 440., None));
+        base.add_ear(ear::audio(Some("phase"), f32::MIN, f32::MAX, 0., None));
 
-        let phase = ear::audio(Some("phase"), Some(0.), None);
-        base.add_ear(phase);
-
-        let voice = voice::audio(None, None, None);
-        base.add_voice(voice);
+        base.add_voice(voice::audio(None, 0., None));
 
         Self {
             base,

@@ -25,7 +25,7 @@ impl Mixer {
     pub fn new(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> Mixer {
         let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::cv(Some("volume"), Some(1.), None));
+        base.add_ear(ear::cv(Some("volume"), 0., 1., 1., None));
 
         Self {
             base,

@@ -40,42 +40,46 @@ impl Lv2 {
                 let mut input_port_handlers = Vec::new();
                 let mut output_port_handlers = Vec::new();
 
-                let num_ports = plugin.num_ports();
-                let mut mins = vec![f32::NAN; num_ports];
-                let mut maxes = vec![f32::NAN; num_ports];
-                let mut defaults = vec![f32::NAN; num_ports];
-
-                plugin
-                    .port_ranges_float(
-                        mins.as_mut_slice(),
-                        maxes.as_mut_slice(),
-                        defaults.as_mut_slice(),
-                    )
-                    .map_err(|_| failure::err_msg(format!("Lv2 plugin port ranges error")))?;
+                let (min_values, max_values, def_values) = plugin.port_ranges_float();
 
                 for port in plugin.inputs() {
                     let port_index = port.index() as usize;
-                    let default = if defaults[port_index].is_nan() {
-                        None
-                    } else {
-                        Some(defaults[port_index])
-                    };
+                    let min_val = min_values[port_index];
+                    let max_val = max_values[port_index];
+                    let def_val = def_values[port_index];
 
                     match UnknownInputPort::as_typed::<Control>(&port) {
                         Some(p) => {
-                            let ear = ear::control(Some(&p.name().to_string()), default);
+                            let ear = ear::control(
+                                Some(&p.name().to_string()),
+                                min_val,
+                                max_val,
+                                def_val,
+                            );
                             base.add_ear(ear);
                             input_port_handlers.push(p.handle().index());
                         }
                         None => match UnknownInputPort::as_typed::<Audio>(&port) {
                             Some(p) => {
-                                let ear = ear::audio(Some(&p.name().to_string()), default, None);
+                                let ear = ear::audio(
+                                    Some(&p.name().to_string()),
+                                    min_val,
+                                    max_val,
+                                    def_val,
+                                    None,
+                                );
                                 base.add_ear(ear);
                                 input_port_handlers.push(p.handle().index());
                             }
                             None => match UnknownInputPort::as_typed::<CV>(&port) {
                                 Some(p) => {
-                                    let ear = ear::cv(Some(&p.name().to_string()), default, None);
+                                    let ear = ear::cv(
+                                        Some(&p.name().to_string()),
+                                        min_val,
+                                        max_val,
+                                        def_val,
+                                        None,
+                                    );
                                     base.add_ear(ear);
                                     input_port_handlers.push(p.handle().index());
                                 }
@@ -90,27 +94,25 @@ impl Lv2 {
                 for port in plugin.outputs() {
                     match UnknownOutputPort::as_typed::<Audio>(&port) {
                         Some(p) => {
-                            let buf = horn::audio_buf(None, None);
+                            let buf = horn::audio_buf(0., None);
                             instance.connect_port(p.handle().clone(), buf.clone());
-                            let vc = voice::audio(Some(&p.name().to_string()), None, Some(buf));
+                            let vc = voice::audio(Some(&p.name().to_string()), 0., Some(buf));
                             base.add_voice(vc);
                             output_port_handlers.push(p.handle().index());
                         }
                         None => match UnknownOutputPort::as_typed::<Control>(&port) {
                             Some(p) => {
-                                let buf = horn::control_buf(None);
+                                let buf = horn::control_buf(0.);
                                 instance.connect_port(p.handle().clone(), buf.clone());
-                                let vc =
-                                    voice::control(Some(&p.name().to_string()), None, Some(buf));
+                                let vc = voice::control(Some(&p.name().to_string()), 0., Some(buf));
                                 base.add_voice(vc);
                                 output_port_handlers.push(p.handle().index());
                             }
                             None => match UnknownOutputPort::as_typed::<CV>(&port) {
                                 Some(p) => {
-                                    let buf = horn::cv_buf(None, None);
+                                    let buf = horn::cv_buf(0., None);
                                     instance.connect_port(p.handle().clone(), buf.clone());
-                                    let vc =
-                                        voice::cv(Some(&p.name().to_string()), None, Some(buf));
+                                    let vc = voice::cv(Some(&p.name().to_string()), 0., Some(buf));
                                     base.add_voice(vc);
                                     output_port_handlers.push(p.handle().index());
                                 }

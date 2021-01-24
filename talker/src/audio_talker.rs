@@ -9,10 +9,10 @@ pub struct AudioTalker {
 }
 
 impl AudioTalker {
-    pub fn new(ovalue: Option<f32>, hidden: Option<bool>) -> AudioTalker {
-        let value = ovalue.unwrap_or(0.);
+    pub fn new(def_value: f32, hidden: Option<bool>) -> AudioTalker {
+        let value = if def_value.is_nan() { 0. } else { def_value };
         let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
-        let voice = voice::audio(None, Some(value), None);
+        let voice = voice::audio(None, value, None);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
