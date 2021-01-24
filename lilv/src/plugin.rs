@@ -47,6 +47,50 @@ impl<'w> Plugin<'w> {
     pub fn outputs(&self) -> impl Iterator<Item = UnknownOutputPort> {
         self.ports().filter_map(UnknownOutputPort::from_inner)
     }
+
+    /// Returns the number of ports in the plugin.
+    pub fn num_ports(&self) -> usize {
+        unsafe { ::lilv_sys::lilv_plugin_get_num_ports(self.ptr) as _ }
+    }
+
+    pub fn port_ranges_float<'a, Min, Max, Def>(
+        &self,
+        min_values: Min,
+        max_values: Max,
+        def_values: Def,
+    ) -> Result<(), ()>
+    where
+        Min: Into<Option<&'a mut [f32]>>,
+        Max: Into<Option<&'a mut [f32]>>,
+        Def: Into<Option<&'a mut [f32]>>,
+    {
+        let min_values = min_values.into();
+        let max_values = max_values.into();
+        let def_values = def_values.into();
+
+        let (equal_sizes, size) = match (&min_values, &max_values, &def_values) {
+            (Some(a), Some(b), None) => (a.len() == b.len(), a.len()),
+            (Some(a), None, Some(b)) => (a.len() == b.len(), a.len()),
+            (None, Some(a), Some(b)) => (a.len() == b.len(), a.len()),
+            (Some(a), Some(b), Some(c)) => (a.len() == b.len() && b.len() == c.len(), a.len()),
+            _ => (true, self.num_ports()),
+        };
+
+        if !equal_sizes || size != self.num_ports() {
+            return Err(());
+        }
+
+        let min_ptr = min_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
+        let max_ptr = max_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
+        let def_ptr = def_values.map_or(std::ptr::null_mut(), |x| x.as_mut_ptr());
+
+        unsafe {
+            ::lilv_sys::lilv_plugin_get_port_ranges_float(self.ptr, min_ptr, max_ptr, def_ptr)
+        };
+
+        Ok(())
+    }
+
     /*
     pub fn resolve<'p, 'l, 'f>(
         &'p self,
