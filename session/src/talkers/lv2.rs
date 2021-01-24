@@ -40,22 +40,42 @@ impl Lv2 {
                 let mut input_port_handlers = Vec::new();
                 let mut output_port_handlers = Vec::new();
 
+                let num_ports = plugin.num_ports();
+                let mut mins = vec![f32::NAN; num_ports];
+                let mut maxes = vec![f32::NAN; num_ports];
+                let mut defaults = vec![f32::NAN; num_ports];
+
+                plugin
+                    .port_ranges_float(
+                        mins.as_mut_slice(),
+                        maxes.as_mut_slice(),
+                        defaults.as_mut_slice(),
+                    )
+                    .map_err(|_| failure::err_msg(format!("Lv2 plugin port ranges error")))?;
+
                 for port in plugin.inputs() {
+                    let port_index = port.index() as usize;
+                    let default = if defaults[port_index].is_nan() {
+                        None
+                    } else {
+                        Some(defaults[port_index])
+                    };
+
                     match UnknownInputPort::as_typed::<Control>(&port) {
                         Some(p) => {
-                            let ear = ear::control(Some(&p.name().to_string()), None);
+                            let ear = ear::control(Some(&p.name().to_string()), default);
                             base.add_ear(ear);
                             input_port_handlers.push(p.handle().index());
                         }
                         None => match UnknownInputPort::as_typed::<Audio>(&port) {
                             Some(p) => {
-                                let ear = ear::audio(Some(&p.name().to_string()), None, None);
+                                let ear = ear::audio(Some(&p.name().to_string()), default, None);
                                 base.add_ear(ear);
                                 input_port_handlers.push(p.handle().index());
                             }
                             None => match UnknownInputPort::as_typed::<CV>(&port) {
                                 Some(p) => {
-                                    let ear = ear::cv(Some(&p.name().to_string()), None, None);
+                                    let ear = ear::cv(Some(&p.name().to_string()), default, None);
                                     base.add_ear(ear);
                                     input_port_handlers.push(p.handle().index());
                                 }
