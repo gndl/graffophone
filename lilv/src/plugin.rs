@@ -53,7 +53,24 @@ impl<'w> Plugin<'w> {
         unsafe { ::lilv_sys::lilv_plugin_get_num_ports(self.ptr) as _ }
     }
 
-    pub fn port_ranges_float<'a, Min, Max, Def>(
+    //      Return  (min_values:Vec<f32>, max_values:Vec<f32>, def_values:Vec<f32>)
+    pub fn port_ranges_float(&self) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+        let num_ports = self.num_ports();
+        let mut min_values = vec![f32::NAN; num_ports];
+        let mut max_values = vec![f32::NAN; num_ports];
+        let mut def_values = vec![f32::NAN; num_ports];
+        //.as_mut_slice()
+        let min_ptr = min_values.as_mut_ptr();
+        let max_ptr = max_values.as_mut_ptr();
+        let def_ptr = def_values.as_mut_ptr();
+
+        unsafe {
+            ::lilv_sys::lilv_plugin_get_port_ranges_float(self.ptr, min_ptr, max_ptr, def_ptr)
+        };
+        (min_values, max_values, def_values)
+    }
+
+    pub fn optional_port_ranges_float<'a, Min, Max, Def>(
         &self,
         min_values: Min,
         max_values: Max,
