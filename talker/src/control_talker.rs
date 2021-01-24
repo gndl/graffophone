@@ -29,12 +29,20 @@ impl Talker for ControlTalker {
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        //        self.voices().iter().for_each(|voice| {
         for voice in self.voices() {
             let mut vc = voice.borrow_mut();
 
             vc.set_tick(tick);
         }
         len
+    }
+
+    fn voice_value(&self, port: usize) -> Option<f32> {
+        if self.is_hidden() {
+            if let Some(voice) = self.voices().get(port) {
+                return voice.borrow().control_value(0);
+            }
+        }
+        None
     }
 }

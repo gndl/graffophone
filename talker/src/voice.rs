@@ -57,9 +57,33 @@ impl Voice {
             _ => None,
         }
     }
+    pub fn control_buffer(&self) -> Option<ControlBuf> {
+        match &self.horn {
+            Horn::Control(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
     pub fn cv_buffer(&self) -> Option<CvBuf> {
         match &self.horn {
             Horn::Cv(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn audio_value(&self, index: usize) -> Option<f32> {
+        match &self.horn {
+            Horn::Audio(b) => Some(b.get()[index].get()),
+            _ => None,
+        }
+    }
+    pub fn control_value(&self, _index: usize) -> Option<f32> {
+        match &self.horn {
+            Horn::Control(b) => Some(b.get()),
+            _ => None,
+        }
+    }
+    pub fn cv_value(&self, index: usize) -> Option<f32> {
+        match &self.horn {
+            Horn::Cv(b) => Some(b.get()[index].get()),
             _ => None,
         }
     }
@@ -95,41 +119,3 @@ pub fn cv(tag: Option<&str>, value: Option<f32>, buf: Option<CvBuf>) -> MVoice {
         Horn::Cv(buf.unwrap_or(horn::cv_buf(value, Some(len)))),
     ))
 }
-
-/*
-pub fn control(tag: Option<&str>, value: Option<f32>) -> ControlVoice {
-    //Rc::new(
-    Cell::new(ControlVoiceT::new(tag, value))
-    //)
-}
-
-pub fn cv(tag: Option<&str>, value: Option<f32>) -> CvVoice {
-    //  Rc::new(
-    Cell::new(CvVoiceT::new(tag, value))
-    //)
-}
-
-impl Voice {
-    pub fn init(tag: String) -> Self {
-        let len = AudioFormat::chunk_size();
-        Self {
-            tag: tag,
-            tick: 0,
-            len,
-            cor: cornet::new(len),
-            new: true,
-        }
-    }
-
-    pub fn new(tick: i64, len: usize, tag: String) -> Self {
-        Self {
-            tag: tag,
-            tick: tick,
-            len: len,
-            cor: cornet::new(len),
-            new: true,
-        }
-    }
-
-}
-    */

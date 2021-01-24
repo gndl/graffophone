@@ -38,4 +38,13 @@ impl Talker for CvTalker {
 
         len
     }
+
+    fn voice_value(&self, port: usize) -> Option<f32> {
+        if self.is_hidden() {
+            if let Some(voice) = self.voices().get(port) {
+                return voice.borrow().cv_value(0);
+            }
+        }
+        None
+    }
 }
