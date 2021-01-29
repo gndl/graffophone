@@ -13,6 +13,7 @@ use gio::prelude::*;
 use std::env::args;
 
 mod application_view;
+mod bounded_float_entry;
 mod graph_presenter;
 mod graph_view;
 mod mixer_control;

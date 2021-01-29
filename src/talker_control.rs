@@ -11,6 +11,7 @@ use talker::identifier::{Id, Index};
 use talker::talker::{RTalker, Talker, TalkerBase};
 use talker::voice::PortType;
 
+use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::session_presenter::RSessionPresenter;
 use crate::style;
@@ -137,7 +138,8 @@ fn format_data(s: &str) -> String {
     format_label(s, 6)
 }
 fn format_tag(s: &str) -> String {
-    s[0..1].to_uppercase() + &s[1..s.len()]
+    //    s[0..1].to_uppercase() + &s[1..s.len()]
+    s.to_uppercase()
 }
 fn format_value(v: &f32) -> String {
     format_label(&f32::to_string(v), 6)
@@ -183,9 +185,6 @@ impl<'a> ControlSupply<'a> {
             sup_dim,
             val_dim,
         }
-    }
-    fn dim_of(&self, txt: &str) -> Dim {
-        Dim::of(self.cc, txt)
     }
     fn area_of(&self, txt: &str, b_x: f64, b_y: f64) -> Area {
         let te = self.cc.text_extents(txt);
@@ -646,7 +645,7 @@ impl TalkerControlBase {
         &self,
         x: f64,
         y: f64,
-        graph_presenter: &mut GraphPresenter,
+        graph_presenter: &RGraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
         let rx = x - self.x;
         let ry = y - self.y;
@@ -658,28 +657,42 @@ impl TalkerControlBase {
                         if talk.area.is_under(rx, ry) {
                             if talk.tag_area.is_under(rx, ry) {
                                 let notifications = match &talk.input_type {
-                                    InputType::Add => {
-                                        graph_presenter.add_ear_talk(self.id, ear_idx)?
-                                    }
+                                    InputType::Add => graph_presenter
+                                        .borrow_mut()
+                                        .add_ear_talk(self.id, ear_idx)?,
                                     _ => graph_presenter
+                                        .borrow_mut()
                                         .select_ear_talk(self.id, ear_idx, talk_idx)?,
                                 };
                                 return Ok(Some(notifications));
                             }
 
                             if talk.value_area.is_under(rx, ry) {
-                                // TODO : display float delector
-                                let notifications = graph_presenter
-                                    .set_talker_ear_talk_value_by_index(
-                                        self.id, ear_idx, talk_idx, 100., false,
-                                    )?;
-                                return Ok(Some(notifications));
+                                let gp = graph_presenter.clone();
+                                let talker_id = self.id;
+                                let (min, max) =
+                                    self.talker.borrow().ears()[ear_idx].talk_range(talk_idx);
+                                let cur = self.talker.borrow().ears()[ear_idx]
+                                    .talk_value_or_default(talk_idx);
+
+                                bounded_float_entry::create(
+                                    min.into(),
+                                    max.into(),
+                                    cur.into(),
+                                    move |v, fly| {
+                                        let _ = gp.borrow_mut().set_talker_ear_talk_value_by_index(
+                                            talker_id, ear_idx, talk_idx, v as f32, fly,
+                                        );
+                                    },
+                                );
+                                return Ok(None);
                             }
 
                             if let Some(sup_area) = &talk.sup_area {
                                 if sup_area.is_under(rx, ry) {
-                                    let notifications =
-                                        graph_presenter.sup_ear_talk(self.id, ear_idx, talk_idx)?;
+                                    let notifications = graph_presenter
+                                        .borrow()
+                                        .sup_ear_talk(self.id, ear_idx, talk_idx)?;
                                     return Ok(Some(notifications));
                                 }
                             }
@@ -689,12 +702,12 @@ impl TalkerControlBase {
             }
             for (port, voice) in self.voices.iter().enumerate() {
                 if voice.area.is_under(rx, ry) {
-                    let notifications = graph_presenter.select_voice(self.id, port)?;
+                    let notifications = graph_presenter.borrow_mut().select_voice(self.id, port)?;
                     return Ok(Some(notifications));
                 }
             }
             // TODO : edit talker name and data
-            let notifications = graph_presenter.select_talker(self.id)?;
+            let notifications = graph_presenter.borrow_mut().select_talker(self.id)?;
             Ok(Some(notifications))
         } else {
             Ok(None)
@@ -759,7 +772,7 @@ pub trait TalkerControl {
         &self,
         x: f64,
         y: f64,
-        graph_presenter: &mut GraphPresenter,
+        graph_presenter: &RGraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
         self.base()
             .borrow()

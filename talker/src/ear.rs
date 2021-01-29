@@ -19,6 +19,7 @@ pub struct Talk {
     port: Index,
     min_value: f32,
     max_value: f32,
+    def_value: f32,
 }
 
 impl Talk {
@@ -34,14 +35,26 @@ impl Talk {
     pub fn port(&self) -> Index {
         self.port
     }
-    pub fn value(&self) -> Option<f32> {
-        self.tkr.borrow().voice_value(self.port)
-    }
     pub fn min_value(&self) -> f32 {
         self.min_value
     }
     pub fn max_value(&self) -> f32 {
         self.max_value
+    }
+    pub fn range(&self) -> (f32, f32) {
+        (self.min_value, self.max_value)
+    }
+    pub fn def_value(&self) -> f32 {
+        self.def_value
+    }
+    pub fn value(&self) -> Option<f32> {
+        self.tkr.borrow().voice_value(self.port)
+    }
+    pub fn value_or_default(&self) -> f32 {
+        self.tkr
+            .borrow()
+            .voice_value(self.port)
+            .unwrap_or(self.def_value)
     }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
@@ -119,6 +132,20 @@ impl Ear {
         match self {
             Ear::Talks(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn talk_range(&self, talk_idx: usize) -> (f32, f32) {
+        match self {
+            Ear::Talk(talk) => talk.borrow().range(),
+            Ear::Talks(talks) => talks.borrow().talks()[talk_idx].borrow().range(),
+        }
+    }
+
+    pub fn talk_value_or_default(&self, talk_idx: usize) -> f32 {
+        match self {
+            Ear::Talk(talk) => talk.borrow().value_or_default(),
+            Ear::Talks(talks) => talks.borrow().talks()[talk_idx].borrow().value_or_default(),
         }
     }
 
@@ -224,6 +251,7 @@ pub fn def_audio_talk(tag: Option<&str>, min_value: f32, max_value: f32, def_val
         port: 0,
         min_value,
         max_value,
+        def_value,
     })
 }
 pub fn def_control_talker(def_value: f32) -> RTalker {
@@ -242,6 +270,7 @@ pub fn def_control_talk(
         port: 0,
         min_value,
         max_value,
+        def_value,
     })
 }
 pub fn def_cv_talker(def_value: f32) -> RTalker {
@@ -255,6 +284,7 @@ pub fn def_cv_talk(tag: Option<&str>, min_value: f32, max_value: f32, def_value:
         port: 0,
         min_value,
         max_value,
+        def_value,
     })
 }
 
@@ -281,6 +311,7 @@ pub fn audio(
             port: port,
             min_value,
             max_value,
+            def_value,
         })),
         None => Ear::Talk(def_audio_talk(tag, min_value, max_value, def_value)),
     }
@@ -300,6 +331,7 @@ pub fn cv(
             port: port,
             min_value,
             max_value,
+            def_value,
         })),
         None => Ear::Talk(def_cv_talk(tag, min_value, max_value, def_value)),
     }
@@ -387,6 +419,7 @@ pub fn new_talk_voice(talker: &RTalker, port: Index) -> RTalk {
         port,
         min_value: f32::MIN,
         max_value: f32::MAX,
+        def_value: 0.,
     })
 }
 

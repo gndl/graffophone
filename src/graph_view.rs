@@ -94,7 +94,7 @@ impl<'c> Collector<'c> {
 
 pub struct EventReceiver {
     session_presenter: RSessionPresenter,
-    graph_presenter: GraphPresenter,
+    graph_presenter: RGraphPresenter,
     talker_controls: Vec<RTalkerControl>,
 }
 pub type REventReceiver = Rc<RefCell<EventReceiver>>;
@@ -103,7 +103,7 @@ impl EventReceiver {
     pub fn new_ref(session_presenter: &RSessionPresenter) -> REventReceiver {
         Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            graph_presenter: GraphPresenter::new(session_presenter),
+            graph_presenter: GraphPresenter::new_ref(session_presenter),
             talker_controls: Vec::new(),
         }))
     }
@@ -119,10 +119,7 @@ impl EventReceiver {
         let (x, y) = ev.get_position();
 
         for tkrc in &self.talker_controls {
-            match tkrc
-                .borrow()
-                .on_button_release(x, y, &mut self.graph_presenter)
-            {
+            match tkrc.borrow().on_button_release(x, y, &self.graph_presenter) {
                 Ok(None) => (),
                 Ok(Some(notifications)) => {
                     for notification in notifications {
@@ -454,7 +451,7 @@ impl GraphView {
         }
 
         for (_, tkrc) in &self.talker_controls {
-            tkrc.borrow().draw(cc, graph_presenter);
+            tkrc.borrow().draw(cc, &graph_presenter.borrow());
         }
 
         Inhibit(false)

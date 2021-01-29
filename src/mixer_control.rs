@@ -135,7 +135,7 @@ impl TalkerControl for MixerControl {
         &self,
         x: f64,
         y: f64,
-        graph_presenter: &mut GraphPresenter,
+        graph_presenter: &RGraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
         for trkc in &self.track_controls {
             match trkc.borrow().on_button_release(x, y, graph_presenter)? {
