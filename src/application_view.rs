@@ -192,7 +192,7 @@ impl ApplicationView {
         let window = gtk::ApplicationWindow::new(application);
 
         window.set_titlebar(Some(&headerbar));
-        window.set_border_width(10);
+        window.set_border_width(5);
         window.set_position(gtk::WindowPosition::Center);
         window.set_default_size(1024, 768);
 
