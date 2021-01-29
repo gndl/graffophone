@@ -40,7 +40,7 @@ impl Lv2 {
                 let mut input_port_handlers = Vec::new();
                 let mut output_port_handlers = Vec::new();
 
-                let (min_values, max_values, def_values) = plugin.port_ranges_float();
+                let (min_values, max_values, def_values) = plugin.all_port_ranges_float();
 
                 for port in plugin.inputs() {
                     let port_index = port.index() as usize;

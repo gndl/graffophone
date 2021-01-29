@@ -54,7 +54,7 @@ impl<'w> Plugin<'w> {
     }
 
     //      Return  (min_values:Vec<f32>, max_values:Vec<f32>, def_values:Vec<f32>)
-    pub fn port_ranges_float(&self) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    pub fn all_port_ranges_float(&self) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
         let num_ports = self.num_ports();
         let mut min_values = vec![f32::NAN; num_ports];
         let mut max_values = vec![f32::NAN; num_ports];
@@ -70,7 +70,7 @@ impl<'w> Plugin<'w> {
         (min_values, max_values, def_values)
     }
 
-    pub fn optional_port_ranges_float<'a, Min, Max, Def>(
+    pub fn some_port_ranges_float<'a, Min, Max, Def>(
         &self,
         min_values: Min,
         max_values: Max,
