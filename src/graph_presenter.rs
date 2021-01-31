@@ -141,6 +141,12 @@ impl GraphPresenter {
         Ok(vec![])
     }
 
+    pub fn notify_talker_changed(&self) {
+        self.session_presenter
+            .borrow()
+            .notify(Notification::TalkerChanged);
+    }
+
     pub fn add_talker_ear_talk_value_by_index(
         &mut self,
         talker_id: Id,

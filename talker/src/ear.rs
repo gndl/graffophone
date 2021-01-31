@@ -41,8 +41,8 @@ impl Talk {
     pub fn max_value(&self) -> f32 {
         self.max_value
     }
-    pub fn range(&self) -> (f32, f32) {
-        (self.min_value, self.max_value)
+    pub fn range(&self) -> (f32, f32, f32) {
+        (self.min_value, self.max_value, self.def_value)
     }
     pub fn def_value(&self) -> f32 {
         self.def_value
@@ -135,10 +135,17 @@ impl Ear {
         }
     }
 
-    pub fn talk_range(&self, talk_idx: usize) -> (f32, f32) {
+    pub fn talk_range(&self, talk_idx: usize) -> (f32, f32, f32) {
         match self {
             Ear::Talk(talk) => talk.borrow().range(),
             Ear::Talks(talks) => talks.borrow().talks()[talk_idx].borrow().range(),
+        }
+    }
+
+    pub fn talk_def_value(&self, talk_idx: usize) -> f32 {
+        match self {
+            Ear::Talk(talk) => talk.borrow().def_value(),
+            Ear::Talks(talks) => talks.borrow().talks()[talk_idx].borrow().def_value(),
         }
     }
 

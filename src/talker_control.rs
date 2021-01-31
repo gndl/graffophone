@@ -668,24 +668,53 @@ impl TalkerControlBase {
                             }
 
                             if talk.value_area.is_under(rx, ry) {
-                                let gp = graph_presenter.clone();
+                                let ear_setter = graph_presenter.clone();
+                                let notifier = graph_presenter.clone();
                                 let talker_id = self.id;
-                                let (min, max) =
+                                let (min, max, def) =
                                     self.talker.borrow().ears()[ear_idx].talk_range(talk_idx);
                                 let cur = self.talker.borrow().ears()[ear_idx]
                                     .talk_value_or_default(talk_idx);
 
+                                let value = bounded_float_entry::run(
+                                    min.into(),
+                                    max.into(),
+                                    def.into(),
+                                    cur.into(),
+                                    move |v, fly| {
+                                        let _ = ear_setter
+                                            .borrow_mut()
+                                            .set_talker_ear_talk_value_by_index(
+                                                talker_id, ear_idx, talk_idx, v as f32, fly,
+                                            );
+                                    },
+                                );
+                                let notifications =
+                                    notifier.borrow_mut().set_talker_ear_talk_value_by_index(
+                                        talker_id,
+                                        ear_idx,
+                                        talk_idx,
+                                        value as f32,
+                                        false,
+                                    )?;
+                                /*
                                 bounded_float_entry::create(
                                     min.into(),
                                     max.into(),
                                     cur.into(),
                                     move |v, fly| {
-                                        let _ = gp.borrow_mut().set_talker_ear_talk_value_by_index(
-                                            talker_id, ear_idx, talk_idx, v as f32, fly,
-                                        );
+                                        let _ = ear_setter
+                                            .borrow_mut()
+                                            .set_talker_ear_talk_value_by_index(
+                                                talker_id, ear_idx, talk_idx, v as f32, fly,
+                                            );
+                                    },
+                                    move || {
+                                        notifier.borrow().notify_talker_changed();
                                     },
                                 );
-                                return Ok(None);
+                                 */
+                                return Ok(Some(notifications));
                             }
 
                             if let Some(sup_area) = &talk.sup_area {
