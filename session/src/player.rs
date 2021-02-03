@@ -94,18 +94,20 @@ fn run(
     state_sender: &Sender<State>,
     band_description: String,
 ) -> Result<(), failure::Error> {
-    let send_state_log = |order: &String, state: State| {
+    let send_state = |order: &String, prev_state: State, state: State| {
         match state_sender.send(state) {
             Err(e) => eprintln!("Player state sender error : {}", e),
             Ok(()) => (),
         }
-        println!("Player received order {} -> {}", order, state.to_string());
-        state
-    };
 
-    let send_state = |state: State| match state_sender.send(state) {
-        Err(e) => eprintln!("Player state sender error : {}", e),
-        Ok(()) => (),
+        println!(
+            "Player received order {} : {} -> {}",
+            order,
+            prev_state.to_string(),
+            state.to_string()
+        );
+
+        state
     };
 
     let mut res = Ok(());
@@ -135,25 +137,30 @@ fn run(
                     feedback.borrow_mut().open()?;
 
                     tick = start_tick;
-                    state = send_state_log(&order.to_string(), State::Playing);
+                    state = send_state(&order.to_string(), state, State::Playing);
                 }
                 Order::Pause => {
-                    band.pause()?;
-                    feedback.borrow_mut().pause()?;
-                    state = send_state_log(&order.to_string(), State::Paused);
+                    if state != State::Paused {
+                        band.pause()?;
+                        feedback.borrow_mut().pause()?;
+
+                        state = send_state(&order.to_string(), state, State::Paused);
+                    }
                     oorder = order_receiver.recv();
                     continue;
                 }
                 Order::Play => {
                     band.run()?;
                     feedback.borrow_mut().run()?;
-                    state = send_state_log(&order.to_string(), State::Playing);
+                    state = send_state(&order.to_string(), state, State::Playing);
                 }
                 Order::Stop => {
-                    band.close()?;
-                    feedback.borrow_mut().close()?;
-                    tick = start_tick;
-                    state = send_state_log(&order.to_string(), State::Stopped);
+                    if state != State::Stopped {
+                        band.close()?;
+                        feedback.borrow_mut().close()?;
+                        tick = start_tick;
+                        state = send_state(&order.to_string(), state, State::Stopped);
+                    }
                     oorder = order_receiver.recv();
                     continue;
                 }
@@ -200,7 +207,7 @@ fn run(
                     }
                 }
                 Order::Exit => {
-                    send_state_log(&order.to_string(), State::Exited);
+                    send_state(&order.to_string(), state, State::Exited);
                     break;
                 }
                 Order::Nil => {}
