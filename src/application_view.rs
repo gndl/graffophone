@@ -62,7 +62,7 @@ impl ApplicationView {
 
         let save_as_session_button =
             gtk::Button::from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
-        headerbar.pack_start(&new_session_button);
+        headerbar.pack_start(&save_as_session_button);
 
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&separator);
