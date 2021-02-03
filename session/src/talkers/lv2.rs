@@ -18,6 +18,14 @@ use talker::voice;
 
 use lv2::core::SharedFeatureBuffer;
 
+fn an_or(v: f32, def: f32) -> f32 {
+    if v.is_nan() {
+        def
+    } else {
+        v
+    }
+}
+
 pub struct Lv2 {
     base: talker::TalkerBase,
     model: String,
@@ -33,7 +41,7 @@ impl Lv2 {
         uri: &str,
     ) -> Result<RTalker, failure::Error> {
         let plugin = world.get_plugin_by_uri(uri).unwrap();
-        show_plugin(&plugin);
+        //        show_plugin(&plugin);
         match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {
             Ok(mut instance) => {
                 let mut base = TalkerBase::new(plugin.name().to_str(), uri);
@@ -63,9 +71,9 @@ impl Lv2 {
                             Some(p) => {
                                 let ear = ear::audio(
                                     Some(&p.name().to_string()),
-                                    min_val,
-                                    max_val,
-                                    def_val,
+                                    an_or(min_val, -1.),
+                                    an_or(max_val, 1.),
+                                    an_or(def_val, 0.),
                                     None,
                                 );
                                 base.add_ear(ear);
