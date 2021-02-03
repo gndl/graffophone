@@ -16,6 +16,7 @@ pub struct GraphPresenter {
     selected_voice: Option<(Id, Index)>,
     new_talker: Option<Id>,
     selected_talkers: HashSet<Id>,
+    minimized_talkers: HashSet<Id>,
     control_key_pressed: bool,
     shift_key_pressed: bool,
     alt_key_pressed: bool,
@@ -31,6 +32,7 @@ impl GraphPresenter {
             selected_voice: None,
             new_talker: None,
             selected_talkers: HashSet::new(),
+            minimized_talkers: HashSet::new(),
             control_key_pressed: false,
             shift_key_pressed: false,
             alt_key_pressed: false,
@@ -44,6 +46,10 @@ impl GraphPresenter {
 
     pub fn talker_selected(&self, talker_id: Id) -> bool {
         self.selected_talkers.contains(&talker_id)
+    }
+
+    pub fn talker_minimized(&self, talker_id: Id) -> bool {
+        self.minimized_talkers.contains(&talker_id)
     }
 
     pub fn voice_selected(&self, talker_id: Id, voice_idx: Index) -> bool {
@@ -93,6 +99,15 @@ impl GraphPresenter {
         }
         notifications.push(Notification::SelectionChanged);
         Ok(notifications)
+    }
+
+    pub fn minimize_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
+        if self.minimized_talkers.contains(&talker_id) {
+            self.minimized_talkers.remove(&talker_id);
+        } else {
+            self.minimized_talkers.insert(talker_id);
+        }
+        Ok(vec![Notification::TalkerChanged])
     }
 
     pub fn set_talker_name(

@@ -18,9 +18,12 @@ use crate::style;
 use crate::style::Color;
 use session::event_bus::{Notification, REventBus};
 
-pub const ADD_TAG: &str = " + ";
-pub const SUP_TAG: &str = " - ";
-pub const VAL_TAG: &str = " # ";
+pub const ADD_TAG: &str = "+";
+pub const SUP_TAG: &str = "-";
+pub const VAL_TAG: &str = "⟵";
+pub const DESTROY_TAG: &str = "✖";
+pub const MAXIMIZE_TAG: &str = "▮";
+pub const MINIMIZE_TAG: &str = "▬";
 
 const SPACE: f64 = 4.;
 
@@ -165,6 +168,9 @@ pub struct ControlSupply<'a> {
     add_dim: Dim,
     sup_dim: Dim,
     val_dim: Dim,
+    maximize_dim: Dim,
+    minimize_dim: Dim,
+    destroy_dim: Dim,
 }
 
 fn dim_to_area(b_x: f64, b_y: f64, dim: &Dim) -> Area {
@@ -179,11 +185,18 @@ impl<'a> ControlSupply<'a> {
         let sup_dim = Dim::of(cc, SUP_TAG);
         style::value(cc);
         let val_dim = Dim::of(cc, VAL_TAG);
+        style::switch(cc);
+        let maximize_dim = Dim::of(cc, MAXIMIZE_TAG);
+        let minimize_dim = Dim::of(cc, MINIMIZE_TAG);
+        let destroy_dim = Dim::of(cc, DESTROY_TAG);
         Self {
             cc,
             add_dim,
             sup_dim,
             val_dim,
+            maximize_dim,
+            minimize_dim,
+            destroy_dim,
         }
     }
     fn area_of(&self, txt: &str, b_x: f64, b_y: f64) -> Area {
@@ -209,6 +222,9 @@ pub struct TalkerControlBase {
     box_area: Area,
     ears: Vec<EarControl>,
     voices: Vec<VoiceControl>,
+    imize_area: Area,
+    minimized: bool,
+    destroy_area: Area,
 }
 pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
 
@@ -228,6 +244,7 @@ impl TalkerControlBase {
         draw_model: bool,
         draw_name: bool,
         draw_data: bool,
+        minimized: bool,
     ) -> Result<TalkerControlBase, failure::Error> {
         let tkr = talker.borrow();
 
@@ -236,7 +253,7 @@ impl TalkerControlBase {
 
         let mut header_e_y = SPACE;
 
-        let model_area = if draw_model {
+        let model_area = if draw_model && !minimized {
             style::model(control_supply.cc);
             let m_a = control_supply.area_of(tkr.model(), 0., 0.);
             box_b_y = m_a.e_y;
@@ -246,9 +263,16 @@ impl TalkerControlBase {
             None
         };
 
+        let imize_dim = if minimized {
+            &control_supply.maximize_dim
+        } else {
+            &control_supply.minimize_dim
+        };
+        let imize_area = dim_to_area(0., header_e_y, imize_dim);
+
         let name_area = if draw_name {
             style::name(control_supply.cc);
-            let n_a = control_supply.area_of(&format_name(&tkr.name()), 0., header_e_y);
+            let n_a = control_supply.area_of(&format_name(&tkr.name()), imize_area.e_x, header_e_y);
             box_e_x = n_a.e_x;
             header_e_y = n_a.e_y;
             Some(n_a)
@@ -256,7 +280,7 @@ impl TalkerControlBase {
             None
         };
 
-        let data_area = if draw_data {
+        let data_area = if draw_data && !minimized {
             style::data(control_supply.cc);
             let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y);
             box_e_x = f64::max(box_e_x, d_a.e_x);
@@ -266,121 +290,127 @@ impl TalkerControlBase {
             None
         };
 
+        let mut destroy_area = dim_to_area(box_e_x, imize_area.b_y, &control_supply.destroy_dim);
+        box_e_x = destroy_area.e_x;
+
         let mut ears_e_y = header_e_y;
-        let mut ears_e_x = 0.;
         let mut ears = Vec::new();
-
-        for ear in tkr.ears() {
-            let mut talks = Vec::new();
-            let ear_is_multi_talk = ear.is_multi_talk();
-
-            let (b_x, e_y, ear_e_x) = ear.fold_talks(
-                |talk, (b_x, b_y, ear_e_x)| {
-                    style::io(control_supply.cc);
-                    let tag = format_tag(talk.tag());
-                    let tag_area = control_supply.area_of(&tag, b_x, b_y);
-
-                    let (input_type, value, value_area) = match talk.value() {
-                        Some(v) => {
-                            let value = format_value(&v);
-                            style::value(control_supply.cc);
-                            let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
-
-                            (InputType::Value, Some(value), value_area)
-                        }
-                        None => (
-                            InputType::Talk,
-                            None,
-                            dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
-                        ),
-                    };
-
-                    let mut e_x = value_area.e_x;
-                    let e_y = tag_area.e_y;
-
-                    let sup_area = if ear_is_multi_talk {
-                        let sup_a = dim_to_area(value_area.e_x, b_y, &control_supply.sup_dim);
-                        e_x = sup_a.e_x;
-                        Some(sup_a)
-                    } else {
-                        None
-                    };
-
-                    let talk_ctrl = TalkControl {
-                        area: Area::new(b_x, e_x, b_y, e_y),
-                        tag,
-                        tag_area,
-                        value,
-                        value_area,
-                        sup_area,
-                        input_type,
-                        port_type: talk.port_type(),
-                    };
-                    talks.push(talk_ctrl);
-                    Ok((b_x, e_y, f64::max(ear_e_x, e_x)))
-                },
-                (0., ears_e_y, 0.),
-            )?;
-            let mut ear_e_y = e_y;
-
-            if ear_is_multi_talk {
-                let add_area = dim_to_area(b_x, e_y, &control_supply.add_dim);
-                ear_e_y = add_area.e_y;
-
-                let add_ctrl = TalkControl {
-                    area: add_area,
-                    tag: ADD_TAG.to_string(),
-                    tag_area: add_area.copy(),
-                    value: None,
-                    value_area: Area::new(0., -1., 0., -1.),
-                    sup_area: None,
-                    input_type: InputType::Add,
-                    port_type: PortType::Control,
-                };
-                talks.push(add_ctrl);
-            }
-            let ear_ctrl = EarControl {
-                area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
-                talks,
-            };
-            ears.push(ear_ctrl);
-            ears_e_y = ear_e_y;
-            ears_e_x = f64::max(ears_e_x, ear_e_x);
-        }
-
-        let mut voices = Vec::new();
-        let voices_b_x = ears_e_x;
-        let mut voices_e_x = f64::max(voices_b_x, box_e_x);
         let mut voices_e_y = header_e_y;
+        let mut voices = Vec::new();
 
-        let tkr_id = tkr.id();
+        if !minimized {
+            let mut ears_e_x = 0.;
 
-        style::io(control_supply.cc);
+            for ear in tkr.ears() {
+                let mut talks = Vec::new();
+                let ear_is_multi_talk = ear.is_multi_talk();
 
-        for (port, voice) in tkr.voices().iter().enumerate() {
-            let tag = format_tag(voice.borrow().tag());
-            let area = control_supply.area_of(&tag, voices_b_x, voices_e_y);
+                let (b_x, e_y, ear_e_x) = ear.fold_talks(
+                    |talk, (b_x, b_y, ear_e_x)| {
+                        style::io(control_supply.cc);
+                        let tag = format_tag(talk.tag());
+                        let tag_area = control_supply.area_of(&tag, b_x, b_y);
 
-            voices_e_x = f64::max(voices_e_x, area.e_x);
-            voices_e_y = area.e_y;
-            let vc = VoiceControl {
-                tag,
-                area,
-                port_type: voice.borrow().port_type(),
-                color: style::make_color(tkr_id as u64, port as u64),
-            };
-            voices.push(vc);
+                        let (input_type, value, value_area) = match talk.value() {
+                            Some(v) => {
+                                let value = format_value(&v);
+                                style::value(control_supply.cc);
+                                let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
+
+                                (InputType::Value, Some(value), value_area)
+                            }
+                            None => (
+                                InputType::Talk,
+                                None,
+                                dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
+                            ),
+                        };
+
+                        let mut e_x = value_area.e_x;
+                        let e_y = tag_area.e_y;
+
+                        let sup_area = if ear_is_multi_talk {
+                            let sup_a = dim_to_area(value_area.e_x, b_y, &control_supply.sup_dim);
+                            e_x = sup_a.e_x;
+                            Some(sup_a)
+                        } else {
+                            None
+                        };
+
+                        let talk_ctrl = TalkControl {
+                            area: Area::new(b_x, e_x, b_y, e_y),
+                            tag,
+                            tag_area,
+                            value,
+                            value_area,
+                            sup_area,
+                            input_type,
+                            port_type: talk.port_type(),
+                        };
+                        talks.push(talk_ctrl);
+                        Ok((b_x, e_y, f64::max(ear_e_x, e_x)))
+                    },
+                    (0., ears_e_y, 0.),
+                )?;
+                let mut ear_e_y = e_y;
+
+                if ear_is_multi_talk {
+                    let add_area = dim_to_area(b_x, e_y, &control_supply.add_dim);
+                    ear_e_y = add_area.e_y;
+
+                    let add_ctrl = TalkControl {
+                        area: add_area,
+                        tag: ADD_TAG.to_string(),
+                        tag_area: add_area.copy(),
+                        value: None,
+                        value_area: Area::new(0., -1., 0., -1.),
+                        sup_area: None,
+                        input_type: InputType::Add,
+                        port_type: PortType::Control,
+                    };
+                    talks.push(add_ctrl);
+                }
+                let ear_ctrl = EarControl {
+                    area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
+                    talks,
+                };
+                ears.push(ear_ctrl);
+                ears_e_y = ear_e_y;
+                ears_e_x = f64::max(ears_e_x, ear_e_x);
+            }
+
+            let voices_b_x = ears_e_x;
+            let mut voices_e_x = f64::max(voices_b_x, box_e_x);
+
+            let tkr_id = tkr.id();
+
+            style::io(control_supply.cc);
+
+            for (port, voice) in tkr.voices().iter().enumerate() {
+                let tag = format_tag(voice.borrow().tag());
+                let area = control_supply.area_of(&tag, voices_b_x, voices_e_y);
+
+                voices_e_x = f64::max(voices_e_x, area.e_x);
+                voices_e_y = area.e_y;
+                let vc = VoiceControl {
+                    tag,
+                    area,
+                    port_type: voice.borrow().port_type(),
+                    color: style::make_color(tkr_id as u64, port as u64),
+                };
+                voices.push(vc);
+            }
+
+            for voice in &mut voices {
+                voice.area.right_align(voices_e_x);
+            }
+            destroy_area.right_align(voices_e_x);
         }
-
-        for voice in &mut voices {
-            voice.area.right_align(voices_e_x);
-        }
-
-        let width = voices_e_x;
+        let width = destroy_area.e_x;
         let height = f64::max(ears_e_y, voices_e_y) + SPACE;
 
         Ok(Self {
-            id: tkr_id,
+            id: tkr.id(),
             talker: talker.clone(),
             area: Area::new(0., width, 0., height),
             row: -1,
@@ -396,6 +426,9 @@ impl TalkerControlBase {
             box_area: Area::new(0., width, box_b_y, height),
             ears,
             voices,
+            imize_area,
+            minimized,
+            destroy_area,
         })
     }
     pub fn new_ref(
@@ -404,6 +437,7 @@ impl TalkerControlBase {
         draw_model: bool,
         draw_name: bool,
         draw_data: bool,
+        minimized: bool,
     ) -> Result<RTalkerControlBase, failure::Error> {
         Ok(Rc::new(RefCell::new(TalkerControlBase::new(
             talker,
@@ -411,6 +445,7 @@ impl TalkerControlBase {
             draw_model,
             draw_name,
             draw_data,
+            minimized,
         )?)))
     }
 
@@ -469,7 +504,25 @@ impl TalkerControlBase {
         cc.stroke();
     }
 
-    pub fn draw_header(&self, cc: &Context) {
+    pub fn draw_header(&self, cc: &Context, draw_switch: bool) {
+        if draw_switch {
+            style::switch(cc);
+            cc.move_to(
+                self.x + self.imize_area.content_b_x,
+                self.y + self.imize_area.content_e_y,
+            );
+            if self.minimized {
+                cc.show_text(MAXIMIZE_TAG);
+            } else {
+                cc.show_text(MINIMIZE_TAG);
+            }
+
+            cc.move_to(
+                self.x + self.destroy_area.content_b_x,
+                self.y + self.destroy_area.content_e_y,
+            );
+            cc.show_text(DESTROY_TAG);
+        }
         if let Some(model_area) = &self.model_area {
             style::model(cc);
             cc.move_to(
@@ -496,7 +549,7 @@ impl TalkerControlBase {
         }
     }
 
-    pub fn draw_io(
+    fn draw_io(
         &self,
         cc: &Context,
         area: &Area,
@@ -532,112 +585,142 @@ impl TalkerControlBase {
     }
 
     pub fn draw_ears_and_voices(&self, cc: &Context, graph_presenter: &GraphPresenter) {
-        for (ear_idx, ear) in self.ears.iter().enumerate() {
-            for (talk_idx, talk) in ear.talks.iter().enumerate() {
-                match talk.input_type {
-                    InputType::Add => {
-                        style::add(cc);
-                        cc.move_to(
-                            self.x + talk.tag_area.content_b_x,
-                            self.y + talk.tag_area.content_e_y,
-                        );
-                        cc.show_text(ADD_TAG);
-                    }
-                    _ => {
-                        self.draw_io(
-                            cc,
-                            &talk.tag_area,
-                            &talk.tag,
-                            talk.port_type,
-                            graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx),
-                        );
-
-                        style::value(cc);
-                        cc.move_to(
-                            self.x + talk.value_area.content_b_x,
-                            self.y + talk.value_area.content_e_y,
-                        );
-                        if let Some(v) = &talk.value {
-                            cc.show_text(&v);
-                        } else {
-                            cc.show_text(VAL_TAG);
+        if !self.minimized {
+            for (ear_idx, ear) in self.ears.iter().enumerate() {
+                for (talk_idx, talk) in ear.talks.iter().enumerate() {
+                    match talk.input_type {
+                        InputType::Add => {
+                            style::add(cc);
+                            cc.move_to(
+                                self.x + talk.tag_area.content_b_x,
+                                self.y + talk.tag_area.content_e_y,
+                            );
+                            cc.show_text(ADD_TAG);
                         }
+                        _ => {
+                            self.draw_io(
+                                cc,
+                                &talk.tag_area,
+                                &talk.tag,
+                                talk.port_type,
+                                graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx),
+                            );
 
-                        if let Some(sa) = &talk.sup_area {
-                            style::sup(cc);
-                            cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
-                            cc.show_text(SUP_TAG);
+                            style::value(cc);
+                            cc.move_to(
+                                self.x + talk.value_area.content_b_x,
+                                self.y + talk.value_area.content_e_y,
+                            );
+                            if let Some(v) = &talk.value {
+                                cc.show_text(&v);
+                            } else {
+                                cc.show_text(VAL_TAG);
+                            }
+
+                            if let Some(sa) = &talk.sup_area {
+                                style::sup(cc);
+                                cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
+                                cc.show_text(SUP_TAG);
+                            }
                         }
                     }
                 }
             }
+
+            for (voice_idx, voice) in self.voices.iter().enumerate() {
+                self.draw_io(
+                    cc,
+                    &voice.area,
+                    &voice.tag,
+                    voice.port_type,
+                    graph_presenter.voice_selected(self.id, voice_idx),
+                );
+            }
+        }
+    }
+
+    fn draw_connection(
+        &self,
+        cc: &Context,
+        talk_area: &Area,
+        voice_tkrcb: &TalkerControlBase,
+        voice_area: &Area,
+        voice_color: &Color,
+    ) {
+        style::connection(cc, voice_color);
+
+        let x1 = voice_tkrcb.x + voice_area.e_x;
+        let y1 = voice_tkrcb.y + (voice_area.b_y + voice_area.e_y) * 0.5;
+        let x2 = self.x + talk_area.b_x;
+        let y2 = self.y + (talk_area.b_y + talk_area.e_y) * 0.5;
+        let tab = 2.;
+
+        cc.move_to(x1, y1);
+        cc.line_to(x1 + tab, y1);
+
+        if x2 >= x1 {
+            let dx = (x2 - x1) * 0.5;
+            cc.curve_to(x1 + dx, y1, x2 - dx, y2, x2 - tab, y2);
+        } else {
+            let dx = 10. * tab;
+            let dy = (y2 - y1) * 0.5;
+            cc.curve_to(x1 + dx, y1 + dy, x2 - dx, y2 - dy, x2 - tab, y2);
         }
 
-        for (voice_idx, voice) in self.voices.iter().enumerate() {
-            self.draw_io(
-                cc,
-                &voice.area,
-                &voice.tag,
-                voice.port_type,
-                graph_presenter.voice_selected(self.id, voice_idx),
-            );
-        }
+        cc.line_to(x2, y2);
+        cc.stroke();
     }
 
     pub fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
-            if let Some(ear_ctrl) = self.ears.get(ear_idx) {
-                let _ = ear.fold_talks(
-                    |talk, talk_idx| {
-                        if let Some(talk_ctrl) = ear_ctrl.talks.get(talk_idx) {
-                            if let None = talk.value() {
-                                if let Some(voice_rtkrc) =
-                                    &talker_controls.get(&talk.talker().borrow().id())
-                                {
-                                    let voice_tkrc = voice_rtkrc.borrow();
-                                    let voice_tkrcb = voice_tkrc.base().borrow();
+            let _ = ear.fold_talks(
+                |talk, talk_idx| {
+                    if let None = talk.value() {
+                        let mut otalk_area: Option<&Area> = None;
 
+                        if self.minimized {
+                            otalk_area = Some(&self.imize_area);
+                        } else {
+                            if let Some(ear_ctrl) = self.ears.get(ear_idx) {
+                                if let Some(talk_ctrl) = ear_ctrl.talks.get(talk_idx) {
+                                    otalk_area = Some(&talk_ctrl.area);
+                                }
+                            }
+                        }
+
+                        if let Some(talk_area) = otalk_area {
+                            if let Some(voice_rtkrc) =
+                                &talker_controls.get(&talk.talker().borrow().id())
+                            {
+                                let voice_tkrc = voice_rtkrc.borrow();
+                                let voice_tkrcb = voice_tkrc.base().borrow();
+
+                                if voice_tkrcb.minimized {
+                                    self.draw_connection(
+                                        cc,
+                                        talk_area,
+                                        &voice_tkrcb,
+                                        &voice_tkrcb.destroy_area,
+                                        &style::WHITE_COLOR,
+                                    );
+                                } else {
                                     if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
-                                        style::connection(cc, voice.color);
-
-                                        let x1 = voice_tkrcb.x + voice.area.e_x;
-                                        let y1 =
-                                            voice_tkrcb.y + (voice.area.b_y + voice.area.e_y) * 0.5;
-                                        let x2 = self.x + talk_ctrl.area.b_x;
-                                        let y2 = self.y
-                                            + (talk_ctrl.area.b_y + talk_ctrl.area.e_y) * 0.5;
-                                        let tab = 2.;
-
-                                        cc.move_to(x1, y1);
-                                        cc.line_to(x1 + tab, y1);
-
-                                        if x2 >= x1 {
-                                            let dx = (x2 - x1) * 0.5;
-                                            cc.curve_to(x1 + dx, y1, x2 - dx, y2, x2 - tab, y2);
-                                        } else {
-                                            let dx = 10. * tab;
-                                            let dy = (y2 - y1) * 0.5;
-                                            cc.curve_to(
-                                                x1 + dx,
-                                                y1 + dy,
-                                                x2 - dx,
-                                                y2 - dy,
-                                                x2 - tab,
-                                                y2,
-                                            );
-                                        }
-
-                                        cc.line_to(x2, y2);
-                                        cc.stroke();
+                                        self.draw_connection(
+                                            cc,
+                                            talk_area,
+                                            &voice_tkrcb,
+                                            &voice.area,
+                                            &voice.color,
+                                        );
                                     }
                                 }
                             }
                         }
-                        Ok(talk_idx + 1)
-                    },
-                    0,
-                );
-            }
+                    }
+                    Ok(talk_idx + 1)
+                },
+                0,
+            );
         }
     }
 
@@ -736,6 +819,17 @@ impl TalkerControlBase {
                 }
             }
             // TODO : edit talker name and data
+
+            if self.imize_area.is_under(rx, ry) {
+                let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;
+                return Ok(Some(notifications));
+            }
+
+            if self.destroy_area.is_under(rx, ry) {
+                let notifications = graph_presenter.borrow_mut().sup_talker(self.id)?;
+                return Ok(Some(notifications));
+            }
+
             let notifications = graph_presenter.borrow_mut().select_talker(self.id)?;
             Ok(Some(notifications))
         } else {
@@ -788,8 +882,9 @@ pub trait TalkerControl {
 
     fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base().borrow();
+
         base.draw_box(cc, graph_presenter);
-        base.draw_header(cc);
+        base.draw_header(cc, true);
         base.draw_ears_and_voices(cc, graph_presenter);
     }
 
@@ -819,9 +914,10 @@ impl TalkerControlImpl {
     pub fn new(
         talker: &RTalker,
         control_supply: &ControlSupply,
+        minimized: bool,
     ) -> Result<TalkerControlImpl, failure::Error> {
         Ok(Self {
-            base: TalkerControlBase::new_ref(talker, control_supply, false, true, true)?,
+            base: TalkerControlBase::new_ref(talker, control_supply, false, true, true, minimized)?,
         })
     }
 }
@@ -835,9 +931,11 @@ impl TalkerControl for TalkerControlImpl {
 pub fn new_ref(
     talker: &RTalker,
     control_supply: &ControlSupply,
+    minimized: bool,
 ) -> Result<RTalkerControl, failure::Error> {
     Ok(Rc::new(RefCell::new(TalkerControlImpl::new(
         talker,
         control_supply,
+        minimized,
     )?)))
 }

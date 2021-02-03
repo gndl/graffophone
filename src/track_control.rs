@@ -40,7 +40,8 @@ impl TrackControl {
         control_supply: &ControlSupply,
     ) -> Result<TrackControl, failure::Error> {
         let rtalker: RTalker = rtrack.clone();
-        let base = TalkerControlBase::new_ref(&rtalker, control_supply, false, false, false)?;
+        let base =
+            TalkerControlBase::new_ref(&rtalker, control_supply, false, false, false, false)?;
 
         Ok(Self { base })
     }

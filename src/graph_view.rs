@@ -63,15 +63,22 @@ where
 
 struct Collector<'c> {
     control_supply: &'c ControlSupply<'c>,
+    graph_presenter: RGraphPresenter,
     row: i32,
     column: i32,
     columns_properties: BTreeMap<i32, ColumnProperty>,
     talker_controls: HashMap<Id, RTalkerControl>,
 }
 impl<'c> Collector<'c> {
-    pub fn new(control_supply: &'c ControlSupply, row: i32, column: i32) -> Collector<'c> {
+    pub fn new(
+        control_supply: &'c ControlSupply,
+        graph_presenter: &RGraphPresenter,
+        row: i32,
+        column: i32,
+    ) -> Collector<'c> {
         Self {
             control_supply,
+            graph_presenter: graph_presenter.clone(),
             row,
             column,
             columns_properties: BTreeMap::new(),
@@ -85,8 +92,11 @@ impl<'c> Collector<'c> {
         if self.talker_controls.contains_key(&id) {
             Ok(false)
         } else {
-            self.talker_controls
-                .insert(id, talker_control::new_ref(talker, self.control_supply)?);
+            let minimized = self.graph_presenter.borrow().talker_minimized(id);
+            self.talker_controls.insert(
+                id,
+                talker_control::new_ref(talker, self.control_supply, minimized)?,
+            );
             Ok(true)
         }
     }
@@ -100,10 +110,13 @@ pub struct EventReceiver {
 pub type REventReceiver = Rc<RefCell<EventReceiver>>;
 
 impl EventReceiver {
-    pub fn new_ref(session_presenter: &RSessionPresenter) -> REventReceiver {
+    pub fn new_ref(
+        session_presenter: &RSessionPresenter,
+        graph_presenter: &RGraphPresenter,
+    ) -> REventReceiver {
         Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            graph_presenter: GraphPresenter::new_ref(session_presenter),
+            graph_presenter: graph_presenter.clone(),
             talker_controls: Vec::new(),
         }))
     }
@@ -137,6 +150,7 @@ impl EventReceiver {
 pub struct GraphView {
     session_presenter: RSessionPresenter,
     event_receiver: REventReceiver,
+    graph_presenter: RGraphPresenter,
     drawing_area: DrawingArea,
     talker_controls: HashMap<Id, RTalkerControl>,
     width: f64,
@@ -147,9 +161,12 @@ pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
     pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphView {
+        let graph_presenter = GraphPresenter::new_ref(session_presenter);
+
         let rgv = Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            event_receiver: EventReceiver::new_ref(session_presenter),
+            event_receiver: EventReceiver::new_ref(session_presenter, &graph_presenter),
+            graph_presenter,
             drawing_area: DrawingArea::new(),
             talker_controls: HashMap::new(),
             width: 0.,
@@ -322,7 +339,7 @@ impl GraphView {
         let session_presenter = self.session_presenter.borrow();
         let session = session_presenter.session();
         {
-            let mut collector = Collector::new(control_supply, 0, 1);
+            let mut collector = Collector::new(control_supply, &self.graph_presenter, 0, 1);
 
             /* create graph by covering mixers */
             let mixers_column_property = ColumnProperty::new(0., 0., session.mixers().len() as i32);
@@ -393,7 +410,7 @@ impl GraphView {
 
             /* sort the root unused talkers in decreasing order
             in order to have the newest talker at the top of the sandbox */
-            let mut sandbox_collector = Collector::new(control_supply, 0, 0);
+            let mut sandbox_collector = Collector::new(control_supply, &self.graph_presenter, 0, 0);
 
             for tkr in root_unused_talkers.values() {
                 GraphView::make_talker_controls(tkr, &mut sandbox_collector)?;
@@ -444,14 +461,14 @@ impl GraphView {
         cc.rectangle(0., 0., self.width, self.height);
         cc.fill();
 
-        let graph_presenter = &self.event_receiver.borrow().graph_presenter;
+        //        let graph_presenter = &self.event_receiver.borrow().graph_presenter;
 
         for (_, tkrc) in &self.talker_controls {
             tkrc.borrow().draw_connections(cc, &self.talker_controls);
         }
 
         for (_, tkrc) in &self.talker_controls {
-            tkrc.borrow().draw(cc, &graph_presenter.borrow());
+            tkrc.borrow().draw(cc, &self.graph_presenter.borrow());
         }
 
         Inhibit(false)

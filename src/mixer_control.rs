@@ -43,7 +43,7 @@ impl MixerControl {
         control_supply: &ControlSupply,
     ) -> Result<MixerControl, failure::Error> {
         let rtalker: RTalker = rmixer.clone();
-        let base = TalkerControlBase::new_ref(&rtalker, control_supply, true, false, false)?;
+        let base = TalkerControlBase::new_ref(&rtalker, control_supply, true, false, false, false)?;
 
         let mut track_controls = Vec::new();
 
@@ -112,7 +112,7 @@ impl TalkerControl for MixerControl {
     fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base.borrow();
         base.draw_box(cc, graph_presenter);
-        base.draw_header(cc);
+        base.draw_header(cc, false);
 
         base.draw_ears_and_voices(cc, graph_presenter);
 

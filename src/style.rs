@@ -34,6 +34,7 @@ const HD3: f64 = 211. / 255.;
 const HE0: f64 = 224. / 255.;
 const HEE: f64 = 238. / 255.;
 
+pub const WHITE_COLOR: Color = (1., 1., 1.); // cyan
 const BACKGROUND_COLOR: Color = (H00, H00, H00);
 const SELECTED_IO_BACKGROUND_COLOR: Color = (1., 0.8, 0.4);
 const SELECTED_BOX_BACKGROUND_COLOR: Color = (0.6, 0.3, 0.);
@@ -54,6 +55,7 @@ const SELECTED_IO_COLOR: Color = (0.1, 0.1, 0.1);
 const VALUE_COLOR: Color = (0.5, 0.5, 1.); // cyan
 const SUP_COLOR: Color = (HFF, H00, H00); // red
 const ADD_COLOR: Color = (0., 1., 0.); // green
+const SWITCH_COLOR: Color = (0.9, 0.9, 0.9);
 
 pub fn background(cc: &Context) {
     set_color(cc, BACKGROUND_COLOR);
@@ -137,9 +139,13 @@ pub fn add(cc: &Context) {
     set_color(cc, ADD_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
+pub fn switch(cc: &Context) {
+    set_color(cc, SWITCH_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
 
-pub fn connection(cc: &Context, color: Color) {
-    set_color(cc, color);
+pub fn connection(cc: &Context, color: &Color) {
+    set_color(cc, *color);
     cc.set_line_width(2.);
 }
 
