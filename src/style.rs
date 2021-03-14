@@ -46,16 +46,18 @@ const NAME_COLOR: Color = (HFF, HFF, HFF); // white
 const DATA_COLOR: Color = (H90, HEE, H90); // lightgreen
 const AUDIO_COLOR: Color = (0., 1., 1.); // cyan
 const CONTROL_COLOR: Color = (1., 1., 0.); // yellow
-const CV_COLOR: Color = (1., 0., 1.); // magenta
+const CV_COLOR: Color = (1., 1., 0.); //(0.5, 1., 0.5);
+const ATOM_COLOR: Color = (1., 0., 1.); // magenta
 const IO_COLOR: Color = (0.7, 0.7, 0.7);
 const SELECTED_AUDIO_COLOR: Color = (0., 0.5, 0.5); // cyan
 const SELECTED_CONTROL_COLOR: Color = (0.5, 0.5, 0.); // yellow
-const SELECTED_CV_COLOR: Color = (0.5, 0., 0.5); // magenta
+const SELECTED_CV_COLOR: Color = (0., 0.5, 0.);
+const SELECTED_ATOM_COLOR: Color = (0.5, 0., 0.5); // magenta
 const SELECTED_IO_COLOR: Color = (0.1, 0.1, 0.1);
 const VALUE_COLOR: Color = (0.5, 0.5, 1.); // cyan
 const SUP_COLOR: Color = (HFF, H00, H00); // red
 const ADD_COLOR: Color = (0., 1., 0.); // green
-const SWITCH_COLOR: Color = (0.9, 0.9, 0.9);
+const SWITCH_COLOR: Color = (0.9, 0.87, 0.77); //(0.7, 0.4, 0.3);
 
 pub fn background(cc: &Context) {
     set_color(cc, BACKGROUND_COLOR);
@@ -107,6 +109,10 @@ pub fn cv(cc: &Context) {
     set_color(cc, CV_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
+pub fn atom(cc: &Context) {
+    set_color(cc, ATOM_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
 pub fn io(cc: &Context) {
     set_color(cc, IO_COLOR);
     cc.set_font_size(FONT_SIZE);
@@ -121,6 +127,10 @@ pub fn selected_control(cc: &Context) {
 }
 pub fn selected_cv(cc: &Context) {
     set_color(cc, SELECTED_CV_COLOR);
+    cc.set_font_size(FONT_SIZE);
+}
+pub fn selected_atom(cc: &Context) {
+    set_color(cc, SELECTED_ATOM_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
 pub fn selected_io(cc: &Context) {
