@@ -19,8 +19,8 @@ impl Sinusoidal {
     pub fn new() -> Sinusoidal {
         let mut base = TalkerBase::new("", MODEL);
 
-        base.add_ear(ear::audio(Some("frequence"), 0., 20000., 440., None));
-        base.add_ear(ear::audio(Some("phase"), f32::MIN, f32::MAX, 0., None));
+        base.add_ear(ear::cv(Some("frequence"), 0., 20000., 440., None));
+        base.add_ear(ear::audio(Some("phase"), -1., 1., 0., None));
 
         base.add_voice(voice::audio(None, 0., None));
 
@@ -60,7 +60,7 @@ impl Talker for Sinusoidal {
             ln = ear.listen(tick, ln);
         }
         for voice in self.voices() {
-            let freq_buf = self.ear_audio_buffer(0).unwrap();
+            let freq_buf = self.ear_cv_buffer(0).unwrap();
             let phase_buf = self.ear_audio_buffer(1).unwrap();
 
             let mut vc = voice.borrow_mut();
