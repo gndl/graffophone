@@ -25,7 +25,7 @@ impl Mixer {
     pub fn new(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> Mixer {
         let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::cv(Some("volume"), 0., 1., 1., None));
+        base.add_ear(ear::audio(Some("volume"), 0., 1., 1., None));
 
         Self {
             base,
@@ -127,7 +127,7 @@ impl Mixer {
             };
         }
 
-        let master_volume_buf = self.ear_cv_buffer(0).unwrap();
+        let master_volume_buf = self.ear_audio_buffer(0).unwrap();
 
         for cn in 0..channels.len() {
             let ch = &mut channels[cn];
