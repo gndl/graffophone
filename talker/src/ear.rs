@@ -102,7 +102,10 @@ impl Talks {
         Ok(())
     }
     pub fn add_talk_voice(&mut self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
-        if talker.borrow().voice_port_type_is(port, self.port_type) {
+        if self
+            .port_type()
+            .can_hear(talker.borrow().voice_port_type(port))
+        {
             self.talks.push(new_talk_voice(talker, port));
             Ok(())
         } else {
@@ -387,9 +390,10 @@ pub fn set_talk_value(talk: &RTalk, value: f32) -> Result<(), failure::Error> {
     Ok(())
 }
 pub fn set_talk_voice(talk: &RTalk, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
-    if talker
+    if talk
         .borrow()
-        .voice_port_type_is(port, talk.borrow().port_type())
+        .port_type()
+        .can_hear(talker.borrow().voice_port_type(port))
     {
         let mut tlk = talk.borrow_mut();
         tlk.tkr = talker.clone();

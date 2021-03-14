@@ -29,11 +29,7 @@ impl Talker for ControlTalker {
     }
 
     fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        for voice in self.voices() {
-            let mut vc = voice.borrow_mut();
-
-            vc.set_tick(tick);
-        }
+        self.voices()[0].borrow_mut().set_tick(tick);
         len
     }
 

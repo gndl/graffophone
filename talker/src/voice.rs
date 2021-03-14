@@ -11,6 +11,16 @@ pub enum PortType {
     Control,
     Cv,
 }
+impl PortType {
+    pub fn can_hear(&self, port_type: PortType) -> bool {
+        match (port_type, self) {
+            (PortType::Audio, PortType::Audio) => true,
+            (_, PortType::Cv) => true,
+            (_, PortType::Control) => true,
+            _ => false,
+        }
+    }
+}
 
 pub struct Voice {
     port_type: PortType,
@@ -66,6 +76,7 @@ impl Voice {
     pub fn cv_buffer(&self) -> Option<CvBuf> {
         match &self.horn {
             Horn::Cv(b) => Some(b.clone()),
+            Horn::Audio(b) => Some(b.clone()),
             _ => None,
         }
     }

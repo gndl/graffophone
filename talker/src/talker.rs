@@ -144,9 +144,14 @@ pub trait Talker {
     fn voice_port_type(&self, port: usize) -> PortType {
         self.voice(port).borrow().port_type()
     }
-    fn voice_port_type_is(&self, port: usize, port_type: PortType) -> bool {
-        self.voice_port_type(port) == port_type
-    }
+    /*
+        fn voice_port_type_is(&self, port: usize, port_type: PortType) -> bool {
+            self.voice_port_type(port) == port_type
+        }
+        fn voice_port_type_can_hear(&self, port: usize, port_type: PortType) -> bool {
+            self.voice_port_type(port).can_hear(port_type)
+        }
+    */
     fn voice_port(&self, tag: &str) -> Result<usize, failure::Error> {
         for (port, voice) in self.voices().iter().enumerate() {
             if voice.borrow().tag() == tag {
