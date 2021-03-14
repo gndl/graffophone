@@ -58,12 +58,20 @@ impl Lv2 {
 
                     match UnknownInputPort::as_typed::<Control>(&port) {
                         Some(p) => {
-                            let ear = ear::control(
+                            let ear = ear::cv(
                                 Some(&p.name().to_string()),
                                 min_val,
                                 max_val,
                                 def_val,
+                                None,
                             );
+                            /*                            let ear = ear::control(
+                                                          Some(&p.name().to_string()),
+                                                          min_val,
+                                                          max_val,
+                                                          def_val,
+                                                      );
+                            */
                             base.add_ear(ear);
                             input_port_handlers.push(p.handle().index());
                         }
@@ -195,7 +203,9 @@ impl Talker for Lv2 {
         for ear in self.ears() {
             ln = ear.listen(tick, ln);
         }
+        self.activate();
         self.instance.run(ln as u32);
+        self.deactivate();
         ln
     }
 }
