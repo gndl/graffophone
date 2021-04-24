@@ -29,7 +29,7 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
     val mutable mCtx = None
     val mutable mNbChannels = sf.channels
     val mutable mBuf = A.make (chunkSize * sf.channels) 0.0
-    val mutable mCodecId = `Flac
+    val mutable mCodecId = Avcodec.Audio.find_encoder "flac"
     val mutable mChannelLayout = `Stereo
     val mutable mSampleRate = sf.rate
 
@@ -38,17 +38,17 @@ class c ?(filename="") ?(name = "Sound File Output (") () =
       mNbChannels <- nbChannels;
       try
         let cl = Avutil.Channel_layout.get_default nbChannels in
-        let sample_format = Avcodec.Audio.find_best_sample_format mCodecId `Dbl in
+
+let opts = Av.mk_audio_opts ~channel_layout:mChannelLayout ~sample_rate:mSampleRate () in
 
         let stream = Av.open_output mFilename
-                     |> Av.new_audio_stream ~codec_id:mCodecId
-                       ~channel_layout:mChannelLayout ~sample_format
-                       ~sample_rate:mSampleRate in
+                     |> Av.new_audio_stream ~codec:mCodecId ~opts
+        in
 
-        let conv = Converter.to_codec cl sf.rate (Av.get_codec stream) in
+        let conv = Converter.to_codec cl sf.rate (Av.get_codec_params stream) in
 
         mCtx <- Some(conv, stream);
-      with Failure msg -> trace ("Failed to open file "^mFilename^" : "^msg)
+      with Avutil.Error err -> trace ("Failed to open file "^mFilename^" : "^Avutil.string_of_error err);
 
 
     method write lg channels =

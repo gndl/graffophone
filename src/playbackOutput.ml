@@ -42,19 +42,20 @@ class c ?(name = "Playback Output(") () =
       mNewOutputDevice <- mOutputDevice;
 
 
-    method openOutput nbChannels =
+    method openOutput _nbChannels =
 
       let rec makeOutputStream device =
         try
+          (*
           let fmt = Device.getOutputIdFormat device in
           let codec_id = Av.Format.get_audio_codec_id fmt in
 
           let cl = Avutil.Channel_layout.get_default nbChannels in
-          let out_sample_format = Avcodec.Audio.find_best_sample_format codec_id `Dbl in
+          (*          let out_sample_format = Avcodec.Audio.find_best_sample_format codec_id `Dbl in*)
 
           let output = Av.open_output_format fmt in
 
-          let conv = Converter.create cl SF.rate cl ~out_sample_format SF.rate in
+          let conv = Converter.create cl SF.rate cl (*~out_sample_format*) SF.rate in
 
           if device <> mOutputDevice || device <> mNewOutputDevice then (
             mOutputDevice <- device;
@@ -62,14 +63,17 @@ class c ?(name = "Playback Output(") () =
           );
 
           mCtx <- Some(conv, output);
-        with Avutil.Failure msg -> (
+           *)
+          mCtx <- None;
+        with Avutil.Error err -> (
+            let msg = Avutil.string_of_error err in
             Bus.asyncNotify(Bus.Error msg);
 
             (* If the new device raise an error, we fallback to the previous device *)
             if device <> mOutputDevice then
               makeOutputStream mOutputDevice
             else
-              raise (Avutil.Failure msg)
+              raise (Avutil.Error(`Failure msg))
           )
       in
       makeOutputStream mNewOutputDevice;
@@ -85,7 +89,7 @@ class c ?(name = "Playback Output(") () =
           else A.map ~f:(fun plane -> A.sub plane ~pos:0 ~len:lg) channels in
         try
           Converter.convert conv planes |> Av.write_audio_frame output;
-        with Avutil.Failure msg -> Bus.asyncNotify(Bus.Error msg)
+        with Avutil.Error err -> Bus.asyncNotify(Bus.Error(Avutil.string_of_error err))
 
 
     method closeOutput =
