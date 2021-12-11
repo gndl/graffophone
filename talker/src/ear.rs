@@ -125,9 +125,15 @@ impl Talks {
 
 pub type RTalks = RefCell<Talks>;
 
-pub enum Ear {
-    Talk(RTalk),
-    Talks(RTalks),
+pub struct Group {
+    tag: String,
+    talks: Vec<RTalks>,
+}
+pub type RGroup = RefCell<Group>;
+
+pub struct Ear {
+    tag: String,
+    Groups: Vec<RGroup>,
 }
 
 impl Ear {
