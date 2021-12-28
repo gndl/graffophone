@@ -38,11 +38,14 @@ pub enum Operation {
     AddTalker(Id, String),
     SupTalker(Id),
     SetTalkerData(Id, String),
-    SetEarVoice(Id, Index, Index, Id, Index),
-    SetEarValue(Id, Index, Index, f32),
+    SetEarVoice(Id, Index, Index, Index, Index, Id, Index),
+    SetEarValue(Id, Index, Index, Index, Index, f32),
+    AddValueToEarHum(Id, Index, Index, Index, f32),
+    AddVoiceToEarHum(Id, Index, Index, Index, Id, Index),
+    SupEarTalk(Id, Index, Index, Index, Index),
     AddValueToEar(Id, Index, f32),
     AddVoiceToEar(Id, Index, Id, Index),
-    SupEar(Id, Index, Index),
+    SupEarSet(Id, Index, Index),
 }
 
 pub struct Band {
@@ -124,6 +127,20 @@ impl Band {
         }
     }
 
+    fn parse_talk_tag<'a>(tag: &'a str) -> (&'a str, Index, &'a str) {
+        let mut set_idx: Index = 0;
+        let mut hum_tag = "";
+        let parts: Vec<&str> = tag.split('.').collect();
+
+        if parts.len() > 1 {
+            set_idx = Index::from_str(parts[1]).unwrap_or(0);
+        }
+        if parts.len() > 2 {
+            hum_tag = parts[2];
+        }
+        (parts[0], set_idx, hum_tag)
+    }
+
     fn tidy_decs<'a>(
         module: Module<'a>,
         (tkr_decs, trk_decs, mxr_decs, otp_decs): &mut (
@@ -201,11 +218,17 @@ impl Band {
         module: &Module,
     ) -> Result<(), failure::Error> {
         for (tag, dpn, tkn) in &module.attributs {
+            let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(tag);
+
             match f32::from_str(&dpn) {
-                Ok(value) => talker.borrow_mut().set_ear_talk_value_by_tag(&tag, value)?,
+                Ok(value) => talker
+                    .borrow_mut()
+                    .set_ear_talk_value_by_tag(ear_tag, set_idx, hum_tag, value)?,
                 Err(_) => match talkers.get(dpn) {
                     Some(tkr) => talker.borrow_mut().set_ear_talk_voice_by_tag(
-                        &tag,
+                        ear_tag,
+                        set_idx,
+                        hum_tag,
                         tkr,
                         tkr.borrow().voice_port(&tkn)?,
                     )?,
@@ -229,14 +252,20 @@ impl Band {
             Some(Band::name_from_mref(module.mref)),
         )?;
         {
-            let mut track = rtrack.borrow_mut();
+            let track = rtrack.borrow_mut();
 
             for (tag, dpn, tkn) in &module.attributs {
+                let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(&tag);
+
                 match f32::from_str(&dpn) {
-                    Ok(value) => track.set_ear_talk_value_by_tag(&tag, value)?,
+                    Ok(value) => {
+                        track.set_ear_talk_value_by_tag(ear_tag, set_idx, hum_tag, value)?
+                    }
                     Err(_) => match talkers.get(dpn) {
                         Some(tkr) => track.set_ear_talk_voice_by_tag(
-                            &tag,
+                            ear_tag,
+                            set_idx,
+                            hum_tag,
                             tkr,
                             tkr.borrow().voice_port(&tkn)?,
                         )?,
@@ -294,11 +323,17 @@ impl Band {
                         None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
                     }
                 } else {
+                    let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(&tag);
+
                     match f32::from_str(&dpn) {
-                        Ok(value) => mixer.set_ear_talk_value_by_tag(&tag, value)?,
+                        Ok(value) => {
+                            mixer.set_ear_talk_value_by_tag(ear_tag, set_idx, hum_tag, value)?
+                        }
                         Err(_) => match talkers.get(dpn) {
                             Some(tkr) => mixer.set_ear_talk_voice_by_tag(
-                                &tag,
+                                ear_tag,
+                                set_idx,
+                                hum_tag,
                                 tkr,
                                 tkr.borrow().voice_port(&tkn)?,
                             )?,
@@ -357,28 +392,27 @@ impl Band {
     }
 
     fn talk_dep_line<'a>(
+        ear_tag: &str,
+        set_idx: Index,
+        hum_tag: &str,
         talk: &Talk,
         buf: &'a mut String,
     ) -> Result<&'a mut String, failure::Error> {
+        let talk_tag = format!("> {}.{}.{}", ear_tag, set_idx, hum_tag);
         let tkr = &talk.talker().borrow();
 
         if tkr.is_hidden() {
-            writeln!(buf, "> {} {}", talk.tag(), tkr.data_string())?;
+            writeln!(buf, "{} {}", talk_tag, tkr.data_string())?;
         } else {
             let voice_tag = tkr.voice_tag(talk.port())?;
 
             if voice_tag == "" {
-                writeln!(
-                    buf,
-                    "> {} {}",
-                    talk.tag(),
-                    Band::mref(tkr.id(), &tkr.name())
-                )?;
+                writeln!(buf, "{} {}", talk_tag, Band::mref(tkr.id(), &tkr.name()))?;
             } else {
                 writeln!(
                     buf,
-                    "> {} {}:{}",
-                    talk.tag(),
+                    "{} {}:{}",
+                    talk_tag,
                     Band::mref(tkr.id(), &tkr.name()),
                     voice_tag
                 )?;
@@ -570,14 +604,24 @@ impl Band {
 
                 tkr.borrow_mut().activate();
             }
-            Operation::SetEarVoice(ear_tkr_id, ear_idx, talk_idx, voice_tkr_id, voice_port) => {
+            Operation::SetEarVoice(
+                ear_tkr_id,
+                ear_idx,
+                set_idx,
+                hum_idx,
+                talk_idx,
+                voice_tkr_id,
+                voice_port,
+            ) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
                 let voice_tkr = self.fetch_talker(voice_tkr_id)?;
 
                 ear_tkr.borrow_mut().deactivate();
 
-                ear_tkr.borrow().set_ear_talk_voice_by_index(
+                ear_tkr.borrow().set_ear_talk_voice(
                     *ear_idx,
+                    *set_idx,
+                    *hum_idx,
                     *talk_idx,
                     &voice_tkr,
                     *voice_port,
@@ -585,14 +629,59 @@ impl Band {
 
                 ear_tkr.borrow_mut().activate();
             }
-            Operation::SetEarValue(ear_tkr_id, ear_idx, talk_idx, value) => {
+            Operation::SetEarValue(ear_tkr_id, ear_idx, set_idx, hum_idx, talk_idx, value) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
                 ear_tkr.borrow_mut().deactivate();
 
                 ear_tkr
                     .borrow()
-                    .set_ear_talk_value_by_index(*ear_idx, *talk_idx, *value)?;
+                    .set_ear_talk_value(*ear_idx, *set_idx, *hum_idx, *talk_idx, *value)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::AddValueToEarHum(ear_tkr_id, ear_idx, set_idx, hum_idx, value) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .add_ear_talk_value(*ear_idx, *set_idx, *hum_idx, *value)?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::AddVoiceToEarHum(
+                ear_tkr_id,
+                ear_idx,
+                set_idx,
+                hum_idx,
+                voice_tkr_id,
+                voice_port,
+            ) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+                let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr.borrow().add_ear_talk_voice(
+                    *ear_idx,
+                    *set_idx,
+                    *hum_idx,
+                    &voice_tkr,
+                    *voice_port,
+                )?;
+
+                ear_tkr.borrow_mut().activate();
+            }
+            Operation::SupEarTalk(ear_tkr_id, ear_idx, set_idx, hum_idx, talk_idx) => {
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
+
+                ear_tkr.borrow_mut().deactivate();
+
+                ear_tkr
+                    .borrow()
+                    .sup_ear_talk(*ear_idx, *set_idx, *hum_idx, *talk_idx)?;
 
                 ear_tkr.borrow_mut().activate();
             }
@@ -601,9 +690,7 @@ impl Band {
 
                 ear_tkr.borrow_mut().deactivate();
 
-                ear_tkr
-                    .borrow()
-                    .add_ear_talk_value_by_index(*ear_idx, *value)?;
+                ear_tkr.borrow().add_ear_value(*ear_idx, *value)?;
 
                 ear_tkr.borrow_mut().activate();
             }
@@ -615,18 +702,16 @@ impl Band {
 
                 ear_tkr
                     .borrow()
-                    .add_ear_talk_voice_by_index(*ear_idx, &voice_tkr, *voice_port)?;
+                    .add_ear_voice(*ear_idx, &voice_tkr, *voice_port)?;
 
                 ear_tkr.borrow_mut().activate();
             }
-            Operation::SupEar(ear_tkr_id, ear_idx, talk_idx) => {
+            Operation::SupEarSet(ear_tkr_id, ear_idx, set_idx) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
                 ear_tkr.borrow_mut().deactivate();
 
-                ear_tkr
-                    .borrow()
-                    .sup_ear_talk_by_index(*ear_idx, *talk_idx)?;
+                ear_tkr.borrow().sup_ear_set(*ear_idx, *set_idx)?;
 
                 ear_tkr.borrow_mut().activate();
             }

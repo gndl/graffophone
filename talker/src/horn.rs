@@ -13,6 +13,46 @@ pub enum Horn {
     Cv(CvBuf),
 }
 
+impl Horn {
+    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+        match self {
+            Horn::Audio(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn control_buffer(&self) -> Option<ControlBuf> {
+        match self {
+            Horn::Control(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn cv_buffer(&self) -> Option<CvBuf> {
+        match self {
+            Horn::Cv(b) => Some(b.clone()),
+            Horn::Audio(b) => Some(b.clone()),
+            _ => None,
+        }
+    }
+    pub fn audio_value(&self, index: usize) -> Option<f32> {
+        match self {
+            Horn::Audio(b) => Some(b.get()[index].get()),
+            _ => None,
+        }
+    }
+    pub fn control_value(&self, _index: usize) -> Option<f32> {
+        match self {
+            Horn::Control(b) => Some(b.get()),
+            _ => None,
+        }
+    }
+    pub fn cv_value(&self, index: usize) -> Option<f32> {
+        match self {
+            Horn::Cv(b) => Some(b.get()[index].get()),
+            _ => None,
+        }
+    }
+}
+
 pub fn audio_buf(value: f32, len: Option<usize>) -> AudioBuf {
     Rc::new(VecBuffer::new(
         if value.is_nan() { 0. } else { value },

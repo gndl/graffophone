@@ -7,7 +7,7 @@ use crate::data::{Data, RData};
 use crate::ear;
 use crate::ear::Ear;
 use crate::horn::{AudioBuf, CvBuf};
-use crate::identifier::{Id, Identifiable, Identifier, RIdentifier};
+use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
 use crate::voice::MVoice;
 use crate::voice::PortType;
 
@@ -176,14 +176,34 @@ pub trait Talker {
         }
     }
 
-    fn ear_audio_buffer(&self, port: usize) -> Option<AudioBuf> {
-        let ear = self.ears().get(port)?;
-        ear.audio_buffer()
+    fn ear_set_hum_audio_buffer(
+        &self,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> Option<AudioBuf> {
+        (self.ears().get(ear_idx)?).get_set_hum_audio_buffer(set_idx, hum_idx)
+    }
+    fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> Option<AudioBuf> {
+        self.ear_set_hum_audio_buffer(ear_idx, set_idx, 0)
+    }
+    fn ear_audio_buffer(&self, ear_idx: Index) -> Option<AudioBuf> {
+        self.ear_set_audio_buffer(ear_idx, 0)
     }
 
-    fn ear_cv_buffer(&self, port: usize) -> Option<CvBuf> {
-        let ear = self.ears().get(port)?;
-        ear.cv_buffer()
+    fn ear_set_hum_cv_buffer(
+        &self,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> Option<CvBuf> {
+        (self.ears().get(ear_idx)?).get_set_hum_cv_buffer(set_idx, hum_idx)
+    }
+    fn ear_set_cv_buffer(&self, ear_idx: Index, set_idx: Index) -> Option<CvBuf> {
+        self.ear_set_hum_cv_buffer(ear_idx, set_idx, 0)
+    }
+    fn ear_cv_buffer(&self, ear_idx: Index) -> Option<CvBuf> {
+        self.ear_set_cv_buffer(ear_idx, 0)
     }
     /*
        fn ear_talks(&self, port: usize) -> Option<MTalks> {
@@ -196,124 +216,128 @@ pub trait Talker {
         None
     }
 
-    fn set_ear_talk_value_by_tag(&mut self, tag: &str, value: f32) -> Result<(), failure::Error> {
+    fn set_ear_talk_value_by_tag(
+        &self,
+        ear_tag: &str,
+        set_idx: Index,
+        hum_tag: &str,
+        value: f32,
+    ) -> Result<(), failure::Error> {
         for ear in self.ears() {
-            match ear {
-                Ear::Talk(talk) => {
-                    if talk.borrow().tag() == tag {
-                        return ear::set_talk_value(talk, value);
-                    }
-                }
-                Ear::Talks(talks) => {
-                    let mut tlks = talks.borrow_mut();
-
-                    if tlks.tag() == tag {
-                        return tlks.add_talk_value(value);
-                    } else {
-                        for talk in tlks.talks() {
-                            if talk.borrow().tag() == tag {
-                                return ear::set_talk_value(talk, value);
-                            }
-                        }
-                    }
-                }
+            if ear.tag() == ear_tag {
+                return ear.set_talk_value_by_tag(set_idx, hum_tag, value);
             }
         }
         Err(failure::err_msg(format!(
             "Talker {} ear {} not found!",
             self.base().name(),
-            tag
+            ear_tag
         )))
     }
     fn set_ear_talk_voice_by_tag(
-        &mut self,
-        tag: &str,
+        &self,
+        ear_tag: &str,
+        set_idx: Index,
+        hum_tag: &str,
         talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
         for ear in self.ears() {
-            match ear {
-                Ear::Talk(talk) => {
-                    if talk.borrow().tag() == tag {
-                        return ear::set_talk_voice(&talk, talker, port);
-                    }
-                }
-                Ear::Talks(talks) => {
-                    let mut tlks = talks.borrow_mut();
-                    if tlks.tag() == tag {
-                        return tlks.add_talk_voice(talker, port);
-                    } else {
-                        for talk in tlks.talks() {
-                            if talk.borrow().tag() == tag {
-                                return ear::set_talk_voice(&talk, talker, port);
-                            }
-                        }
-                    }
-                }
+            if ear.tag() == ear_tag {
+                return ear.set_talk_voice_by_tag(set_idx, hum_tag, talker, port);
             }
         }
         Err(failure::err_msg(format!(
             "Talker {} ear {} not found!",
             self.base().name(),
-            tag
+            ear_tag
         )))
     }
 
-    fn set_ear_talk_value_by_index(
+    fn set_ear_talk_value(
         &self,
-        ear_idx: usize,
-        talk_idx: usize,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        talk_idx: Index,
         value: f32,
     ) -> Result<(), failure::Error> {
-        match &self.ears()[ear_idx] {
-            Ear::Talk(talk) => ear::set_talk_value(&talk, value),
-            Ear::Talks(talks) => ear::set_talk_value(&talks.borrow().talks()[talk_idx], value),
-        }
+        self.ears()[ear_idx].set_talk_value(set_idx, hum_idx, talk_idx, value)
     }
 
-    fn set_ear_talk_voice_by_index(
+    fn set_ear_talk_voice(
         &self,
-        ear_idx: usize,
-        talk_idx: usize,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        talk_idx: Index,
         talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        match &self.ears()[ear_idx] {
-            Ear::Talk(talk) => ear::set_talk_voice(&talk, talker, port),
-            Ear::Talks(talks) => {
-                ear::set_talk_voice(&talks.borrow().talks()[talk_idx], talker, port)
-            }
-        }
+        self.ears()[ear_idx].set_talk_voice(set_idx, hum_idx, talk_idx, talker, port)
     }
 
-    fn add_ear_talk_value_by_index(
+    fn add_ear_talk_value(
         &self,
-        ear_idx: usize,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
         value: f32,
     ) -> Result<(), failure::Error> {
-        match &self.ears()[ear_idx] {
-            Ear::Talks(talks) => talks.borrow_mut().add_talk_value(value),
-            _ => Ok(()),
-        }
+        self.ears()[ear_idx].add_talk_value(set_idx, hum_idx, value)
     }
 
-    fn add_ear_talk_voice_by_index(
+    fn add_ear_talk_voice(
         &self,
-        ear_idx: usize,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        match &self.ears()[ear_idx] {
-            Ear::Talks(talks) => talks.borrow_mut().add_talk_voice(voice_talker, port),
-            _ => Ok(()),
-        }
+        self.ears()[ear_idx].add_talk_voice(set_idx, hum_idx, voice_talker, port)
+    }
+    fn sup_ear_talk(
+        &self,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        talk_idx: Index,
+    ) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].sup_talk(set_idx, hum_idx, talk_idx)
     }
 
-    fn sup_ear_talk_by_index(&self, ear_idx: usize, talk_idx: usize) -> Result<(), failure::Error> {
-        match &self.ears()[ear_idx] {
-            Ear::Talks(talks) => talks.borrow_mut().sup_talk(talk_idx),
-            _ => Ok(()),
-        }
+    fn add_ear_hum_value(
+        &self,
+        ear_idx: Index,
+        hum_idx: Index,
+        value: f32,
+    ) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].add_value(hum_idx, value)
+    }
+    fn add_ear_hum_voice(
+        &self,
+        ear_idx: Index,
+        hum_idx: Index,
+        voice_talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].add_voice(hum_idx, voice_talker, port)
+    }
+
+    fn add_ear_value(&self, ear_idx: Index, value: f32) -> Result<(), failure::Error> {
+        self.add_ear_hum_value(ear_idx, 0, value)
+    }
+    fn add_ear_voice(
+        &self,
+        ear_idx: Index,
+        voice_talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        self.add_ear_hum_voice(ear_idx, 0, voice_talker, port)
+    }
+    fn sup_ear_set(&self, ear_idx: usize, set_idx: usize) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].sup_set(set_idx)
     }
 
     fn activate(&mut self) {}

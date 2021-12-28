@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
-use talker::ear::Ear;
 use talker::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
@@ -63,31 +62,26 @@ impl Track {
         channels: &mut Vec<Vector>,
     ) -> usize {
         let ln = self.compute_input_gain(tick, buf, len);
+        let channels_gains_ear = &self.ears()[2];
 
-        match self.ears().get(2).unwrap() {
-            Ear::Talks(talks) => {
-                let cgs = talks.borrow();
-                let n = std::cmp::min(channels.len(), cgs.talks().len());
+        let n = std::cmp::min(channels.len(), channels_gains_ear.sets_len());
 
-                for i in 0..n {
-                    let ch = &mut channels[i];
-                    let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
+        for i in 0..n {
+            let ch = &mut channels[i];
+            let cg = channels_gains_ear.get_set_cv_buffer(i).unwrap();
 
-                    for j in 0..ln {
-                        ch[j] = cg[j].get() * buf[j];
-                    }
-                }
-
-                for i in n..channels.len() {
-                    let ch = &mut channels[i];
-                    for j in 0..ln {
-                        ch[j] = buf[j];
-                    }
-                }
-                ln
+            for j in 0..ln {
+                ch[j] = cg[j].get() * buf[j];
             }
-            _ => 0,
         }
+
+        for i in n..channels.len() {
+            let ch = &mut channels[i];
+            for j in 0..ln {
+                ch[j] = buf[j];
+            }
+        }
+        ln
     }
 
     pub fn add(
@@ -98,31 +92,26 @@ impl Track {
         channels: &mut Vec<Vector>,
     ) -> usize {
         let ln = self.compute_input_gain(tick, buf, len);
+        let channels_gains_ear = &self.ears()[2];
 
-        match self.ears().get(2).unwrap() {
-            Ear::Talks(talks) => {
-                let cgs = talks.borrow();
-                let n = std::cmp::min(channels.len(), cgs.talks().len());
+        let n = std::cmp::min(channels.len(), channels_gains_ear.sets_len());
 
-                for i in 0..n {
-                    let ch = &mut channels[i];
-                    let cg = cgs.talks()[i].borrow().cv_buffer().unwrap();
+        for i in 0..n {
+            let ch = &mut channels[i];
+            let cg = channels_gains_ear.get_set_cv_buffer(i).unwrap();
 
-                    for j in 0..ln {
-                        ch[j] = ch[j] + cg[j].get() * buf[j];
-                    }
-                }
-
-                for i in n..channels.len() {
-                    let ch = &mut channels[i];
-                    for j in 0..ln {
-                        ch[j] = ch[j] + buf[j];
-                    }
-                }
-                ln
+            for j in 0..ln {
+                ch[j] = ch[j] + cg[j].get() * buf[j];
             }
-            _ => 0,
         }
+
+        for i in n..channels.len() {
+            let ch = &mut channels[i];
+            for j in 0..ln {
+                ch[j] = ch[j] + buf[j];
+            }
+        }
+        ln
     }
 }
 

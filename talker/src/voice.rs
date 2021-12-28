@@ -20,6 +20,20 @@ impl PortType {
             _ => false,
         }
     }
+    pub fn to_horn(&self) -> Horn {
+        match self {
+            PortType::Audio => horn::audio(0., None),
+            PortType::Control => horn::control(0.),
+            PortType::Cv => horn::cv(0., None),
+        }
+    }
+    pub fn to_string(&self) -> &str {
+        match self {
+            PortType::Audio => "Audio",
+            PortType::Control => "Control",
+            PortType::Cv => "Cv",
+        }
+    }
 }
 
 pub struct Voice {
@@ -62,41 +76,22 @@ impl Voice {
         &self.horn
     }
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
-        match &self.horn {
-            Horn::Audio(b) => Some(b.clone()),
-            _ => None,
-        }
+        self.horn.audio_buffer()
     }
     pub fn control_buffer(&self) -> Option<ControlBuf> {
-        match &self.horn {
-            Horn::Control(b) => Some(b.clone()),
-            _ => None,
-        }
+        self.horn.control_buffer()
     }
     pub fn cv_buffer(&self) -> Option<CvBuf> {
-        match &self.horn {
-            Horn::Cv(b) => Some(b.clone()),
-            Horn::Audio(b) => Some(b.clone()),
-            _ => None,
-        }
+        self.horn.cv_buffer()
     }
     pub fn audio_value(&self, index: usize) -> Option<f32> {
-        match &self.horn {
-            Horn::Audio(b) => Some(b.get()[index].get()),
-            _ => None,
-        }
+        self.horn.audio_value(index)
     }
-    pub fn control_value(&self, _index: usize) -> Option<f32> {
-        match &self.horn {
-            Horn::Control(b) => Some(b.get()),
-            _ => None,
-        }
+    pub fn control_value(&self, index: usize) -> Option<f32> {
+        self.horn.control_value(index)
     }
     pub fn cv_value(&self, index: usize) -> Option<f32> {
-        match &self.horn {
-            Horn::Cv(b) => Some(b.get()[index].get()),
-            _ => None,
-        }
+        self.horn.cv_value(index)
     }
 }
 
