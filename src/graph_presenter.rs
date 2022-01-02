@@ -2,17 +2,20 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use talker::identifier::Identifiable;
+// use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
-use talker::talker::{RTalker, Talker, TalkerBase};
+use talker::talker::RTalker;
+// use talker::talker::Talker;
 
 use session::band::Operation;
-use session::event_bus::{Notification, REventBus};
+use session::event_bus::Notification;
+// use session::event_bus::REventBus;
 
 use crate::session_presenter::RSessionPresenter;
 
 pub struct GraphPresenter {
-    selected_talk: Option<(Id, Index, Index)>,
+    selected_hum: Option<(Id, Index, Index, Index)>,
+    selected_hum_add_in: Option<(Id, Index, Index, Index)>,
     selected_voice: Option<(Id, Index)>,
     new_talker: Option<Id>,
     selected_talkers: HashSet<Id>,
@@ -28,7 +31,8 @@ pub type RGraphPresenter = Rc<RefCell<GraphPresenter>>;
 impl GraphPresenter {
     pub fn new(session_presenter: &RSessionPresenter) -> GraphPresenter {
         Self {
-            selected_talk: None,
+            selected_hum: None,
+            selected_hum_add_in: None,
             selected_voice: None,
             new_talker: None,
             selected_talkers: HashSet::new(),
@@ -59,11 +63,32 @@ impl GraphPresenter {
         }
     }
 
-    pub fn ear_talk_selected(&self, talker_id: Id, ear_idx: Index, talk_idx: Index) -> bool {
-        match self.selected_talk {
+    pub fn ear_hum_selected(
+        &self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> bool {
+        match self.selected_hum {
             None => false,
-            Some((tkr_id, e_idx, t_idx)) => {
-                talker_id == tkr_id && ear_idx == e_idx && talk_idx == t_idx
+            Some((tkr_id, e_idx, s_idx, h_idx)) => {
+                talker_id == tkr_id && ear_idx == e_idx && set_idx == s_idx && hum_idx == h_idx
+            }
+        }
+    }
+
+    pub fn ear_hum_add_in_selected(
+        &self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> bool {
+        match self.selected_hum_add_in {
+            None => false,
+            Some((tkr_id, e_idx, s_idx, h_idx)) => {
+                talker_id == tkr_id && ear_idx == e_idx && set_idx == s_idx && hum_idx == h_idx
             }
         }
     }
@@ -138,17 +163,21 @@ impl GraphPresenter {
         Ok(vec![])
     }
 
-    pub fn set_talker_ear_talk_value_by_index(
+    pub fn set_talker_ear_talk_value(
         &mut self,
         talker_id: Id,
         ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
         talk_idx: Index,
         value: f32,
         fly: bool,
     ) -> Result<Vec<Notification>, failure::Error> {
         self.session_presenter
             .borrow_mut()
-            .modify_band(&Operation::SetEarValue(talker_id, ear_idx, talk_idx, value));
+            .modify_band(&Operation::SetEarTalkValue(
+                talker_id, ear_idx, set_idx, hum_idx, talk_idx, value,
+            ));
 
         if !fly {
             return Ok(vec![Notification::TalkerChanged]);
@@ -161,70 +190,174 @@ impl GraphPresenter {
             .borrow()
             .notify(Notification::TalkerChanged);
     }
-
-    pub fn add_talker_ear_talk_value_by_index(
+    /*
+        pub fn add_talker_ear_set_value(
+            &mut self,
+            talker_id: Id,
+            ear_idx: Index,
+            value: f32,
+        ) -> Result<Vec<Notification>, failure::Error> {
+            self.session_presenter
+                .borrow_mut()
+                .modify_band(&Operation::AddSetValueToEar(talker_id, ear_idx, value));
+            Ok(vec![Notification::TalkerChanged])
+        }
+    */
+    pub fn select_ear_hum(
         &mut self,
         talker_id: Id,
         ear_idx: Index,
-        value: f32,
-    ) -> Result<Vec<Notification>, failure::Error> {
-        self.session_presenter
-            .borrow_mut()
-            .modify_band(&Operation::AddValueToEar(talker_id, ear_idx, value));
-        Ok(vec![Notification::TalkerChanged])
-    }
-
-    pub fn select_ear_talk(
-        &mut self,
-        talker_id: Id,
-        ear_idx: Index,
-        talk_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         let mut notifications = Vec::new();
+        let mut selection_changer = false;
 
-        match self.selected_talk {
-            Some((prev_tkr_id, prev_ear_idx, prev_talk_idx)) => {
-                if talker_id == prev_tkr_id && ear_idx == prev_ear_idx && talk_idx == prev_talk_idx
-                {
-                    self.selected_talk = None;
+        if let Some((prev_tkr_id, prev_ear_idx, prev_set_idx, prev_hum_idx)) = self.selected_hum {
+            if talker_id == prev_tkr_id
+                && ear_idx == prev_ear_idx
+                && set_idx == prev_set_idx
+                && hum_idx == prev_hum_idx
+            {
+                self.selected_hum = None;
+            } else {
+                self.selected_hum = Some((talker_id, ear_idx, set_idx, hum_idx));
+                notifications.push(Notification::EarSelected(
+                    talker_id, ear_idx, set_idx, hum_idx,
+                ));
+            }
+            notifications.push(Notification::EarUnselected(
+                prev_tkr_id,
+                prev_ear_idx,
+                prev_set_idx,
+                prev_hum_idx,
+            ));
+            selection_changer = true;
+        } else {
+            if let Some((voice_tkr_id, voice_port)) = self.selected_voice {
+                if voice_tkr_id == talker_id {
+                    self.selected_hum = Some((talker_id, ear_idx, set_idx, hum_idx));
+                    notifications.push(Notification::EarSelected(
+                        talker_id, ear_idx, set_idx, hum_idx,
+                    ));
+                    selection_changer = true;
                 } else {
-                    self.selected_talk = Some((talker_id, ear_idx, talk_idx));
-                    notifications.push(Notification::EarSelected(talker_id, ear_idx, talk_idx));
+                    self.session_presenter
+                        .borrow_mut()
+                        .modify_band(&Operation::SetEarHumVoice(
+                            talker_id,
+                            ear_idx,
+                            set_idx,
+                            hum_idx,
+                            voice_tkr_id,
+                            voice_port,
+                        ));
+                    notifications.push(Notification::TalkerChanged);
                 }
+                self.selected_voice = None;
+                notifications.push(Notification::VoiceUnselected(voice_tkr_id, voice_port));
+            } else {
+                self.selected_hum = Some((talker_id, ear_idx, set_idx, hum_idx));
+                notifications.push(Notification::EarSelected(
+                    talker_id, ear_idx, set_idx, hum_idx,
+                ));
+                selection_changer = true;
+            }
+            if let Some((prev_tkr_id, prev_ear_idx, prev_set_idx, prev_hum_idx)) =
+                self.selected_hum_add_in
+            {
+                self.selected_hum_add_in = None;
+                notifications.push(Notification::EarAddInUnselected(
+                    prev_tkr_id,
+                    prev_ear_idx,
+                    prev_set_idx,
+                    prev_hum_idx,
+                ));
+                selection_changer = true;
+            }
+        }
+        if selection_changer {
+            notifications.push(Notification::SelectionChanged);
+        }
+        Ok(notifications)
+    }
+
+    pub fn select_ear_hum_add_in(
+        &mut self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> Result<Vec<Notification>, failure::Error> {
+        let mut notifications = Vec::new();
+        let mut selection_changer = false;
+
+        if let Some((prev_tkr_id, prev_ear_idx, prev_set_idx, prev_hum_idx)) =
+            self.selected_hum_add_in
+        {
+            if talker_id == prev_tkr_id
+                && ear_idx == prev_ear_idx
+                && set_idx == prev_set_idx
+                && hum_idx == prev_hum_idx
+            {
+                self.selected_hum_add_in = None;
+            } else {
+                self.selected_hum_add_in = Some((talker_id, ear_idx, set_idx, hum_idx));
+                notifications.push(Notification::EarAddInSelected(
+                    talker_id, ear_idx, set_idx, hum_idx,
+                ));
+            }
+            notifications.push(Notification::EarAddInUnselected(
+                prev_tkr_id,
+                prev_ear_idx,
+                prev_set_idx,
+                prev_hum_idx,
+            ));
+            selection_changer = true;
+        } else {
+            if let Some((voice_tkr_id, voice_port)) = self.selected_voice {
+                if voice_tkr_id == talker_id {
+                    self.selected_hum_add_in = Some((talker_id, ear_idx, set_idx, hum_idx));
+                    notifications.push(Notification::EarAddInSelected(
+                        talker_id, ear_idx, set_idx, hum_idx,
+                    ));
+                    selection_changer = true;
+                } else {
+                    self.session_presenter
+                        .borrow_mut()
+                        .modify_band(&Operation::AddVoiceToEarHum(
+                            talker_id,
+                            ear_idx,
+                            set_idx,
+                            hum_idx,
+                            voice_tkr_id,
+                            voice_port,
+                        ));
+                    notifications.push(Notification::TalkerChanged);
+                }
+                self.selected_voice = None;
+                notifications.push(Notification::VoiceUnselected(voice_tkr_id, voice_port));
+            } else {
+                self.selected_hum_add_in = Some((talker_id, ear_idx, set_idx, hum_idx));
+                notifications.push(Notification::EarAddInSelected(
+                    talker_id, ear_idx, set_idx, hum_idx,
+                ));
+                selection_changer = true;
+            }
+            if let Some((prev_tkr_id, prev_ear_idx, prev_set_idx, prev_hum_idx)) = self.selected_hum
+            {
+                self.selected_hum = None;
                 notifications.push(Notification::EarUnselected(
                     prev_tkr_id,
                     prev_ear_idx,
-                    prev_talk_idx,
+                    prev_set_idx,
+                    prev_hum_idx,
                 ));
-                notifications.push(Notification::SelectionChanged);
+                selection_changer = true;
             }
-            None => match self.selected_voice {
-                None => {
-                    self.selected_talk = Some((talker_id, ear_idx, talk_idx));
-                    notifications.push(Notification::EarSelected(talker_id, ear_idx, talk_idx));
-                    notifications.push(Notification::SelectionChanged);
-                }
-                Some((voice_tkr_id, voice_port)) => {
-                    if voice_tkr_id == talker_id {
-                        self.selected_talk = Some((talker_id, ear_idx, talk_idx));
-                        notifications.push(Notification::EarSelected(talker_id, ear_idx, talk_idx));
-                        notifications.push(Notification::SelectionChanged);
-                    } else {
-                        self.session_presenter
-                            .borrow_mut()
-                            .modify_band(&Operation::SetEarVoice(
-                                talker_id,
-                                ear_idx,
-                                talk_idx,
-                                voice_tkr_id,
-                                voice_port,
-                            ));
-                        notifications.push(Notification::TalkerChanged);
-                    }
-                    self.selected_voice = None;
-                    notifications.push(Notification::VoiceUnselected(voice_tkr_id, voice_port));
-                }
-            },
+        }
+        if selection_changer {
+            notifications.push(Notification::SelectionChanged);
         }
         Ok(notifications)
     }
@@ -236,42 +369,63 @@ impl GraphPresenter {
     ) -> Result<Vec<Notification>, failure::Error> {
         let mut notifications = Vec::new();
 
-        match self.selected_voice {
-            Some((prev_tkr_id, prev_port)) => {
-                if talker_id == prev_tkr_id && voice_port == prev_port {
-                    self.selected_voice = None
-                } else {
-                    self.selected_voice = Some((talker_id, voice_port));
-                    notifications.push(Notification::VoiceSelected(talker_id, voice_port));
-                }
-
-                notifications.push(Notification::VoiceUnselected(prev_tkr_id, prev_port));
-                notifications.push(Notification::SelectionChanged);
+        if let Some((prev_tkr_id, prev_port)) = self.selected_voice {
+            if talker_id == prev_tkr_id && voice_port == prev_port {
+                self.selected_voice = None
+            } else {
+                self.selected_voice = Some((talker_id, voice_port));
+                notifications.push(Notification::VoiceSelected(talker_id, voice_port));
             }
-            None => match self.selected_talk {
-                None => {
+
+            notifications.push(Notification::VoiceUnselected(prev_tkr_id, prev_port));
+            notifications.push(Notification::SelectionChanged);
+        } else {
+            if let Some((ear_tkr_id, ear_idx, set_idx, hum_idx)) = self.selected_hum {
+                if talker_id == ear_tkr_id {
                     self.selected_voice = Some((talker_id, voice_port));
                     notifications.push(Notification::VoiceSelected(talker_id, voice_port));
                     notifications.push(Notification::SelectionChanged);
-                }
-                Some((ear_tkr_id, ear_idx, talk_idx)) => {
-                    if talker_id == ear_tkr_id {
-                        self.selected_voice = Some((talker_id, voice_port));
-                        notifications.push(Notification::VoiceSelected(talker_id, voice_port));
-                        notifications.push(Notification::SelectionChanged);
-                    } else {
-                        self.session_presenter
-                            .borrow_mut()
-                            .modify_band(&Operation::SetEarVoice(
-                                ear_tkr_id, ear_idx, talk_idx, talker_id, voice_port,
-                            ));
+                } else {
+                    self.session_presenter
+                        .borrow_mut()
+                        .modify_band(&Operation::SetEarHumVoice(
+                            ear_tkr_id, ear_idx, set_idx, hum_idx, talker_id, voice_port,
+                        ));
 
-                        notifications.push(Notification::TalkerChanged);
-                    }
-                    self.selected_talk = None;
-                    notifications.push(Notification::EarUnselected(ear_tkr_id, ear_idx, talk_idx));
+                    notifications.push(Notification::TalkerChanged);
                 }
-            },
+                self.selected_hum = None;
+                notifications.push(Notification::EarUnselected(
+                    ear_tkr_id, ear_idx, set_idx, hum_idx,
+                ));
+            } else {
+                self.selected_voice = Some((talker_id, voice_port));
+                notifications.push(Notification::VoiceSelected(talker_id, voice_port));
+                notifications.push(Notification::SelectionChanged);
+            }
+            if let Some((ear_tkr_id, ear_idx, set_idx, hum_idx)) = self.selected_hum_add_in {
+                if talker_id == ear_tkr_id {
+                    self.selected_voice = Some((talker_id, voice_port));
+                    notifications.push(Notification::VoiceSelected(talker_id, voice_port));
+                    notifications.push(Notification::SelectionChanged);
+                } else {
+                    self.session_presenter
+                        .borrow_mut()
+                        .modify_band(&Operation::AddVoiceToEarHum(
+                            ear_tkr_id, ear_idx, set_idx, hum_idx, talker_id, voice_port,
+                        ));
+
+                    notifications.push(Notification::TalkerChanged);
+                }
+                self.selected_hum_add_in = None;
+                notifications.push(Notification::EarUnselected(
+                    ear_tkr_id, ear_idx, set_idx, hum_idx,
+                ));
+            } else {
+                self.selected_voice = Some((talker_id, voice_port));
+                notifications.push(Notification::VoiceSelected(talker_id, voice_port));
+                notifications.push(Notification::SelectionChanged);
+            }
         }
         Ok(notifications)
     }
@@ -291,15 +445,19 @@ impl GraphPresenter {
         &mut self,
         talker_id: Id,
         ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         match self.selected_voice {
             None => (),
             Some((voice_tkr_id, voice_port)) => {
                 self.session_presenter
                     .borrow_mut()
-                    .modify_band(&Operation::AddVoiceToEar(
+                    .modify_band(&Operation::AddVoiceToEarHum(
                         talker_id,
                         ear_idx,
+                        set_idx,
+                        hum_idx,
                         voice_tkr_id,
                         voice_port,
                     ));
@@ -314,11 +472,61 @@ impl GraphPresenter {
         &self,
         talker_id: Id,
         ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
         talk_idx: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         self.session_presenter
             .borrow_mut()
-            .modify_band(&Operation::SupEar(talker_id, ear_idx, talk_idx));
+            .modify_band(&Operation::SupEarTalk(
+                talker_id, ear_idx, set_idx, hum_idx, talk_idx,
+            ));
+
+        Ok(vec![Notification::TalkerChanged])
+    }
+
+    pub fn add_ear_set(
+        &mut self,
+        talker_id: Id,
+        ear_idx: Index,
+    ) -> Result<Vec<Notification>, failure::Error> {
+        if let Some((voice_tkr_id, voice_port)) = self.selected_voice {
+            let hum_idx = self
+                .session_presenter
+                .borrow()
+                .find_compatible_hum_with_voice_in_ear(
+                    talker_id,
+                    ear_idx,
+                    voice_tkr_id,
+                    voice_port,
+                )?;
+
+            self.session_presenter
+                .borrow_mut()
+                .modify_band(&Operation::AddSetVoiceToEar(
+                    talker_id,
+                    ear_idx,
+                    hum_idx,
+                    voice_tkr_id,
+                    voice_port,
+                ));
+        } else {
+            self.session_presenter
+                .borrow_mut()
+                .modify_band(&Operation::AddSetValueToEar(talker_id, ear_idx, 0, 0.));
+        }
+        Ok(vec![Notification::TalkerChanged])
+    }
+
+    pub fn sup_ear_set(
+        &self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+    ) -> Result<Vec<Notification>, failure::Error> {
+        self.session_presenter
+            .borrow_mut()
+            .modify_band(&Operation::SupEarSet(talker_id, ear_idx, set_idx));
 
         Ok(vec![Notification::TalkerChanged])
     }
@@ -335,11 +543,11 @@ impl GraphPresenter {
                 notifications.push(Notification::VoiceUnselected(voice_tkr_id, voice_port))
             }
         }
-        match self.selected_talk {
+        match self.selected_hum {
             None => (),
-            Some((talk_tkr_id, ear_idx, talk_idx)) => {
-                notifications.push(Notification::EarUnselected(talk_tkr_id, ear_idx, talk_idx))
-            }
+            Some((talk_tkr_id, ear_idx, set_idx, hum_idx)) => notifications.push(
+                Notification::EarUnselected(talk_tkr_id, ear_idx, set_idx, hum_idx),
+            ),
         }
 
         match self.new_talker {

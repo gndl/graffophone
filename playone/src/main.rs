@@ -158,13 +158,13 @@ fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
 
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_talk_voice_by_tag("In", &abs_sine_tkr, 0)?;
+        .add_ear_hum_voice_by_tag("In", &abs_sine_tkr, 0)?;
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_talk_value_by_tag("FUZZ", 2f32)?;
+        .add_ear_hum_value_by_tag("FUZZ", 2f32)?;
     fuzzface_tkr
         .borrow_mut()
-        .set_ear_talk_value_by_tag("LEVEL", 0.25f32)?;
+        .add_ear_hum_value_by_tag("LEVEL", 0.25f32)?;
 
     band.borrow().activate_talkers();
 

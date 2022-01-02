@@ -216,7 +216,7 @@ pub trait Talker {
         None
     }
 
-    fn set_ear_talk_value_by_tag(
+    fn add_ear_hum_value_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -225,7 +225,7 @@ pub trait Talker {
     ) -> Result<(), failure::Error> {
         for ear in self.ears() {
             if ear.tag() == ear_tag {
-                return ear.set_talk_value_by_tag(set_idx, hum_tag, value);
+                return ear.add_hum_value_by_tag(set_idx, hum_tag, value);
             }
         }
         Err(failure::err_msg(format!(
@@ -234,7 +234,7 @@ pub trait Talker {
             ear_tag
         )))
     }
-    fn set_ear_talk_voice_by_tag(
+    fn add_ear_hum_voice_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -244,7 +244,7 @@ pub trait Talker {
     ) -> Result<(), failure::Error> {
         for ear in self.ears() {
             if ear.tag() == ear_tag {
-                return ear.set_talk_voice_by_tag(set_idx, hum_tag, talker, port);
+                return ear.add_hum_voice_by_tag(set_idx, hum_tag, talker, port);
             }
         }
         Err(failure::err_msg(format!(
@@ -252,6 +252,27 @@ pub trait Talker {
             self.base().name(),
             ear_tag
         )))
+    }
+
+    fn set_ear_hum_value(
+        &self,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        value: f32,
+    ) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].set_hum_value(set_idx, hum_idx, value)
+    }
+
+    fn set_ear_hum_voice(
+        &self,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        self.ears()[ear_idx].set_hum_voice(set_idx, hum_idx, talker, port)
     }
 
     fn set_ear_talk_value(
@@ -277,17 +298,17 @@ pub trait Talker {
         self.ears()[ear_idx].set_talk_voice(set_idx, hum_idx, talk_idx, talker, port)
     }
 
-    fn add_ear_talk_value(
+    fn add_value_to_ear_hum(
         &self,
         ear_idx: Index,
         set_idx: Index,
         hum_idx: Index,
         value: f32,
     ) -> Result<(), failure::Error> {
-        self.ears()[ear_idx].add_talk_value(set_idx, hum_idx, value)
+        self.ears()[ear_idx].add_value_to_hum(set_idx, hum_idx, value)
     }
 
-    fn add_ear_talk_voice(
+    fn add_voice_to_ear_hum(
         &self,
         ear_idx: Index,
         set_idx: Index,
@@ -295,7 +316,7 @@ pub trait Talker {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        self.ears()[ear_idx].add_talk_voice(set_idx, hum_idx, voice_talker, port)
+        self.ears()[ear_idx].add_voice_to_hum(set_idx, hum_idx, voice_talker, port)
     }
     fn sup_ear_talk(
         &self,
@@ -307,24 +328,24 @@ pub trait Talker {
         self.ears()[ear_idx].sup_talk(set_idx, hum_idx, talk_idx)
     }
 
-    fn add_ear_hum_value(
+    fn add_set_value_to_ear(
         &self,
         ear_idx: Index,
         hum_idx: Index,
         value: f32,
     ) -> Result<(), failure::Error> {
-        self.ears()[ear_idx].add_value(hum_idx, value)
+        self.ears()[ear_idx].add_set_value(hum_idx, value)
     }
-    fn add_ear_hum_voice(
+    fn add_set_voice_to_ear(
         &self,
         ear_idx: Index,
         hum_idx: Index,
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        self.ears()[ear_idx].add_voice(hum_idx, voice_talker, port)
+        self.ears()[ear_idx].add_set_voice(hum_idx, voice_talker, port)
     }
-
+    /*
     fn add_ear_value(&self, ear_idx: Index, value: f32) -> Result<(), failure::Error> {
         self.add_ear_hum_value(ear_idx, 0, value)
     }
@@ -336,6 +357,7 @@ pub trait Talker {
     ) -> Result<(), failure::Error> {
         self.add_ear_hum_voice(ear_idx, 0, voice_talker, port)
     }
+    */
     fn sup_ear_set(&self, ear_idx: usize, set_idx: usize) -> Result<(), failure::Error> {
         self.ears()[ear_idx].sup_set(set_idx)
     }

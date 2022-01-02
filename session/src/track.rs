@@ -4,6 +4,7 @@ use std::rc::Rc;
 use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::talker::{Talker, TalkerBase};
+use talker::voice::PortType;
 
 use crate::audio_data::Vector;
 
@@ -29,8 +30,15 @@ impl Track {
             AudioFormat::DEF_AUDIO,
             None,
         ));
-        base.add_ear(ear::audio(Some("gain"), 0., 1., 1., None));
-        base.add_ear(ear::cvs(Some("channelGain")));
+        base.add_ear(ear::audio(Some("gain"), 0., 1., 0.5, None));
+        base.add_ear(ear::set(
+            Some("channels gains"),
+            false,
+            &vec![
+                ("left", PortType::Cv, 0., 1., 1.),
+                ("right", PortType::Cv, 0., 1., 1.),
+            ],
+        ));
 
         Self { base }
     }
@@ -64,11 +72,12 @@ impl Track {
         let ln = self.compute_input_gain(tick, buf, len);
         let channels_gains_ear = &self.ears()[2];
 
-        let n = std::cmp::min(channels.len(), channels_gains_ear.sets_len());
+        let n = std::cmp::min(channels.len(), channels_gains_ear.hums_len());
 
         for i in 0..n {
+            //            println!("Track::set channel {}/{}", i, n);
             let ch = &mut channels[i];
-            let cg = channels_gains_ear.get_set_cv_buffer(i).unwrap();
+            let cg = channels_gains_ear.get_set_hum_cv_buffer(0, i).unwrap();
 
             for j in 0..ln {
                 ch[j] = cg[j].get() * buf[j];
@@ -94,11 +103,11 @@ impl Track {
         let ln = self.compute_input_gain(tick, buf, len);
         let channels_gains_ear = &self.ears()[2];
 
-        let n = std::cmp::min(channels.len(), channels_gains_ear.sets_len());
+        let n = std::cmp::min(channels.len(), channels_gains_ear.hums_len());
 
         for i in 0..n {
             let ch = &mut channels[i];
-            let cg = channels_gains_ear.get_set_cv_buffer(i).unwrap();
+            let cg = channels_gains_ear.get_set_hum_cv_buffer(0, i).unwrap();
 
             for j in 0..ln {
                 ch[j] = ch[j] + cg[j].get() * buf[j];

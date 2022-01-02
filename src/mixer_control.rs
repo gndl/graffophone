@@ -20,16 +20,18 @@ use std::rc::Rc;
 use cairo::Context;
 
 use talker::identifier::Id;
-use talker::talker::{RTalker, Talker};
+use talker::talker::RTalker;
+// use talker::talker::Talker;
 
-use session::event_bus::{Notification, REventBus};
-use session::mixer::{Mixer, RMixer};
+use session::event_bus::Notification;
+use session::mixer::RMixer;
 
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
-use crate::track_control::{RTrackControl, TrackControl};
+use crate::track_control::TrackControl;
+// use crate::track_control::{RTrackControl};
 
 pub struct MixerControl {
     base: RTalkerControlBase,

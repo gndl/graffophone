@@ -4,7 +4,7 @@ use std::iter::Extend;
 use std::rc::Rc;
 
 use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
-use lv2::urid::features::{URIDMap, URIDUnmap};
+// use lv2::urid::features::{URIDMap, URIDUnmap};
 
 use lilv::world::World;
 
@@ -20,18 +20,18 @@ use crate::talkers::sinusoidal;
 use crate::talkers::sinusoidal::Sinusoidal;
 
 struct GpFeatureSet {
-    hard_rt_capable: ::lv2::core::features::HardRTCapable,
-    urid_map: ::lv2::urid::features::URIDMap,
-    urid_unmap: ::lv2::urid::features::URIDUnmap,
+    // hard_rt_capable: ::lv2::core::features::HardRTCapable,
+    // urid_map: ::lv2::urid::features::URIDMap,
+    // urid_unmap: ::lv2::urid::features::URIDUnmap,
     buffer: SharedFeatureBuffer,
 }
 
 impl GpFeatureSet {
     pub fn new() -> Self {
         GpFeatureSet::init(Self {
-            hard_rt_capable: ::lv2::core::features::HardRTCapable,
-            urid_map: URIDMap::new(),
-            urid_unmap: URIDUnmap::new(),
+            // hard_rt_capable: ::lv2::core::features::HardRTCapable,
+            // urid_map: URIDMap::new(),
+            // urid_unmap: URIDUnmap::new(),
             buffer: Rc::new(FeatureBuffer::new()),
         })
     }

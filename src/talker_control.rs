@@ -2,25 +2,28 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use gtk::DrawingArea;
+// use gtk::DrawingArea;
 
 use cairo::Context;
 
-use talker::identifier::Identifiable;
-use talker::identifier::{Id, Index};
-use talker::talker::{RTalker, Talker, TalkerBase};
+use talker::identifier::Id;
+// use talker::identifier::Identifiable;
+// use talker::identifier::Index;
+use talker::talker::RTalker;
+// use talker::talker::{Talker};
 use talker::voice::PortType;
 
 use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
-use crate::session_presenter::RSessionPresenter;
+// use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::style::Color;
-use session::event_bus::{Notification, REventBus};
+use session::event_bus::Notification;
 
 pub const ADD_TAG: &str = "+";
 pub const SUP_TAG: &str = "-";
 pub const VAL_TAG: &str = "⟵";
+pub const ADD_IN_TAG: &str = "⊞";
 pub const DESTROY_TAG: &str = "✖";
 pub const MAXIMIZE_TAG: &str = "▮";
 pub const MINIMIZE_TAG: &str = "▬";
@@ -60,17 +63,18 @@ impl Area {
             content_e_y: b_y + V_PADDING + h,
         }
     }
-    pub fn copy(&self) -> Area {
-        Self {
-            b_x: self.b_x,
-            e_x: self.e_x,
-            b_y: self.b_y,
-            e_y: self.e_y,
-            content_b_x: self.content_b_x,
-            content_e_y: self.content_e_y,
+    /*
+        pub fn copy(&self) -> Area {
+            Self {
+                b_x: self.b_x,
+                e_x: self.e_x,
+                b_y: self.b_y,
+                e_y: self.e_y,
+                content_b_x: self.content_b_x,
+                content_e_y: self.content_e_y,
+            }
         }
-    }
-
+    */
     pub fn right_align(&mut self, e_x: f64) {
         let dx = e_x - self.e_x;
 
@@ -96,7 +100,7 @@ impl Area {
         x >= self.b_x && x < self.e_x && y >= self.b_y && y < self.e_y
     }
 }
-
+/*
 pub enum InputType {
     Value,
     Talk,
@@ -111,12 +115,30 @@ struct TalkControl {
     value_area: Area,
     sup_area: Option<Area>,
     input_type: InputType,
+}
+*/
+struct HumControl {
+    area: Area,
+    add_in_area: Area,
+    tag: String,
+    tag_area: Area,
+    value: Option<String>,
+    value_area: Area,
     port_type: PortType,
+    // talks: Vec<TalkControl>,
+}
+
+struct SetControl {
+    sup_area: Option<Area>,
+    hums: Vec<HumControl>,
 }
 
 struct EarControl {
     area: Area,
-    talks: Vec<TalkControl>,
+    // tag: Option<String>,
+    tag_area: Option<(String, Area)>,
+    sets: Vec<SetControl>,
+    add_set_area: Option<Area>,
 }
 
 struct VoiceControl {
@@ -168,6 +190,7 @@ pub struct ControlSupply<'a> {
     add_dim: Dim,
     sup_dim: Dim,
     val_dim: Dim,
+    add_in_dim: Dim,
     maximize_dim: Dim,
     minimize_dim: Dim,
     destroy_dim: Dim,
@@ -185,6 +208,8 @@ impl<'a> ControlSupply<'a> {
         let sup_dim = Dim::of(cc, SUP_TAG);
         style::value(cc);
         let val_dim = Dim::of(cc, VAL_TAG);
+        style::add(cc);
+        let add_in_dim = Dim::of(cc, ADD_IN_TAG);
         style::switch(cc);
         let maximize_dim = Dim::of(cc, MAXIMIZE_TAG);
         let minimize_dim = Dim::of(cc, MINIMIZE_TAG);
@@ -194,6 +219,7 @@ impl<'a> ControlSupply<'a> {
             add_dim,
             sup_dim,
             val_dim,
+            add_in_dim,
             maximize_dim,
             minimize_dim,
             destroy_dim,
@@ -228,14 +254,25 @@ pub struct TalkerControlBase {
 }
 pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
 
-/*                           MODEL
-                _______________________________
-               |              NAME             |
-               |             [DATA]            |
-               |TAG_INPUT_1 [1]  [TAG_OUTPUT_1]|
-               |TAG_INPUT_2 [2]                |
-               |TAG_INPUT_3 [3]  [TAG_OUTPUT_2]|
-               |_______________________________|
+/*                MODEL
+     _______________________________
+    |              NAME             |
+    |             [DATA]            |
+ ---|⊞ EAR_TAG_1 ⟵       VOICE_TAG_1|
+----|⊞ EAR_TAG_2 ⟵                  |
+    |                    VOICE_TAG_2|
+  --|⊞ EAR_TAG_3 ⟵ -                |
+    |⊞ EAR_TAG_3 ⟵ -     VOICE_TAG_3|
+    |+                              |
+\   |EAR_TAG_4                      |
+----|⊞ HUM_TAG_1 ⟵ -                |
+----|⊞ HUM_TAG_2 ⟵                  |
+ /  |⊞ HUM_TAG_3 ⟵                  |
+    |⊞ HUM_TAG_1 ⟵ -                |
+    |⊞ HUM_TAG_2 ⟵                  |
+    |⊞ HUM_TAG_3 ⟵                  |
+    |+                              |
+    |_______________________________|
 */
 impl TalkerControlBase {
     pub fn new(
@@ -299,86 +336,176 @@ impl TalkerControlBase {
         let mut voices = Vec::new();
 
         if !minimized {
+            let b_x = 0.;
             let mut ears_e_x = 0.;
 
             for ear in tkr.ears() {
-                let mut talks = Vec::new();
-                let ear_is_multi_talk = ear.is_multi_talk();
+                let mut sets = Vec::new();
+                let ear_is_multi_set = ear.is_multi_set();
+                let sup_set = ear.sets().borrow().len() > 1;
+                let ear_tag = format_tag(ear.tag());
+                let mut ear_e_x = 0.;
+                let mut b_y = ears_e_y;
 
-                let (b_x, e_y, ear_e_x) = ear.fold_talks(
-                    |talk, (b_x, b_y, ear_e_x)| {
-                        style::io(control_supply.cc);
-                        let tag = format_tag(talk.tag());
-                        let tag_area = control_supply.area_of(&tag, b_x, b_y);
+                let (ear_tag_area, hum_tag) = if ear.is_multi_hum() {
+                    style::name(control_supply.cc);
+                    let tag_area = control_supply.area_of(&ear_tag, b_x, ears_e_y);
+                    b_y = tag_area.e_y;
+                    (Some((ear_tag, tag_area)), None)
+                } else {
+                    (None, Some(&ear_tag))
+                };
+                let mut set_b_y = b_y;
 
-                        let (input_type, value, value_area) = match talk.value() {
-                            Some(v) => {
-                                let value = format_value(&v);
-                                style::value(control_supply.cc);
-                                let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
+                for set in ear.sets().borrow().iter() {
+                    let mut hums = Vec::new();
+                    let mut hums_e_x = 0.;
 
-                                (InputType::Value, Some(value), value_area)
-                            }
-                            None => (
-                                InputType::Talk,
+                    for hum in set.hums() {
+                        let add_in_area = dim_to_area(b_x, b_y, &control_supply.add_in_dim);
+                        let tag = if let Some(h_tag) = hum_tag {
+                            h_tag.to_string()
+                        } else {
+                            format_tag(hum.borrow().tag())
+                        };
+                        let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y);
+                        let (value, value_area) = if let Some(v) = hum.borrow().value() {
+                            let value = format_value(&v);
+                            style::value(control_supply.cc);
+                            let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
+
+                            (Some(value), value_area)
+                        } else {
+                            (
                                 None,
                                 dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
-                            ),
+                            )
                         };
 
-                        let mut e_x = value_area.e_x;
-                        let e_y = tag_area.e_y;
+                        let area = Area::new(b_x, value_area.e_x, b_y, tag_area.e_y);
 
-                        let sup_area = if ear_is_multi_talk {
-                            let sup_a = dim_to_area(value_area.e_x, b_y, &control_supply.sup_dim);
-                            e_x = sup_a.e_x;
-                            Some(sup_a)
-                        } else {
-                            None
-                        };
+                        hums_e_x = f64::max(hums_e_x, value_area.e_x);
+                        b_y = tag_area.e_y;
 
-                        let talk_ctrl = TalkControl {
-                            area: Area::new(b_x, e_x, b_y, e_y),
+                        let hum_ctrl = HumControl {
+                            area,
+                            add_in_area,
                             tag,
                             tag_area,
                             value,
                             value_area,
-                            sup_area,
-                            input_type,
-                            port_type: talk.port_type(),
+                            port_type: hum.borrow().port_type(),
                         };
-                        talks.push(talk_ctrl);
-                        Ok((b_x, e_y, f64::max(ear_e_x, e_x)))
-                    },
-                    (0., ears_e_y, 0.),
-                )?;
-                let mut ear_e_y = e_y;
+                        hums.push(hum_ctrl);
+                    }
 
-                if ear_is_multi_talk {
-                    let add_area = dim_to_area(b_x, e_y, &control_supply.add_dim);
-                    ear_e_y = add_area.e_y;
-
-                    let add_ctrl = TalkControl {
-                        area: add_area,
-                        tag: ADD_TAG.to_string(),
-                        tag_area: add_area.copy(),
-                        value: None,
-                        value_area: Area::new(0., -1., 0., -1.),
-                        sup_area: None,
-                        input_type: InputType::Add,
-                        port_type: PortType::Control,
+                    let sup_area = if sup_set {
+                        let sup_a = dim_to_area(hums_e_x, set_b_y, &control_supply.sup_dim);
+                        ear_e_x = sup_a.e_x;
+                        Some(sup_a)
+                    } else {
+                        ear_e_x = hums_e_x;
+                        None
                     };
-                    talks.push(add_ctrl);
+
+                    let set_ctrl = SetControl { sup_area, hums };
+                    sets.push(set_ctrl);
+                    set_b_y = b_y;
                 }
+                let mut ear_e_y = b_y;
+                let add_set_area = if ear_is_multi_set {
+                    let add_area = dim_to_area(b_x, b_y, &control_supply.add_dim);
+                    ear_e_y = add_area.e_y;
+                    Some(add_area)
+                } else {
+                    None
+                };
+
                 let ear_ctrl = EarControl {
                     area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
-                    talks,
+                    tag_area: ear_tag_area,
+                    sets,
+                    add_set_area,
                 };
                 ears.push(ear_ctrl);
                 ears_e_y = ear_e_y;
                 ears_e_x = f64::max(ears_e_x, ear_e_x);
-            }
+                /*
+                                let (b_x, e_y, ear_e_x) = ear.fold_talks(
+                                    |ear_tag, set_idx, hum_tag, talk, (b_x, b_y, ear_e_x)| {
+                                        style::io(control_supply.cc);
+                                        let e_tag = format_tag(ear_tag);
+                                        let ear_tag_area = control_supply.area_of(&e_tag, b_x, b_y);
 
+                                        let (input_type, value, value_area) = match talk.value() {
+                                            Some(v) => {
+                                                let value = format_value(&v);
+                                                style::value(control_supply.cc);
+                                                let value_area =
+                                                    control_supply.area_of(&value, ear_tag_area.e_x, b_y);
+
+                                                (InputType::Value, Some(value), value_area)
+                                            }
+                                            None => (
+                                                InputType::Talk,
+                                                None,
+                                                dim_to_area(ear_tag_area.e_x, b_y, &control_supply.val_dim),
+                                            ),
+                                        };
+
+                                        let mut e_x = value_area.e_x;
+                                        let e_y = ear_tag_area.e_y;
+
+                                        let sup_area = if ear_is_multi_set {
+                                            let sup_a = dim_to_area(value_area.e_x, b_y, &control_supply.sup_dim);
+                                            e_x = sup_a.e_x;
+                                            Some(sup_a)
+                                        } else {
+                                            None
+                                        };
+
+                                        let talk_ctrl = TalkControl {
+                                            area: Area::new(b_x, e_x, b_y, e_y),
+                                            tag,
+                                            tag_area,
+                                            value,
+                                            value_area,
+                                            sup_area,
+                                            input_type,
+                                            port_type: talk.port_type(),
+                                        };
+                                        talks.push(talk_ctrl);
+                                        Ok((b_x, e_y, f64::max(ear_e_x, e_x)))
+                                    },
+                                    (0., ears_e_y, 0.),
+                                )?;
+                                let mut ear_e_y = e_y;
+
+                                if ear_is_multi_set {
+                                    let add_area = dim_to_area(b_x, e_y, &control_supply.add_dim);
+                                    ear_e_y = add_area.e_y;
+
+                                    let add_ctrl = TalkControl {
+                                        area: add_area,
+                                        tag: ADD_TAG.to_string(),
+                                        tag_area: add_area.copy(),
+                                        value: None,
+                                        value_area: Area::new(0., -1., 0., -1.),
+                                        sup_area: None,
+                                        input_type: InputType::Add,
+                                        port_type: PortType::Control,
+                                    };
+                                    talks.push(add_ctrl);
+                                }
+                                let ear_ctrl = EarControl {
+                                    area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
+                                    talks,
+                                };
+                                ears.push(ear_ctrl);
+                                ears_e_y = ear_e_y;
+                                ears_e_x = f64::max(ears_e_x, ear_e_x);
+                */
+            }
             let voices_b_x = ears_e_x;
             let mut voices_e_x = f64::max(voices_b_x, box_e_x);
 
@@ -549,6 +676,23 @@ impl TalkerControlBase {
         }
     }
 
+    fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) {
+        if selected {
+            style::selected_io_background(cc);
+
+            cc.rectangle(
+                self.x + area.b_x,
+                self.y + area.b_y,
+                area.e_x - area.b_x,
+                area.e_y - area.b_y,
+            );
+            cc.fill();
+        }
+        style::add(cc);
+        cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
+        cc.show_text(ADD_IN_TAG);
+    }
+
     fn draw_io(
         &self,
         cc: &Context,
@@ -587,43 +731,49 @@ impl TalkerControlBase {
     pub fn draw_ears_and_voices(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         if !self.minimized {
             for (ear_idx, ear) in self.ears.iter().enumerate() {
-                for (talk_idx, talk) in ear.talks.iter().enumerate() {
-                    match talk.input_type {
-                        InputType::Add => {
-                            style::add(cc);
-                            cc.move_to(
-                                self.x + talk.tag_area.content_b_x,
-                                self.y + talk.tag_area.content_e_y,
-                            );
-                            cc.show_text(ADD_TAG);
-                        }
-                        _ => {
-                            self.draw_io(
-                                cc,
-                                &talk.tag_area,
-                                &talk.tag,
-                                talk.port_type,
-                                graph_presenter.ear_talk_selected(self.id, ear_idx, talk_idx),
-                            );
+                for (set_idx, set) in ear.sets.iter().enumerate() {
+                    for (hum_idx, hum) in set.hums.iter().enumerate() {
+                        self.draw_add_in(
+                            cc,
+                            &hum.add_in_area,
+                            graph_presenter
+                                .ear_hum_add_in_selected(self.id, ear_idx, set_idx, hum_idx),
+                        );
 
-                            style::value(cc);
-                            cc.move_to(
-                                self.x + talk.value_area.content_b_x,
-                                self.y + talk.value_area.content_e_y,
-                            );
-                            if let Some(v) = &talk.value {
-                                cc.show_text(&v);
-                            } else {
-                                cc.show_text(VAL_TAG);
-                            }
+                        self.draw_io(
+                            cc,
+                            &hum.tag_area,
+                            &hum.tag,
+                            hum.port_type,
+                            graph_presenter.ear_hum_selected(self.id, ear_idx, set_idx, hum_idx),
+                        );
 
-                            if let Some(sa) = &talk.sup_area {
-                                style::sup(cc);
-                                cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
-                                cc.show_text(SUP_TAG);
-                            }
+                        style::value(cc);
+                        cc.move_to(
+                            self.x + hum.value_area.content_b_x,
+                            self.y + hum.value_area.content_e_y,
+                        );
+                        if let Some(v) = &hum.value {
+                            cc.show_text(&v);
+                        } else {
+                            cc.show_text(VAL_TAG);
                         }
                     }
+                    if let Some(sa) = &set.sup_area {
+                        style::sup(cc);
+                        cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
+                        cc.show_text(SUP_TAG);
+                    }
+                }
+                if let Some((tag, area)) = &ear.tag_area {
+                    style::name(cc);
+                    cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
+                    cc.show_text(&tag);
+                }
+                if let Some(add_area) = ear.add_set_area {
+                    style::add(cc);
+                    cc.move_to(self.x + add_area.content_b_x, self.y + add_area.content_e_y);
+                    cc.show_text(ADD_TAG);
                 }
             }
 
@@ -673,55 +823,132 @@ impl TalkerControlBase {
 
     pub fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
-            let _ = ear.fold_talks(
-                |talk, talk_idx| {
-                    if let None = talk.value() {
-                        let mut otalk_area: Option<&Area> = None;
+            for (set_idx, set) in ear.sets().borrow().iter().enumerate() {
+                for (hum_idx, hum) in set.hums().iter().enumerate() {
+                    for talk in hum.borrow().talks() {
+                        if let None = talk.borrow().value() {
+                            let mut ohum_area: Option<&Area> = None;
 
-                        if self.minimized {
-                            otalk_area = Some(&self.imize_area);
-                        } else {
-                            if let Some(ear_ctrl) = self.ears.get(ear_idx) {
-                                if let Some(talk_ctrl) = ear_ctrl.talks.get(talk_idx) {
-                                    otalk_area = Some(&talk_ctrl.area);
+                            if self.minimized {
+                                ohum_area = Some(&self.imize_area);
+                            } else {
+                                if let Some(ear_ctrl) = self.ears.get(ear_idx) {
+                                    if let Some(set_ctrl) = ear_ctrl.sets.get(set_idx) {
+                                        if let Some(hum_ctrl) = set_ctrl.hums.get(hum_idx) {
+                                            ohum_area = Some(&hum_ctrl.area);
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        if let Some(talk_area) = otalk_area {
-                            if let Some(voice_rtkrc) =
-                                &talker_controls.get(&talk.talker().borrow().id())
-                            {
-                                let voice_tkrc = voice_rtkrc.borrow();
-                                let voice_tkrcb = voice_tkrc.base().borrow();
+                            if let Some(hum_area) = ohum_area {
+                                if let Some(voice_rtkrc) =
+                                    &talker_controls.get(&talk.borrow().talker().borrow().id())
+                                {
+                                    let voice_tkrc = voice_rtkrc.borrow();
+                                    let voice_tkrcb = voice_tkrc.base().borrow();
 
-                                if voice_tkrcb.minimized {
-                                    self.draw_connection(
-                                        cc,
-                                        talk_area,
-                                        &voice_tkrcb,
-                                        &voice_tkrcb.destroy_area,
-                                        &style::WHITE_COLOR,
-                                    );
-                                } else {
-                                    if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
+                                    if voice_tkrcb.minimized {
                                         self.draw_connection(
                                             cc,
-                                            talk_area,
+                                            hum_area,
                                             &voice_tkrcb,
-                                            &voice.area,
-                                            &voice.color,
+                                            &voice_tkrcb.destroy_area,
+                                            &style::WHITE_COLOR,
                                         );
+                                    } else {
+                                        if let Some(voice) =
+                                            voice_tkrcb.voices.get(talk.borrow().port())
+                                        {
+                                            self.draw_connection(
+                                                cc,
+                                                hum_area,
+                                                &voice_tkrcb,
+                                                &voice.area,
+                                                &voice.color,
+                                            );
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    Ok(talk_idx + 1)
-                },
-                0,
-            );
+                }
+            }
         }
+    }
+
+    pub fn on_hum_clicked(
+        &self,
+        rx: f64,
+        ry: f64,
+        ear_idx: usize,
+        set_idx: usize,
+        hum_idx: usize,
+        hum: &HumControl,
+        graph_presenter: &RGraphPresenter,
+    ) -> Result<Option<Vec<Notification>>, failure::Error> {
+        if hum.add_in_area.is_under(rx, ry) {
+            let notifications = graph_presenter
+                .borrow_mut()
+                .select_ear_hum_add_in(self.id, ear_idx, set_idx, hum_idx)?;
+            return Ok(Some(notifications));
+        }
+
+        if hum.tag_area.is_under(rx, ry) {
+            let notifications = graph_presenter
+                .borrow_mut()
+                .select_ear_hum(self.id, ear_idx, set_idx, hum_idx)?;
+            return Ok(Some(notifications));
+        }
+
+        if hum.value_area.is_under(rx, ry) {
+            let ear_setter = graph_presenter.clone();
+            let notifier = graph_presenter.clone();
+            let talker_id = self.id;
+            let (min, max, def) = self.talker.borrow().ears()[ear_idx].hum_range(hum_idx);
+            let cur = self.talker.borrow().ears()[ear_idx].talk_value_or_default(set_idx, hum_idx);
+
+            let value = bounded_float_entry::run(
+                min.into(),
+                max.into(),
+                def.into(),
+                cur.into(),
+                move |v, fly| {
+                    let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
+                        talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
+                    );
+                },
+            );
+            let notifications = notifier.borrow_mut().set_talker_ear_talk_value(
+                talker_id,
+                ear_idx,
+                set_idx,
+                hum_idx,
+                0,
+                value as f32,
+                false,
+            )?;
+            /*
+            bounded_float_entry::create(
+                min.into(),
+                max.into(),
+                cur.into(),
+                move |v, fly| {
+                    let _ = ear_setter
+                        .borrow_mut()
+                        .set_talker_ear_talk_value(
+                            talker_id, ear_idx, talk_idx, v as f32, fly,
+                        );
+                },
+                move || {
+                    notifier.borrow().notify_talker_changed();
+                },
+            );
+             */
+            return Ok(Some(notifications));
+        }
+        return Ok(None);
     }
 
     pub fn on_button_release(
@@ -736,78 +963,38 @@ impl TalkerControlBase {
         if self.area.is_under(rx, ry) {
             for (ear_idx, ear) in self.ears.iter().enumerate() {
                 if ear.area.is_under(rx, ry) {
-                    for (talk_idx, talk) in ear.talks.iter().enumerate() {
-                        if talk.area.is_under(rx, ry) {
-                            if talk.tag_area.is_under(rx, ry) {
-                                let notifications = match &talk.input_type {
-                                    InputType::Add => graph_presenter
-                                        .borrow_mut()
-                                        .add_ear_talk(self.id, ear_idx)?,
-                                    _ => graph_presenter
-                                        .borrow_mut()
-                                        .select_ear_talk(self.id, ear_idx, talk_idx)?,
-                                };
-                                return Ok(Some(notifications));
-                            }
-
-                            if talk.value_area.is_under(rx, ry) {
-                                let ear_setter = graph_presenter.clone();
-                                let notifier = graph_presenter.clone();
-                                let talker_id = self.id;
-                                let (min, max, def) =
-                                    self.talker.borrow().ears()[ear_idx].talk_range(talk_idx);
-                                let cur = self.talker.borrow().ears()[ear_idx]
-                                    .talk_value_or_default(talk_idx);
-
-                                let value = bounded_float_entry::run(
-                                    min.into(),
-                                    max.into(),
-                                    def.into(),
-                                    cur.into(),
-                                    move |v, fly| {
-                                        let _ = ear_setter
-                                            .borrow_mut()
-                                            .set_talker_ear_talk_value_by_index(
-                                                talker_id, ear_idx, talk_idx, v as f32, fly,
-                                            );
-                                    },
-                                );
-                                let notifications =
-                                    notifier.borrow_mut().set_talker_ear_talk_value_by_index(
-                                        talker_id,
-                                        ear_idx,
-                                        talk_idx,
-                                        value as f32,
-                                        false,
-                                    )?;
-                                /*
-                                bounded_float_entry::create(
-                                    min.into(),
-                                    max.into(),
-                                    cur.into(),
-                                    move |v, fly| {
-                                        let _ = ear_setter
-                                            .borrow_mut()
-                                            .set_talker_ear_talk_value_by_index(
-                                                talker_id, ear_idx, talk_idx, v as f32, fly,
-                                            );
-                                    },
-                                    move || {
-                                        notifier.borrow().notify_talker_changed();
-                                    },
-                                );
-                                 */
-                                return Ok(Some(notifications));
-                            }
-
-                            if let Some(sup_area) = &talk.sup_area {
-                                if sup_area.is_under(rx, ry) {
-                                    let notifications = graph_presenter
-                                        .borrow()
-                                        .sup_ear_talk(self.id, ear_idx, talk_idx)?;
-                                    return Ok(Some(notifications));
+                    for (set_idx, set) in ear.sets.iter().enumerate() {
+                        for (hum_idx, hum) in set.hums.iter().enumerate() {
+                            if hum.area.is_under(rx, ry) {
+                                match self.on_hum_clicked(
+                                    rx,
+                                    ry,
+                                    ear_idx,
+                                    set_idx,
+                                    hum_idx,
+                                    hum,
+                                    graph_presenter,
+                                )? {
+                                    Some(notifications) => return Ok(Some(notifications)),
+                                    None => break,
                                 }
                             }
+                        }
+
+                        if let Some(sup_set_area) = &set.sup_area {
+                            if sup_set_area.is_under(rx, ry) {
+                                let notifications = graph_presenter
+                                    .borrow()
+                                    .sup_ear_set(self.id, ear_idx, set_idx)?;
+                                return Ok(Some(notifications));
+                            }
+                        }
+                    }
+                    if let Some(add_set_area) = &ear.add_set_area {
+                        if add_set_area.is_under(rx, ry) {
+                            let notifications =
+                                graph_presenter.borrow_mut().add_ear_set(self.id, ear_idx)?;
+                            return Ok(Some(notifications));
                         }
                     }
                 }

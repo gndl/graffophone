@@ -11,6 +11,7 @@ use talker::RTalker;
 use voice::PortType;
 
 pub const DEF_INPUT_TAG: &'static str = "In";
+pub const DEF_HUM_TAG: &'static str = "";
 
 pub fn def_audio_talker(value: f32) -> RTalker {
     Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
@@ -151,7 +152,7 @@ impl Hum {
         def_value: f32,
     ) -> RHum {
         RefCell::new(Self {
-            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
             port_type,
             min_value,
             max_value,
@@ -169,7 +170,7 @@ impl Hum {
         def_value: f32,
     ) -> RHum {
         RefCell::new(Self {
-            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
             port_type,
             min_value,
             max_value,
@@ -191,7 +192,7 @@ impl Hum {
             port_type = talker.borrow().voice_port_type(port);
         }
         RefCell::new(Self {
-            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
             port_type,
             min_value,
             max_value,
@@ -242,8 +243,15 @@ impl Hum {
         self.def_value
     }
     pub fn value(&self) -> Option<f32> {
-        let first_talk = self.talks.first()?;
-        return first_talk.borrow().value();
+        for talk in &self.talks {
+            match talk.borrow().value() {
+                Some(v) => return Some(v),
+                _ => (),
+            }
+        }
+        None
+        // let first_talk = self.talks.first()?;
+        // return first_talk.borrow().value();
     }
     pub fn value_or_default(&self) -> f32 {
         self.value().unwrap_or(self.def_value)
@@ -263,6 +271,7 @@ impl Hum {
         } else if self.talks.len() == 1 {
             self.talks[0].borrow().cv_buffer()
         } else {
+            println!("Hum::cv_buffer nb talks = {}", self.talks.len());
             None
         }
     }
@@ -299,10 +308,10 @@ impl Hum {
         self.talks.push(talk);
         self.check()
     }
-    pub fn add_talk_value(&mut self, value: f32) -> Result<(), failure::Error> {
+    pub fn add_value(&mut self, value: f32) -> Result<(), failure::Error> {
         self.add_talk(def_talk(self.port_type, value))
     }
-    pub fn add_talk_voice(&mut self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
+    pub fn add_voice(&mut self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
         if self
             .port_type()
             .can_hear(talker.borrow().voice_port_type(port))
@@ -316,6 +325,14 @@ impl Hum {
                 self.tag
             )))
         }
+    }
+    pub fn set_value(&mut self, value: f32) -> Result<(), failure::Error> {
+        self.talks.clear();
+        self.add_value(value)
+    }
+    pub fn set_voice(&mut self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
+        self.talks.clear();
+        self.add_voice(talker, port)
     }
     pub fn sup_talk(&mut self, index: Index) -> Result<(), failure::Error> {
         let _ = self.talks.remove(index);
@@ -420,15 +437,30 @@ impl Set {
 pub struct Ear {
     tag: String,
     multi_set: bool,
+    multi_hum: bool,
     sets: RefCell<Vec<Set>>,
 }
 //pub type REar = RefCell<Ear>;
 
 impl Ear {
-    pub fn new(tag: Option<&str>, multi_set: bool, hum: RHum) -> Ear {
+    pub fn new(
+        tag: Option<&str>,
+        multi_set: bool,
+        multi_hum: bool,
+        sets: RefCell<Vec<Set>>,
+    ) -> Ear {
         Self {
             tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
             multi_set,
+            multi_hum,
+            sets,
+        }
+    }
+    pub fn new_mono_hum(tag: Option<&str>, multi_set: bool, hum: RHum) -> Ear {
+        Self {
+            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            multi_set,
+            multi_hum: false,
             sets: RefCell::new(vec![Set::new(vec![hum])]),
         }
     }
@@ -441,11 +473,17 @@ impl Ear {
     pub fn is_multi_set(&self) -> bool {
         self.multi_set
     }
+    pub fn is_multi_hum(&self) -> bool {
+        self.multi_hum
+    }
     pub fn sets_len(&self) -> usize {
         self.sets.borrow().len()
     }
+    pub fn hums_len(&self) -> usize {
+        self.sets.borrow()[0].hums.len()
+    }
 
-    pub fn talk_range(&self, hum_idx: usize) -> (f32, f32, f32) {
+    pub fn hum_range(&self, hum_idx: usize) -> (f32, f32, f32) {
         if self.sets.borrow().len() > 0 && self.sets.borrow()[0].hums.len() > hum_idx {
             return self.sets.borrow()[0].hums[hum_idx].borrow().range();
         }
@@ -459,9 +497,9 @@ impl Ear {
         return 0.;
     }
 
-    pub fn talk_value_or_default(&self, hum_idx: usize) -> f32 {
-        if self.sets.borrow().len() > 0 && self.sets.borrow()[0].hums.len() > hum_idx {
-            return self.sets.borrow()[0].hums[hum_idx]
+    pub fn talk_value_or_default(&self, set_idx: usize, hum_idx: usize) -> f32 {
+        if self.sets.borrow().len() > 0 && self.sets.borrow()[set_idx].hums.len() > hum_idx {
+            return self.sets.borrow()[set_idx].hums[hum_idx]
                 .borrow()
                 .value_or_default();
         }
@@ -556,22 +594,24 @@ impl Ear {
     }
 
     fn provide_set(&self, set_idx: Index) {
+        let mut new_sets = Vec::new();
+
         for _ in self.sets.borrow().len()..(set_idx + 1) {
-            let new_set = self.sets.borrow()[0].clone();
-            self.sets.borrow_mut().push(new_set)
+            new_sets.push(self.sets.borrow()[0].clone());
         }
+        self.sets.borrow_mut().append(&mut new_sets);
     }
     fn add_set(&self) -> Index {
-        let set_idx = self.sets.borrow().len();
-        self.provide_set(set_idx);
-        set_idx
+        let new_set = self.sets.borrow()[0].clone();
+        self.sets.borrow_mut().push(new_set);
+        self.sets.borrow().len() - 1
     }
     pub fn sup_set(&self, set_idx: Index) -> Result<(), failure::Error> {
         self.sets.borrow_mut().remove(set_idx);
         Ok(())
     }
 
-    pub fn set_talk_value_by_tag(
+    pub fn add_hum_value_by_tag(
         &self,
         set_idx: Index,
         hum_tag: &str,
@@ -581,7 +621,7 @@ impl Ear {
 
         for hum in &self.sets.borrow()[set_idx].hums {
             if hum.borrow().tag() == hum_tag {
-                return hum.borrow_mut().add_talk_value(value);
+                return hum.borrow_mut().add_value(value);
             }
         }
         Err(failure::err_msg(format!(
@@ -590,7 +630,7 @@ impl Ear {
             hum_tag
         )))
     }
-    pub fn set_talk_voice_by_tag(
+    pub fn add_hum_voice_by_tag(
         &self,
         set_idx: Index,
         hum_tag: &str,
@@ -601,7 +641,7 @@ impl Ear {
 
         for hum in &self.sets.borrow()[set_idx].hums {
             if hum.borrow().tag() == hum_tag {
-                return hum.borrow_mut().add_talk_voice(talker, port);
+                return hum.borrow_mut().add_voice(talker, port);
             }
         }
         Err(failure::err_msg(format!(
@@ -609,6 +649,27 @@ impl Ear {
             self.tag(),
             hum_tag
         )))
+    }
+    pub fn set_hum_value(
+        &self,
+        set_idx: Index,
+        hum_idx: Index,
+        value: f32,
+    ) -> Result<(), failure::Error> {
+        self.sets.borrow()[set_idx].hums[hum_idx]
+            .borrow_mut()
+            .set_value(value)
+    }
+    pub fn set_hum_voice(
+        &self,
+        set_idx: Index,
+        hum_idx: Index,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        self.sets.borrow()[set_idx].hums[hum_idx]
+            .borrow_mut()
+            .set_voice(talker, port)
     }
     pub fn set_talk_value(
         &self,
@@ -633,7 +694,7 @@ impl Ear {
             .borrow()
             .set_talk_voice(talk_idx, talker, port)
     }
-    pub fn add_talk_value(
+    pub fn add_value_to_hum(
         &self,
         set_idx: Index,
         hum_idx: Index,
@@ -641,10 +702,10 @@ impl Ear {
     ) -> Result<(), failure::Error> {
         self.sets.borrow()[set_idx].hums[hum_idx]
             .borrow_mut()
-            .add_talk_value(value)
+            .add_value(value)
     }
 
-    pub fn add_talk_voice(
+    pub fn add_voice_to_hum(
         &self,
         set_idx: Index,
         hum_idx: Index,
@@ -653,7 +714,7 @@ impl Ear {
     ) -> Result<(), failure::Error> {
         self.sets.borrow()[set_idx].hums[hum_idx]
             .borrow_mut()
-            .add_talk_voice(voice_talker, port)
+            .add_voice(voice_talker, port)
     }
 
     pub fn sup_talk(
@@ -667,14 +728,14 @@ impl Ear {
             .sup_talk(talk_idx)
     }
 
-    pub fn add_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
+    pub fn add_set_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
         let set_idx = self.add_set();
         self.sets.borrow()[set_idx].hums[hum_idx]
             .borrow_mut()
-            .add_talk_value(value)
+            .add_value(value)
     }
 
-    pub fn add_voice(
+    pub fn add_set_voice(
         &self,
         hum_idx: Index,
         voice_talker: &RTalker,
@@ -683,7 +744,7 @@ impl Ear {
         let set_idx = self.add_set();
         self.sets.borrow()[set_idx].hums[hum_idx]
             .borrow_mut()
-            .add_talk_voice(voice_talker, port)
+            .add_voice(voice_talker, port)
     }
 }
 
@@ -695,24 +756,24 @@ pub fn audio(
     talker_port: Option<(&RTalker, Index)>,
 ) -> Ear {
     match talker_port {
-        Some((tkr, port)) => Ear::new(
+        Some((tkr, port)) => Ear::new_mono_hum(
             tag,
             false,
-            Hum::from_voice(tag, min_value, max_value, tkr, port),
+            Hum::from_voice(None, min_value, max_value, tkr, port),
         ),
-        None => Ear::new(
+        None => Ear::new_mono_hum(
             tag,
             false,
-            Hum::from_value(tag, PortType::Audio, min_value, max_value, def_value),
+            Hum::from_value(None, PortType::Audio, min_value, max_value, def_value),
         ),
     }
 }
 
 pub fn control(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
-    Ear::new(
+    Ear::new_mono_hum(
         tag,
         false,
-        Hum::from_value(tag, PortType::Control, min_value, max_value, def_value),
+        Hum::from_value(None, PortType::Control, min_value, max_value, def_value),
     )
 }
 
@@ -724,15 +785,15 @@ pub fn cv(
     talker_port: Option<(&RTalker, Index)>,
 ) -> Ear {
     match talker_port {
-        Some((tkr, port)) => Ear::new(
+        Some((tkr, port)) => Ear::new_mono_hum(
             tag,
             false,
-            Hum::from_voice(tag, min_value, max_value, tkr, port),
+            Hum::from_voice(None, min_value, max_value, tkr, port),
         ),
-        None => Ear::new(
+        None => Ear::new_mono_hum(
             tag,
             false,
-            Hum::from_value(tag, PortType::Cv, min_value, max_value, def_value),
+            Hum::from_value(None, PortType::Cv, min_value, max_value, def_value),
         ),
     }
 }
@@ -741,25 +802,53 @@ pub fn def_ear() -> Ear {
     control(None, f32::MIN, f32::MAX, f32::NAN)
 }
 
-pub fn multi(tag: Option<&str>, port_type: PortType) -> Ear {
-    Ear::new(
+pub fn multi_set(
+    tag: Option<&str>,
+    port_type: PortType,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+) -> Ear {
+    Ear::new_mono_hum(
         tag,
         true,
-        Hum::new(tag, port_type, f32::MIN, f32::MAX, f32::NAN),
+        Hum::new(None, port_type, min_value, max_value, def_value), //, f32::MIN, f32::MAX, f32::NAN),
     )
 }
 
-pub fn controls(tag: Option<&str>) -> Ear {
-    multi(tag, PortType::Control)
+pub fn controls(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
+    multi_set(tag, PortType::Control, min_value, max_value, def_value)
 }
 
-pub fn audios(tag: Option<&str>) -> Ear {
-    multi(tag, PortType::Audio)
+pub fn audios(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
+    multi_set(tag, PortType::Audio, min_value, max_value, def_value)
 }
 
-pub fn cvs(tag: Option<&str>) -> Ear {
-    multi(tag, PortType::Cv)
+pub fn cvs(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
+    multi_set(tag, PortType::Cv, min_value, max_value, def_value)
 }
+
+pub fn set(
+    tag: Option<&str>,
+    multi: bool,
+    hums_attributs: &Vec<(&str, PortType, f32, f32, f32)>,
+) -> Ear {
+    let mut hums = Vec::new();
+
+    for (tag, port_type, min_value, max_value, def_value) in hums_attributs {
+        hums.push(Hum::from_value(
+            Some(tag),
+            *port_type,
+            *min_value,
+            *max_value,
+            *def_value,
+        ));
+    }
+    let multi_hum = hums_attributs.len() > 1;
+
+    Ear::new(tag, multi, multi_hum, RefCell::new(vec![Set::new(hums)]))
+}
+
 /*
 pub fn visit_ear_flatten_index<F>(
     ears: &Vec<Ear>,

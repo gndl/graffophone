@@ -1,5 +1,5 @@
 use lilv::instance::PluginInstance;
-use lilv::plugin::Plugin;
+// use lilv::plugin::Plugin;
 use lilv::port::Port;
 use lilv::port::TypedPort;
 use lilv::port::{UnknownInputPort, UnknownOutputPort};
@@ -31,7 +31,7 @@ pub struct Lv2 {
     model: String,
     instance: PluginInstance,
     input_port_handlers: Vec<u32>,
-    output_port_handlers: Vec<u32>,
+    // output_port_handlers: Vec<u32>,
 }
 
 impl Lv2 {
@@ -144,7 +144,7 @@ impl Lv2 {
                     model: uri.to_string(), //plugin.name().to_str().to_string(),
                     instance,
                     input_port_handlers,
-                    output_port_handlers,
+                    // output_port_handlers,
                 })))
             }
             _ => Err(failure::err_msg("PluginInstantiationError")),
@@ -209,7 +209,7 @@ impl Talker for Lv2 {
         ln
     }
 }
-
+/*
 fn show_plugin(plugin: &Plugin) {
     println!("> {:?}", plugin);
     for port in plugin.inputs() {
@@ -237,3 +237,4 @@ fn show_plugin(plugin: &Plugin) {
         println!("\t{:?}", port)
     }
 }
+*/

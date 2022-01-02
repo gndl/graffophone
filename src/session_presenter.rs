@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use talker::identifier::Id;
-use talker::talker::{RTalker, Talker};
+use talker::identifier::{Id, Index};
+use talker::talker::RTalker;
+// use talker::talker::Talker;
 
 use session::band::Operation;
 use session::event_bus::{EventBus, Notification, REventBus};
@@ -105,6 +106,17 @@ impl SessionPresenter {
             }
         }
     */
+
+    pub fn find_compatible_hum_with_voice_in_ear(
+        &self,
+        talker_id: Id,
+        ear_idx: Index,
+        voice_tkr_id: Id,
+        voice_port: Index,
+    ) -> Result<Index, failure::Error> {
+        // TODO : do the job
+        Ok(0)
+    }
 
     pub fn modify_band(&mut self, operation: &Operation) {
         match self.session.modify_band(operation) {

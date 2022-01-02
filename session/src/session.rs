@@ -15,21 +15,24 @@
  */
 
 use std::collections::HashMap;
-use std::fs;
+// use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
 use talker::identifier;
-use talker::talker::{RTalker, Talker};
+use talker::talker::RTalker;
+// use talker::talker::Talker;
 
-use crate::band::{Band, Operation, RBand};
-use crate::mixer;
+// use crate::band::RBand;
+use crate::band::{Band, Operation};
+// use crate::mixer;
 use crate::mixer::RMixer;
 use crate::player::Player;
 use crate::state::State;
-use crate::track;
-use crate::track::{RTrack, Track};
+// use crate::track;
+// use crate::track::RTrack;
+// use crate::track::Track;
 
 pub struct Session {
     filename: String,
