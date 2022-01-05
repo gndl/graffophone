@@ -1,7 +1,9 @@
 use std::f32;
 use std::f64::consts::PI;
+
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Init;
 use talker::talker::{Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
@@ -16,20 +18,26 @@ pub struct Sinusoidal {
 }
 
 impl Sinusoidal {
-    pub fn new() -> Sinusoidal {
+    pub fn new() -> Result<Sinusoidal, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
-        base.add_ear(ear::cv(Some("frequence"), 0., 20000., 440., None));
-        base.add_ear(ear::audio(Some("phase"), -1., 1., 0., None));
+        base.add_ear(ear::cv(
+            Some("frequence"),
+            0.,
+            20000.,
+            440.,
+            &Init::DefValue,
+        )?);
+        base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
 
         base.add_voice(voice::audio(None, 0., None));
 
-        Self {
+        Ok(Self {
             base,
             last_tick: 0,
             last_freq: 0.,
             last_angle: 0.,
-        }
+        })
     }
 
     pub fn descriptor() -> TalkerHandlerBase {

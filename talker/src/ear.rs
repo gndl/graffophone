@@ -10,8 +10,8 @@ use identifier::Index;
 use talker::RTalker;
 use voice::PortType;
 
-pub const DEF_INPUT_TAG: &'static str = "In";
-pub const DEF_HUM_TAG: &'static str = "";
+const DEF_EAR_TAG: &'static str = "In";
+const DEF_HUM_TAG: &'static str = "";
 
 pub fn def_audio_talker(value: f32) -> RTalker {
     Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
@@ -142,6 +142,7 @@ pub struct Hum {
     talks: Vec<RTalk>,
     horn: Option<Horn>,
 }
+pub type RHum = RefCell<Hum>;
 
 impl Hum {
     pub fn new(
@@ -150,8 +151,8 @@ impl Hum {
         min_value: f32,
         max_value: f32,
         def_value: f32,
-    ) -> RHum {
-        RefCell::new(Self {
+    ) -> Hum {
+        Self {
             tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
             port_type,
             min_value,
@@ -159,49 +160,49 @@ impl Hum {
             def_value,
             talks: Vec::new(),
             horn: None,
-        })
-    }
-
-    pub fn from_value(
-        tag: Option<&str>,
-        port_type: PortType,
-        min_value: f32,
-        max_value: f32,
-        def_value: f32,
-    ) -> RHum {
-        RefCell::new(Self {
-            tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
-            port_type,
-            min_value,
-            max_value,
-            def_value,
-            talks: vec![def_talk(port_type, def_value)],
-            horn: None,
-        })
-    }
-
-    pub fn from_voice(
-        tag: Option<&str>,
-        min_value: f32,
-        max_value: f32,
-        talker: &RTalker,
-        port: Index,
-    ) -> RHum {
-        let port_type;
-        {
-            port_type = talker.borrow().voice_port_type(port);
         }
-        RefCell::new(Self {
-            tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
-            port_type,
-            min_value,
-            max_value,
-            def_value: 0.,
-            talks: vec![Talk::new(talker.clone(), port)],
-            horn: None,
-        })
     }
+    /*
+        pub fn from_value(
+            tag: Option<&str>,
+            port_type: PortType,
+            min_value: f32,
+            max_value: f32,
+            def_value: f32,
+        ) -> RHum {
+            RefCell::new(Self {
+                tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
+                port_type,
+                min_value,
+                max_value,
+                def_value,
+                talks: vec![def_talk(port_type, def_value)],
+                horn: None,
+            })
+        }
 
+        pub fn from_voice(
+            tag: Option<&str>,
+            min_value: f32,
+            max_value: f32,
+            talker: &RTalker,
+            port: Index,
+        ) -> RHum {
+            let port_type;
+            {
+                port_type = talker.borrow().voice_port_type(port);
+            }
+            RefCell::new(Self {
+                tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
+                port_type,
+                min_value,
+                max_value,
+                def_value: 0.,
+                talks: vec![Talk::new(talker.clone(), port)],
+                horn: None,
+            })
+        }
+    */
     pub fn visit_horn<F>(&self, mut f: F)
     where
         F: FnMut(&Horn),
@@ -409,8 +410,6 @@ impl Hum {
     }
 }
 
-pub type RHum = RefCell<Hum>;
-
 pub struct Set {
     hums: Vec<RHum>,
 }
@@ -450,18 +449,18 @@ impl Ear {
         sets: RefCell<Vec<Set>>,
     ) -> Ear {
         Self {
-            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tag: tag.unwrap_or(DEF_EAR_TAG).to_string(),
             multi_set,
             multi_hum,
             sets,
         }
     }
-    pub fn new_mono_hum(tag: Option<&str>, multi_set: bool, hum: RHum) -> Ear {
+    pub fn new_mono_hum(tag: Option<&str>, multi_set: bool, hum: Hum) -> Ear {
         Self {
-            tag: tag.unwrap_or(DEF_INPUT_TAG).to_string(),
+            tag: tag.unwrap_or(DEF_EAR_TAG).to_string(),
             multi_set,
             multi_hum: false,
-            sets: RefCell::new(vec![Set::new(vec![hum])]),
+            sets: RefCell::new(vec![Set::new(vec![RefCell::new(hum)])]),
         }
     }
     pub fn tag<'a>(&'a self) -> &'a String {
@@ -748,33 +747,76 @@ impl Ear {
     }
 }
 
+pub enum Init<'a> {
+    Empty,
+    DefValue,
+    Value(f32),
+    Voice(&'a RTalker, Index),
+}
+
+fn hum(
+    tag: Option<&str>,
+    port_type: PortType,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    init: &Init,
+) -> Result<Hum, failure::Error> {
+    let mut hum = Hum::new(tag, port_type, min_value, max_value, def_value);
+
+    match init {
+        Init::Empty => (),
+        Init::DefValue => hum.add_value(def_value)?,
+        Init::Value(v) => hum.add_value(*v)?,
+        Init::Voice(tkr, port) => hum.add_voice(tkr, *port)?,
+    }
+
+    Ok(hum)
+}
+
+fn mono_hum(
+    tag: Option<&str>,
+    port_type: PortType,
+    multi_set: bool,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    Ok(Ear::new_mono_hum(
+        tag,
+        multi_set,
+        hum(None, port_type, min_value, max_value, def_value, init)?,
+    ))
+}
+
 pub fn audio(
     tag: Option<&str>,
     min_value: f32,
     max_value: f32,
     def_value: f32,
-    talker_port: Option<(&RTalker, Index)>,
-) -> Ear {
-    match talker_port {
-        Some((tkr, port)) => Ear::new_mono_hum(
-            tag,
-            false,
-            Hum::from_voice(None, min_value, max_value, tkr, port),
-        ),
-        None => Ear::new_mono_hum(
-            tag,
-            false,
-            Hum::from_value(None, PortType::Audio, min_value, max_value, def_value),
-        ),
-    }
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    mono_hum(
+        tag,
+        PortType::Audio,
+        false,
+        min_value,
+        max_value,
+        def_value,
+        init,
+    )
 }
 
-pub fn control(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
-    Ear::new_mono_hum(
-        tag,
-        false,
-        Hum::from_value(None, PortType::Control, min_value, max_value, def_value),
-    )
+pub fn control(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+) -> Result<Ear, failure::Error> {
+    let mut hum = Hum::new(None, PortType::Control, min_value, max_value, def_value);
+    hum.add_value(def_value)?;
+    Ok(Ear::new_mono_hum(tag, false, hum))
 }
 
 pub fn cv(
@@ -782,71 +824,95 @@ pub fn cv(
     min_value: f32,
     max_value: f32,
     def_value: f32,
-    talker_port: Option<(&RTalker, Index)>,
-) -> Ear {
-    match talker_port {
-        Some((tkr, port)) => Ear::new_mono_hum(
-            tag,
-            false,
-            Hum::from_voice(None, min_value, max_value, tkr, port),
-        ),
-        None => Ear::new_mono_hum(
-            tag,
-            false,
-            Hum::from_value(None, PortType::Cv, min_value, max_value, def_value),
-        ),
-    }
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    mono_hum(
+        tag,
+        PortType::Cv,
+        false,
+        min_value,
+        max_value,
+        def_value,
+        init,
+    )
 }
-
+/*
 pub fn def_ear() -> Ear {
     control(None, f32::MIN, f32::MAX, f32::NAN)
 }
-
+*/
 pub fn multi_set(
     tag: Option<&str>,
     port_type: PortType,
     min_value: f32,
     max_value: f32,
     def_value: f32,
-) -> Ear {
-    Ear::new_mono_hum(
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    mono_hum(tag, port_type, true, min_value, max_value, def_value, init)
+}
+
+pub fn controls(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+) -> Result<Ear, failure::Error> {
+    multi_set(
         tag,
-        true,
-        Hum::new(None, port_type, min_value, max_value, def_value), //, f32::MIN, f32::MAX, f32::NAN),
+        PortType::Control,
+        min_value,
+        max_value,
+        def_value,
+        &Init::DefValue,
     )
 }
 
-pub fn controls(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
-    multi_set(tag, PortType::Control, min_value, max_value, def_value)
+pub fn audios(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    multi_set(tag, PortType::Audio, min_value, max_value, def_value, init)
 }
 
-pub fn audios(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
-    multi_set(tag, PortType::Audio, min_value, max_value, def_value)
-}
-
-pub fn cvs(tag: Option<&str>, min_value: f32, max_value: f32, def_value: f32) -> Ear {
-    multi_set(tag, PortType::Cv, min_value, max_value, def_value)
+pub fn cvs(
+    tag: Option<&str>,
+    min_value: f32,
+    max_value: f32,
+    def_value: f32,
+    init: &Init,
+) -> Result<Ear, failure::Error> {
+    multi_set(tag, PortType::Cv, min_value, max_value, def_value, init)
 }
 
 pub fn set(
     tag: Option<&str>,
     multi: bool,
-    hums_attributs: &Vec<(&str, PortType, f32, f32, f32)>,
-) -> Ear {
+    hums_attributs: &Vec<(&str, PortType, f32, f32, f32, Init)>,
+) -> Result<Ear, failure::Error> {
     let mut hums = Vec::new();
 
-    for (tag, port_type, min_value, max_value, def_value) in hums_attributs {
-        hums.push(Hum::from_value(
+    for (tag, port_type, min_value, max_value, def_value, init) in hums_attributs {
+        hums.push(RefCell::new(hum(
             Some(tag),
             *port_type,
             *min_value,
             *max_value,
             *def_value,
-        ));
+            init,
+        )?));
     }
     let multi_hum = hums_attributs.len() > 1;
 
-    Ear::new(tag, multi, multi_hum, RefCell::new(vec![Set::new(hums)]))
+    Ok(Ear::new(
+        tag,
+        multi,
+        multi_hum,
+        RefCell::new(vec![Set::new(hums)]),
+    ))
 }
 
 /*

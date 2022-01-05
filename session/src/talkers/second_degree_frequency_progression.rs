@@ -14,13 +14,18 @@ pub struct SecondDegreeFrequencyProgression {
 }
 
 impl SecondDegreeFrequencyProgression {
-    pub fn new(f: f64, a: f64, b: f64, c: f64) -> SecondDegreeFrequencyProgression {
+    pub fn new(
+        f: f64,
+        a: f64,
+        b: f64,
+        c: f64,
+    ) -> Result<SecondDegreeFrequencyProgression, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
         let voice = voice::audio(None, 0., None);
         base.add_voice(voice);
 
-        Self { base, f, a, b, c }
+        Ok(Self { base, f, a, b, c })
     }
 
     pub fn descriptor() -> TalkerHandlerBase {

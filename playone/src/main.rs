@@ -247,7 +247,7 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
     track
         .borrow_mut()
         .set_ear_talk_voice_by_index(0, 0, &tkr, 0)?;
-    let rmixer = Mixer::new_ref(None, None);
+    let rmixer = Mixer::new_ref(None, None)?;
 
     rmixer.borrow_mut().add_track(track);
     rmixer

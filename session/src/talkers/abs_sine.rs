@@ -1,6 +1,8 @@
 use std::f64::consts::PI;
+
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Init;
 use talker::talker::{Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
@@ -12,16 +14,16 @@ pub struct AbsSine {
 }
 
 impl AbsSine {
-    pub fn new() -> AbsSine {
+    pub fn new() -> Result<AbsSine, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence"), 0., 20000., 440., None);
+        let freq = ear::audio(Some("frequence"), 0., 20000., 440., &Init::DefValue)?;
         base.add_ear(freq);
 
         let voice = voice::audio(None, 0., None);
         base.add_voice(voice);
 
-        Self { base }
+        Ok(Self { base })
     }
     pub fn descriptor() -> TalkerHandlerBase {
         TalkerHandlerBase::new("Oscillator", MODEL, "Absolute sinusoidal")

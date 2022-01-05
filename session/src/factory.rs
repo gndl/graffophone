@@ -68,7 +68,7 @@ impl Factory {
         oid: Option<u32>,
         oname: Option<&str>,
     ) -> Result<RTrack, failure::Error> {
-        let rtrk = Track::new_ref();
+        let rtrk = Track::new_ref()?;
         Factory::set_identity(rtrk.borrow().identifier(), oid, oname);
         Ok(rtrk)
     }
@@ -80,7 +80,7 @@ impl Factory {
         tracks: Option<Vec<RTrack>>,
         outputs: Option<Vec<ROutput>>,
     ) -> Result<RMixer, failure::Error> {
-        let rmixer = Mixer::new_ref(tracks, outputs);
+        let rmixer = Mixer::new_ref(tracks, outputs)?;
         Factory::set_identity(rmixer.borrow().identifier(), oid, oname);
         Ok(rmixer)
     }

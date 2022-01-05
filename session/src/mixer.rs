@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Init;
 // use talker::talker::RTalker;
 use talker::talker::{Talker, TalkerBase};
 
@@ -24,21 +25,27 @@ pub struct Mixer {
 pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
-    pub fn new(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> Mixer {
+    pub fn new(
+        tracks: Option<Vec<RTrack>>,
+        outputs: Option<Vec<ROutput>>,
+    ) -> Result<Mixer, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::audio(Some("volume"), 0., 1., 1., None));
+        base.add_ear(ear::audio(Some("volume"), 0., 1., 1., &Init::DefValue)?);
 
-        Self {
+        Ok(Self {
             base,
             tracks: tracks.unwrap_or(Vec::new()),
             outputs: outputs.unwrap_or(Vec::new()),
             tick: 0,
             productive: false,
-        }
+        })
     }
-    pub fn new_ref(tracks: Option<Vec<RTrack>>, outputs: Option<Vec<ROutput>>) -> RMixer {
-        Rc::new(RefCell::new(Mixer::new(tracks, outputs)))
+    pub fn new_ref(
+        tracks: Option<Vec<RTrack>>,
+        outputs: Option<Vec<ROutput>>,
+    ) -> Result<RMixer, failure::Error> {
+        Ok(Rc::new(RefCell::new(Mixer::new(tracks, outputs)?)))
     }
 
     pub fn kind() -> &'static str {

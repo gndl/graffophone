@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Init;
 use talker::horn;
 use talker::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use talker::talker;
@@ -63,8 +64,8 @@ impl Lv2 {
                                 min_val,
                                 max_val,
                                 def_val,
-                                None,
-                            );
+                                &Init::DefValue,
+                            )?;
                             /*                            let ear = ear::control(
                                                           Some(&p.name().to_string()),
                                                           min_val,
@@ -82,8 +83,8 @@ impl Lv2 {
                                     an_or(min_val, -1.),
                                     an_or(max_val, 1.),
                                     an_or(def_val, 0.),
-                                    None,
-                                );
+                                    &Init::DefValue,
+                                )?;
                                 base.add_ear(ear);
                                 input_port_handlers.push(p.handle().index());
                             }
@@ -94,8 +95,8 @@ impl Lv2 {
                                         min_val,
                                         max_val,
                                         def_val,
-                                        None,
-                                    );
+                                        &Init::DefValue,
+                                    )?;
                                     base.add_ear(ear);
                                     input_port_handlers.push(p.handle().index());
                                 }

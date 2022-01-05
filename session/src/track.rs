@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Init;
 use talker::talker::{Talker, TalkerBase};
 use talker::voice::PortType;
 
@@ -20,7 +21,7 @@ impl Track {
         "track"
     }
 
-    pub fn new() -> Track {
+    pub fn new() -> Result<Track, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::audio(
@@ -28,22 +29,22 @@ impl Track {
             AudioFormat::MIN_AUDIO,
             AudioFormat::MAX_AUDIO,
             AudioFormat::DEF_AUDIO,
-            None,
-        ));
-        base.add_ear(ear::audio(Some("gain"), 0., 1., 0.5, None));
+            &Init::Empty,
+        )?);
+        base.add_ear(ear::audio(Some("gain"), 0., 1., 0.5, &Init::DefValue)?);
         base.add_ear(ear::set(
             Some("channels gains"),
             false,
             &vec![
-                ("left", PortType::Cv, 0., 1., 1.),
-                ("right", PortType::Cv, 0., 1., 1.),
+                ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
+                ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
             ],
-        ));
+        )?);
 
-        Self { base }
+        Ok(Self { base })
     }
-    pub fn new_ref() -> RTrack {
-        Rc::new(RefCell::new(Track::new()))
+    pub fn new_ref() -> Result<RTrack, failure::Error> {
+        Ok(Rc::new(RefCell::new(Track::new()?)))
     }
 
     pub fn id() -> &'static str {

@@ -155,12 +155,12 @@ impl PluginsManager {
     */
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == sinusoidal::MODEL {
-            Ok(Rc::new(RefCell::new(Sinusoidal::new())))
+            Ok(Rc::new(RefCell::new(Sinusoidal::new()?)))
         } else if model == abs_sine::MODEL {
-            Ok(Rc::new(RefCell::new(AbsSine::new())))
+            Ok(Rc::new(RefCell::new(AbsSine::new()?)))
         } else if model == second_degree_frequency_progression::MODEL {
             Ok(Rc::new(RefCell::new(
-                SecondDegreeFrequencyProgression::new(110., 0., 1., 1.),
+                SecondDegreeFrequencyProgression::new(110., 0., 1., 1.)?,
             )))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
