@@ -5,7 +5,7 @@ use std::rc::Rc;
 use audio_talker::AudioTalker;
 use control_talker::ControlTalker;
 use cv_talker::CvTalker;
-use horn::{AudioBuf, CvBuf, Horn};
+use horn::{AudioBuf, ControlBuf, CvBuf, Horn};
 use identifier::Index;
 use talker::RTalker;
 use voice::PortType;
@@ -66,23 +66,22 @@ impl Talk {
             }
         }
     }
-    /*
-        pub fn horn<'a>(&'a self) -> &'a Horn {
-            let res;
-            let tkr = self.tkr.borrow();
-            {
-                let voice = &tkr.voices()[self.port];
-                res = voice.borrow().horn();
-            }
-            res
-        }
-    */
+
     pub fn audio_buffer(&self) -> Option<AudioBuf> {
         let res;
         let tkr = self.tkr.borrow();
         {
             let voice = tkr.voices().get(self.port)?;
             res = voice.borrow().audio_buffer();
+        }
+        res
+    }
+    pub fn control_buffer(&self) -> Option<ControlBuf> {
+        let res;
+        let tkr = self.tkr.borrow();
+        {
+            let voice = tkr.voices().get(self.port)?;
+            res = voice.borrow().control_buffer();
         }
         res
     }
@@ -162,47 +161,7 @@ impl Hum {
             horn: None,
         }
     }
-    /*
-        pub fn from_value(
-            tag: Option<&str>,
-            port_type: PortType,
-            min_value: f32,
-            max_value: f32,
-            def_value: f32,
-        ) -> RHum {
-            RefCell::new(Self {
-                tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
-                port_type,
-                min_value,
-                max_value,
-                def_value,
-                talks: vec![def_talk(port_type, def_value)],
-                horn: None,
-            })
-        }
 
-        pub fn from_voice(
-            tag: Option<&str>,
-            min_value: f32,
-            max_value: f32,
-            talker: &RTalker,
-            port: Index,
-        ) -> RHum {
-            let port_type;
-            {
-                port_type = talker.borrow().voice_port_type(port);
-            }
-            RefCell::new(Self {
-                tag: tag.unwrap_or(DEF_HUM_TAG).to_string(),
-                port_type,
-                min_value,
-                max_value,
-                def_value: 0.,
-                talks: vec![Talk::new(talker.clone(), port)],
-                horn: None,
-            })
-        }
-    */
     pub fn visit_horn<F>(&self, mut f: F)
     where
         F: FnMut(&Horn),
@@ -216,15 +175,7 @@ impl Hum {
             }
         }
     }
-    /*
-        pub fn horn<'a>(&'a self) -> &'a Horn {
-            if self.talks.len() == 1 {
-                self.talks[0].borrow().horn()
-            } else {
-                &self.horn.as_ref().unwrap()
-            }
-        }
-    */
+
     pub fn port_type(&self) -> PortType {
         self.port_type
     }
@@ -251,8 +202,6 @@ impl Hum {
             }
         }
         None
-        // let first_talk = self.talks.first()?;
-        // return first_talk.borrow().value();
     }
     pub fn value_or_default(&self) -> f32 {
         self.value().unwrap_or(self.def_value)
@@ -262,6 +211,15 @@ impl Hum {
             self.horn.as_ref().unwrap().audio_buffer()
         } else if self.talks.len() == 1 {
             self.talks[0].borrow().audio_buffer()
+        } else {
+            None
+        }
+    }
+    pub fn control_buffer(&self) -> Option<ControlBuf> {
+        if self.talks.len() > 1 {
+            self.horn.as_ref().unwrap().control_buffer()
+        } else if self.talks.len() == 1 {
+            self.talks[0].borrow().control_buffer()
         } else {
             None
         }
@@ -396,14 +354,44 @@ impl Hum {
                         }
                     }
                     let c = 1. / (self.talks.len() as f32);
-                    // let c = 1. / f32::try_from(u16::try_from(self.talks.len())).unwrap();
+
                     for i in 0..ln {
                         let v = out_buf.get()[i].get() * c;
                         out_buf.get()[i].set(v);
                     }
                 }
-                Horn::Control(_) => {}
-                Horn::Cv(_) => {}
+                Horn::Control(out_buf) => {
+                    let first_buf = self.talks[0].borrow().control_buffer().unwrap();
+                    let mut v = first_buf.get();
+
+                    for ti in 1..self.talks.len() {
+                        let in_buf = self.talks[ti].borrow().control_buffer().unwrap();
+                        v += in_buf.get();
+                    }
+                    out_buf.set(v / (self.talks.len() as f32));
+                }
+                Horn::Cv(out_buf) => {
+                    let first_buf = self.talks[0].borrow().cv_buffer().unwrap();
+
+                    for i in 0..ln {
+                        out_buf.get()[i].set(first_buf.get()[i].get());
+                    }
+
+                    for ti in 1..self.talks.len() {
+                        let in_buf = self.talks[ti].borrow().cv_buffer().unwrap();
+
+                        for i in 0..ln {
+                            let v = out_buf.get()[i].get() + in_buf.get()[i].get();
+                            out_buf.get()[i].set(v);
+                        }
+                    }
+                    let c = 1. / (self.talks.len() as f32);
+
+                    for i in 0..ln {
+                        let v = out_buf.get()[i].get() * c;
+                        out_buf.get()[i].set(v);
+                    }
+                }
             }
         }
         ln
@@ -439,7 +427,6 @@ pub struct Ear {
     multi_hum: bool,
     sets: RefCell<Vec<Set>>,
 }
-//pub type REar = RefCell<Ear>;
 
 impl Ear {
     pub fn new(
@@ -575,14 +562,7 @@ impl Ear {
     {
         self.iter_talks(|tlk, p| f(&tlk.tkr, p), p)
     }
-    /*
-        pub fn fold_talkers<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
-        where
-            F: FnMut(&RTalker, P) -> Result<P, failure::Error>,
-        {
-            self.fold_talks(|tlk, p| f(&tlk.tkr, p), p)
-        }
-    */
+
     pub fn visit_horn<F>(&self, f: F)
     where
         F: FnMut(&Horn),
@@ -836,11 +816,7 @@ pub fn cv(
         init,
     )
 }
-/*
-pub fn def_ear() -> Ear {
-    control(None, f32::MIN, f32::MAX, f32::NAN)
-}
-*/
+
 pub fn multi_set(
     tag: Option<&str>,
     port_type: PortType,

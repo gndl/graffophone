@@ -72,6 +72,8 @@ impl Track {
     ) -> usize {
         let ln = self.compute_input_gain(tick, buf, len);
         let channels_gains_ear = &self.ears()[2];
+        let mut min_val = f32::MAX;
+        let mut max_val = f32::MIN;
 
         let n = std::cmp::min(channels.len(), channels_gains_ear.hums_len());
 
@@ -81,9 +83,15 @@ impl Track {
             let cg = channels_gains_ear.get_set_hum_cv_buffer(0, i).unwrap();
 
             for j in 0..ln {
-                ch[j] = cg[j].get() * buf[j];
+                let v = cg[j].get() * buf[j];
+                min_val = f32::min(min_val, v);
+                max_val = f32::max(max_val, v);
+                ch[j] = v;
             }
         }
+
+        let amplitude = ((max_val - min_val) * 50.) as usize;
+        // println!("{}", "-".repeat(amplitude));
 
         for i in n..channels.len() {
             let ch = &mut channels[i];
