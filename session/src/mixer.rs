@@ -5,6 +5,7 @@ use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::ear::Init;
 // use talker::talker::RTalker;
+use talker::identifier::Index;
 use talker::talker::{Talker, TalkerBase};
 
 use crate::audio_data::Vector;
@@ -13,6 +14,13 @@ use crate::track::RTrack;
 // use crate::track::Track;
 
 pub const KIND: &str = "mixer";
+
+const VOLUME_EAR_INDEX: Index = 0;
+const TRACKS_EAR_INDEX: Index = 1;
+const TRACK_INPUT_HUM_INDEX: Index = 0;
+const TRACK_GAIN_HUM_INDEX: Index = 1;
+const TRACK_LEFT_GAIN_HUM_INDEX: Index = 2;
+const TRACK_RIGHT_GAIN_HUM_INDEX: Index = 3;
 
 pub struct Mixer {
     base: TalkerBase,
@@ -32,6 +40,23 @@ impl Mixer {
         let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::audio(Some("volume"), 0., 1., 1., &Init::DefValue)?);
+        base.add_ear(ear::set(
+            Some("Tracks"),
+            true,
+            &vec![
+                (
+                    "",
+                    PortType::Audio,
+                    AudioFormat::MIN_AUDIO,
+                    AudioFormat::MAX_AUDIO,
+                    AudioFormat::DEF_AUDIO,
+                    &Init::Empty,
+                ),
+                ("gain", PortType::Audio, 0., 1., 0.5, Init::DefValue),
+                ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
+                ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
+            ],
+        )?);
 
         Ok(Self {
             base,
@@ -57,7 +82,11 @@ impl Mixer {
     }
 
     pub fn add_track(&mut self, track: RTrack) {
-        self.tracks.push(track);
+        let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
+        let set_idx = tracks_ear.add_set();
+        
+tracks_ear.
+        //        self.tracks.push(track);
     }
 
     pub fn outputs<'a>(&'a self) -> &'a Vec<ROutput> {

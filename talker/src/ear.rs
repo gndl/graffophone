@@ -872,8 +872,10 @@ pub fn set(
     let mut hums = Vec::new();
 
     for (tag, port_type, min_value, max_value, def_value, init) in hums_attributs {
+        let hum_tag = if tag.len() > 0 { tag } else { DEF_EAR_TAG };
+
         hums.push(RefCell::new(hum(
-            Some(tag),
+            Some(hum_tag),
             *port_type,
             *min_value,
             *max_value,
