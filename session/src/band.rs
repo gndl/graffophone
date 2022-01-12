@@ -304,27 +304,34 @@ impl Band {
         otp_decs: &HashMap<&str, Module>,
         module: &Module,
     ) -> Result<RMixer, failure::Error> {
+        let mut tracks = Vec::new();
+        let mut outputs = Vec::new();
+
+        for (tag, dpn, tkn) in &module.attributs {
+            if tag == &Track::kind() {
+                match trk_decs.get(dpn) {
+                    Some(trk) => tracks.push(self.make_track(factory, &talkers, trk)?),
+                    None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
+                }
+            } else if tag == &output::KIND {
+                match otp_decs.get(dpn) {
+                    Some(otp) => outputs.push(self.make_output(factory, otp)?),
+                    None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
+                }
+            }
+        }
+
         let rmixer = factory.make_mixer(
             Some(Band::id_from_mref(module.mref)?),
             Some(Band::name_from_mref(module.mref)),
-            None,
-            None,
+            Some(tracks),
+            Some(outputs),
         )?;
         {
             let mut mixer = rmixer.borrow_mut();
 
             for (tag, dpn, tkn) in &module.attributs {
-                if tag == &Track::kind() {
-                    match trk_decs.get(dpn) {
-                        Some(trk) => mixer.add_track(self.make_track(factory, &talkers, trk)?),
-                        None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
-                    }
-                } else if tag == &output::KIND {
-                    match otp_decs.get(dpn) {
-                        Some(otp) => mixer.add_output(self.make_output(factory, otp)?),
-                        None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
-                    }
-                } else {
+                if tag != &Track::kind() && tag != &output::KIND {
                     let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(&tag);
 
                     match f32::from_str(&dpn) {
@@ -445,20 +452,20 @@ impl Band {
 
         for rmixer in self.mixers.values() {
             let mixer = rmixer.borrow();
+            /*
+                        for trk in mixer.tracks() {
+                            writeln!(
+                                buf,
+                                "\n{} {}",
+                                track::KIND,
+                                Band::mref(trk.borrow().id(), &trk.borrow().name())
+                            )?;
 
-            for trk in mixer.tracks() {
-                writeln!(
-                    buf,
-                    "\n{} {}",
-                    track::KIND,
-                    Band::mref(trk.borrow().id(), &trk.borrow().name())
-                )?;
-
-                for ear in trk.borrow().ears() {
-                    ear.fold_talks(Band::talk_dep_line, &mut buf)?;
-                }
-            }
-
+                            for ear in trk.borrow().ears() {
+                                ear.fold_talks(Band::talk_dep_line, &mut buf)?;
+                            }
+                        }
+            */
             writeln!(
                 buf,
                 "\n{} {}",
@@ -469,16 +476,16 @@ impl Band {
             for ear in mixer.ears() {
                 ear.fold_talks(Band::talk_dep_line, &mut buf)?;
             }
-
-            for trk in mixer.tracks() {
-                writeln!(
-                    buf,
-                    "> {} {}",
-                    track::KIND,
-                    Band::mref(trk.borrow().id(), &trk.borrow().name())
-                )?;
-            }
-
+            /*
+                        for trk in mixer.tracks() {
+                            writeln!(
+                                buf,
+                                "> {} {}",
+                                track::KIND,
+                                Band::mref(trk.borrow().id(), &trk.borrow().name())
+                            )?;
+                        }
+            */
             for routput in mixer.outputs() {
                 let output = routput.borrow();
                 let (kind, _, _) = output.backup();

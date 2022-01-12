@@ -247,12 +247,16 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
     track
         .borrow_mut()
         .set_ear_talk_voice_by_index(0, 0, &tkr, 0)?;
-    let rmixer = Mixer::new_ref(None, None)?;
-
+    let rmixer = Mixer::new_ref(
+        Some(vec![track]),
+        Some(vec![Rc::new(RefCell::new(feedback))]),
+    )?;
+    /*
     rmixer.borrow_mut().add_track(track);
     rmixer
         .borrow_mut()
         .add_output(Rc::new(RefCell::new(feedback)));
+     */
     band.borrow_mut().add_mixer(rmixer);
     save_band(&band.borrow(), "play_sin_dst.gsr")
 }

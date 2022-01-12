@@ -16,13 +16,12 @@ Sinusoidal 1#Sinusoidal_1
 > frequence 440
 > phase 0
 
-track 2#track_2
-> In 1#Sinusoidal_1:Out
-> gain 1
-
 mixer 5#mixer_5
 > volume 1
-> track 2#track_2
+> Tracks.0.In 1#Sinusoidal_1:Out
+> Tracks.0.gain 1
+> Tracks.0.left 1
+> Tracks.0.right 1
 ";
 
 pub struct SessionPresenter {

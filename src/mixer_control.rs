@@ -35,8 +35,10 @@ use crate::track_control::TrackControl;
 
 pub struct MixerControl {
     base: RTalkerControlBase,
-    track_controls: Vec<RTalkerControl>,
-    track_controls_b_y: f64,
+    /*
+        track_controls: Vec<RTalkerControl>,
+        track_controls_b_y: f64,
+    */
 }
 
 impl MixerControl {
@@ -47,32 +49,31 @@ impl MixerControl {
         let rtalker: RTalker = rmixer.clone();
         let base = TalkerControlBase::new_ref(&rtalker, control_supply, true, false, false, false)?;
 
-        let mut track_controls = Vec::new();
-
         let mut width = base.borrow_mut().width();
         let mut height = base.borrow_mut().height();
+        /*
+        let mut track_controls = Vec::new();
         let track_controls_b_y = height;
+                for track in rmixer.borrow().tracks() {
+                    let track_control = TrackControl::new_ref(track, control_supply)?;
 
-        for track in rmixer.borrow().tracks() {
-            let track_control = TrackControl::new_ref(track, control_supply)?;
+                    width = f64::max(width, track_control.borrow().width());
+                    height += track_control.borrow().height();
 
-            width = f64::max(width, track_control.borrow().width());
-            height += track_control.borrow().height();
-
-            track_controls.push(track_control);
-        }
-
+                    track_controls.push(track_control);
+                }
         for tc in &track_controls {
             tc.borrow_mut().set_width(width);
         }
+        */
 
         base.borrow_mut().set_width(width);
         base.borrow_mut().set_height(height);
 
         Ok(Self {
             base,
-            track_controls,
-            track_controls_b_y,
+            // track_controls,
+            // track_controls_b_y,
         })
     }
     pub fn new_ref(
@@ -85,9 +86,9 @@ impl MixerControl {
         )?)))
     }
 
-    pub fn track_controls<'a>(&'a self) -> &'a Vec<RTalkerControl> {
-        &self.track_controls
-    }
+    // pub fn track_controls<'a>(&'a self) -> &'a Vec<RTalkerControl> {
+    //     &self.track_controls
+    // }
 }
 impl TalkerControl for MixerControl {
     fn base<'a>(&'a self) -> &'a RTalkerControlBase {
@@ -106,9 +107,9 @@ impl TalkerControl for MixerControl {
     fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         self.base.borrow().draw_connections(cc, talker_controls);
 
-        for trkc in &self.track_controls {
-            trkc.borrow().draw_connections(cc, talker_controls);
-        }
+        // for trkc in &self.track_controls {
+        //     trkc.borrow().draw_connections(cc, talker_controls);
+        // }
     }
 
     fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
@@ -118,17 +119,17 @@ impl TalkerControl for MixerControl {
 
         base.draw_ears_and_voices(cc, graph_presenter);
 
-        for trkc in &self.track_controls {
-            trkc.borrow().draw(cc, graph_presenter);
-        }
+        // for trkc in &self.track_controls {
+        //     trkc.borrow().draw(cc, graph_presenter);
+        // }
     }
 
     fn move_to(&mut self, x: f64, y: f64) {
-        let mut trkc_b_y = y + self.track_controls_b_y;
-        for trkc in &self.track_controls {
-            trkc.borrow().base().borrow_mut().move_to(x, trkc_b_y);
-            trkc_b_y += trkc.borrow().height();
-        }
+        // let mut trkc_b_y = y + self.track_controls_b_y;
+        // for trkc in &self.track_controls {
+        //     trkc.borrow().base().borrow_mut().move_to(x, trkc_b_y);
+        //     trkc_b_y += trkc.borrow().height();
+        // }
 
         self.base().borrow_mut().move_to(x, y);
     }
@@ -139,12 +140,12 @@ impl TalkerControl for MixerControl {
         y: f64,
         graph_presenter: &RGraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
-        for trkc in &self.track_controls {
-            match trkc.borrow().on_button_release(x, y, graph_presenter)? {
-                None => (),
-                Some(notifications) => return Ok(Some(notifications)),
-            }
-        }
+        // for trkc in &self.track_controls {
+        //     match trkc.borrow().on_button_release(x, y, graph_presenter)? {
+        //         None => (),
+        //         Some(notifications) => return Ok(Some(notifications)),
+        //     }
+        // }
 
         self.base()
             .borrow()

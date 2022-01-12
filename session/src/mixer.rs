@@ -3,7 +3,10 @@ use std::rc::Rc;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
+use talker::ear::Ear;
 use talker::ear::Init;
+use talker::ear::Set;
+use talker::voice::PortType;
 // use talker::talker::RTalker;
 use talker::identifier::Index;
 use talker::talker::{Talker, TalkerBase};
@@ -11,7 +14,7 @@ use talker::talker::{Talker, TalkerBase};
 use crate::audio_data::Vector;
 use crate::output::ROutput;
 use crate::track::RTrack;
-// use crate::track::Track;
+use crate::track::Track;
 
 pub const KIND: &str = "mixer";
 
@@ -24,7 +27,7 @@ const TRACK_RIGHT_GAIN_HUM_INDEX: Index = 3;
 
 pub struct Mixer {
     base: TalkerBase,
-    tracks: Vec<RTrack>,
+    //    tracks: Vec<RTrack>,
     outputs: Vec<ROutput>,
     tick: i64,
     productive: bool,
@@ -34,34 +37,43 @@ pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
     pub fn new(
-        tracks: Option<Vec<RTrack>>,
-        outputs: Option<Vec<ROutput>>,
+        otracks: Option<Vec<RTrack>>,
+        ooutputs: Option<Vec<ROutput>>,
     ) -> Result<Mixer, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
 
         base.add_ear(ear::audio(Some("volume"), 0., 1., 1., &Init::DefValue)?);
-        base.add_ear(ear::set(
-            Some("Tracks"),
-            true,
-            &vec![
-                (
-                    "",
-                    PortType::Audio,
-                    AudioFormat::MIN_AUDIO,
-                    AudioFormat::MAX_AUDIO,
-                    AudioFormat::DEF_AUDIO,
-                    &Init::Empty,
-                ),
-                ("gain", PortType::Audio, 0., 1., 0.5, Init::DefValue),
-                ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
-                ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
-            ],
-        )?);
+
+        let stem_set = Set::from_attributs(&vec![
+            (
+                "",
+                PortType::Audio,
+                AudioFormat::MIN_AUDIO,
+                AudioFormat::MAX_AUDIO,
+                AudioFormat::DEF_AUDIO,
+                Init::Empty,
+            ),
+            ("gain", PortType::Audio, 0., 1., 0.5, Init::DefValue),
+            ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
+            ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
+        ])?;
+
+        let mut sets = Vec::new();
+
+        if let Some(tracks) = otracks {
+            for track in tracks {
+                sets.push(track.borrow().to_set()?);
+            }
+        } else {
+            sets.push(stem_set.reproduce());
+        }
+
+        base.add_ear(Ear::new(Some("Tracks"), true, Some(stem_set), Some(sets)));
 
         Ok(Self {
             base,
-            tracks: tracks.unwrap_or(Vec::new()),
-            outputs: outputs.unwrap_or(Vec::new()),
+            //            tracks: tracks.unwrap_or(Vec::new()),
+            outputs: ooutputs.unwrap_or(Vec::new()),
             tick: 0,
             productive: false,
         })
@@ -76,19 +88,22 @@ impl Mixer {
     pub fn kind() -> &'static str {
         KIND
     }
+    /*
+        pub fn tracks<'a>(&'a self) -> &'a Vec<RTrack> {
+            &self.tracks
+        }
 
-    pub fn tracks<'a>(&'a self) -> &'a Vec<RTrack> {
-        &self.tracks
-    }
+        pub fn add_track(&mut self, track: RTrack) {
+            let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
+            let set_idx = tracks_ear.add_set();
+    Set::new(vec![Hum::copy()]
+            if let Some(hum) = track.borrow().ears()[TRACK_INPUT_HUM_INDEX].copy_hum(0, TRACK_INPUT_HUM_INDEX){
+                tracks_ear.add_set(set);
+            }
 
-    pub fn add_track(&mut self, track: RTrack) {
-        let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
-        let set_idx = tracks_ear.add_set();
-        
-tracks_ear.
-        //        self.tracks.push(track);
-    }
-
+            //        self.tracks.push(track);
+        }
+    */
     pub fn outputs<'a>(&'a self) -> &'a Vec<ROutput> {
         &self.outputs
     }
@@ -149,22 +164,30 @@ tracks_ear.
     ) -> Result<usize, failure::Error> {
         let mut ln = self.listen_ears(tick, len);
 
-        match self.tracks.get(0) {
-            Some(track) => {
-                ln = track.borrow().set(tick, buf, ln, channels);
-            }
-            _ => (),
-        };
+        let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
 
-        for i in 1..self.tracks.len() {
-            match self.tracks.get(i) {
-                Some(track) => {
-                    ln = track.borrow().add(tick, buf, ln, channels);
-                }
-                _ => (),
-            };
+        ln = tracks_ear.visit_set(
+            0,
+            |set, ln| Ok(Track::set(set, tick, buf, ln, channels)),
+            ln,
+        )?;
+
+        for i in 1..tracks_ear.sets_len() {
+            ln = tracks_ear.visit_set(
+                i,
+                |set, ln| Ok(Track::add(set, tick, buf, ln, channels)),
+                ln,
+            )?;
         }
+        /*
+                if let Some(first_set) = tracks_ear.get_set(0) {
+                    ln = Track::set(first_set, tick, buf, ln, channels);
 
+                    for i in 1..tracks_ear.sets_len() {
+                        ln = Track::set(tracks_ear.sets()[i], tick, buf, ln, channels);
+                    }
+                }
+        */
         let master_volume_buf = self.ear_audio_buffer(0).unwrap();
 
         for cn in 0..channels.len() {

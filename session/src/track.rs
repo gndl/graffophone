@@ -4,12 +4,20 @@ use std::rc::Rc;
 use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::ear::Init;
+use talker::ear::Set;
+use talker::identifier::Index;
 use talker::talker::{Talker, TalkerBase};
 use talker::voice::PortType;
 
 use crate::audio_data::Vector;
 
 pub const KIND: &str = "track";
+
+const INPUT_INDEX: Index = 0;
+const GAIN_INDEX: Index = 1;
+const CHANNEL_GAIN_INDEX: Index = 2;
+const LEFT_GAIN_INDEX: Index = 2;
+const RIGHT_GAIN_INDEX: Index = 3;
 
 pub struct Track {
     base: TalkerBase,
@@ -51,36 +59,52 @@ impl Track {
         "Track"
     }
 
-    fn compute_input_gain(&self, tick: i64, buf: &mut Vector, len: usize) -> usize {
-        let ln = self.listen_ears(tick, len);
+    pub fn to_set(&self) -> Result<Set, failure::Error> {
+        /*
+                let mut hums
+                Ok(Set::new(vec![
+                    self.ears()[INPUT_INDEX].clone_hum(0, 0)?,
+                    self.ears()[GAIN_INDEX].clone_hum(0, 0)?,
+                    self.ears()[LEFT_GAIN_INDEX].clone_hum(0, 0)?,
+                    self.ears()[RIGHT_GAIN_INDEX].clone_hum(0, 0)?,
+                ]))
+        */
+        Ok(Set::new(
+            self.ears()
+                .iter()
+                .map(|ear| ear.clone_hum(0, 0).unwrap())
+                .collect::<Vec<_>>(),
+        ))
+    }
 
-        let in_buf = self.ear_audio_buffer(0).unwrap();
-        let gain_buf = self.ear_audio_buffer(1).unwrap();
+    fn compute_input_gain(set: &Set, _tick: i64, buf: &mut Vector, len: usize) -> usize {
+        //        let ln = self.listen_ears(tick, len);
 
-        for i in 0..ln {
+        let in_buf = set.get_hum_audio_buffer(INPUT_INDEX).unwrap();
+        let gain_buf = set.get_hum_audio_buffer(GAIN_INDEX).unwrap();
+
+        for i in 0..len {
             buf[i] = in_buf[i].get() * gain_buf[i].get();
         }
-        ln
+        len
     }
 
     pub fn set(
-        &self,
+        set: &Set,
         tick: i64,
         buf: &mut Vector,
         len: usize,
         channels: &mut Vec<Vector>,
     ) -> usize {
-        let ln = self.compute_input_gain(tick, buf, len);
-        let channels_gains_ear = &self.ears()[2];
+        let ln = Track::compute_input_gain(set, tick, buf, len);
+
         let mut min_val = f32::MAX;
         let mut max_val = f32::MIN;
 
-        let n = std::cmp::min(channels.len(), channels_gains_ear.hums_len());
-
-        for i in 0..n {
+        for i in 0..channels.len() {
             //            println!("Track::set channel {}/{}", i, n);
             let ch = &mut channels[i];
-            let cg = channels_gains_ear.get_set_hum_cv_buffer(0, i).unwrap();
+            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX).unwrap();
 
             for j in 0..ln {
                 let v = cg[j].get() * buf[j];
@@ -90,45 +114,29 @@ impl Track {
             }
         }
 
-        let amplitude = ((max_val - min_val) * 50.) as usize;
-        // println!("{}", "-".repeat(amplitude));
+        // println!("{}", "-".repeat(((max_val - min_val) * 50.) as usize));
 
-        for i in n..channels.len() {
-            let ch = &mut channels[i];
-            for j in 0..ln {
-                ch[j] = buf[j];
-            }
-        }
         ln
     }
 
     pub fn add(
-        &self,
+        set: &Set,
         tick: i64,
         buf: &mut Vector,
         len: usize,
         channels: &mut Vec<Vector>,
     ) -> usize {
-        let ln = self.compute_input_gain(tick, buf, len);
-        let channels_gains_ear = &self.ears()[2];
+        let ln = Track::compute_input_gain(set, tick, buf, len);
 
-        let n = std::cmp::min(channels.len(), channels_gains_ear.hums_len());
-
-        for i in 0..n {
+        for i in 0..channels.len() {
             let ch = &mut channels[i];
-            let cg = channels_gains_ear.get_set_hum_cv_buffer(0, i).unwrap();
+            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX).unwrap();
 
             for j in 0..ln {
                 ch[j] = ch[j] + cg[j].get() * buf[j];
             }
         }
 
-        for i in n..channels.len() {
-            let ch = &mut channels[i];
-            for j in 0..ln {
-                ch[j] = ch[j] + buf[j];
-            }
-        }
         ln
     }
 }

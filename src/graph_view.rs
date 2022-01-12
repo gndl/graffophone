@@ -355,12 +355,13 @@ impl GraphView {
                 mxrc.borrow_mut().set_column(0);
 
                 /* create GTalkers by covering talkers for each track */
-                for track in mixer.borrow().tracks() {
-                    for ear in track.borrow().ears() {
-                        ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
-                    }
-                }
-
+                /*
+                                for track in mixer.borrow().tracks() {
+                                    for ear in track.borrow().ears() {
+                                        ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
+                                    }
+                                }
+                */
                 for ear in mixer.borrow().ears() {
                     ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
                 }
