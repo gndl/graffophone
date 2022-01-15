@@ -23,7 +23,7 @@ use session::event_bus::Notification;
 pub const ADD_TAG: &str = "+";
 pub const SUP_TAG: &str = "-";
 pub const VAL_TAG: &str = "⟵";
-pub const ADD_IN_TAG: &str = "⊞";
+pub const ADD_IN_TAG: &str = "⟴";
 pub const DESTROY_TAG: &str = "✖";
 pub const MAXIMIZE_TAG: &str = "▮";
 pub const MINIMIZE_TAG: &str = "▬";
@@ -366,10 +366,10 @@ impl TalkerControlBase {
                         let tag = if let Some(h_tag) = hum_tag {
                             h_tag.to_string()
                         } else {
-                            format_tag(hum.borrow().tag())
+                            format_tag(hum.tag())
                         };
                         let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y);
-                        let (value, value_area) = if let Some(v) = hum.borrow().value() {
+                        let (value, value_area) = if let Some(v) = hum.value() {
                             let value = format_value(&v);
                             style::value(control_supply.cc);
                             let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
@@ -394,7 +394,7 @@ impl TalkerControlBase {
                             tag_area,
                             value,
                             value_area,
-                            port_type: hum.borrow().port_type(),
+                            port_type: hum.port_type(),
                         };
                         hums.push(hum_ctrl);
                     }
@@ -825,8 +825,8 @@ impl TalkerControlBase {
         for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
             for (set_idx, set) in ear.sets().borrow().iter().enumerate() {
                 for (hum_idx, hum) in set.hums().iter().enumerate() {
-                    for talk in hum.borrow().talks() {
-                        if let None = talk.borrow().value() {
+                    for talk in hum.talks() {
+                        if let None = talk.value() {
                             let mut ohum_area: Option<&Area> = None;
 
                             if self.minimized {
@@ -843,7 +843,7 @@ impl TalkerControlBase {
 
                             if let Some(hum_area) = ohum_area {
                                 if let Some(voice_rtkrc) =
-                                    &talker_controls.get(&talk.borrow().talker().borrow().id())
+                                    &talker_controls.get(&talk.talker().borrow().id())
                                 {
                                     let voice_tkrc = voice_rtkrc.borrow();
                                     let voice_tkrcb = voice_tkrc.base().borrow();
@@ -857,9 +857,7 @@ impl TalkerControlBase {
                                             &style::WHITE_COLOR,
                                         );
                                     } else {
-                                        if let Some(voice) =
-                                            voice_tkrcb.voices.get(talk.borrow().port())
-                                        {
+                                        if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
                                             self.draw_connection(
                                                 cc,
                                                 hum_area,

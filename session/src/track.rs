@@ -16,8 +16,8 @@ pub const KIND: &str = "track";
 const INPUT_INDEX: Index = 0;
 const GAIN_INDEX: Index = 1;
 const CHANNEL_GAIN_INDEX: Index = 2;
-const LEFT_GAIN_INDEX: Index = 2;
-const RIGHT_GAIN_INDEX: Index = 3;
+// const LEFT_GAIN_INDEX: Index = 2;
+// const RIGHT_GAIN_INDEX: Index = 3;
 
 pub struct Track {
     base: TalkerBase,

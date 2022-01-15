@@ -20,10 +20,6 @@ pub const KIND: &str = "mixer";
 
 const VOLUME_EAR_INDEX: Index = 0;
 const TRACKS_EAR_INDEX: Index = 1;
-const TRACK_INPUT_HUM_INDEX: Index = 0;
-const TRACK_GAIN_HUM_INDEX: Index = 1;
-const TRACK_LEFT_GAIN_HUM_INDEX: Index = 2;
-const TRACK_RIGHT_GAIN_HUM_INDEX: Index = 3;
 
 pub struct Mixer {
     base: TalkerBase,
@@ -65,7 +61,7 @@ impl Mixer {
                 sets.push(track.borrow().to_set()?);
             }
         } else {
-            sets.push(stem_set.reproduce());
+            sets.push(stem_set.clone());
         }
 
         base.add_ear(Ear::new(Some("Tracks"), true, Some(stem_set), Some(sets)));
@@ -188,7 +184,7 @@ impl Mixer {
                     }
                 }
         */
-        let master_volume_buf = self.ear_audio_buffer(0).unwrap();
+        let master_volume_buf = self.ear_audio_buffer(VOLUME_EAR_INDEX).unwrap();
 
         for cn in 0..channels.len() {
             let ch = &mut channels[cn];

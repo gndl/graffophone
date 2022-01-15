@@ -307,7 +307,7 @@ impl Band {
         let mut tracks = Vec::new();
         let mut outputs = Vec::new();
 
-        for (tag, dpn, tkn) in &module.attributs {
+        for (tag, dpn, _) in &module.attributs {
             if tag == &Track::kind() {
                 match trk_decs.get(dpn) {
                     Some(trk) => tracks.push(self.make_track(factory, &talkers, trk)?),
@@ -328,7 +328,7 @@ impl Band {
             Some(outputs),
         )?;
         {
-            let mut mixer = rmixer.borrow_mut();
+            let mixer = rmixer.borrow_mut();
 
             for (tag, dpn, tkn) in &module.attributs {
                 if tag != &Track::kind() && tag != &output::KIND {
