@@ -195,14 +195,14 @@ impl Hum {
     }
 
     pub fn talks_with(&self, talk_idx: Index, otalk: Option<Talk>) -> Vec<Talk> {
-        let mut talks: Vec<Talk> = Vec::new();
+        let mut talks: Vec<Talk> = Vec::with_capacity(self.talks.len());
 
         for i in 0..Index::min(self.talks.len(), talk_idx) {
             talks.push(self.talks[i].clone());
         }
         otalk.map(|talk| talks.push(talk));
 
-        for i in talk_idx + 1..self.talks.len() {
+        for i in (talk_idx + 1)..self.talks.len() {
             talks.push(self.talks[i].clone());
         }
 
@@ -435,7 +435,7 @@ impl Set {
     pub fn from_attributs(
         hums_attributs: &Vec<(&str, PortType, f32, f32, f32, Init)>,
     ) -> Result<Set, failure::Error> {
-        let mut hums = Vec::new();
+        let mut hums = Vec::with_capacity(hums_attributs.len());
 
         for (tag, port_type, min_value, max_value, def_value, init) in hums_attributs {
             let hum_tag = if tag.len() > 0 { tag } else { DEF_EAR_TAG };
@@ -473,20 +473,21 @@ impl Set {
     where
         F: FnMut(&Hum) -> Result<Hum, failure::Error>,
     {
-        let mut hums: Vec<Hum> = Vec::new();
+        let mut hums: Vec<Hum> = Vec::with_capacity(self.hums.len());
 
-        for i in 0..self.hums.len() {
-            if i == hum_idx {
-                hums.push(map(&self.hums[i])?);
-            } else {
-                hums.push(self.hums[i].clone());
-            }
+        for i in 0..Index::min(hum_idx, self.hums.len()) {
+            hums.push(self.hums[i].clone());
+        }
+        hums.push(map(&self.hums[hum_idx])?);
+
+        for i in (hum_idx + 1)..self.hums.len() {
+            hums.push(self.hums[i].clone());
         }
         Ok(Set { hums })
     }
 
     pub fn clone(&self) -> Set {
-        let mut hums: Vec<Hum> = Vec::new();
+        let mut hums: Vec<Hum> = Vec::with_capacity(self.hums.len());
 
         for hum in &self.hums {
             hums.push(hum.clone());
