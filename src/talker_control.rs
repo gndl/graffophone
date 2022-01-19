@@ -30,7 +30,7 @@ pub const MINIMIZE_TAG: &str = "▬";
 
 const SPACE: f64 = 4.;
 
-const H_PADDING: f64 = 4.;
+const H_PADDING: f64 = 3.;
 const V_PADDING: f64 = 3.;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -63,18 +63,7 @@ impl Area {
             content_e_y: b_y + V_PADDING + h,
         }
     }
-    /*
-        pub fn copy(&self) -> Area {
-            Self {
-                b_x: self.b_x,
-                e_x: self.e_x,
-                b_y: self.b_y,
-                e_y: self.e_y,
-                content_b_x: self.content_b_x,
-                content_e_y: self.content_e_y,
-            }
-        }
-    */
+
     pub fn right_align(&mut self, e_x: f64) {
         let dx = e_x - self.e_x;
 
@@ -100,23 +89,7 @@ impl Area {
         x >= self.b_x && x < self.e_x && y >= self.b_y && y < self.e_y
     }
 }
-/*
-pub enum InputType {
-    Value,
-    Talk,
-    Add,
-}
 
-struct TalkControl {
-    area: Area,
-    tag: String,
-    tag_area: Area,
-    value: Option<String>,
-    value_area: Area,
-    sup_area: Option<Area>,
-    input_type: InputType,
-}
-*/
 struct HumControl {
     area: Area,
     add_in_area: Area,
@@ -125,7 +98,6 @@ struct HumControl {
     value: Option<String>,
     value_area: Area,
     port_type: PortType,
-    // talks: Vec<TalkControl>,
 }
 
 struct SetControl {
@@ -135,7 +107,6 @@ struct SetControl {
 
 struct EarControl {
     area: Area,
-    // tag: Option<String>,
     tag_area: Option<(String, Area)>,
     sets: Vec<SetControl>,
     add_set_area: Option<Area>,
@@ -331,16 +302,16 @@ impl TalkerControlBase {
         box_e_x = destroy_area.e_x;
 
         let mut ears_e_y = header_e_y;
-        let mut ears = Vec::new();
+        let mut ears = Vec::with_capacity(tkr.ears().len());
         let mut voices_e_y = header_e_y;
-        let mut voices = Vec::new();
+        let mut voices = Vec::with_capacity(tkr.voices().len());
 
         if !minimized {
             let b_x = 0.;
             let mut ears_e_x = 0.;
 
             for ear in tkr.ears() {
-                let mut sets = Vec::new();
+                let mut sets = Vec::with_capacity(ear.sets_len());
                 let ear_is_multi_set = ear.is_multi_set();
                 let sup_set = ear.sets().borrow().len() > 1;
                 let ear_tag = format_tag(ear.tag());
@@ -358,17 +329,20 @@ impl TalkerControlBase {
                 let mut set_b_y = b_y;
 
                 for set in ear.sets().borrow().iter() {
-                    let mut hums = Vec::new();
+                    let mut hums = Vec::with_capacity(set.hums().len());
                     let mut hums_e_x = 0.;
 
                     for hum in set.hums() {
                         let add_in_area = dim_to_area(b_x, b_y, &control_supply.add_in_dim);
+
                         let tag = if let Some(h_tag) = hum_tag {
                             h_tag.to_string()
                         } else {
                             format_tag(hum.tag())
                         };
+
                         let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y);
+
                         let (value, value_area) = if let Some(v) = hum.value() {
                             let value = format_value(&v);
                             style::value(control_supply.cc);
@@ -401,10 +375,10 @@ impl TalkerControlBase {
 
                     let sup_area = if sup_set {
                         let sup_a = dim_to_area(hums_e_x, set_b_y, &control_supply.sup_dim);
-                        ear_e_x = sup_a.e_x;
+                        ear_e_x = f64::max(ear_e_x, sup_a.e_x);
                         Some(sup_a)
                     } else {
-                        ear_e_x = hums_e_x;
+                        ear_e_x = f64::max(ear_e_x, hums_e_x);
                         None
                     };
 
@@ -430,81 +404,6 @@ impl TalkerControlBase {
                 ears.push(ear_ctrl);
                 ears_e_y = ear_e_y;
                 ears_e_x = f64::max(ears_e_x, ear_e_x);
-                /*
-                                let (b_x, e_y, ear_e_x) = ear.fold_talks(
-                                    |ear_tag, set_idx, hum_tag, talk, (b_x, b_y, ear_e_x)| {
-                                        style::io(control_supply.cc);
-                                        let e_tag = format_tag(ear_tag);
-                                        let ear_tag_area = control_supply.area_of(&e_tag, b_x, b_y);
-
-                                        let (input_type, value, value_area) = match talk.value() {
-                                            Some(v) => {
-                                                let value = format_value(&v);
-                                                style::value(control_supply.cc);
-                                                let value_area =
-                                                    control_supply.area_of(&value, ear_tag_area.e_x, b_y);
-
-                                                (InputType::Value, Some(value), value_area)
-                                            }
-                                            None => (
-                                                InputType::Talk,
-                                                None,
-                                                dim_to_area(ear_tag_area.e_x, b_y, &control_supply.val_dim),
-                                            ),
-                                        };
-
-                                        let mut e_x = value_area.e_x;
-                                        let e_y = ear_tag_area.e_y;
-
-                                        let sup_area = if ear_is_multi_set {
-                                            let sup_a = dim_to_area(value_area.e_x, b_y, &control_supply.sup_dim);
-                                            e_x = sup_a.e_x;
-                                            Some(sup_a)
-                                        } else {
-                                            None
-                                        };
-
-                                        let talk_ctrl = TalkControl {
-                                            area: Area::new(b_x, e_x, b_y, e_y),
-                                            tag,
-                                            tag_area,
-                                            value,
-                                            value_area,
-                                            sup_area,
-                                            input_type,
-                                            port_type: talk.port_type(),
-                                        };
-                                        talks.push(talk_ctrl);
-                                        Ok((b_x, e_y, f64::max(ear_e_x, e_x)))
-                                    },
-                                    (0., ears_e_y, 0.),
-                                )?;
-                                let mut ear_e_y = e_y;
-
-                                if ear_is_multi_set {
-                                    let add_area = dim_to_area(b_x, e_y, &control_supply.add_dim);
-                                    ear_e_y = add_area.e_y;
-
-                                    let add_ctrl = TalkControl {
-                                        area: add_area,
-                                        tag: ADD_TAG.to_string(),
-                                        tag_area: add_area.copy(),
-                                        value: None,
-                                        value_area: Area::new(0., -1., 0., -1.),
-                                        sup_area: None,
-                                        input_type: InputType::Add,
-                                        port_type: PortType::Control,
-                                    };
-                                    talks.push(add_ctrl);
-                                }
-                                let ear_ctrl = EarControl {
-                                    area: Area::new(b_x, ear_e_x, ears_e_y, ear_e_y),
-                                    talks,
-                                };
-                                ears.push(ear_ctrl);
-                                ears_e_y = ear_e_y;
-                                ears_e_x = f64::max(ears_e_x, ear_e_x);
-                */
             }
             let voices_b_x = ears_e_x;
             let mut voices_e_x = f64::max(voices_b_x, box_e_x);
@@ -597,18 +496,9 @@ impl TalkerControlBase {
     pub fn width(&self) -> f64 {
         self.width
     }
-    pub fn set_width(&mut self, width: f64) {
-        self.box_area.e_x = width;
-        self.width = width;
-    }
     pub fn height(&self) -> f64 {
         self.height
     }
-    pub fn set_height(&mut self, height: f64) {
-        self.box_area.e_y = height;
-        self.height = height;
-    }
-
     pub fn move_to(&mut self, x: f64, y: f64) {
         self.x = x;
         self.y = y;
@@ -876,7 +766,7 @@ impl TalkerControlBase {
         }
     }
 
-    pub fn on_hum_clicked(
+    fn on_hum_clicked(
         &self,
         rx: f64,
         ry: f64,
@@ -1051,16 +941,9 @@ pub trait TalkerControl {
     fn width(&self) -> f64 {
         self.base().borrow().width()
     }
-    fn set_width(&mut self, width: f64) {
-        self.base().borrow_mut().set_width(width);
-    }
     fn height(&self) -> f64 {
         self.base().borrow().height()
     }
-    fn set_height(&mut self, height: f64) {
-        self.base().borrow_mut().set_height(height);
-    }
-
     fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         self.base().borrow().draw_connections(cc, talker_controls);
     }
