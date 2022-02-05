@@ -65,7 +65,7 @@ pub fn run<Fcv: Fn(f64, bool) + 'static>(
         gtk::ResponseType::Other(0) => {
             res = def;
         }
-        _ => (),
+        _ => println!("bounded_float_entry::run SUCK!"),
     }
     unsafe {
         dialog.destroy();

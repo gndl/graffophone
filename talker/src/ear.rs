@@ -327,6 +327,7 @@ impl Hum {
         self.add_talk(Talk::new(talker, port))
     }
     pub fn set_value(&self, value: f32) -> Result<Hum, failure::Error> {
+        println!("Hum::set_value : {}", value);
         Ok(self.with_talks(vec![def_talk(self.port_type, value)]))
     }
     pub fn set_voice(&self, talker: &RTalker, port: Index) -> Result<Hum, failure::Error> {
@@ -338,6 +339,7 @@ impl Hum {
     }
 
     pub fn set_talk_value(&self, talk_idx: Index, value: f32) -> Result<Hum, failure::Error> {
+        println!("Hum::set_talk_value {} value {}", talk_idx, value);
         Ok(self.with_talks(self.talks_with(
             talk_idx,
             Some(Talk::new(&def_talker(self.port_type, value), 0)),
@@ -563,7 +565,7 @@ impl Ear {
         return 0;
     }
 
-    pub fn hum_range(&self, hum_idx: usize) -> (f32, f32, f32) {
+    pub fn hum_range(&self, hum_idx: Index) -> (f32, f32, f32) {
         if let Some(stem_set) = &self.stem_set {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].range();
@@ -574,7 +576,7 @@ impl Ear {
         return (0., 0., 0.);
     }
 
-    pub fn talk_def_value(&self, hum_idx: usize) -> f32 {
+    pub fn talk_def_value(&self, hum_idx: Index) -> f32 {
         if let Some(stem_set) = &self.stem_set {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].def_value();
@@ -585,7 +587,7 @@ impl Ear {
         return 0.;
     }
 
-    pub fn talk_value_or_default(&self, set_idx: usize, hum_idx: usize) -> f32 {
+    pub fn talk_value_or_default(&self, set_idx: Index, hum_idx: Index) -> f32 {
         if let Some(stem_set) = &self.stem_set {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].value_or_default();

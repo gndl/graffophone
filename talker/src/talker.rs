@@ -283,6 +283,15 @@ pub trait Talker {
         talk_idx: Index,
         value: f32,
     ) -> Result<(), failure::Error> {
+        println!(
+            "Talker {} set ear {} set {} hum {} talk {} value {}",
+            self.name(),
+            ear_idx,
+            set_idx,
+            hum_idx,
+            talk_idx,
+            value
+        );
         self.ears()[ear_idx].set_talk_value(set_idx, hum_idx, talk_idx, value)
     }
 

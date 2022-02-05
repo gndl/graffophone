@@ -23,7 +23,6 @@ const TRACKS_EAR_INDEX: Index = 1;
 
 pub struct Mixer {
     base: TalkerBase,
-    //    tracks: Vec<RTrack>,
     outputs: Vec<ROutput>,
     tick: i64,
     productive: bool,
@@ -38,7 +37,7 @@ impl Mixer {
     ) -> Result<Mixer, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
 
-        base.add_ear(ear::audio(Some("volume"), 0., 1., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("volume"), 0., 1., 0.1, &Init::DefValue)?);
 
         let stem_set = Set::from_attributs(&vec![
             (
@@ -68,7 +67,6 @@ impl Mixer {
 
         Ok(Self {
             base,
-            //            tracks: tracks.unwrap_or(Vec::new()),
             outputs: ooutputs.unwrap_or(Vec::new()),
             tick: 0,
             productive: false,
@@ -84,22 +82,6 @@ impl Mixer {
     pub fn kind() -> &'static str {
         KIND
     }
-    /*
-        pub fn tracks<'a>(&'a self) -> &'a Vec<RTrack> {
-            &self.tracks
-        }
-
-        pub fn add_track(&mut self, track: RTrack) {
-            let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
-            let set_idx = tracks_ear.add_set();
-    Set::new(vec![Hum::copy()]
-            if let Some(hum) = track.borrow().ears()[TRACK_INPUT_HUM_INDEX].copy_hum(0, TRACK_INPUT_HUM_INDEX){
-                tracks_ear.add_set(set);
-            }
-
-            //        self.tracks.push(track);
-        }
-    */
     pub fn outputs<'a>(&'a self) -> &'a Vec<ROutput> {
         &self.outputs
     }
@@ -175,16 +157,9 @@ impl Mixer {
                 ln,
             )?;
         }
-        /*
-                if let Some(first_set) = tracks_ear.get_set(0) {
-                    ln = Track::set(first_set, tick, buf, ln, channels);
+        let master_volume_buf = self.ear_cv_buffer(VOLUME_EAR_INDEX).unwrap();
 
-                    for i in 1..tracks_ear.sets_len() {
-                        ln = Track::set(tracks_ear.sets()[i], tick, buf, ln, channels);
-                    }
-                }
-        */
-        let master_volume_buf = self.ear_audio_buffer(VOLUME_EAR_INDEX).unwrap();
+        println!("Volume : {}", master_volume_buf[0].get());
 
         for cn in 0..channels.len() {
             let ch = &mut channels[cn];

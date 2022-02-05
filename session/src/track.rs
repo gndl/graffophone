@@ -31,24 +31,24 @@ impl Track {
 
     pub fn new() -> Result<Track, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
-
-        base.add_ear(ear::audio(
-            None,
-            AudioFormat::MIN_AUDIO,
-            AudioFormat::MAX_AUDIO,
-            AudioFormat::DEF_AUDIO,
-            &Init::Empty,
-        )?);
-        base.add_ear(ear::audio(Some("gain"), 0., 1., 0.5, &Init::DefValue)?);
-        base.add_ear(ear::set(
-            Some("channels gains"),
-            false,
-            &vec![
-                ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
-                ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
-            ],
-        )?);
-
+        /*
+                base.add_ear(ear::audio(
+                    None,
+                    AudioFormat::MIN_AUDIO,
+                    AudioFormat::MAX_AUDIO,
+                    AudioFormat::DEF_AUDIO,
+                    &Init::Empty,
+                )?);
+                base.add_ear(ear::audio(Some("gain"), 0., 1., 0.5, &Init::DefValue)?);
+                base.add_ear(ear::set(
+                    Some("channels gains"),
+                    false,
+                    &vec![
+                        ("left", PortType::Cv, 0., 1., 1., Init::DefValue),
+                        ("right", PortType::Cv, 0., 1., 1., Init::DefValue),
+                    ],
+                )?);
+        */
         Ok(Self { base })
     }
     pub fn new_ref() -> Result<RTrack, failure::Error> {
@@ -98,8 +98,8 @@ impl Track {
     ) -> usize {
         let ln = Track::compute_input_gain(set, tick, buf, len);
 
-        let mut min_val = f32::MAX;
-        let mut max_val = f32::MIN;
+        // let mut min_val = f32::MAX;
+        // let mut max_val = f32::MIN;
 
         for i in 0..channels.len() {
             //            println!("Track::set channel {}/{}", i, n);
@@ -108,8 +108,8 @@ impl Track {
 
             for j in 0..ln {
                 let v = cg[j].get() * buf[j];
-                min_val = f32::min(min_val, v);
-                max_val = f32::max(max_val, v);
+                // min_val = f32::min(min_val, v);
+                // max_val = f32::max(max_val, v);
                 ch[j] = v;
             }
         }
