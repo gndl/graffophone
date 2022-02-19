@@ -9,7 +9,9 @@ use gtk::{DrawingArea, WidgetExt};
 use cairo::Context;
 
 use talker::identifier::Id;
-use talker::talker::{RTalker, Talker};
+use talker::identifier::Identifiable;
+use talker::talker::RTalker;
+use talker::talker::Talker;
 
 use session::event_bus::{Notification, REventBus};
 use session::track::Track;
@@ -87,7 +89,7 @@ impl<'c> Collector<'c> {
     }
 
     pub fn add_if_new(&mut self, talker: &RTalker) -> Result<bool, failure::Error> {
-        let id = talker.borrow().id();
+        let id = talker.id();
 
         if self.talker_controls.contains_key(&id) {
             Ok(false)
@@ -282,14 +284,14 @@ impl GraphView {
         collector: &mut Collector,
     ) -> Result<(), failure::Error> {
         // create GTalkers and define there row and column
-        if !talker.borrow().is_hidden() {
+        if !talker.is_hidden() {
             let is_new_talker_control = collector.add_if_new(talker)?;
-            let id = talker.borrow().id();
+            let id = talker.id();
 
             if let Some(rtkrc) = &collector.talker_controls.get_mut(&id) {
                 let mut talks_count = 0;
 
-                for ear in talker.borrow().ears() {
+                for ear in talker.ears() {
                     talks_count = ear.fold_talks(|_, _, _, _, tc| Ok(tc + 1), talks_count)?;
                 }
 
@@ -320,7 +322,7 @@ impl GraphView {
                         collector.row = i32::max(0, tkrc_row - talks_count / 2);
                         collector.column = collector.column + 1;
                     }
-                    for ear in talker.borrow().ears() {
+                    for ear in talker.ears() {
                         ear.iter_talkers(GraphView::make_talker_controls, collector)?;
                     }
                     collector.row = row;
@@ -362,7 +364,7 @@ impl GraphView {
                                     }
                                 }
                 */
-                for ear in mixer.borrow().ears() {
+                for ear in mixer.borrow().talker().ears() {
                     ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
                 }
                 collector.talker_controls.insert(*mxr_id, mxrc);
@@ -382,8 +384,8 @@ impl GraphView {
             let mut unused_talkers = Vec::new();
 
             for (id, tkr) in session.talkers() {
-                if !tkr.borrow().is_hidden()
-                    && tkr.borrow().model() != Track::kind()
+                if !tkr.is_hidden()
+                    && tkr.model() != Track::kind()
                     && !collector.talker_controls.contains_key(id)
                 {
                     unused_talkers.push(tkr);
@@ -394,14 +396,14 @@ impl GraphView {
             let mut root_unused_talkers: BTreeMap<Id, &RTalker> = BTreeMap::new();
 
             for tkr in &unused_talkers {
-                root_unused_talkers.insert(tkr.borrow().id(), tkr);
+                root_unused_talkers.insert(tkr.id(), tkr);
             }
 
             for tkr in &unused_talkers {
-                for ear in tkr.borrow().ears() {
+                for ear in tkr.ears() {
                     ear.iter_talkers(
                         |dep_tkr, _| {
-                            let _ = root_unused_talkers.remove(&dep_tkr.borrow().id());
+                            let _ = root_unused_talkers.remove(&dep_tkr.id());
                             Ok(())
                         },
                         &mut (),

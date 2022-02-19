@@ -2,14 +2,12 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-// use talker::identifier::Identifiable;
+use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
-// use talker::talker::Talker;
 
 use session::band::Operation;
 use session::event_bus::Notification;
-// use session::event_bus::REventBus;
 
 use crate::session_presenter::RSessionPresenter;
 
@@ -140,9 +138,9 @@ impl GraphPresenter {
         talker: &RTalker,
         v: &str,
     ) -> Result<Vec<Notification>, failure::Error> {
-        talker.borrow_mut().set_name(v);
+        talker.set_name(v);
         Ok(vec![
-            Notification::TalkerRenamed(talker.borrow().id()),
+            Notification::TalkerRenamed(talker.id()),
             Notification::TalkerChanged,
         ])
     }
@@ -436,7 +434,7 @@ impl GraphPresenter {
         voice_port: Index,
     ) -> Result<Vec<Notification>, failure::Error> {
         Ok(vec![
-            Notification::TalkSelected(talker.borrow().id(), voice_port),
+            Notification::TalkSelected(talker.id(), voice_port),
             Notification::SelectionChanged,
         ])
     }
@@ -558,7 +556,7 @@ impl GraphPresenter {
             }
         }
 
-        self.new_talker = Some(talker.borrow().id());
+        self.new_talker = Some(talker.id());
         notifications.push(Notification::TalkerChanged);
         Ok(notifications)
     }

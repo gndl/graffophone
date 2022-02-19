@@ -1,44 +1,27 @@
 use crate::data::Data;
-use crate::talker::{Talker, TalkerBase};
+use crate::talker::{CTalker, Talker, TalkerBase};
 use crate::voice;
+use ctalker;
 
 pub const MODEL: &str = "ControlTalker";
 
-pub struct ControlTalker {
-    base: TalkerBase,
-}
+pub struct ControlTalker {}
 
 impl ControlTalker {
-    pub fn new(def_value: f32, hidden: Option<bool>) -> ControlTalker {
+    pub fn new(def_value: f32, hidden: Option<bool>) -> CTalker {
         let value = if def_value.is_nan() { 1. } else { def_value };
         let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
-        let voice = voice::control(None, value, None);
+        let voice = voice::control(None, value);
         base.add_voice(voice);
         base.set_hidden(hidden.unwrap_or(false));
 
-        Self { base }
+        ctalker!(base, Self {})
     }
 }
 
 impl Talker for ControlTalker {
-    fn base<'a>(&'a self) -> &'a TalkerBase {
-        &self.base
-    }
-    fn model(&self) -> &str {
-        MODEL
-    }
-
-    fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        self.voices()[0].borrow_mut().set_tick(tick);
+    fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
+        base.voice(0).set_tick(tick);
         len
-    }
-
-    fn voice_value(&self, port: usize) -> Option<f32> {
-        if self.is_hidden() {
-            if let Some(voice) = self.voices().get(port) {
-                return voice.borrow().control_value(0);
-            }
-        }
-        None
     }
 }

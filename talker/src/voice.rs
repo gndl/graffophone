@@ -1,127 +1,83 @@
 use crate::audio_format::AudioFormat;
-use crate::horn;
-use crate::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
-use std::cell::RefCell;
+use crate::horn::{AudioVal, ControlVal, CvVal, Horn, MAudioBuf, MControlBuf, MCvBuf, PortType};
+use std::cell::Cell;
 
 pub const DEF_OUTPUT_TAG: &'static str = "Out";
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone)]
-pub enum PortType {
-    Audio,
-    Control,
-    Cv,
-}
-impl PortType {
-    pub fn can_hear(&self, port_type: PortType) -> bool {
-        match (port_type, self) {
-            (PortType::Audio, PortType::Audio) => true,
-            (_, PortType::Cv) => true,
-            (_, PortType::Control) => true,
-            _ => false,
-        }
-    }
-    pub fn to_horn(&self) -> Horn {
-        match self {
-            PortType::Audio => horn::audio(0., None),
-            PortType::Control => horn::control(0.),
-            PortType::Cv => horn::cv(0., None),
-        }
-    }
-    pub fn to_string(&self) -> &str {
-        match self {
-            PortType::Audio => "Audio",
-            PortType::Control => "Control",
-            PortType::Cv => "Cv",
-        }
-    }
-}
-
 pub struct Voice {
-    port_type: PortType,
     tag: String,
-    tick: i64,
-    len: usize,
+    tick: Cell<i64>,
+    len: Cell<usize>,
     horn: Horn,
 }
 
 impl Voice {
-    pub fn new(port_type: PortType, tag: Option<&str>, len: usize, horn: Horn) -> Self {
+    pub fn new(tag: Option<&str>, len: usize, horn: Horn) -> Self {
         Self {
-            port_type,
             tag: tag.unwrap_or(DEF_OUTPUT_TAG).to_string(),
-            tick: -1,
-            len,
+            tick: Cell::new(-1),
+            len: Cell::new(len),
             horn,
         }
     }
     pub fn port_type(&self) -> PortType {
-        self.port_type
+        self.horn.port_type()
     }
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
     pub fn tick(&self) -> i64 {
-        self.tick
+        self.tick.get()
     }
-    pub fn set_tick(&mut self, tick: i64) {
-        self.tick = tick;
+    pub fn set_tick(&self, tick: i64) {
+        self.tick.set(tick);
     }
     pub fn len(&self) -> usize {
-        self.len
+        self.len.get()
     }
-    pub fn set_len(&mut self, len: usize) {
-        self.len = len;
+    pub fn set_len(&self, len: usize) {
+        self.len.set(len);
     }
     pub fn horn<'a>(&'a self) -> &'a Horn {
         &self.horn
     }
-    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+
+    pub fn audio_buffer(&self) -> MAudioBuf {
         self.horn.audio_buffer()
     }
-    pub fn control_buffer(&self) -> Option<ControlBuf> {
+    pub fn control_buffer(&self) -> MControlBuf {
         self.horn.control_buffer()
     }
-    pub fn cv_buffer(&self) -> Option<CvBuf> {
+    pub fn cv_buffer(&self) -> MCvBuf {
         self.horn.cv_buffer()
     }
-    pub fn audio_value(&self, index: usize) -> Option<f32> {
+    pub fn audio_value(&self, index: usize) -> AudioVal {
         self.horn.audio_value(index)
     }
-    pub fn control_value(&self, index: usize) -> Option<f32> {
-        self.horn.control_value(index)
+    pub fn control_value(&self) -> ControlVal {
+        self.horn.control_value()
     }
-    pub fn cv_value(&self, index: usize) -> Option<f32> {
+    pub fn set_control_value(&self, value: ControlVal) {
+        self.horn.set_control_value(value)
+    }
+    pub fn cv_value(&self, index: usize) -> CvVal {
         self.horn.cv_value(index)
     }
+    pub fn value(&self, index: usize) -> f32 {
+        self.horn.value(index)
+    }
 }
 
-pub type MVoice = RefCell<Voice>;
-
-pub fn audio(tag: Option<&str>, value: f32, buf: Option<AudioBuf>) -> MVoice {
+pub fn audio(tag: Option<&str>, value: f32) -> Voice {
     let len = AudioFormat::chunk_size();
-    RefCell::new(Voice::new(
-        PortType::Audio,
-        tag,
-        len,
-        Horn::Audio(buf.unwrap_or(horn::audio_buf(value, Some(len)))),
-    ))
+    Voice::new(tag, len, Horn::audio(value, None))
 }
 
-pub fn control(tag: Option<&str>, value: f32, buf: Option<ControlBuf>) -> MVoice {
-    RefCell::new(Voice::new(
-        PortType::Control,
-        tag,
-        1,
-        Horn::Control(buf.unwrap_or(horn::control_buf(value))),
-    ))
+pub fn control(tag: Option<&str>, value: f32) -> Voice {
+    Voice::new(tag, 1, Horn::control(value))
 }
 
-pub fn cv(tag: Option<&str>, value: f32, buf: Option<CvBuf>) -> MVoice {
+pub fn cv(tag: Option<&str>, value: f32) -> Voice {
     let len = AudioFormat::chunk_size();
-    RefCell::new(Voice::new(
-        PortType::Cv,
-        tag,
-        len,
-        Horn::Cv(buf.unwrap_or(horn::cv_buf(value, Some(len)))),
-    ))
+    Voice::new(tag, len, Horn::cv(value, None))
 }

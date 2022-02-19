@@ -1,55 +1,29 @@
-use std::cell::RefCell;
+//use std::cell::RefCell;
 use std::collections::HashMap;
 use std::iter::Extend;
-use std::rc::Rc;
+//use std::rc::Rc;
 
-use lv2::core::{FeatureBuffer, SharedFeatureBuffer};
-// use lv2::urid::features::{URIDMap, URIDUnmap};
+use livi;
+//use livi::Plugin;
+use livi::World;
 
-use lilv::world::World;
-
+use talker::audio_format;
+use talker::identifier::Identifiable;
+use talker::rtalker;
 use talker::talker::RTalker;
+use talker::talker::TalkerCab;
 use talker::talker_handler::TalkerHandlerBase;
+use talkers::abs_sine;
+use talkers::abs_sine::AbsSine;
+use talkers::lv2::Lv2;
+use talkers::second_degree_frequency_progression;
+use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
+use talkers::sinusoidal;
+use talkers::sinusoidal::Sinusoidal;
 
-use crate::talkers::abs_sine;
-use crate::talkers::abs_sine::AbsSine;
-use crate::talkers::lv2::Lv2;
-use crate::talkers::second_degree_frequency_progression;
-use crate::talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
-use crate::talkers::sinusoidal;
-use crate::talkers::sinusoidal::Sinusoidal;
+const MIN_BLOCK_SIZE: usize = 1;
+const MAX_BLOCK_SIZE: usize = audio_format::DEFAULT_CHUNK_SIZE;
 
-struct GpFeatureSet {
-    // hard_rt_capable: ::lv2::core::features::HardRTCapable,
-    // urid_map: ::lv2::urid::features::URIDMap,
-    // urid_unmap: ::lv2::urid::features::URIDUnmap,
-    buffer: SharedFeatureBuffer,
-}
-
-impl GpFeatureSet {
-    pub fn new() -> Self {
-        GpFeatureSet::init(Self {
-            // hard_rt_capable: ::lv2::core::features::HardRTCapable,
-            // urid_map: URIDMap::new(),
-            // urid_unmap: URIDUnmap::new(),
-            buffer: Rc::new(FeatureBuffer::new()),
-        })
-    }
-    fn init(mut self) -> Self {
-        self.buffer = Rc::new(FeatureBuffer::from_vec(vec![
-            /*
-            Feature::descriptor(&self.hard_rt_capable),
-            Feature::descriptor(&self.urid_unmap),
-            Feature::descriptor(&self.urid_map),
-                            */
-        ]));
-
-        self
-    }
-    pub fn buffer(&self) -> SharedFeatureBuffer {
-        Rc::clone(&self.buffer)
-    }
-}
 enum PluginType {
     Internal,
     Lv2,
@@ -62,7 +36,6 @@ pub struct PluginHandler {
 
 pub struct PluginsManager {
     world: World,
-    features: GpFeatureSet,
     handlers: HashMap<String, PluginHandler>,
 }
 
@@ -81,14 +54,14 @@ impl PluginsManager {
         println!("make_plugins_handlers start");
         let mut handlers = HashMap::new();
 
-        for plugin in world.plugins() {
+        for plugin in world.iter_plugins() {
             handlers.insert(
-                plugin.uri().to_string(),
+                plugin.uri(), /*.to_string()*/
                 PluginHandler {
                     base: TalkerHandlerBase::new(
-                        plugin.class().label().to_str(),
-                        plugin.uri().to_string().as_str(),
-                        plugin.name().to_str(),
+                        "lv2",          //plugin.class().label().to_str(),
+                        &plugin.uri(),  //.to_string().as_str(),
+                        &plugin.name(), //.to_str(),
                     ),
                     plugin_type: PluginType::Lv2,
                 },
@@ -106,19 +79,16 @@ impl PluginsManager {
     }
 
     pub fn new() -> Self {
-        let world = World::new().unwrap();
+        let mut world = livi::World::new();
+        world
+            .initialize_block_length(MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)
+            .unwrap();
+
         let handlers = PluginsManager::make_plugins_handlers(&world);
 
-        Self {
-            world,
-            features: GpFeatureSet::new(),
-            handlers,
-        }
+        Self { world, handlers }
     }
 
-    pub fn features_buffer(&self) -> SharedFeatureBuffer {
-        self.features.buffer()
-    }
     /*
     fn add_handler(&mut self, base: TalkerHandlerBase) {
         self.handlers.insert(
@@ -155,13 +125,13 @@ impl PluginsManager {
     */
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == sinusoidal::MODEL {
-            Ok(Rc::new(RefCell::new(Sinusoidal::new()?)))
+            Ok(rtalker!(Sinusoidal::new()?))
         } else if model == abs_sine::MODEL {
-            Ok(Rc::new(RefCell::new(AbsSine::new()?)))
+            Ok(rtalker!(AbsSine::new()?))
         } else if model == second_degree_frequency_progression::MODEL {
-            Ok(Rc::new(RefCell::new(
-                SecondDegreeFrequencyProgression::new(110., 0., 1., 1.)?,
-            )))
+            Ok(rtalker!(SecondDegreeFrequencyProgression::new(
+                110., 0., 1., 1.
+            )?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }
@@ -169,7 +139,7 @@ impl PluginsManager {
 
     pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
         match &ph.plugin_type {
-            PluginType::Lv2 => Lv2::new(&self.world, self.features.buffer(), ph.base.model()),
+            PluginType::Lv2 => Ok(rtalker!(Lv2::new(&self.world, ph.base.model())?)),
             PluginType::Internal => self.make_internal_talker(ph.base.model()),
         }
     }
@@ -228,7 +198,7 @@ impl PluginsManager {
         }
 
         for tkr in &talkers {
-            println!("Plugin {} {}", tkr.borrow().model(), tkr.borrow().name());
+            println!("Plugin {} {}", tkr.model(), tkr.name());
         }
     }
 }

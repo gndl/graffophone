@@ -175,7 +175,7 @@ fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
         .voice(0)
         .borrow()
         .audio_buffer()
-        .unwrap();
+        .borrow();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
     let nb_iter = 2000;
@@ -192,7 +192,7 @@ fn play_fuzz(band: &RBand) -> Result<(), failure::Error> {
 
         for n_chan in 0..feedback.nb_channels() {
             for i in 0..ln {
-                channels[n_chan][i] = audio_buf.get()[i].get();
+                channels[n_chan][i] = audio_buf[i];
             }
         }
         feedback.write(&channels, ln)?;
@@ -215,7 +215,7 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
 
     let mut feedback = Feedback::new(SAMPLES)?;
     feedback.open()?;
-    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
+    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().borrow();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
     let nb_iter = 10;
@@ -232,7 +232,7 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
 
         for n_chan in 0..feedback.nb_channels() {
             for i in 0..ln {
-                channels[n_chan][i] = audio_buf.get()[i].get();
+                channels[n_chan][i] = audio_buf[i];
             }
         }
         feedback.write(&channels, ln)?;
@@ -269,7 +269,7 @@ fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
 
     let mut feedback = Feedback::new(SAMPLES)?;
     feedback.open()?;
-    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().unwrap();
+    let audio_buf = tkr.borrow_mut().voice(0).borrow().audio_buffer().borrow();
     let mut tick: i64 = 0;
     let len = AudioFormat::chunk_size();
     let nb_iter = 2000;
@@ -286,7 +286,7 @@ fn play_progressive_sinusoidale(band: &RBand) -> Result<(), failure::Error> {
 
         for n_chan in 0..feedback.nb_channels() {
             for i in 0..ln {
-                channels[n_chan][i] = audio_buf.get()[i].get();
+                channels[n_chan][i] = audio_buf[i];
             }
         }
         feedback.write(&channels, ln)?;
@@ -363,14 +363,14 @@ fn run(world: &World, features: SharedFeatureBuffer) -> Result<(), failure::Erro
         for _ in 0..FRAMES_PER_SECOND {
             for i in 0..SAMPLES {
                 let sample = ((i as f64 * PI * 2.0 * f) / SAMPLE_RATE as f64).sin() as f32;
-                in_audio_buf.get()[i].set(sample);
+                in_audio_buf[i] = sample;
             }
 
             fuzzface_inst.run(SAMPLES as u32);
 
             for n_chan in 0..feedback.nb_channels() {
                 for i in 0..SAMPLES {
-                    channels[n_chan][i] = out_audio_buf.get()[i].get();
+                    channels[n_chan][i] = out_audio_buf[i];
                 }
             }
             feedback.write(&channels, SAMPLES)?;

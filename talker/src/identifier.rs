@@ -14,6 +14,7 @@ pub fn get_next_id() -> Id {
 pub struct Identifier {
     id: Id,
     name: String,
+    model: String,
 }
 
 impl Identifier {
@@ -47,7 +48,11 @@ impl Identifier {
             }
         };
 
-        Self { id, name }
+        Self {
+            id,
+            name,
+            model: model.to_string(),
+        }
     }
 
     pub fn id(&self) -> Id {
@@ -64,6 +69,13 @@ impl Identifier {
     }
     pub fn set_name(&mut self, name: &str) {
         self.name = name.to_string();
+    }
+
+    pub fn model<'a>(&'a self) -> &'a str {
+        &self.model
+    }
+    pub fn set_model(&mut self, model: &str) {
+        self.model = model.to_string();
     }
 
     pub fn depends_of(&self, id: Id) -> bool {

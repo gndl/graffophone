@@ -1,23 +1,16 @@
-use lilv::instance::PluginInstance;
-// use lilv::plugin::Plugin;
-use lilv::port::Port;
-use lilv::port::TypedPort;
-use lilv::port::{UnknownInputPort, UnknownOutputPort};
-use lilv::world::World;
-use lv2::core::ports::{Audio, Control, CV};
 use std::cell::RefCell;
-use std::rc::Rc;
 
+use livi;
+use livi::World;
+
+use talker::audio_format;
 use talker::audio_format::AudioFormat;
+use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
-use talker::horn;
-use talker::horn::{AudioBuf, ControlBuf, CvBuf, Horn};
-use talker::talker;
-use talker::talker::{RTalker, Talker, TalkerBase};
+use talker::horn::{AudioBuf, CvBuf, MAudioBuf, MCvBuf};
+use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::voice;
-
-use lv2::core::SharedFeatureBuffer;
 
 fn an_or(v: f32, def: f32) -> f32 {
     if v.is_nan() {
@@ -28,185 +21,194 @@ fn an_or(v: f32, def: f32) -> f32 {
 }
 
 pub struct Lv2 {
-    base: talker::TalkerBase,
-    model: String,
-    instance: PluginInstance,
-    input_port_handlers: Vec<u32>,
-    // output_port_handlers: Vec<u32>,
+    control_inputs_indexes: Vec<usize>,
+    control_outputs_indexes: Vec<usize>,
+    audio_inputs_indexes: Vec<usize>,
+    audio_outputs_indexes: Vec<usize>,
+    atom_sequence_inputs_indexes: Vec<usize>,
+    atom_sequence_outputs_indexes: Vec<usize>,
+    cv_inputs_indexes: Vec<usize>,
+    cv_outputs_indexes: Vec<usize>,
+    instance: RefCell<livi::Instance>,
 }
 
 impl Lv2 {
-    pub fn new(
-        world: &World,
-        features: SharedFeatureBuffer,
-        uri: &str,
-    ) -> Result<RTalker, failure::Error> {
-        let plugin = world.get_plugin_by_uri(uri).unwrap();
-        //        show_plugin(&plugin);
-        match PluginInstance::new(&plugin, AudioFormat::sample_rate() as f64, features) {
-            Ok(mut instance) => {
-                let mut base = TalkerBase::new(plugin.name().to_str(), uri);
-                let mut input_port_handlers = Vec::new();
-                let mut output_port_handlers = Vec::new();
+    pub fn new(world: &World, uri: &str) -> Result<CTalker, failure::Error> {
+        match world.plugin_by_uri(uri) {
+            Some(plugin) => {
+                match unsafe { plugin.instantiate(AudioFormat::sample_rate() as f64) } {
+                    Ok(instance) => {
+                        let mut base = TalkerBase::new(&plugin.name(), uri);
+                        let mut inputs_count = 0;
+                        let mut outputs_count = 0;
+                        let mut control_inputs_indexes = Vec::new();
+                        let mut control_outputs_indexes = Vec::new();
+                        let mut audio_inputs_indexes = Vec::new();
+                        let mut audio_outputs_indexes = Vec::new();
+                        let mut atom_sequence_inputs_indexes = Vec::new();
+                        let mut atom_sequence_outputs_indexes = Vec::new();
+                        let mut cv_inputs_indexes = Vec::new();
+                        let mut cv_outputs_indexes = Vec::new();
 
-                let (min_values, max_values, def_values) = plugin.all_port_ranges_float();
-
-                for port in plugin.inputs() {
-                    let port_index = port.index() as usize;
-                    let min_val = min_values[port_index];
-                    let max_val = max_values[port_index];
-                    let def_val = def_values[port_index];
-
-                    match UnknownInputPort::as_typed::<Control>(&port) {
-                        Some(p) => {
-                            let ear = ear::cv(
-                                Some(&p.name().to_string()),
-                                min_val,
-                                max_val,
-                                def_val,
-                                &Init::DefValue,
-                            )?;
-                            /*                            let ear = ear::control(
-                                                          Some(&p.name().to_string()),
-                                                          min_val,
-                                                          max_val,
-                                                          def_val,
-                                                      );
-                            */
-                            base.add_ear(ear);
-                            input_port_handlers.push(p.handle().index());
-                        }
-                        None => match UnknownInputPort::as_typed::<Audio>(&port) {
-                            Some(p) => {
-                                let ear = ear::audio(
-                                    Some(&p.name().to_string()),
-                                    an_or(min_val, -1.),
-                                    an_or(max_val, 1.),
-                                    an_or(def_val, 0.),
-                                    &Init::DefValue,
-                                )?;
-                                base.add_ear(ear);
-                                input_port_handlers.push(p.handle().index());
-                            }
-                            None => match UnknownInputPort::as_typed::<CV>(&port) {
-                                Some(p) => {
-                                    let ear = ear::cv(
-                                        Some(&p.name().to_string()),
-                                        min_val,
-                                        max_val,
-                                        def_val,
+                        for port in plugin.ports() {
+                            match port.port_type {
+                                livi::PortType::ControlInput => {
+                                    let ear = ear::control(
+                                        Some(&port.name),
+                                        audio_format::MIN_CONTROL,
+                                        audio_format::MAX_CONTROL,
+                                        an_or(port.default_value, audio_format::DEF_CONTROL),
+                                    )?;
+                                    base.add_ear(ear);
+                                    control_inputs_indexes.push(inputs_count);
+                                    inputs_count = inputs_count + 1;
+                                }
+                                livi::PortType::ControlOutput => {
+                                    let vc = voice::control(
+                                        Some(&port.name),
+                                        an_or(port.default_value, audio_format::DEF_CONTROL),
+                                    );
+                                    base.add_voice(vc);
+                                    control_outputs_indexes.push(outputs_count);
+                                    outputs_count = outputs_count + 1;
+                                }
+                                livi::PortType::AudioInput => {
+                                    let ear = ear::audio(
+                                        Some(&port.name),
+                                        audio_format::MIN_AUDIO,
+                                        audio_format::MAX_AUDIO,
+                                        audio_format::DEF_AUDIO,
                                         &Init::DefValue,
                                     )?;
                                     base.add_ear(ear);
-                                    input_port_handlers.push(p.handle().index());
+                                    audio_inputs_indexes.push(inputs_count);
+                                    inputs_count = inputs_count + 1;
                                 }
-                                None => {
-                                    eprintln!("Unmanaged input port type");
-                                }
-                            },
-                        },
-                    }
-                }
-
-                for port in plugin.outputs() {
-                    match UnknownOutputPort::as_typed::<Audio>(&port) {
-                        Some(p) => {
-                            let buf = horn::audio_buf(0., None);
-                            instance.connect_port(p.handle().clone(), buf.clone());
-                            let vc = voice::audio(Some(&p.name().to_string()), 0., Some(buf));
-                            base.add_voice(vc);
-                            output_port_handlers.push(p.handle().index());
-                        }
-                        None => match UnknownOutputPort::as_typed::<Control>(&port) {
-                            Some(p) => {
-                                let buf = horn::control_buf(0.);
-                                instance.connect_port(p.handle().clone(), buf.clone());
-                                let vc = voice::control(Some(&p.name().to_string()), 0., Some(buf));
-                                base.add_voice(vc);
-                                output_port_handlers.push(p.handle().index());
-                            }
-                            None => match UnknownOutputPort::as_typed::<CV>(&port) {
-                                Some(p) => {
-                                    let buf = horn::cv_buf(0., None);
-                                    instance.connect_port(p.handle().clone(), buf.clone());
-                                    let vc = voice::cv(Some(&p.name().to_string()), 0., Some(buf));
+                                livi::PortType::AudioOutput => {
+                                    let vc = voice::audio(Some(&port.name), 0.);
                                     base.add_voice(vc);
-                                    output_port_handlers.push(p.handle().index());
+                                    audio_outputs_indexes.push(outputs_count);
+                                    outputs_count = outputs_count + 1;
                                 }
-                                None => {
-                                    eprintln!("Unmanaged output port type");
+                                /*
+                                                                livi::PortType::AtomSequenceInput => {
+                                                                    base.add_ear(ear);
+                                                                    atom_sequence_inputs_indexes.push(inputs_count);
+                                                                    inputs_count = inputs_count + 1;
+                                                                }
+                                                                livi::PortType::AtomSequenceOutput => {
+                                                                    atom_sequence_outputs_indexes.push(outputs_count);
+                                                                    outputs_count = outputs_count + 1;
+                                                                }
+                                */
+                                livi::PortType::CVInput => {
+                                    let ear = ear::cv(
+                                        Some(&port.name),
+                                        audio_format::MIN_CV,
+                                        audio_format::MAX_CV,
+                                        audio_format::DEF_CV,
+                                        &Init::DefValue,
+                                    )?;
+                                    base.add_ear(ear);
+                                    cv_inputs_indexes.push(inputs_count);
+                                    inputs_count = inputs_count + 1;
                                 }
-                            },
-                        },
+                                livi::PortType::CVOutput => {
+                                    let vc = voice::cv(Some(&port.name), 0.);
+                                    base.add_voice(vc);
+                                    cv_outputs_indexes.push(outputs_count);
+                                    outputs_count = outputs_count + 1;
+                                }
+                                _ => {}
+                            }
+                        }
+                        Ok(ctalker!(
+                            base,
+                            Self {
+                                control_inputs_indexes,
+                                control_outputs_indexes,
+                                audio_inputs_indexes,
+                                audio_outputs_indexes,
+                                atom_sequence_inputs_indexes,
+                                atom_sequence_outputs_indexes,
+                                cv_inputs_indexes,
+                                cv_outputs_indexes,
+                                instance: RefCell::new(instance),
+                            }
+                        ))
                     }
+                    _ => Err(failure::err_msg("PluginInstantiationError")),
                 }
-                Ok(Rc::new(RefCell::new(Self {
-                    base,
-                    model: uri.to_string(), //plugin.name().to_str().to_string(),
-                    instance,
-                    input_port_handlers,
-                    // output_port_handlers,
-                })))
             }
-            _ => Err(failure::err_msg("PluginInstantiationError")),
+            None => Err(failure::err_msg(format!("LV2 plugin {} not found.", uri))),
         }
     }
 }
 
 impl Talker for Lv2 {
-    fn base<'b>(&'b self) -> &'b TalkerBase {
-        &self.base
-    }
-    fn model(&self) -> &str {
-        self.model.as_str()
-    }
-    fn activate(&mut self) {
-        let mut audio_buffers: Vec<(&u32, AudioBuf)> = Vec::new();
-        let mut control_buffers: Vec<(&u32, ControlBuf)> = Vec::new();
-        let mut cv_buffers: Vec<(&u32, CvBuf)> = Vec::new();
+    fn activate(&mut self) {}
+    fn deactivate(&mut self) {}
 
-        for (i, ear) in self.ears().iter().enumerate() {
-            if let Some(port_index) = self.input_port_handlers.get(i) {
-                ear.visit_horn(|horn| match horn {
-                    Horn::Audio(buf) => {
-                        audio_buffers.push((port_index, buf.clone()));
-                    }
-                    Horn::Control(buf) => {
-                        control_buffers.push((port_index, buf.clone()));
-                    }
-                    Horn::Cv(buf) => {
-                        cv_buffers.push((port_index, buf.clone()));
-                    }
-                });
-            }
-        }
-        for (port_index, buf) in audio_buffers {
-            self.instance
-                .connect_port_index::<Audio, AudioBuf>(*port_index, buf.clone());
-        }
-        for (port_index, buf) in control_buffers {
-            self.instance
-                .connect_port_index::<Control, ControlBuf>(*port_index, buf.clone());
-        }
-        for (port_index, buf) in cv_buffers {
-            self.instance
-                .connect_port_index::<CV, CvBuf>(*port_index, buf.clone());
-        }
-        self.instance.activate()
-    }
-    fn deactivate(&mut self) {
-        self.instance.deactivate()
-    }
+    fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
+        let ln = base.listen(tick, len);
 
-    fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        let mut ln = len;
+        let control_inputs: Vec<f32> = self
+            .control_inputs_indexes
+            .iter()
+            .map(|i| base.ear(*i).get_control_value())
+            .collect();
+        let mut control_outputs: Vec<f32> = self
+            .control_outputs_indexes
+            .iter()
+            .map(|i| base.voice(*i).control_buffer()[0])
+            .collect();
+        let audio_inputs: Vec<AudioBuf> = self
+            .audio_inputs_indexes
+            .iter()
+            .map(|i| base.ear(*i).get_audio_buffer())
+            .collect();
+        let audio_outputs: Vec<MAudioBuf> = self
+            .audio_outputs_indexes
+            .iter()
+            .map(|i| base.voice(*i).audio_buffer())
+            .collect();
+        /*
+                let mut atom_sequence_inputs = self
+                    .atom_sequence_inputs_indexes
+                    .iter()
+                    .map(|i| base.ear(*i).get_atom_sequence_buffer());
+                let mut atom_sequence_outputs = self
+                    .atom_sequence_outputs_indexes
+                    .iter()
+                    .map(|i| base.voice(*i).atom_sequence_buffer());
+        */
+        let cv_inputs: Vec<CvBuf> = self
+            .cv_inputs_indexes
+            .iter()
+            .map(|i| base.ear(*i).get_cv_buffer())
+            .collect();
+        let cv_outputs: Vec<MCvBuf> = self
+            .cv_outputs_indexes
+            .iter()
+            .map(|i| base.voice(*i).cv_buffer())
+            .collect();
 
-        for ear in self.ears() {
-            ln = ear.listen(tick, ln);
+        let ports = livi::EmptyPortConnections::new(ln)
+            .with_control_inputs(control_inputs.iter())
+            .with_control_outputs(control_outputs.iter_mut())
+            .with_audio_inputs(audio_inputs.into_iter())
+            .with_audio_outputs(audio_outputs.into_iter())
+            // .with_atom_sequence_inputs(atom_sequence_inputs.iter())
+            // .with_atom_sequence_outputs(atom_sequence_outputs.iter())
+            .with_cv_inputs(cv_inputs.into_iter())
+            .with_cv_outputs(cv_outputs.into_iter());
+
+        unsafe { self.instance.borrow_mut().run(ports).unwrap() };
+
+        for (i, port_idx) in self.control_outputs_indexes.iter().enumerate() {
+            base.voice(*port_idx).set_control_value(control_outputs[i]);
         }
-        self.activate();
-        self.instance.run(ln as u32);
-        self.deactivate();
+
         ln
     }
 }

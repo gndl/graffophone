@@ -6,10 +6,10 @@ use talker::ear;
 use talker::ear::Ear;
 use talker::ear::Init;
 use talker::ear::Set;
-use talker::voice::PortType;
+use talker::horn::PortType;
 // use talker::talker::RTalker;
-use talker::identifier::Index;
-use talker::talker::{Talker, TalkerBase};
+use talker::identifier::{Id, Identifiable, Index, RIdentifier};
+use talker::talker::{MuteTalker, RTalker, TalkerBase};
 
 use crate::audio_data::Vector;
 use crate::output::ROutput;
@@ -22,7 +22,7 @@ const VOLUME_EAR_INDEX: Index = 0;
 const TRACKS_EAR_INDEX: Index = 1;
 
 pub struct Mixer {
-    base: TalkerBase,
+    talker: RTalker,
     outputs: Vec<ROutput>,
     tick: i64,
     productive: bool,
@@ -66,7 +66,7 @@ impl Mixer {
         base.add_ear(Ear::new(Some("Tracks"), true, Some(stem_set), Some(sets)));
 
         Ok(Self {
-            base,
+            talker: MuteTalker::new(base),
             outputs: ooutputs.unwrap_or(Vec::new()),
             tick: 0,
             productive: false,
@@ -81,6 +81,12 @@ impl Mixer {
 
     pub fn kind() -> &'static str {
         KIND
+    }
+    pub fn identifier(&self) -> &RIdentifier {
+        self.talker.identifier()
+    }
+    pub fn talker(&self) -> &RTalker {
+        &self.talker
     }
     pub fn outputs<'a>(&'a self) -> &'a Vec<ROutput> {
         &self.outputs
@@ -140,9 +146,9 @@ impl Mixer {
         len: usize,
         extra_outputs: &Vec<ROutput>,
     ) -> Result<usize, failure::Error> {
-        let mut ln = self.listen_ears(tick, len);
+        let mut ln = self.talker.listen(tick, len);
 
-        let tracks_ear = &self.ears()[TRACKS_EAR_INDEX];
+        let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
 
         ln = tracks_ear.visit_set(
             0,
@@ -157,15 +163,13 @@ impl Mixer {
                 ln,
             )?;
         }
-        let master_volume_buf = self.ear_cv_buffer(VOLUME_EAR_INDEX).unwrap();
-
-        println!("Volume : {}", master_volume_buf[0].get());
+        let master_volume_buf = self.talker.ear_cv_buffer(VOLUME_EAR_INDEX);
 
         for cn in 0..channels.len() {
             let ch = &mut channels[cn];
 
             for i in 0..ln {
-                let mut sample = ch[i] * master_volume_buf[i].get();
+                let mut sample = ch[i] * master_volume_buf[i];
 
                 if sample < AudioFormat::MIN_AUDIO {
                     sample = AudioFormat::MIN_AUDIO;
@@ -186,13 +190,17 @@ impl Mixer {
         Ok(ln)
     }
 }
-
-impl Talker for Mixer {
-    fn base<'a>(&'a self) -> &'a TalkerBase {
-        &self.base
+impl Identifiable for Mixer {
+    fn id(&self) -> Id {
+        self.talker.id()
     }
-
-    fn model(&self) -> &str {
-        Mixer::kind()
+    fn set_id(&self, id: Id) {
+        self.talker.set_id(id);
+    }
+    fn name(&self) -> String {
+        self.talker.name()
+    }
+    fn set_name(&self, name: &str) {
+        self.talker.set_name(name);
     }
 }

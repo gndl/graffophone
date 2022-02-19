@@ -2,23 +2,23 @@ use std::f32;
 use std::f64::consts::PI;
 
 use talker::audio_format::AudioFormat;
+use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
-use talker::talker::{Talker, TalkerBase};
+use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
 pub const MODEL: &str = "Sinusoidal";
 
 pub struct Sinusoidal {
-    base: TalkerBase,
     last_tick: i64,
     last_freq: f64,
     last_angle: f64,
 }
 
 impl Sinusoidal {
-    pub fn new() -> Result<Sinusoidal, failure::Error> {
+    pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
         base.add_ear(ear::cv(
@@ -30,14 +30,16 @@ impl Sinusoidal {
         )?);
         base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
 
-        base.add_voice(voice::audio(None, 0., None));
+        base.add_voice(voice::audio(None, 0.));
 
-        Ok(Self {
+        Ok(ctalker!(
             base,
-            last_tick: 0,
-            last_freq: 0.,
-            last_angle: 0.,
-        })
+            Self {
+                last_tick: 0,
+                last_freq: 0.,
+                last_angle: 0.,
+            }
+        ))
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
@@ -46,15 +48,8 @@ impl Sinusoidal {
 }
 
 impl Talker for Sinusoidal {
-    fn base<'a>(&'a self) -> &'a TalkerBase {
-        &self.base
-    }
-    fn model(&self) -> &str {
-        MODEL
-    }
-
-    fn talk(&mut self, _port: usize, tick: i64, len: usize) -> usize {
-        let mut ln = len;
+    fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
+        let ln = base.listen(tick, len);
         let c = AudioFormat::frequence_coef();
         let mut last_freq = 0.;
         let mut last_angle = 0.;
@@ -64,27 +59,22 @@ impl Talker for Sinusoidal {
             last_angle = self.last_angle;
         }
 
-        for ear in self.ears() {
-            ln = ear.listen(tick, ln);
-        }
-        for voice in self.voices() {
-            let freq_buf = self.ear_cv_buffer(0).unwrap();
-            let phase_buf = self.ear_audio_buffer(1).unwrap();
-
-            let mut vc = voice.borrow_mut();
-            let voice_buf = vc.audio_buffer().unwrap();
+        for voice in base.voices() {
+            let freq_buf = base.ear_cv_buffer(0);
+            let phase_buf = base.ear_audio_buffer(1);
+            let voice_buf = voice.audio_buffer();
 
             for i in 0..ln {
-                let p = phase_buf[i].get() as f64 * PI;
+                let p = phase_buf[i] as f64 * PI;
                 let a = last_angle + last_freq * c;
 
                 let sample = (a + p).sin() as f32;
-                voice_buf.get()[i].set(sample);
-                last_freq = freq_buf[i].get() as f64;
+                voice_buf[i] = sample;
+                last_freq = freq_buf[i] as f64;
                 last_angle = a;
             }
-            vc.set_len(ln);
-            vc.set_tick(tick);
+            voice.set_len(ln);
+            voice.set_tick(tick);
         }
         self.last_freq = last_freq;
         self.last_angle = last_angle;

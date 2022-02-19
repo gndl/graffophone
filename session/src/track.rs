@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use talker::audio_format::AudioFormat;
-use talker::ear;
-use talker::ear::Init;
+//use talker::audio_format::AudioFormat;
+//use talker::ear;
+//use talker::ear::Init;
 use talker::ear::Set;
+//use talker::horn::PortType;
 use talker::identifier::Index;
-use talker::talker::{Talker, TalkerBase};
-use talker::voice::PortType;
-
+use talker::talker::TalkerBase;
+//use talker::talker::Talker,
 use crate::audio_data::Vector;
 
 pub const KIND: &str = "track";
@@ -30,7 +30,7 @@ impl Track {
     }
 
     pub fn new() -> Result<Track, failure::Error> {
-        let mut base = TalkerBase::new("", KIND);
+        let base = TalkerBase::new("", KIND);
         /*
                 base.add_ear(ear::audio(
                     None,
@@ -59,6 +59,10 @@ impl Track {
         "Track"
     }
 
+    pub fn base(&self) -> &TalkerBase {
+        &self.base
+    }
+
     pub fn to_set(&self) -> Result<Set, failure::Error> {
         /*
                 let mut hums
@@ -70,7 +74,8 @@ impl Track {
                 ]))
         */
         Ok(Set::new(
-            self.ears()
+            self.base
+                .ears()
                 .iter()
                 .map(|ear| ear.clone_hum(0, 0).unwrap())
                 .collect::<Vec<_>>(),
@@ -80,11 +85,11 @@ impl Track {
     fn compute_input_gain(set: &Set, _tick: i64, buf: &mut Vector, len: usize) -> usize {
         //        let ln = self.listen_ears(tick, len);
 
-        let in_buf = set.get_hum_audio_buffer(INPUT_INDEX).unwrap();
-        let gain_buf = set.get_hum_audio_buffer(GAIN_INDEX).unwrap();
+        let in_buf = set.get_hum_audio_buffer(INPUT_INDEX);
+        let gain_buf = set.get_hum_audio_buffer(GAIN_INDEX);
 
         for i in 0..len {
-            buf[i] = in_buf[i].get() * gain_buf[i].get();
+            buf[i] = in_buf[i] * gain_buf[i];
         }
         len
     }
@@ -104,10 +109,10 @@ impl Track {
         for i in 0..channels.len() {
             //            println!("Track::set channel {}/{}", i, n);
             let ch = &mut channels[i];
-            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX).unwrap();
+            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX);
 
             for j in 0..ln {
-                let v = cg[j].get() * buf[j];
+                let v = cg[j] * buf[j];
                 // min_val = f32::min(min_val, v);
                 // max_val = f32::max(max_val, v);
                 ch[j] = v;
@@ -130,23 +135,13 @@ impl Track {
 
         for i in 0..channels.len() {
             let ch = &mut channels[i];
-            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX).unwrap();
+            let cg = set.get_hum_cv_buffer(i + CHANNEL_GAIN_INDEX);
 
             for j in 0..ln {
-                ch[j] = ch[j] + cg[j].get() * buf[j];
+                ch[j] = ch[j] + cg[j] * buf[j];
             }
         }
 
         ln
-    }
-}
-
-impl Talker for Track {
-    fn base<'a>(&'a self) -> &'a TalkerBase {
-        &self.base
-    }
-
-    fn model(&self) -> &str {
-        Track::kind()
     }
 }

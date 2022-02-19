@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
-// use talker::talker::Talker;
 
 use session::band::Operation;
 use session::event_bus::{EventBus, Notification, REventBus};

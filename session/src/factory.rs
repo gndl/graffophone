@@ -1,11 +1,9 @@
-// use std::rc::Rc;
 use std::sync::Once;
 use std::sync::{Arc, Mutex};
 
 use talker::audio_format::AudioFormat;
 use talker::identifier::RIdentifier;
 use talker::talker::RTalker;
-use talker::talker::Talker;
 
 use crate::feedback;
 use crate::feedback::Feedback;
@@ -59,17 +57,21 @@ impl Factory {
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
         let tkr = self.plugins_manager.make_talker(model)?;
-        Factory::set_identity(tkr.borrow().identifier(), oid, oname);
+        Factory::set_identity(
+            tkr /*.borrow()*/
+                .identifier(),
+            oid,
+            oname,
+        );
         Ok(tkr)
     }
 
     pub fn make_track(
         &self,
-        oid: Option<u32>,
-        oname: Option<&str>,
+        _oid: Option<u32>,
+        _oname: Option<&str>,
     ) -> Result<RTrack, failure::Error> {
         let rtrk = Track::new_ref()?;
-        Factory::set_identity(rtrk.borrow().identifier(), oid, oname);
         Ok(rtrk)
     }
 

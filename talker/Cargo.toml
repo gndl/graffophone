@@ -5,4 +5,4 @@ authors = ["gndl"]
 
 [dependencies]
 failure = "0.1.5"
-lilv = { path = "../lilv" }
+

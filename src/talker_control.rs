@@ -2,20 +2,15 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-// use gtk::DrawingArea;
-
 use cairo::Context;
 
+use talker::horn::PortType;
 use talker::identifier::Id;
-// use talker::identifier::Identifiable;
-// use talker::identifier::Index;
+use talker::identifier::Identifiable;
 use talker::talker::RTalker;
-// use talker::talker::{Talker};
-use talker::voice::PortType;
 
 use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
-// use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::style::Color;
 use session::event_bus::Notification;
@@ -254,7 +249,7 @@ impl TalkerControlBase {
         draw_data: bool,
         minimized: bool,
     ) -> Result<TalkerControlBase, failure::Error> {
-        let tkr = talker.borrow();
+        let tkr = talker;
 
         let mut box_e_x = 0.;
         let mut box_b_y = 0.;
@@ -263,7 +258,7 @@ impl TalkerControlBase {
 
         let model_area = if draw_model && !minimized {
             style::model(control_supply.cc);
-            let m_a = control_supply.area_of(tkr.model(), 0., 0.);
+            let m_a = control_supply.area_of(&tkr.model(), 0., 0.);
             box_b_y = m_a.e_y;
             header_e_y += box_b_y;
             Some(m_a)
@@ -313,7 +308,7 @@ impl TalkerControlBase {
             for ear in tkr.ears() {
                 let mut sets = Vec::with_capacity(ear.sets_len());
                 let ear_is_multi_set = ear.is_multi_set();
-                let sup_set = ear.sets().borrow().len() > 1;
+                let sup_set = ear.sets().len() > 1;
                 let ear_tag = format_tag(ear.tag());
                 let mut ear_e_x = 0.;
                 let mut b_y = ears_e_y;
@@ -328,7 +323,7 @@ impl TalkerControlBase {
                 };
                 let mut set_b_y = b_y;
 
-                for set in ear.sets().borrow().iter() {
+                for set in ear.sets() {
                     let mut hums = Vec::with_capacity(set.hums().len());
                     let mut hums_e_x = 0.;
 
@@ -413,7 +408,7 @@ impl TalkerControlBase {
             style::io(control_supply.cc);
 
             for (port, voice) in tkr.voices().iter().enumerate() {
-                let tag = format_tag(voice.borrow().tag());
+                let tag = format_tag(voice.tag());
                 let area = control_supply.area_of(&tag, voices_b_x, voices_e_y);
 
                 voices_e_x = f64::max(voices_e_x, area.e_x);
@@ -421,7 +416,7 @@ impl TalkerControlBase {
                 let vc = VoiceControl {
                     tag,
                     area,
-                    port_type: voice.borrow().port_type(),
+                    port_type: voice.port_type(),
                     color: style::make_color(tkr_id as u64, port as u64),
                 };
                 voices.push(vc);
@@ -546,7 +541,7 @@ impl TalkerControlBase {
                 self.x + model_area.content_b_x,
                 self.y + model_area.content_e_y,
             );
-            cc.show_text(self.talker.borrow().model());
+            cc.show_text(&self.talker.model());
         }
         if let Some(name_area) = &self.name_area {
             style::name(cc);
@@ -554,7 +549,7 @@ impl TalkerControlBase {
                 self.x + name_area.content_b_x,
                 self.y + name_area.content_e_y,
             );
-            cc.show_text(&format_name(&self.talker.borrow().name()));
+            cc.show_text(&format_name(&self.talker.name()));
         }
         if let Some(data_area) = &self.data_area {
             style::data(cc);
@@ -562,7 +557,7 @@ impl TalkerControlBase {
                 self.x + data_area.content_b_x,
                 self.y + data_area.content_e_y,
             );
-            cc.show_text(&format_data(&self.talker.borrow().data_string()));
+            cc.show_text(&format_data(&self.talker.data_string()));
         }
     }
 
@@ -712,8 +707,8 @@ impl TalkerControlBase {
     }
 
     pub fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
-        for (ear_idx, ear) in self.talker.borrow().ears().iter().enumerate() {
-            for (set_idx, set) in ear.sets().borrow().iter().enumerate() {
+        for (ear_idx, ear) in self.talker.ears().iter().enumerate() {
+            for (set_idx, set) in ear.sets().iter().enumerate() {
                 for (hum_idx, hum) in set.hums().iter().enumerate() {
                     for talk in hum.talks() {
                         if let None = talk.value() {
@@ -732,8 +727,7 @@ impl TalkerControlBase {
                             }
 
                             if let Some(hum_area) = ohum_area {
-                                if let Some(voice_rtkrc) =
-                                    &talker_controls.get(&talk.talker().borrow().id())
+                                if let Some(voice_rtkrc) = &talker_controls.get(&talk.talker().id())
                                 {
                                     let voice_tkrc = voice_rtkrc.borrow();
                                     let voice_tkrcb = voice_tkrc.base().borrow();
@@ -794,8 +788,11 @@ impl TalkerControlBase {
             let ear_setter = graph_presenter.clone();
             let notifier = graph_presenter.clone();
             let talker_id = self.id;
-            let (min, max, def) = self.talker.borrow().ears()[ear_idx].hum_range(hum_idx);
-            let cur = self.talker.borrow().ears()[ear_idx].talk_value_or_default(set_idx, hum_idx);
+            let (min, max, def) = self.talker.ear(ear_idx).hum_range(hum_idx);
+            let cur = self
+                .talker
+                .ear(ear_idx)
+                .talk_value_or_default(set_idx, hum_idx);
             println!(
                 "hum_range : min {}, max {}, def {}, cur {}",
                 min, max, def, cur
@@ -806,11 +803,10 @@ impl TalkerControlBase {
                 max.into(),
                 def.into(),
                 cur.into(),
-                move |v, fly| { /*
-                         let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
-                             talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
-                         );
-                     */
+                move |v, fly| {
+                    let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
+                        talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
+                    );
                 },
             );
             println!(

@@ -39,8 +39,9 @@ impl MixerControl {
         rmixer: &RMixer,
         control_supply: &ControlSupply,
     ) -> Result<MixerControl, failure::Error> {
-        let rtalker: RTalker = rmixer.clone();
-        let base = TalkerControlBase::new_ref(&rtalker, control_supply, true, false, false, false)?;
+        let mixer = rmixer.borrow();
+        let base =
+            TalkerControlBase::new_ref(mixer.talker(), control_supply, true, false, false, false)?;
 
         Ok(Self { base })
     }

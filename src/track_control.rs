@@ -14,20 +14,15 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 use std::cell::RefCell;
-// use std::collections::HashMap;
 use std::rc::Rc;
 
 use cairo::Context;
 
-// use talker::identifier::Id;
 use talker::talker::RTalker;
-// use talker::talker::Talker;
 
 use session::track::RTrack;
-// use session::track::Track;
 
 use crate::graph_presenter::GraphPresenter;
-// use crate::graph_presenter::RGraphPresenter;
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
@@ -35,7 +30,6 @@ use crate::talker_control::{
 pub struct TrackControl {
     base: RTalkerControlBase,
 }
-// pub type RTrackControl = Rc<RefCell<TrackControl>>;
 
 impl TrackControl {
     pub fn new(

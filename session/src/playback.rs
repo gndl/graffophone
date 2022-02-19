@@ -131,7 +131,7 @@ impl Playback {
     }
 
     pub fn write_mono(&mut self, audio_buf: &AudioBuf, len: usize) -> Result<(), failure::Error> {
-        let audio_buffer_slice = audio_buf.get();
+        let audio_buffer_slice = audio_buf.borrow();
 
         let mut channels = Vec::with_capacity(self.nb_channels);
 
@@ -140,7 +140,7 @@ impl Playback {
         }
 
         for i in 0..len {
-            let sample = audio_buffer_slice[i].get();
+            let sample = audio_buffer_slice[i];
             for c in 0..self.nb_channels {
                 channels[c][i] = sample;
             }

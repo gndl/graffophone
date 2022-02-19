@@ -1,27 +1,28 @@
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::f32;
-use std::rc::Rc;
 
 use audio_talker::AudioTalker;
 use control_talker::ControlTalker;
 use cv_talker::CvTalker;
-use horn::{AudioBuf, ControlBuf, CvBuf, Horn};
+use horn::{AudioBuf, ControlBuf, ControlVal, CvBuf, Horn, PortType};
+use identifier::Identifiable;
 use identifier::Index;
-use talker::RTalker;
-use voice::PortType;
+use rtalker;
+use talker::{RTalker, TalkerCab};
 
 const DEF_EAR_TAG: &'static str = "In";
 const DEF_HUM_TAG: &'static str = "";
 
 pub fn def_audio_talker(value: f32) -> RTalker {
-    Rc::new(RefCell::new(AudioTalker::new(value, Some(true))))
+    rtalker!(AudioTalker::new(value, Some(true)))
 }
 pub fn def_control_talker(value: f32) -> RTalker {
-    Rc::new(RefCell::new(ControlTalker::new(value, Some(true))))
+    rtalker!(ControlTalker::new(value, Some(true)))
 }
 pub fn def_cv_talker(value: f32) -> RTalker {
-    Rc::new(RefCell::new(CvTalker::new(value, Some(true))))
+    rtalker!(CvTalker::new(value, Some(true)))
 }
+
 pub fn def_talker(port_type: PortType, value: f32) -> RTalker {
     match port_type {
         PortType::Audio => def_audio_talker(value),
@@ -57,61 +58,43 @@ impl Talk {
         self.port
     }
     pub fn value(&self) -> Option<f32> {
-        self.tkr.borrow().voice_value(self.port)
+        self.tkr.voice_value(self.port)
     }
     pub fn visit_horn<F>(&self, mut f: F)
     where
         F: FnMut(&Horn),
     {
-        let tkr = self.tkr.borrow();
         {
-            match tkr.voices().get(self.port) {
-                Some(voice) => f(voice.borrow().horn()),
+            match self.tkr.voices().get(self.port) {
+                Some(voice) => f(voice.horn()),
                 None => (),
             }
         }
     }
-
-    pub fn audio_buffer(&self) -> Option<AudioBuf> {
-        let res;
-        let tkr = self.tkr.borrow();
-        {
-            let voice = tkr.voices().get(self.port)?;
-            res = voice.borrow().audio_buffer();
-        }
-        res
+    pub fn audio_buffer(&self) -> AudioBuf {
+        self.tkr.voice(self.port).audio_buffer()
     }
-    pub fn control_buffer(&self) -> Option<ControlBuf> {
-        let res;
-        let tkr = self.tkr.borrow();
-        {
-            let voice = tkr.voices().get(self.port)?;
-            res = voice.borrow().control_buffer();
-        }
-        res
+    pub fn control_buffer(&self) -> ControlBuf {
+        self.tkr.voice(self.port).control_buffer()
     }
-    pub fn cv_buffer(&self) -> Option<CvBuf> {
-        let res;
-        let tkr = self.tkr.borrow();
-        {
-            let voice = tkr.voices().get(self.port)?;
-            res = voice.borrow().cv_buffer();
-        }
-        res
+    pub fn control_value(&self) -> ControlVal {
+        self.tkr.voice(self.port).control_value()
+    }
+    pub fn cv_buffer(&self) -> CvBuf {
+        self.tkr.voice(self.port).cv_buffer()
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let port = self.port;
         {
-            let tkr = self.tkr.borrow();
-            let voice = tkr.voices().get(port).unwrap().borrow();
+            let voice = self.tkr.voice(port);
 
             if tick == voice.tick() {
                 return usize::min(len, voice.len());
             }
         }
 
-        self.tkr.borrow_mut().talk(port, tick, len)
+        self.tkr.talk(port, tick, len)
     }
 }
 
@@ -268,32 +251,25 @@ impl Hum {
     pub fn value_or_default(&self) -> f32 {
         self.value().unwrap_or(self.def_value)
     }
-    pub fn audio_buffer(&self) -> Option<AudioBuf> {
+    pub fn audio_buffer(&self) -> AudioBuf {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().audio_buffer()
-        } else if self.talks.len() == 1 {
-            self.talks[0].audio_buffer()
         } else {
-            None
+            self.talks[0].audio_buffer()
         }
     }
-    pub fn control_buffer(&self) -> Option<ControlBuf> {
+    pub fn control_buffer(&self) -> ControlBuf {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().control_buffer()
-        } else if self.talks.len() == 1 {
-            self.talks[0].control_buffer()
         } else {
-            None
+            self.talks[0].control_buffer()
         }
     }
-    pub fn cv_buffer(&self) -> Option<CvBuf> {
+    pub fn cv_buffer(&self) -> CvBuf {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().cv_buffer()
-        } else if self.talks.len() == 1 {
-            self.talks[0].cv_buffer()
         } else {
-            println!("Hum::cv_buffer nb talks = {}", self.talks.len());
-            None
+            self.talks[0].cv_buffer()
         }
     }
     pub fn talks<'a>(&'a self) -> &'a Vec<Talk> {
@@ -306,17 +282,14 @@ impl Hum {
         self.add_talk(def_talk(self.port_type, value))
     }
     pub fn check_voice(&self, talker: &RTalker, port: Index) -> Result<(), failure::Error> {
-        if self
-            .port_type()
-            .can_hear(talker.borrow().voice_port_type(port))
-        {
+        if self.port_type().can_hear(talker.voice_port_type(port)) {
             Ok(())
         } else {
             Err(failure::err_msg(format!(
                 "Talker {} voice {} type {} is not compatible with {} type {}!",
-                talker.borrow().name(),
+                talker.name(),
                 port,
-                talker.borrow().voice_port_type(port).to_string(),
+                talker.voice_port_type(port).to_string(),
                 self.tag(),
                 self.port_type.to_string()
             )))
@@ -327,7 +300,6 @@ impl Hum {
         self.add_talk(Talk::new(talker, port))
     }
     pub fn set_value(&self, value: f32) -> Result<Hum, failure::Error> {
-        println!("Hum::set_value : {}", value);
         Ok(self.with_talks(vec![def_talk(self.port_type, value)]))
     }
     pub fn set_voice(&self, talker: &RTalker, port: Index) -> Result<Hum, failure::Error> {
@@ -339,7 +311,6 @@ impl Hum {
     }
 
     pub fn set_talk_value(&self, talk_idx: Index, value: f32) -> Result<Hum, failure::Error> {
-        println!("Hum::set_talk_value {} value {}", talk_idx, value);
         Ok(self.with_talks(self.talks_with(
             talk_idx,
             Some(Talk::new(&def_talker(self.port_type, value), 0)),
@@ -364,59 +335,54 @@ impl Hum {
         }
 
         if self.talks.len() > 1 {
-            match &self.horn.as_ref().unwrap() {
-                Horn::Audio(out_buf) => {
-                    let first_buf = self.talks[0].audio_buffer().unwrap();
+            let horn = &self.horn.as_ref().unwrap();
+            match self.port_type {
+                PortType::Audio => {
+                    let out_buf = horn.audio_buffer();
+                    let first_buf = self.talks[0].audio_buffer();
 
                     for i in 0..ln {
-                        out_buf.get()[i].set(first_buf.get()[i].get());
+                        out_buf[i] = first_buf[i];
                     }
-
                     for ti in 1..self.talks.len() {
-                        let in_buf = self.talks[ti].audio_buffer().unwrap();
+                        let in_buf = self.talks[ti].audio_buffer();
 
                         for i in 0..ln {
-                            let v = out_buf.get()[i].get() + in_buf.get()[i].get();
-                            out_buf.get()[i].set(v);
+                            out_buf[i] = out_buf[i] + in_buf[i];
                         }
                     }
                     let c = 1. / (self.talks.len() as f32);
 
                     for i in 0..ln {
-                        let v = out_buf.get()[i].get() * c;
-                        out_buf.get()[i].set(v);
+                        out_buf[i] = out_buf[i] * c;
                     }
                 }
-                Horn::Control(out_buf) => {
-                    let first_buf = self.talks[0].control_buffer().unwrap();
-                    let mut v = first_buf.get();
+                PortType::Control => {
+                    let mut v = self.talks[0].control_value();
 
                     for ti in 1..self.talks.len() {
-                        let in_buf = self.talks[ti].control_buffer().unwrap();
-                        v += in_buf.get();
+                        v += self.talks[ti].control_value();
                     }
-                    out_buf.set(v / (self.talks.len() as f32));
+                    horn.set_control_value(v / (self.talks.len() as f32));
                 }
-                Horn::Cv(out_buf) => {
-                    let first_buf = self.talks[0].cv_buffer().unwrap();
+                PortType::Cv => {
+                    let out_buf = horn.cv_buffer();
+                    let first_buf = self.talks[0].cv_buffer();
 
                     for i in 0..ln {
-                        out_buf.get()[i].set(first_buf.get()[i].get());
+                        out_buf[i] = first_buf[i];
                     }
-
                     for ti in 1..self.talks.len() {
-                        let in_buf = self.talks[ti].cv_buffer().unwrap();
+                        let in_buf = self.talks[ti].cv_buffer();
 
                         for i in 0..ln {
-                            let v = out_buf.get()[i].get() + in_buf.get()[i].get();
-                            out_buf.get()[i].set(v);
+                            out_buf[i] = out_buf[i] + in_buf[i];
                         }
                     }
                     let c = 1. / (self.talks.len() as f32);
 
                     for i in 0..ln {
-                        let v = out_buf.get()[i].get() * c;
-                        out_buf.get()[i].set(v);
+                        out_buf[i] = out_buf[i] * c;
                     }
                 }
             }
@@ -475,14 +441,15 @@ impl Set {
     where
         F: FnMut(&Hum) -> Result<Hum, failure::Error>,
     {
-        let mut hums: Vec<Hum> = Vec::with_capacity(self.hums.len());
+        let hums_len = self.hums.len();
+        let mut hums: Vec<Hum> = Vec::with_capacity(hums_len);
 
-        for i in 0..Index::min(hum_idx, self.hums.len()) {
+        for i in 0..Index::min(hum_idx, hums_len) {
             hums.push(self.hums[i].clone());
         }
         hums.push(map(&self.hums[hum_idx])?);
 
-        for i in (hum_idx + 1)..self.hums.len() {
+        for i in (hum_idx + 1)..hums_len {
             hums.push(self.hums[i].clone());
         }
         Ok(Set { hums })
@@ -497,11 +464,15 @@ impl Set {
         Set { hums }
     }
 
-    pub fn get_hum_audio_buffer(&self, hum_idx: Index) -> Option<AudioBuf> {
+    pub fn get_hum_audio_buffer(&self, hum_idx: Index) -> AudioBuf {
         self.hums[hum_idx].audio_buffer()
     }
 
-    pub fn get_hum_cv_buffer(&self, hum_idx: Index) -> Option<CvBuf> {
+    pub fn get_hum_control_buffer(&self, hum_idx: Index) -> ControlBuf {
+        self.hums[hum_idx].control_buffer()
+    }
+
+    pub fn get_hum_cv_buffer(&self, hum_idx: Index) -> CvBuf {
         self.hums[hum_idx].cv_buffer()
     }
 }
@@ -510,7 +481,7 @@ pub struct Ear {
     tag: String,
     multi_hum: bool,
     stem_set: Option<Set>,
-    sets: RefCell<Vec<Set>>,
+    sets: Cell<Vec<Set>>,
 }
 
 impl Ear {
@@ -524,7 +495,7 @@ impl Ear {
             tag: tag.unwrap_or(DEF_EAR_TAG).to_string(),
             multi_hum,
             stem_set,
-            sets: RefCell::new(sets.unwrap_or(Vec::new())),
+            sets: Cell::new(sets.unwrap_or(Vec::new())),
         }
     }
     pub fn new_mono_hum(tag: Option<&str>, multi_set: bool, hum: Hum) -> Ear {
@@ -538,14 +509,14 @@ impl Ear {
             tag: tag.unwrap_or(DEF_EAR_TAG).to_string(),
             multi_hum: false,
             stem_set,
-            sets: RefCell::new(vec![Set::new(vec![hum])]),
+            sets: Cell::new(vec![Set::new(vec![hum])]),
         }
     }
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
-    pub fn sets<'a>(&'a self) -> &'a RefCell<Vec<Set>> {
-        &self.sets
+    pub fn sets<'a>(&'a self) -> &'a Vec<Set> {
+        unsafe { self.sets.as_ptr().as_mut().unwrap() }
     }
     pub fn is_multi_set(&self) -> bool {
         self.stem_set.is_some()
@@ -554,13 +525,13 @@ impl Ear {
         self.multi_hum
     }
     pub fn sets_len(&self) -> usize {
-        self.sets.borrow().len()
+        self.sets().len()
     }
     pub fn hums_len(&self) -> usize {
         if let Some(stem_set) = &self.stem_set {
             return stem_set.hums.len();
-        } else if self.sets.borrow().len() > 0 {
-            return self.sets.borrow()[0].hums.len();
+        } else if self.sets().len() > 0 {
+            return self.sets()[0].hums.len();
         }
         return 0;
     }
@@ -570,8 +541,8 @@ impl Ear {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].range();
             }
-        } else if self.sets.borrow().len() > 0 && self.sets.borrow()[0].hums.len() > hum_idx {
-            return self.sets.borrow()[0].hums[hum_idx].range();
+        } else if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
+            return self.sets()[0].hums[hum_idx].range();
         }
         return (0., 0., 0.);
     }
@@ -581,8 +552,8 @@ impl Ear {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].def_value();
             }
-        } else if self.sets.borrow().len() > 0 && self.sets.borrow()[0].hums.len() > hum_idx {
-            return self.sets.borrow()[0].hums[hum_idx].def_value();
+        } else if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
+            return self.sets()[0].hums[hum_idx].def_value();
         }
         return 0.;
     }
@@ -592,36 +563,49 @@ impl Ear {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].value_or_default();
             }
-        } else if self.sets.borrow().len() > 0 && self.sets.borrow()[set_idx].hums.len() > hum_idx {
-            return self.sets.borrow()[set_idx].hums[hum_idx].value_or_default();
+        } else if self.sets().len() > 0 && self.sets()[set_idx].hums.len() > hum_idx {
+            return self.sets()[set_idx].hums[hum_idx].value_or_default();
         }
         return 0.;
     }
 
-    pub fn get_set_hum_audio_buffer(&self, set_idx: Index, hum_idx: Index) -> Option<AudioBuf> {
-        self.sets.borrow()[set_idx].get_hum_audio_buffer(hum_idx)
+    pub fn get_set_hum_audio_buffer(&self, set_idx: Index, hum_idx: Index) -> AudioBuf {
+        self.sets()[set_idx].get_hum_audio_buffer(hum_idx)
     }
-    pub fn get_set_audio_buffer(&self, set_idx: Index) -> Option<AudioBuf> {
+    pub fn get_set_audio_buffer(&self, set_idx: Index) -> AudioBuf {
         self.get_set_hum_audio_buffer(set_idx, 0)
     }
-    pub fn get_audio_buffer(&self) -> Option<AudioBuf> {
+    pub fn get_audio_buffer(&self) -> AudioBuf {
         self.get_set_audio_buffer(0)
     }
 
-    pub fn get_set_hum_cv_buffer(&self, set_idx: Index, hum_idx: Index) -> Option<CvBuf> {
-        self.sets.borrow()[set_idx].get_hum_cv_buffer(hum_idx)
+    pub fn get_set_hum_control_buffer(&self, set_idx: Index, hum_idx: Index) -> ControlBuf {
+        self.sets()[set_idx].get_hum_control_buffer(hum_idx)
     }
-    pub fn get_set_cv_buffer(&self, set_idx: Index) -> Option<CvBuf> {
+    pub fn get_set_control_buffer(&self, set_idx: Index) -> ControlBuf {
+        self.get_set_hum_control_buffer(set_idx, 0)
+    }
+    pub fn get_control_buffer(&self) -> ControlBuf {
+        self.get_set_control_buffer(0)
+    }
+    pub fn get_control_value(&self) -> ControlVal {
+        self.get_set_control_buffer(0)[0]
+    }
+
+    pub fn get_set_hum_cv_buffer(&self, set_idx: Index, hum_idx: Index) -> CvBuf {
+        self.sets()[set_idx].get_hum_cv_buffer(hum_idx)
+    }
+    pub fn get_set_cv_buffer(&self, set_idx: Index) -> CvBuf {
         self.get_set_hum_cv_buffer(set_idx, 0)
     }
-    pub fn get_cv_buffer(&self) -> Option<CvBuf> {
+    pub fn get_cv_buffer(&self) -> CvBuf {
         self.get_set_cv_buffer(0)
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let mut ln = len;
 
-        for set in self.sets.borrow().iter() {
+        for set in self.sets().iter() {
             for hum in &set.hums {
                 ln = hum.listen(tick, ln);
             }
@@ -633,7 +617,7 @@ impl Ear {
     where
         F: FnMut(&Talk, &mut P) -> Result<(), failure::Error>,
     {
-        for set in self.sets.borrow().iter() {
+        for set in self.sets().iter() {
             for hum in &set.hums {
                 for talk in &hum.talks {
                     f(&talk, p)?;
@@ -648,7 +632,7 @@ impl Ear {
         F: FnMut(&str, Index, &str, &Talk, P) -> Result<P, failure::Error>,
     {
         let mut acc = p;
-        for (set_idx, set) in self.sets.borrow().iter().enumerate() {
+        for (set_idx, set) in self.sets().iter().enumerate() {
             for hum in &set.hums {
                 for talk in &hum.talks {
                     acc = f(&self.tag, set_idx, hum.tag(), &talk, acc)?;
@@ -669,36 +653,40 @@ impl Ear {
     where
         F: FnMut(&Horn),
     {
-        if self.sets.borrow().len() == 1 && self.sets.borrow()[0].hums.len() == 1 {
-            self.sets.borrow()[0].hums[0].visit_horn(f);
+        if self.sets().len() == 1 && self.sets()[0].hums.len() == 1 {
+            self.sets()[0].hums[0].visit_horn(f);
         }
     }
 
-    fn provide_set(&self, set_idx: Index) -> Result<Index, failure::Error> {
-        let sets_len;
-        {
-            sets_len = self.sets.borrow().len();
-        }
-        let mut sets = self.sets.borrow_mut();
-
-        for _ in sets_len..(set_idx + 1) {
-            if let Some(stem_set) = &self.stem_set {
-                sets.push(stem_set.clone());
-            } else {
-                return Err(failure::err_msg(format!(
-                    "Ear {} setm set not found!",
-                    self.tag()
-                )));
-            }
-        }
-        Ok(set_idx)
-    }
     fn add_set(&self) -> Result<Index, failure::Error> {
-        let i = self.sets.borrow().len();
-        self.provide_set(i)
+        if let Some(stem_set) = &self.stem_set {
+            let set_idx = self.sets().len();
+            let mut sets: Vec<Set> = Vec::with_capacity(set_idx + 1);
+
+            for set in self.sets().iter() {
+                sets.push(set.clone());
+            }
+            sets.push(stem_set.clone());
+
+            self.sets.set(sets);
+
+            Ok(set_idx)
+        } else {
+            return Err(failure::err_msg(format!(
+                "Ear {} stem set not found!",
+                self.tag()
+            )));
+        }
     }
     pub fn sup_set(&self, set_idx: Index) -> Result<(), failure::Error> {
-        self.sets.borrow_mut().remove(set_idx);
+        let mut sets: Vec<Set> = Vec::with_capacity(self.sets().len() - 1);
+
+        for (i, set) in self.sets().iter().enumerate() {
+            if i != set_idx {
+                sets.push(set.clone());
+            }
+        }
+        self.sets.set(sets);
         Ok(())
     }
 
@@ -706,7 +694,7 @@ impl Ear {
     where
         F: FnMut(&Set, P) -> Result<P, failure::Error>,
     {
-        if let Some(set) = self.sets.borrow().get(set_idx) {
+        if let Some(set) = self.sets().get(set_idx) {
             f(set, p)
         } else {
             Err(failure::err_msg(format!("Ear set {} not found!", set_idx)))
@@ -714,8 +702,8 @@ impl Ear {
     }
 
     pub fn clone_hum(&self, set_idx: Index, hum_idx: Index) -> Result<Hum, failure::Error> {
-        if set_idx < self.sets.borrow().len() && hum_idx < self.sets.borrow()[set_idx].hums.len() {
-            Ok(self.sets.borrow()[set_idx].hums[hum_idx].clone())
+        if set_idx < self.sets().len() && hum_idx < self.sets()[set_idx].hums.len() {
+            Ok(self.sets()[set_idx].hums[hum_idx].clone())
         } else {
             Err(failure::err_msg(format!(
                 "Ear set {} hum {} not found!",
@@ -728,12 +716,45 @@ impl Ear {
     where
         F: FnMut(&Hum) -> Result<Hum, failure::Error>,
     {
-        let set;
-        {
-            set = self.sets.borrow()[set_idx].with_hum(hum_idx, map)?;
+        let old_sets = self.sets();
+        let sets_len = old_sets.len();
+        let mut new_sets: Vec<Set> = Vec::with_capacity(sets_len);
+
+        for i in 0..Index::min(set_idx, sets_len) {
+            new_sets.push(old_sets[i].clone());
         }
-        self.sets.borrow_mut()[set_idx] = set;
+        if set_idx < sets_len {
+            new_sets.push(old_sets[set_idx].with_hum(hum_idx, map)?);
+
+            for i in (set_idx + 1)..sets_len {
+                new_sets.push(old_sets[i].clone());
+            }
+        } else {
+            if let Some(stem_set) = &self.stem_set {
+                for _ in sets_len..(set_idx) {
+                    new_sets.push(stem_set.clone());
+                }
+                new_sets.push(stem_set.with_hum(hum_idx, map)?);
+            } else {
+                return Err(failure::err_msg(format!(
+                    "Ear {} stem set not found!",
+                    self.tag()
+                )));
+            }
+        }
+
+        self.sets.set(new_sets);
         Ok(())
+    }
+
+    pub fn find_hum_index(&self, hum_tag: &str) -> Result<Index, failure::Error> {
+        if let Some(set) = &self.stem_set {
+            set.find_hum_index(hum_tag)
+        } else if self.sets().len() > 0 {
+            self.sets()[0].find_hum_index(hum_tag)
+        } else {
+            Err(failure::err_msg(format!("hum {} not found!", hum_tag)))
+        }
     }
 
     pub fn add_hum_value_by_tag(
@@ -742,8 +763,7 @@ impl Ear {
         hum_tag: &str,
         value: f32,
     ) -> Result<(), failure::Error> {
-        self.provide_set(set_idx)?;
-        let hum_idx = self.sets.borrow()[set_idx].find_hum_index(hum_tag)?;
+        let hum_idx = self.find_hum_index(hum_tag)?;
         self.set_hum(set_idx, hum_idx, |hum| hum.add_value(value))
     }
     pub fn add_hum_voice_by_tag(
@@ -753,8 +773,7 @@ impl Ear {
         talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
-        self.provide_set(set_idx)?;
-        let hum_idx = self.sets.borrow()[set_idx].find_hum_index(hum_tag)?;
+        let hum_idx = self.find_hum_index(hum_tag)?;
         self.set_hum(set_idx, hum_idx, |hum| hum.add_voice(talker, port))
     }
     pub fn set_hum_value(

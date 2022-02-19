@@ -24,7 +24,7 @@ impl AbsSine {
         )?;
         base.add_ear(freq);
 
-        let voice = voice::audio(None, None, None);
+        let voice = voice::audio(None, None);
         base.add_voice(voice);
 
         Ok(Self { base })
@@ -47,13 +47,13 @@ impl Talker for AbsSine {
             ln = ear::listen(ear, tick, ln);
         }
         for voice in self.voices() {
-            let freq_buf = self.ear_audio_buffer(0).unwrap();
+            let freq_buf = self.ear_audio_buffer(0).borrow();
             let mut vc = voice.borrow_mut();
-            let voice_buf = vc.audio_buffer().unwrap();
+            let voice_buf = vc.audio_buffer().borrow_mut();
 
             for i in 0..ln {
-                let sample = ((tick + i as i64) as f64 * freq_buf[i].get() as f64 * c).sin() as f32;
-                voice_buf.get()[i].set(sample);
+                let sample = ((tick + i as i64) as f64 * freq_buf[i] as f64 * c).sin() as f32;
+                voice_buf[i] = sample;
             }
             vc.set_len(ln);
             vc.set_tick(tick);

@@ -14,8 +14,6 @@ ringbuf = "0.2.1"
 glib = "^0"
 gdk = "^0"
 cairo-rs = "^0"
-lv2 = { path = "./lv2" }
-lilv = { path = "./lilv" }
 talker = { path = "./talker" }
 session = { path = "./session" }
 
