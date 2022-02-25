@@ -1,5 +1,7 @@
 extern crate failure;
+extern crate livi;
 
+pub mod atom_talker;
 pub mod audio_format;
 pub mod audio_talker;
 pub mod control_talker;

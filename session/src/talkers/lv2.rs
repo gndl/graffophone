@@ -8,7 +8,7 @@ use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
-use talker::horn::{AudioBuf, CvBuf, MAudioBuf, MCvBuf};
+use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::voice;
 
@@ -90,17 +90,18 @@ impl Lv2 {
                                     audio_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
                                 }
-                                /*
-                                                                livi::PortType::AtomSequenceInput => {
-                                                                    base.add_ear(ear);
-                                                                    atom_sequence_inputs_indexes.push(inputs_count);
-                                                                    inputs_count = inputs_count + 1;
-                                                                }
-                                                                livi::PortType::AtomSequenceOutput => {
-                                                                    atom_sequence_outputs_indexes.push(outputs_count);
-                                                                    outputs_count = outputs_count + 1;
-                                                                }
-                                */
+                                livi::PortType::AtomSequenceInput => {
+                                    let ear = ear::atom(Some(&port.name))?;
+                                    base.add_ear(ear);
+                                    atom_sequence_inputs_indexes.push(inputs_count);
+                                    inputs_count = inputs_count + 1;
+                                }
+                                livi::PortType::AtomSequenceOutput => {
+                                    let vc = voice::atom(Some(&port.name));
+                                    base.add_voice(vc);
+                                    atom_sequence_outputs_indexes.push(outputs_count);
+                                    outputs_count = outputs_count + 1;
+                                }
                                 livi::PortType::CVInput => {
                                     let ear = ear::cv(
                                         Some(&port.name),
@@ -119,7 +120,6 @@ impl Lv2 {
                                     cv_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
                                 }
-                                _ => {}
                             }
                         }
                         Ok(ctalker!(
@@ -162,6 +162,7 @@ impl Talker for Lv2 {
             .iter()
             .map(|i| base.voice(*i).control_buffer()[0])
             .collect();
+
         let audio_inputs: Vec<AudioBuf> = self
             .audio_inputs_indexes
             .iter()
@@ -172,16 +173,18 @@ impl Talker for Lv2 {
             .iter()
             .map(|i| base.voice(*i).audio_buffer())
             .collect();
-        /*
-                let mut atom_sequence_inputs = self
-                    .atom_sequence_inputs_indexes
-                    .iter()
-                    .map(|i| base.ear(*i).get_atom_sequence_buffer());
-                let mut atom_sequence_outputs = self
-                    .atom_sequence_outputs_indexes
-                    .iter()
-                    .map(|i| base.voice(*i).atom_sequence_buffer());
-        */
+
+        let atom_sequence_inputs: Vec<AtomBuf> = self
+            .atom_sequence_inputs_indexes
+            .iter()
+            .map(|i| base.ear(*i).get_atom_buffer())
+            .collect();
+        let atom_sequence_outputs: Vec<MAtomBuf> = self
+            .atom_sequence_outputs_indexes
+            .iter()
+            .map(|i| base.voice(*i).atom_buffer())
+            .collect();
+
         let cv_inputs: Vec<CvBuf> = self
             .cv_inputs_indexes
             .iter()
@@ -198,8 +201,8 @@ impl Talker for Lv2 {
             .with_control_outputs(control_outputs.iter_mut())
             .with_audio_inputs(audio_inputs.into_iter())
             .with_audio_outputs(audio_outputs.into_iter())
-            // .with_atom_sequence_inputs(atom_sequence_inputs.iter())
-            // .with_atom_sequence_outputs(atom_sequence_outputs.iter())
+            .with_atom_sequence_inputs(atom_sequence_inputs.into_iter())
+            .with_atom_sequence_outputs(atom_sequence_outputs.into_iter())
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
 

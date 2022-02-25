@@ -1,5 +1,7 @@
 use crate::audio_format::AudioFormat;
-use crate::horn::{AudioVal, ControlVal, CvVal, Horn, MAudioBuf, MControlBuf, MCvBuf, PortType};
+use crate::horn::{
+    AudioVal, ControlVal, CvVal, Horn, MAtomBuf, MAudioBuf, MControlBuf, MCvBuf, PortType,
+};
 use std::cell::Cell;
 
 pub const DEF_OUTPUT_TAG: &'static str = "Out";
@@ -51,6 +53,9 @@ impl Voice {
     pub fn cv_buffer(&self) -> MCvBuf {
         self.horn.cv_buffer()
     }
+    pub fn atom_buffer(&self) -> MAtomBuf {
+        self.horn.atom_buffer()
+    }
     pub fn audio_value(&self, index: usize) -> AudioVal {
         self.horn.audio_value(index)
     }
@@ -62,6 +67,9 @@ impl Voice {
     }
     pub fn cv_value(&self, index: usize) -> CvVal {
         self.horn.cv_value(index)
+    }
+    pub fn can_have_a_value(&self) -> bool {
+        self.horn.port_type() != PortType::Atom
     }
     pub fn value(&self, index: usize) -> f32 {
         self.horn.value(index)
@@ -80,4 +88,9 @@ pub fn control(tag: Option<&str>, value: f32) -> Voice {
 pub fn cv(tag: Option<&str>, value: f32) -> Voice {
     let len = AudioFormat::chunk_size();
     Voice::new(tag, len, Horn::cv(value, None))
+}
+
+pub fn atom(tag: Option<&str>) -> Voice {
+    let len = AudioFormat::chunk_size();
+    Voice::new(tag, len, Horn::atom())
 }

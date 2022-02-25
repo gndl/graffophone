@@ -11,7 +11,7 @@ use cairo::Context;
 use talker::identifier::Id;
 use talker::identifier::Identifiable;
 use talker::talker::RTalker;
-use talker::talker::Talker;
+//use talker::talker::Talker;
 
 use session::event_bus::{Notification, REventBus};
 use session::track::Track;

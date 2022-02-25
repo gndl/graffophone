@@ -20,7 +20,7 @@ use std::rc::Rc;
 use cairo::Context;
 
 use talker::identifier::Id;
-use talker::talker::RTalker;
+//use talker::talker::RTalker;
 
 use session::event_bus::Notification;
 use session::mixer::RMixer;

@@ -1,6 +1,8 @@
 use std::cell::Cell;
 use std::fmt;
 
+use livi::event::LV2AtomSequence;
+
 use crate::audio_format::AudioFormat;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
@@ -8,6 +10,7 @@ pub enum PortType {
     Audio,
     Control,
     Cv,
+    Atom,
 }
 impl PortType {
     pub fn can_hear(&self, port_type: PortType) -> bool {
@@ -15,6 +18,7 @@ impl PortType {
             (PortType::Audio, PortType::Audio) => true,
             (_, PortType::Cv) => true,
             (_, PortType::Control) => true,
+            (PortType::Atom, PortType::Atom) => true,
             _ => false,
         }
     }
@@ -23,6 +27,7 @@ impl PortType {
             PortType::Audio => Horn::audio(0., None),
             PortType::Control => Horn::control(0.),
             PortType::Cv => Horn::cv(0., None),
+            PortType::Atom => Horn::atom(),
         }
     }
     pub fn to_string(&self) -> &str {
@@ -30,6 +35,7 @@ impl PortType {
             PortType::Audio => "Audio",
             PortType::Control => "Control",
             PortType::Cv => "Cv",
+            PortType::Atom => "Atom",
         }
     }
 }
@@ -52,10 +58,14 @@ pub type CvVal = f32;
 pub type CvBuf<'a> = &'a [CvVal];
 pub type MCvBuf<'a> = &'a mut [CvVal];
 
+pub type AtomBuf<'a> = &'a LV2AtomSequence;
+pub type MAtomBuf<'a> = &'a mut LV2AtomSequence;
+
 pub type HBuf = Cell<Vec<f32>>;
 pub type HAudioBuf = HBuf;
 pub type HControlBuf = HBuf;
 pub type HCvBuf = HBuf;
+pub type HAtomBuf = Cell<LV2AtomSequence>;
 
 fn buf_val(value: f32, default: f32) -> f32 {
     if value.is_nan() {
@@ -73,10 +83,16 @@ pub fn empty_buf() -> Cell<Vec<f32>> {
 pub fn empty_audio_buf() -> HAudioBuf {
     Cell::new(Vec::new())
 }
+pub fn empty_atom_buf() -> HAtomBuf {
+    Cell::new(LV2AtomSequence::new(0))
+}
+
+const ATOM_CAPACITY: usize = 64;
 
 pub struct Horn {
     port_type: PortType,
     buf: HBuf,
+    atom: HAtomBuf,
 }
 
 impl Horn {
@@ -84,6 +100,7 @@ impl Horn {
         Horn {
             port_type: PortType::Audio,
             buf: Horn::audio_buf(value, len),
+            atom: empty_atom_buf(),
         }
     }
 
@@ -91,6 +108,7 @@ impl Horn {
         Horn {
             port_type: PortType::Control,
             buf: Horn::control_buf(value),
+            atom: empty_atom_buf(),
         }
     }
 
@@ -98,6 +116,15 @@ impl Horn {
         Horn {
             port_type: PortType::Cv,
             buf: Horn::cv_buf(value, len),
+            atom: empty_atom_buf(),
+        }
+    }
+
+    pub fn atom() -> Horn {
+        Horn {
+            port_type: PortType::Atom,
+            buf: empty_buf(),
+            atom: Horn::atom_buf(),
         }
     }
 
@@ -114,6 +141,9 @@ impl Horn {
     pub fn cv_buffer(&self) -> MCvBuf {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
+    pub fn atom_buffer(&self) -> MAtomBuf {
+        unsafe { self.atom.as_ptr().as_mut().unwrap() }
+    }
 
     pub fn audio_value(&self, index: usize) -> AudioVal {
         self.audio_buffer()[index]
@@ -122,7 +152,10 @@ impl Horn {
         self.control_buffer()[0]
     }
     pub fn set_control_value(&self, value: ControlVal) {
-        self.control_buffer().fill(value)
+        let cb = self.control_buffer();
+        if value != cb[0] {
+            cb.fill(value);
+        }
     }
     pub fn cv_value(&self, index: usize) -> CvVal {
         self.cv_buffer()[index]
@@ -133,6 +166,7 @@ impl Horn {
             PortType::Audio => self.audio_value(index),
             PortType::Control => self.control_value(),
             PortType::Cv => self.cv_value(index),
+            PortType::Atom => 0.,
         }
     }
 
@@ -146,5 +180,9 @@ impl Horn {
 
     pub fn cv_buf(value: CvVal, olen: Option<usize>) -> HCvBuf {
         Cell::new(vec![buf_val(value, 0.); buf_len(olen)])
+    }
+
+    pub fn atom_buf() -> HAtomBuf {
+        Cell::new(LV2AtomSequence::new(ATOM_CAPACITY))
     }
 }

@@ -342,7 +342,9 @@ impl TalkerCab {
     pub fn voice_value(&self, port: usize) -> Option<f32> {
         if self.base.is_hidden() {
             if let Some(voice) = self.base.voices().get(port) {
-                return Some(voice.value(0));
+                if voice.can_have_a_value() {
+                    return Some(voice.value(0));
+                }
             }
         }
         None

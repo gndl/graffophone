@@ -91,7 +91,7 @@ struct HumControl {
     tag: String,
     tag_area: Area,
     value: Option<String>,
-    value_area: Area,
+    value_area: Option<Area>,
     port_type: PortType,
 }
 
@@ -338,26 +338,30 @@ impl TalkerControlBase {
 
                         let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y);
 
-                        let (value, value_area) = if let Some(v) = hum.value() {
-                            let value = format_value(&v);
-                            style::value(control_supply.cc);
-                            let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
+                        let (value, value_area, hum_area) = if hum.can_have_a_value() {
+                            let (value, value_area) = if let Some(v) = hum.value() {
+                                let value = format_value(&v);
+                                style::value(control_supply.cc);
+                                let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
 
-                            (Some(value), value_area)
+                                (Some(value), value_area)
+                            } else {
+                                (
+                                    None,
+                                    dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
+                                )
+                            };
+                            let hum_area = Area::new(b_x, value_area.e_x, b_y, tag_area.e_y);
+                            (value, Some(value_area), hum_area)
                         } else {
-                            (
-                                None,
-                                dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
-                            )
+                            (None, None, Area::new(b_x, tag_area.e_x, b_y, tag_area.e_y))
                         };
 
-                        let area = Area::new(b_x, value_area.e_x, b_y, tag_area.e_y);
-
-                        hums_e_x = f64::max(hums_e_x, value_area.e_x);
+                        hums_e_x = f64::max(hums_e_x, hum_area.e_x);
                         b_y = tag_area.e_y;
 
                         let hum_ctrl = HumControl {
-                            area,
+                            area: hum_area,
                             add_in_area,
                             tag,
                             tag_area,
@@ -601,12 +605,14 @@ impl TalkerControlBase {
                 PortType::Audio => style::selected_audio(cc),
                 PortType::Control => style::selected_control(cc),
                 PortType::Cv => style::selected_cv(cc),
+                PortType::Atom => style::selected_atom(cc),
             }
         } else {
             match port_type {
                 PortType::Audio => style::audio(cc),
                 PortType::Control => style::control(cc),
                 PortType::Cv => style::cv(cc),
+                PortType::Atom => style::atom(cc),
             }
         }
         cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
@@ -633,15 +639,17 @@ impl TalkerControlBase {
                             graph_presenter.ear_hum_selected(self.id, ear_idx, set_idx, hum_idx),
                         );
 
-                        style::value(cc);
-                        cc.move_to(
-                            self.x + hum.value_area.content_b_x,
-                            self.y + hum.value_area.content_e_y,
-                        );
-                        if let Some(v) = &hum.value {
-                            cc.show_text(&v);
-                        } else {
-                            cc.show_text(VAL_TAG);
+                        if let Some(value_area) = &hum.value_area {
+                            style::value(cc);
+                            cc.move_to(
+                                self.x + value_area.content_b_x,
+                                self.y + value_area.content_e_y,
+                            );
+                            if let Some(v) = &hum.value {
+                                cc.show_text(&v);
+                            } else {
+                                cc.show_text(VAL_TAG);
+                            }
                         }
                     }
                     if let Some(sa) = &set.sup_area {
@@ -784,62 +792,64 @@ impl TalkerControlBase {
             return Ok(Some(notifications));
         }
 
-        if hum.value_area.is_under(rx, ry) {
-            let ear_setter = graph_presenter.clone();
-            let notifier = graph_presenter.clone();
-            let talker_id = self.id;
-            let (min, max, def) = self.talker.ear(ear_idx).hum_range(hum_idx);
-            let cur = self
-                .talker
-                .ear(ear_idx)
-                .talk_value_or_default(set_idx, hum_idx);
-            println!(
-                "hum_range : min {}, max {}, def {}, cur {}",
-                min, max, def, cur
-            );
+        if let Some(value_area) = &hum.value_area {
+            if value_area.is_under(rx, ry) {
+                let ear_setter = graph_presenter.clone();
+                let notifier = graph_presenter.clone();
+                let talker_id = self.id;
+                let (min, max, def) = self.talker.ear(ear_idx).hum_range(hum_idx);
+                let cur = self
+                    .talker
+                    .ear(ear_idx)
+                    .talk_value_or_default(set_idx, hum_idx);
+                println!(
+                    "hum_range : min {}, max {}, def {}, cur {}",
+                    min, max, def, cur
+                );
 
-            let value = bounded_float_entry::run(
-                min.into(),
-                max.into(),
-                def.into(),
-                cur.into(),
-                move |v, fly| {
-                    let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
-                        talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
-                    );
-                },
-            );
-            println!(
-                "talker_control::on_hum_clicked : set_talker_ear_talk_value {}",
-                value
-            );
-            let notifications = notifier.borrow_mut().set_talker_ear_talk_value(
-                talker_id,
-                ear_idx,
-                set_idx,
-                hum_idx,
-                0,
-                value as f32,
-                false,
-            )?;
-            /*
-            bounded_float_entry::create(
-                min.into(),
-                max.into(),
-                cur.into(),
-                move |v, fly| {
-                    let _ = ear_setter
-                        .borrow_mut()
-                        .set_talker_ear_talk_value(
-                            talker_id, ear_idx, talk_idx, v as f32, fly,
+                let value = bounded_float_entry::run(
+                    min.into(),
+                    max.into(),
+                    def.into(),
+                    cur.into(),
+                    move |v, fly| {
+                        let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
+                            talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
                         );
-                },
-                move || {
-                    notifier.borrow().notify_talker_changed();
-                },
-            );
-             */
-            return Ok(Some(notifications));
+                    },
+                );
+                println!(
+                    "talker_control::on_hum_clicked : set_talker_ear_talk_value {}",
+                    value
+                );
+                let notifications = notifier.borrow_mut().set_talker_ear_talk_value(
+                    talker_id,
+                    ear_idx,
+                    set_idx,
+                    hum_idx,
+                    0,
+                    value as f32,
+                    false,
+                )?;
+                /*
+                bounded_float_entry::create(
+                    min.into(),
+                    max.into(),
+                    cur.into(),
+                    move |v, fly| {
+                        let _ = ear_setter
+                            .borrow_mut()
+                            .set_talker_ear_talk_value(
+                                talker_id, ear_idx, talk_idx, v as f32, fly,
+                            );
+                    },
+                    move || {
+                        notifier.borrow().notify_talker_changed();
+                    },
+                );
+                 */
+                return Ok(Some(notifications));
+            }
         }
         return Ok(None);
     }

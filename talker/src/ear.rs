@@ -1,10 +1,11 @@
 use std::cell::Cell;
 use std::f32;
 
+use atom_talker::AtomTalker;
 use audio_talker::AudioTalker;
 use control_talker::ControlTalker;
 use cv_talker::CvTalker;
-use horn::{AudioBuf, ControlBuf, ControlVal, CvBuf, Horn, PortType};
+use horn::{AtomBuf, AudioBuf, ControlBuf, ControlVal, CvBuf, Horn, PortType};
 use identifier::Identifiable;
 use identifier::Index;
 use rtalker;
@@ -22,12 +23,16 @@ pub fn def_control_talker(value: f32) -> RTalker {
 pub fn def_cv_talker(value: f32) -> RTalker {
     rtalker!(CvTalker::new(value, Some(true)))
 }
+pub fn def_atom_talker() -> RTalker {
+    rtalker!(AtomTalker::new(Some(true)))
+}
 
 pub fn def_talker(port_type: PortType, value: f32) -> RTalker {
     match port_type {
         PortType::Audio => def_audio_talker(value),
         PortType::Control => def_control_talker(value),
         PortType::Cv => def_cv_talker(value),
+        PortType::Atom => def_atom_talker(),
     }
 }
 
@@ -83,6 +88,9 @@ impl Talk {
     pub fn cv_buffer(&self) -> CvBuf {
         self.tkr.voice(self.port).cv_buffer()
     }
+    pub fn atom_buffer(&self) -> AtomBuf {
+        self.tkr.voice(self.port).atom_buffer()
+    }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let port = self.port;
@@ -97,7 +105,7 @@ impl Talk {
         self.tkr.talk(port, tick, len)
     }
 }
-
+/*
 pub fn def_audio_talk(value: f32) -> Talk {
     Talk::new(&def_audio_talker(value), 0)
 }
@@ -107,11 +115,13 @@ pub fn def_control_talk(value: f32) -> Talk {
 pub fn def_cv_talk(value: f32) -> Talk {
     Talk::new(&def_cv_talker(value), 0)
 }
+*/
 pub fn def_talk(port_type: PortType, value: f32) -> Talk {
     match port_type {
         PortType::Audio => Talk::new(&def_audio_talker(value), 0),
         PortType::Control => Talk::new(&def_control_talker(value), 0),
         PortType::Cv => Talk::new(&def_cv_talker(value), 0),
+        PortType::Atom => Talk::new(&def_atom_talker(), 0),
     }
 }
 
@@ -239,11 +249,16 @@ impl Hum {
     pub fn def_value(&self) -> f32 {
         self.def_value
     }
+    pub fn can_have_a_value(&self) -> bool {
+        self.port_type != PortType::Atom
+    }
     pub fn value(&self) -> Option<f32> {
-        for talk in &self.talks {
-            match talk.value() {
-                Some(v) => return Some(v),
-                _ => (),
+        if self.can_have_a_value() {
+            for talk in &self.talks {
+                match talk.value() {
+                    Some(v) => return Some(v),
+                    _ => (),
+                }
             }
         }
         None
@@ -270,6 +285,13 @@ impl Hum {
             self.horn.as_ref().unwrap().cv_buffer()
         } else {
             self.talks[0].cv_buffer()
+        }
+    }
+    pub fn atom_buffer(&self) -> AtomBuf {
+        if self.talks.len() > 1 {
+            self.horn.as_ref().unwrap().atom_buffer()
+        } else {
+            self.talks[0].atom_buffer()
         }
     }
     pub fn talks<'a>(&'a self) -> &'a Vec<Talk> {
@@ -385,6 +407,7 @@ impl Hum {
                         out_buf[i] = out_buf[i] * c;
                     }
                 }
+                PortType::Atom => {}
             }
         }
         ln
@@ -600,6 +623,10 @@ impl Ear {
     }
     pub fn get_cv_buffer(&self) -> CvBuf {
         self.get_set_cv_buffer(0)
+    }
+
+    pub fn get_atom_buffer(&self) -> AtomBuf {
+        self.sets()[0].hums[0].atom_buffer()
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
@@ -925,6 +952,10 @@ pub fn cv(
         def_value,
         init,
     )
+}
+
+pub fn atom(tag: Option<&str>) -> Result<Ear, failure::Error> {
+    mono_hum(tag, PortType::Atom, false, 0., 0., 0., &Init::DefValue)
 }
 
 pub fn multi_set(
