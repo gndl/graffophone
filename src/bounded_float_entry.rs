@@ -35,7 +35,7 @@ pub fn run<Fcv: Fn(f64, bool) + 'static>(
     current: f64,
     fcv: Fcv,
 ) -> f64 {
-    let step = (max - min) / 10000.;
+    let step = f64::min((max - min) / 10000., 1.);
 
     let scale = gtk::Scale::with_range(gtk::Orientation::Vertical, min, max, step);
     scale.set_size_request(64, 360);
