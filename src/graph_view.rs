@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use gtk::prelude::*;
@@ -14,7 +15,7 @@ use talker::talker::RTalker;
 //use talker::talker::Talker;
 
 use session::event_bus::{Notification, REventBus};
-use session::track::Track;
+use session::mixer::Mixer;
 
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::mixer_control::MixerControl;
@@ -70,6 +71,7 @@ struct Collector<'c> {
     column: i32,
     columns_properties: BTreeMap<i32, ColumnProperty>,
     talker_controls: HashMap<Id, RTalkerControl>,
+    exclude_talkers_ids: Option<HashSet<Id>>,
 }
 impl<'c> Collector<'c> {
     pub fn new(
@@ -77,6 +79,7 @@ impl<'c> Collector<'c> {
         graph_presenter: &RGraphPresenter,
         row: i32,
         column: i32,
+        exclude_talkers_ids: Option<HashSet<Id>>,
     ) -> Collector<'c> {
         Self {
             control_supply,
@@ -85,6 +88,7 @@ impl<'c> Collector<'c> {
             column,
             columns_properties: BTreeMap::new(),
             talker_controls: HashMap::new(),
+            exclude_talkers_ids,
         }
     }
 
@@ -284,59 +288,65 @@ impl GraphView {
         collector: &mut Collector,
     ) -> Result<(), failure::Error> {
         // create GTalkers and define there row and column
-        if !talker.is_hidden() {
-            let is_new_talker_control = collector.add_if_new(talker)?;
-            let id = talker.id();
+        if talker.is_hidden() {
+            return Ok(());
+        } else if let Some(exclude_talkers_ids) = &collector.exclude_talkers_ids {
+            if exclude_talkers_ids.contains(&talker.id()) {
+                return Ok(());
+            }
+        }
 
-            if let Some(rtkrc) = &collector.talker_controls.get_mut(&id) {
-                let mut talks_count = 0;
+        let is_new_talker_control = collector.add_if_new(talker)?;
+        let id = talker.id();
 
-                for ear in talker.ears() {
-                    talks_count = ear.fold_talks(
-                        |_, _, _, tlk, tc| {
-                            if tlk.talker().is_hidden() {
-                                Ok(tc)
-                            } else {
-                                Ok(tc + 1)
-                            }
-                        },
-                        talks_count,
-                    )?;
-                }
+        if let Some(rtkrc) = &collector.talker_controls.get_mut(&id) {
+            let mut talks_count = 0;
 
-                let row = collector.row;
-                let column = collector.column;
-
-                if is_new_talker_control || (rtkrc.borrow().column() < column && talks_count == 0) {
-                    {
-                        let mut tkrc = rtkrc.borrow_mut();
-                        tkrc.set_column(column);
-
-                        let tkrc_row = visit_column_property(
-                            column,
-                            &mut collector.columns_properties,
-                            |column_property, row| {
-                                let tkrc_row = i32::max(row, column_property.count);
-                                column_property.count = tkrc_row + 1;
-                                tkrc_row
-                            },
-                            row,
-                        );
-                        tkrc.set_row(tkrc_row);
-
-                        if is_new_talker_control {
-                            tkrc.set_dependent_row(row);
+            for ear in talker.ears() {
+                talks_count = ear.fold_talks(
+                    |_, _, _, tlk, tc| {
+                        if tlk.talker().is_hidden() {
+                            Ok(tc)
+                        } else {
+                            Ok(tc + 1)
                         }
+                    },
+                    talks_count,
+                )?;
+            }
 
-                        collector.row = i32::max(0, tkrc_row - talks_count / 2);
-                        collector.column = collector.column + 1;
+            let row = collector.row;
+            let column = collector.column;
+
+            if is_new_talker_control || (rtkrc.borrow().column() < column && talks_count == 0) {
+                {
+                    let mut tkrc = rtkrc.borrow_mut();
+                    tkrc.set_column(column);
+
+                    let tkrc_row = visit_column_property(
+                        column,
+                        &mut collector.columns_properties,
+                        |column_property, row| {
+                            let tkrc_row = i32::max(row, column_property.count);
+                            column_property.count = tkrc_row + 1;
+                            tkrc_row
+                        },
+                        row,
+                    );
+                    tkrc.set_row(tkrc_row);
+
+                    if is_new_talker_control {
+                        tkrc.set_dependent_row(row);
                     }
-                    for ear in talker.ears() {
-                        ear.iter_talkers(GraphView::make_talker_controls, collector)?;
-                    }
-                    collector.row = row;
-                    collector.column = column;
+
+                    collector.row = i32::max(0, tkrc_row - talks_count / 2);
+                    collector.column = collector.column + 1;
                 }
+                for ear in talker.ears() {
+                    ear.iter_talkers(GraphView::make_talker_controls, collector)?;
+                }
+                collector.row = row;
+                collector.column = column;
             }
         }
         Ok(())
@@ -350,7 +360,7 @@ impl GraphView {
         let session_presenter = self.session_presenter.borrow();
         let session = session_presenter.session();
         {
-            let mut collector = Collector::new(control_supply, &self.graph_presenter, 0, 1);
+            let mut collector = Collector::new(control_supply, &self.graph_presenter, 0, 1, None);
 
             /* create graph by covering mixers */
             let mixers_column_property = ColumnProperty::new(0., 0., session.mixers().len() as i32);
@@ -391,13 +401,16 @@ impl GraphView {
             /* create unused GTalkers */
             /* list the unused talkers e.g not in the talker_controls list */
             let mut unused_talkers = Vec::new();
+            let mut used_talkers: HashSet<Id> =
+                HashSet::with_capacity(collector.talker_controls.len());
 
             for (id, tkr) in session.talkers() {
-                if !tkr.is_hidden()
-                    && tkr.model() != Track::kind()
-                    && !collector.talker_controls.contains_key(id)
-                {
-                    unused_talkers.push(tkr);
+                if !tkr.is_hidden() && tkr.model() != Mixer::kind() {
+                    if collector.talker_controls.contains_key(id) {
+                        used_talkers.insert(*id);
+                    } else {
+                        unused_talkers.push(tkr);
+                    }
                 }
             }
 
@@ -422,7 +435,13 @@ impl GraphView {
 
             /* sort the root unused talkers in decreasing order
             in order to have the newest talker at the top of the sandbox */
-            let mut sandbox_collector = Collector::new(control_supply, &self.graph_presenter, 0, 0);
+            let mut sandbox_collector = Collector::new(
+                control_supply,
+                &self.graph_presenter,
+                0,
+                0,
+                Some(used_talkers),
+            );
 
             for tkr in root_unused_talkers.values() {
                 GraphView::make_talker_controls(tkr, &mut sandbox_collector)?;
