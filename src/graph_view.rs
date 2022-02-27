@@ -292,7 +292,16 @@ impl GraphView {
                 let mut talks_count = 0;
 
                 for ear in talker.ears() {
-                    talks_count = ear.fold_talks(|_, _, _, _, tc| Ok(tc + 1), talks_count)?;
+                    talks_count = ear.fold_talks(
+                        |_, _, _, tlk, tc| {
+                            if tlk.talker().is_hidden() {
+                                Ok(tc)
+                            } else {
+                                Ok(tc + 1)
+                            }
+                        },
+                        talks_count,
+                    )?;
                 }
 
                 let row = collector.row;
