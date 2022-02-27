@@ -73,7 +73,7 @@ impl Feedback {
                 let mut ov = consumer.pop();
 
                 while ov == None {
-                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    std::thread::sleep(std::time::Duration::from_millis(20));
                     ov = consumer.pop();
                 }
                 *sample = ov.unwrap_or(0.0);
@@ -127,7 +127,7 @@ impl Output for Feedback {
                         let sample = ch[i];
                         while output_fell_behind < 30 && audio_stream.producer.push(sample).is_err()
                         {
-                            std::thread::sleep(std::time::Duration::from_millis(50));
+                            std::thread::sleep(std::time::Duration::from_millis(20));
                             output_fell_behind = output_fell_behind + 1;
                         }
                     }
