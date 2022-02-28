@@ -484,7 +484,12 @@ impl TalkerCab {
     }
 
     pub fn talk(&self, port: usize, tick: i64, len: usize) -> usize {
-        self.core.borrow_mut().talk(&self.base, port, tick, len)
+        let ln = self.core.borrow_mut().talk(&self.base, port, tick, len);
+
+        if ln > 0 {
+            self.base.voices[port].set_tick_len(tick, ln);
+        }
+        ln
     }
 
     pub fn backup<'a>(&'a self) -> (String, String, &Vec<ear::Ear>) {

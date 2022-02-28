@@ -48,7 +48,7 @@ impl Sinusoidal {
 }
 
 impl Talker for Sinusoidal {
-    fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
+    fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
         let c = AudioFormat::frequence_coef();
         let mut last_freq = 0.;
@@ -59,23 +59,20 @@ impl Talker for Sinusoidal {
             last_angle = self.last_angle;
         }
 
-        for voice in base.voices() {
-            let freq_buf = base.ear_cv_buffer(0);
-            let phase_buf = base.ear_audio_buffer(1);
-            let voice_buf = voice.audio_buffer();
+        let freq_buf = base.ear_cv_buffer(0);
+        let phase_buf = base.ear_audio_buffer(1);
+        let voice_buf = base.voice(port).audio_buffer();
 
-            for i in 0..ln {
-                let p = phase_buf[i] as f64 * PI;
-                let a = last_angle + last_freq * c;
+        for i in 0..ln {
+            let p = phase_buf[i] as f64 * PI;
+            let a = last_angle + last_freq * c;
 
-                let sample = (a + p).sin() as f32;
-                voice_buf[i] = sample;
-                last_freq = freq_buf[i] as f64;
-                last_angle = a;
-            }
-            voice.set_len(ln);
-            voice.set_tick(tick);
+            let sample = (a + p).sin() as f32;
+            voice_buf[i] = sample;
+            last_freq = freq_buf[i] as f64;
+            last_angle = a;
         }
+
         self.last_freq = last_freq;
         self.last_angle = last_angle;
         self.last_tick = tick + ln as i64;

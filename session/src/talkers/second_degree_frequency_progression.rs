@@ -17,8 +17,7 @@ impl SecondDegreeFrequencyProgression {
     pub fn new(f: f64, a: f64, b: f64, c: f64) -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
-        let voice = voice::audio(None, 0.);
-        base.add_voice(voice);
+        base.add_voice(voice::audio(None, 0.));
 
         Ok(ctalker!(base, Self { f, a, b, c }))
     }
@@ -29,24 +28,19 @@ impl SecondDegreeFrequencyProgression {
 }
 
 impl Talker for SecondDegreeFrequencyProgression {
-    fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
+    fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let c = AudioFormat::frequence_coef();
         let f = self.f;
 
-        for voice in base.voices() {
-            // let mut vc = voice.borrow_mut();
-            // let voice_buf = vc.audio_buffer().borrow_mut();
-            let voice_buf = voice.audio_buffer();
+        let voice_buf = base.voice(port).audio_buffer();
 
-            for i in 0..len {
-                let t = (tick + i as i64) as f64;
-                println!("tick = {}, i = {}, t = {}", tick, i, t);
-                let sample = (t * f * c).sin() as f32;
-                voice_buf[i] = sample;
-            }
-            voice.set_len(len);
-            voice.set_tick(tick);
+        for i in 0..len {
+            let t = (tick + i as i64) as f64;
+            println!("tick = {}, i = {}, t = {}", tick, i, t);
+            let sample = (t * f * c).sin() as f32;
+            voice_buf[i] = sample;
         }
+
         self.f = self.a * f * f + self.b * f + self.c;
         len
     }

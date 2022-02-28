@@ -40,6 +40,11 @@ impl Voice {
     pub fn set_len(&self, len: usize) {
         self.len.set(len);
     }
+    pub fn set_tick_len(&self, tick: i64, len: usize) {
+        self.tick.set(tick);
+        self.len.set(len);
+    }
+
     pub fn horn<'a>(&'a self) -> &'a Horn {
         &self.horn
     }
