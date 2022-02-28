@@ -211,6 +211,9 @@ impl Talker for Lv2 {
         for (i, port_idx) in self.control_outputs_indexes.iter().enumerate() {
             base.voice(*port_idx).set_control_value(control_outputs[i]);
         }
+        for voice in base.voices() {
+            voice.set_tick_len(tick, ln);
+        }
 
         ln
     }
