@@ -542,9 +542,16 @@ impl Band {
         })
     }
 
-    pub fn sup_talker(&self, _talker_id: &Id) -> Result<(), failure::Error> {
-        // TODO
-        //                let tkr = self.fetch_talker(talker_id)?;
+    pub fn sup_talker(&mut self, talker_id: &Id) -> Result<(), failure::Error> {
+        self.talkers.remove(talker_id);
+
+        for tkr in self.talkers.values() {
+            for ear in tkr.ears() {
+                if ear.is_listening_talker(*talker_id) {
+                    ear.sup_talker(*talker_id)?;
+                }
+            }
+        }
         Ok(())
     }
 

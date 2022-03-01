@@ -6,6 +6,7 @@ use audio_talker::AudioTalker;
 use control_talker::ControlTalker;
 use cv_talker::CvTalker;
 use horn::{AtomBuf, AudioBuf, ControlBuf, ControlVal, CvBuf, Horn, PortType};
+use identifier::Id;
 use identifier::Identifiable;
 use identifier::Index;
 use rtalker;
@@ -547,6 +548,19 @@ impl Ear {
     pub fn is_multi_hum(&self) -> bool {
         self.multi_hum
     }
+    pub fn is_listening_talker(&self, id: Id) -> bool {
+        for set in self.sets().iter() {
+            for hum in &set.hums {
+                for talk in &hum.talks {
+                    if talk.talker().id() == id {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub fn sets_len(&self) -> usize {
         self.sets().len()
     }
@@ -867,6 +881,32 @@ impl Ear {
         talk_idx: Index,
     ) -> Result<(), failure::Error> {
         self.set_hum(set_idx, hum_idx, |hum| hum.sup_talk(talk_idx))
+    }
+
+    pub fn sup_talker(&self, talker_id: Id) -> Result<(), failure::Error> {
+        let old_sets = self.sets();
+        let mut new_sets: Vec<Set> = Vec::with_capacity(old_sets.len());
+
+        for set in old_sets.iter() {
+            let mut hums = Vec::with_capacity(set.hums.len());
+
+            for hum in &set.hums {
+                let mut talks = Vec::with_capacity(hum.talks.len());
+
+                for talk in &hum.talks {
+                    if talk.talker().id() != talker_id {
+                        talks.push(talk.clone());
+                    }
+                }
+                if talks.is_empty() {
+                    talks.push(def_talk(hum.port_type, 0.));
+                }
+                hums.push(hum.with_talks(talks));
+            }
+            new_sets.push(Set::new(hums));
+        }
+        self.sets.set(new_sets);
+        Ok(())
     }
 
     pub fn add_set_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
