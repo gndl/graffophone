@@ -31,6 +31,15 @@ impl TalkerBase {
     pub fn new(name: &str, model: &str) -> Self {
         TalkerBase::new_data(name, model, Data::Nil)
     }
+    pub fn with(&self, data: Data, ears: Vec<Ear>, voices: Vec<Voice>) -> Self {
+        Self {
+            identifier: RefCell::new(self.identifier.borrow().clone()),
+            data: RefCell::new(data),
+            ears,
+            voices,
+            hidden: self.hidden,
+        }
+    }
 
     pub fn identifier<'a>(&'a self) -> &'a RIdentifier {
         &self.identifier
@@ -173,6 +182,14 @@ pub trait Talker {
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
 
+    fn update_with_data(
+        &mut self,
+        _base: &TalkerBase,
+        _data: &Data,
+    ) -> Result<Option<TalkerBase>, failure::Error> {
+        Ok(None)
+    }
+
     fn talk(&mut self, _base: &TalkerBase, _port: usize, _tick: i64, _len: usize) -> usize {
         0
     }
@@ -186,6 +203,14 @@ macro_rules! ctalker {
         ($base, Box::new($core))
     };
 }
+
+pub struct NilTalker {}
+impl NilTalker {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+impl Talker for NilTalker {}
 
 pub struct TalkerCab {
     base: TalkerBase,
@@ -246,6 +271,25 @@ impl TalkerCab {
             Ok(d) => {
                 self.set_data(d);
                 Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn update_with_data_string(&self, s: &str) -> Result<Option<RTalker>, failure::Error> {
+        match self.base.data.borrow().birth(s) {
+            Ok(d) => {
+                let obase = self.core.borrow_mut().update_with_data(&self.base, &d)?;
+                match obase {
+                    Some(base) => {
+                        let core = self.core.replace(Box::new(NilTalker::new()));
+                        Ok(Some(TalkerCab::new_ref((base, core))))
+                    }
+                    None => {
+                        self.set_data(d);
+                        Ok(None)
+                    }
+                }
             }
             Err(e) => Err(e),
         }

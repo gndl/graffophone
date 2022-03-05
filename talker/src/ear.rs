@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::collections::HashSet;
 use std::f32;
 
 use atom_talker::AtomTalker;
@@ -560,6 +561,20 @@ impl Ear {
         }
         false
     }
+    pub fn is_listening_talker_ports(&self, id: Id) -> HashSet<Index> {
+        let mut talker_ports = HashSet::new();
+
+        for set in self.sets().iter() {
+            for hum in &set.hums {
+                for talk in &hum.talks {
+                    if talk.talker().id() == id {
+                        talker_ports.insert(talk.port);
+                    }
+                }
+            }
+        }
+        talker_ports
+    }
 
     pub fn sets_len(&self) -> usize {
         self.sets().len()
@@ -883,6 +898,35 @@ impl Ear {
         self.set_hum(set_idx, hum_idx, |hum| hum.sup_talk(talk_idx))
     }
 
+    pub fn replace_talker(
+        &self,
+        talker_id: Id,
+        new_talker: &RTalker,
+    ) -> Result<(), failure::Error> {
+        let old_sets = self.sets();
+        let mut new_sets: Vec<Set> = Vec::with_capacity(old_sets.len());
+
+        for set in old_sets.iter() {
+            let mut hums = Vec::with_capacity(set.hums.len());
+
+            for hum in &set.hums {
+                let mut talks = Vec::with_capacity(hum.talks.len());
+
+                for talk in &hum.talks {
+                    if talk.talker().id() == talker_id {
+                        talks.push(Talk::new(new_talker, talk.port));
+                    } else {
+                        talks.push(talk.clone());
+                    }
+                }
+                hums.push(hum.with_talks(talks));
+            }
+            new_sets.push(Set::new(hums));
+        }
+        self.sets.set(new_sets);
+        Ok(())
+    }
+
     pub fn sup_talker(&self, talker_id: Id) -> Result<(), failure::Error> {
         let old_sets = self.sets();
         let mut new_sets: Vec<Set> = Vec::with_capacity(old_sets.len());
@@ -906,6 +950,52 @@ impl Ear {
             new_sets.push(Set::new(hums));
         }
         self.sets.set(new_sets);
+        Ok(())
+    }
+
+    pub fn sup_talker_ports(
+        &self,
+        talker_id: Id,
+        talker_ports: &HashSet<Index>,
+    ) -> Result<(), failure::Error> {
+        let mut ports_to_suppress = HashSet::new();
+
+        for set in self.sets().iter() {
+            for hum in &set.hums {
+                for talk in &hum.talks {
+                    if talk.talker().id() == talker_id && talker_ports.contains(&talk.port) {
+                        ports_to_suppress.insert(talk.port);
+                    }
+                }
+            }
+        }
+
+        if !ports_to_suppress.is_empty() {
+            let old_sets = self.sets();
+            let mut new_sets: Vec<Set> = Vec::with_capacity(old_sets.len());
+
+            for set in old_sets.iter() {
+                let mut hums = Vec::with_capacity(set.hums.len());
+
+                for hum in &set.hums {
+                    let mut talks = Vec::with_capacity(hum.talks.len());
+
+                    for talk in &hum.talks {
+                        if talk.talker().id() != talker_id
+                            || !ports_to_suppress.contains(&talk.port)
+                        {
+                            talks.push(talk.clone());
+                        }
+                    }
+                    if talks.is_empty() {
+                        talks.push(def_talk(hum.port_type, 0.));
+                    }
+                    hums.push(hum.with_talks(talks));
+                }
+                new_sets.push(Set::new(hums));
+            }
+            self.sets.set(new_sets);
+        }
         Ok(())
     }
 

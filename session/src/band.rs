@@ -16,6 +16,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 // use std::io::BufReader;
 use std::rc::Rc;
@@ -542,6 +543,48 @@ impl Band {
         })
     }
 
+    pub fn replace_talker(
+        &mut self,
+        talker_id: &Id,
+        new_talker: RTalker,
+    ) -> Result<(), failure::Error> {
+        let mut invalidated_ports;
+        {
+            let old_talker = self.fetch_talker(talker_id)?;
+            let old_voices = old_talker.voices();
+            let new_voices = new_talker.voices();
+            let old_ports_count = old_voices.len();
+            let new_ports_count = new_voices.len();
+            invalidated_ports = HashSet::with_capacity(old_ports_count);
+
+            let less_ports = usize::min(old_ports_count, new_ports_count);
+
+            for p in 0..less_ports {
+                if new_voices[p].port_type() != old_voices[p].port_type() {
+                    invalidated_ports.insert(p);
+                }
+            }
+            for p in less_ports..new_ports_count {
+                invalidated_ports.insert(p);
+            }
+        }
+        self.talkers.remove(talker_id);
+
+        for tkr in self.talkers.values() {
+            for ear in tkr.ears() {
+                if ear.is_listening_talker(*talker_id) {
+                    ear.sup_talker_ports(*talker_id, &invalidated_ports)?;
+
+                    if ear.is_listening_talker(*talker_id) {
+                        ear.replace_talker(*talker_id, &new_talker)?;
+                    }
+                }
+            }
+        }
+        self.talkers.insert(new_talker.id(), new_talker);
+        Ok(())
+    }
+
     pub fn sup_talker(&mut self, talker_id: &Id) -> Result<(), failure::Error> {
         self.talkers.remove(talker_id);
 
@@ -589,13 +632,21 @@ impl Band {
                 self.sup_talker(tkr_id)?;
             }
             Operation::SetTalkerData(tkr_id, data) => {
-                let tkr = self.fetch_talker(tkr_id)?;
+                let onew_tkr;
+                {
+                    let tkr = self.fetch_talker(tkr_id)?;
 
-                tkr.deactivate();
+                    tkr.deactivate();
+                    onew_tkr = tkr.update_with_data_string(&data)?;
+                    if onew_tkr.is_none() {
+                        tkr.activate();
+                    }
+                }
 
-                tkr.set_data_from_string(&data)?;
-
-                tkr.activate();
+                if let Some(new_tkr) = onew_tkr {
+                    new_tkr.activate();
+                    self.replace_talker(tkr_id, new_tkr)?;
+                }
             }
             Operation::SetEarHumVoice(
                 ear_tkr_id,

@@ -54,6 +54,13 @@ impl Identifier {
             model: model.to_string(),
         }
     }
+    pub fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            name: self.name.to_string(),
+            model: self.model.to_string(),
+        }
+    }
 
     pub fn id(&self) -> Id {
         self.id
