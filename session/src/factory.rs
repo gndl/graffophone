@@ -57,20 +57,11 @@ impl Factory {
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
         let tkr = self.plugins_manager.make_talker(model)?;
-        Factory::set_identity(
-            tkr /*.borrow()*/
-                .identifier(),
-            oid,
-            oname,
-        );
+        Factory::set_identity(tkr.identifier(), oid, oname);
         Ok(tkr)
     }
 
-    pub fn make_track(
-        &self,
-        _oid: Option<u32>,
-        _oname: Option<&str>,
-    ) -> Result<RTrack, failure::Error> {
+    pub fn make_track(&self) -> Result<RTrack, failure::Error> {
         let rtrk = Track::new_ref()?;
         Ok(rtrk)
     }
@@ -89,10 +80,10 @@ impl Factory {
 
     pub fn make_output(
         &self,
+        model: &str,
         oid: Option<u32>,
         oname: Option<&str>,
-        model: &str,
-        _attributs: Option<&Vec<(&str, &str, &str)>>,
+        _configuration: Option<&str>,
     ) -> Result<ROutput, failure::Error> {
         if model == feedback::MODEL {
             let output = Feedback::new_ref(AudioFormat::chunk_size())?;

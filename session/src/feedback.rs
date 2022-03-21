@@ -172,7 +172,7 @@ impl Output for Feedback {
         Ok(())
     }
 
-    fn backup(&self) -> (&str, &str, Vec<(&str, String)>) {
-        (output::KIND, MODEL, Vec::new())
+    fn backup(&self) -> (&str, &str, &str) {
+        (output::KIND, MODEL, &"")
     }
 }

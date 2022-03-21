@@ -18,9 +18,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
-// use std::io::BufReader;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use talker::ear::{Ear, Talk};
 use talker::identifier::{Id, Identifiable, Identifier, Index};
@@ -29,10 +27,9 @@ use talker::talker::RTalker;
 use crate::factory::Factory;
 use crate::mixer;
 use crate::mixer::RMixer;
-use crate::output;
 use crate::output::ROutput;
-use crate::track;
-use crate::track::{RTrack, Track};
+use crate::parser;
+use crate::parser::{PMixer, POutput, PTalk, PTalker};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Operation {
@@ -54,34 +51,15 @@ pub enum Operation {
 pub struct Band {
     talkers: HashMap<Id, RTalker>,
     mixers: HashMap<Id, RMixer>,
-    tracks: HashMap<Id, RTrack>,
 }
 
 pub type RBand = Rc<RefCell<Band>>;
-
-struct Module<'a> {
-    kind: &'a str,
-    mref: &'a str,
-    feature: &'a str,
-    attributs: Vec<(&'a str, &'a str, &'a str)>,
-}
-impl<'a> Module<'a> {
-    pub fn new(kind: &'a str, mref: &'a str, feature: &'a str) -> Module<'a> {
-        Self {
-            kind,
-            mref,
-            feature,
-            attributs: Vec::new(),
-        }
-    }
-}
 
 impl Band {
     pub fn new(talkers: Option<HashMap<Id, RTalker>>, mixers: Option<HashMap<Id, RMixer>>) -> Band {
         Self {
             talkers: talkers.unwrap_or(HashMap::new()),
             mixers: mixers.unwrap_or(HashMap::new()),
-            tracks: HashMap::new(),
         }
     }
 
@@ -89,7 +67,6 @@ impl Band {
         Self {
             talkers: HashMap::new(),
             mixers: HashMap::new(),
-            tracks: HashMap::new(),
         }
     }
 
@@ -107,137 +84,32 @@ impl Band {
         &self.mixers
     }
 
-    fn mref(id: Id, name: &str) -> String {
-        format!("{}#{}", id, name.replace(" ", "_").replace("\t", "_"))
-    }
-
-    fn name_from_mref(mref: &str) -> &str {
-        let parts: Vec<&str> = mref.split('#').collect();
-
-        if parts.len() == 2 {
-            parts[1]
-        } else {
-            mref
-        }
-    }
-
-    fn id_from_mref(mref: &str) -> Result<Id, failure::Error> {
-        let parts: Vec<&str> = mref.split('#').collect();
-        match Id::from_str(parts[0]) {
-            Ok(id) => Ok(id),
-            Err(e) => Err(failure::err_msg(format!(
-                "Failed to get id from mref {} : {}!",
-                mref,
-                e.to_string()
-            ))),
-        }
-    }
-
-    fn parse_talk_tag<'a>(tag: &'a str) -> (&'a str, Index, &'a str) {
-        let mut set_idx: Index = 0;
-        let mut hum_tag = "";
-        let parts: Vec<&str> = tag.split('.').collect();
-
-        if parts.len() > 1 {
-            set_idx = Index::from_str(parts[1]).unwrap_or(0);
-        }
-        if parts.len() > 2 {
-            hum_tag = parts[2];
-        }
-        (parts[0], set_idx, hum_tag)
-    }
-
-    fn tidy_decs<'a>(
-        module: Module<'a>,
-        (tkr_decs, trk_decs, mxr_decs, otp_decs): &mut (
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-        ),
-    ) {
-        match module.kind {
-            "" => None,
-            track::KIND => trk_decs.insert(module.mref, module),
-            mixer::KIND => mxr_decs.insert(module.mref, module),
-            output::KIND => otp_decs.insert(module.mref, module),
-            _ => tkr_decs.insert(module.mref, module),
-        };
-    }
-
-    fn make_decs<'a>(
-        description: &'a String,
-    ) -> Result<
-        (
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-            HashMap<&'a str, Module<'a>>,
-        ),
-        failure::Error,
-    > {
-        let mut decs = (
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
-            HashMap::new(),
-        );
-        let mut module = Module::new("", "", "");
-
-        for line in description.lines() {
-            let words: Vec<&str> = line.trim().split(|c| c == ' ' || c == '\t').collect();
-
-            match (words.get(0), words.get(1), words.get(2)) {
-                (None, None, None) => (),
-                (Some(c), _, _) if c.chars().next() == Some('/') => (),
-                (Some(p), Some(tag), Some(tlk)) if p == &">" => {
-                    let tlk_p: Vec<&str> = tlk.split(':').collect();
-                    let tkr = tlk_p.get(0).unwrap_or(tlk);
-                    let sp = tlk_p.get(1).unwrap_or(&"");
-
-                    if module.kind == "" {
-                        return Err(failure::err_msg(format!(
-                            "Found module attribut {} {} before module!",
-                            tag, tlk
-                        )));
-                    }
-                    module.attributs.push((tag, tkr, sp));
-                }
-                (Some(kind), Some(mref), Some(feature)) => {
-                    Band::tidy_decs(module, &mut decs);
-                    module = Module::new(kind, mref, feature);
-                }
-                (Some(kind), Some(mref), None) => {
-                    Band::tidy_decs(module, &mut decs);
-                    module = Module::new(kind, mref, "");
-                }
-                _ => (),
-            }
-        }
-        Band::tidy_decs(module, &mut decs);
-        Ok(decs)
-    }
-
     fn set_talker_ears(
-        talkers: &HashMap<&str, RTalker>,
+        talkers: &HashMap<Id, RTalker>,
         talker: &RTalker,
-        module: &Module,
+        ptalker: &PTalker,
     ) -> Result<(), failure::Error> {
-        for (tag, dpn, tkn) in &module.attributs {
-            let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(tag);
-
-            match f32::from_str(&dpn) {
-                Ok(value) => talker.add_ear_hum_value_by_tag(ear_tag, set_idx, hum_tag, value)?,
-                Err(_) => match talkers.get(dpn) {
+        for cnx in &ptalker.connections {
+            match &cnx.talk {
+                PTalk::Value(value) => talker.add_ear_hum_value_by_tag(
+                    cnx.ear_tag,
+                    cnx.set_idx,
+                    cnx.hum_tag,
+                    *value,
+                )?,
+                PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
                     Some(tkr) => talker.add_ear_hum_voice_by_tag(
-                        ear_tag,
-                        set_idx,
-                        hum_tag,
+                        cnx.ear_tag,
+                        cnx.set_idx,
+                        cnx.hum_tag,
                         tkr,
-                        tkr.voice_port(&tkn)?,
+                        tkr.voice_port(&talker_voice.voice)?,
                     )?,
                     None => {
-                        return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
+                        return Err(failure::err_msg(format!(
+                            "Talker {} not found!",
+                            talker_voice.talker
+                        )));
                     }
                 },
             }
@@ -245,157 +117,101 @@ impl Band {
         Ok(())
     }
 
-    fn make_track(
-        &mut self,
-        factory: &Factory,
-        talkers: &HashMap<&str, RTalker>,
-        module: &Module,
-    ) -> Result<RTrack, failure::Error> {
-        let rtrack = factory.make_track(
-            Some(Band::id_from_mref(module.mref)?),
-            Some(Band::name_from_mref(module.mref)),
-        )?;
-        {
-            let track = rtrack.borrow_mut();
-
-            for (tag, dpn, tkn) in &module.attributs {
-                let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(&tag);
-
-                match f32::from_str(&dpn) {
-                    Ok(value) => track
-                        .base()
-                        .add_ear_hum_value_by_tag(ear_tag, set_idx, hum_tag, value)?,
-                    Err(_) => match talkers.get(dpn) {
-                        Some(tkr) => track.base().add_ear_hum_voice_by_tag(
-                            ear_tag,
-                            set_idx,
-                            hum_tag,
-                            tkr,
-                            tkr.voice_port(&tkn)?,
-                        )?,
-                        None => {
-                            return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
-                        }
-                    },
-                }
-            }
-        }
-        let id = rtrack.borrow().base().id();
-        self.tracks.insert(id, rtrack.clone());
-        Ok(rtrack)
-    }
-
     fn make_output(
         &mut self,
         factory: &Factory,
-        module: &Module,
+        poutput: &POutput,
     ) -> Result<ROutput, failure::Error> {
         factory.make_output(
-            Some(Band::id_from_mref(module.mref)?),
-            Some(Band::name_from_mref(module.mref)),
-            module.feature,
-            Some(&module.attributs),
+            poutput.model,
+            Some(poutput.id),
+            Some(poutput.name),
+            poutput.data,
         )
     }
 
     fn make_mixer(
         &mut self,
         factory: &Factory,
-        talkers: &HashMap<&str, RTalker>,
-        trk_decs: &HashMap<&str, Module>,
-        otp_decs: &HashMap<&str, Module>,
-        module: &Module,
+        talkers: &HashMap<Id, RTalker>,
+        poutputs: &HashMap<Id, POutput>,
+        pmixer: &PMixer,
     ) -> Result<RMixer, failure::Error> {
-        let mut tracks = Vec::new();
         let mut outputs = Vec::new();
 
-        for (tag, dpn, _) in &module.attributs {
-            if tag == &Track::kind() {
-                match trk_decs.get(dpn) {
-                    Some(trk) => tracks.push(self.make_track(factory, &talkers, trk)?),
-                    None => return Err(failure::err_msg(format!("Track {} not found!", dpn))),
-                }
-            } else if tag == &output::KIND {
-                match otp_decs.get(dpn) {
-                    Some(otp) => outputs.push(self.make_output(factory, otp)?),
-                    None => return Err(failure::err_msg(format!("Output {} not found!", dpn))),
-                }
+        for output_id in &pmixer.outputs {
+            match poutputs.get(output_id) {
+                Some(otp) => outputs.push(self.make_output(factory, otp)?),
+                None => return Err(failure::err_msg(format!("Output {} not found!", output_id))),
             }
         }
 
-        let rmixer = factory.make_mixer(
-            Some(Band::id_from_mref(module.mref)?),
-            Some(Band::name_from_mref(module.mref)),
-            Some(tracks),
-            Some(outputs),
-        )?;
+        let rmixer = factory.make_mixer(Some(pmixer.id), Some(pmixer.name), None, Some(outputs))?;
         {
             let mixer = rmixer.borrow_mut();
 
-            for (tag, dpn, tkn) in &module.attributs {
-                if tag != &Track::kind() && tag != &output::KIND {
-                    let (ear_tag, set_idx, hum_tag) = Band::parse_talk_tag(&tag);
-
-                    match f32::from_str(&dpn) {
-                        Ok(value) => mixer
-                            .talker()
-                            .add_ear_hum_value_by_tag(ear_tag, set_idx, hum_tag, value)?,
-                        Err(_) => match talkers.get(dpn) {
-                            Some(tkr) => mixer.talker().add_ear_hum_voice_by_tag(
-                                ear_tag,
-                                set_idx,
-                                hum_tag,
-                                tkr,
-                                tkr.voice_port(&tkn)?,
-                            )?,
-                            None => {
-                                return Err(failure::err_msg(format!("Talker {} not found!", dpn)));
-                            }
-                        },
-                    }
+            for cnx in &pmixer.connections {
+                match &cnx.talk {
+                    PTalk::Value(value) => mixer.talker().add_ear_hum_value_by_tag(
+                        cnx.ear_tag,
+                        cnx.set_idx,
+                        cnx.hum_tag,
+                        *value,
+                    )?,
+                    PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
+                        Some(tkr) => mixer.talker().add_ear_hum_voice_by_tag(
+                            cnx.ear_tag,
+                            cnx.set_idx,
+                            cnx.hum_tag,
+                            tkr,
+                            tkr.voice_port(&talker_voice.voice)?,
+                        )?,
+                        None => {
+                            return Err(failure::err_msg(format!(
+                                "Talker {} not found!",
+                                talker_voice.talker
+                            )));
+                        }
+                    },
                 }
             }
         }
         Ok(rmixer)
     }
 
-    pub fn build(factory: &Factory, description: &String) -> Result<Band, failure::Error> {
+    pub fn build(factory: &Factory, source: &String) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
         let mut band = Band::empty();
 
-        let (tkr_decs, trk_decs, mxr_decs, otp_decs) = Band::make_decs(&description)?;
+        let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
 
         let mut talkers = HashMap::new();
-        let mut talkers_modules = Vec::new();
+        let mut talkers_ptalkers = Vec::new();
 
-        for (mref, module) in tkr_decs {
-            let tkr = band.build_talker(
-                factory,
-                module.kind,
-                Some(Band::id_from_mref(mref)?),
-                Some(Band::name_from_mref(mref)),
-            )?;
+        for ptalker in ptalkers.values() {
+            let tkr =
+                band.build_talker(factory, ptalker.model, Some(ptalker.id), Some(ptalker.name))?;
 
-            if module.feature.len() > 0 {
-                tkr.set_data_from_string(module.feature)?;
+            if let Some(data) = ptalker.data {
+                tkr.set_data_from_string(data)?;
             }
-            talkers_modules.push((tkr.clone(), module));
-            talkers.insert(mref, tkr.clone());
+            talkers_ptalkers.push((tkr.clone(), ptalker));
+            talkers.insert(ptalker.id, tkr.clone());
         }
 
-        for (talker, module) in talkers_modules {
-            Band::set_talker_ears(&talkers, &talker, &module)?;
+        for (talker, ptalker) in talkers_ptalkers {
+            Band::set_talker_ears(&talkers, &talker, &ptalker)?;
         }
 
-        for (_, module) in mxr_decs {
-            let rmixer = band.make_mixer(factory, &talkers, &trk_decs, &otp_decs, &module)?;
+        for pmixer in pmixers.values() {
+            let rmixer = band.make_mixer(factory, &talkers, &poutputs, &pmixer)?;
             band.add_mixer(rmixer);
         }
 
         Ok(band)
     }
-    pub fn make(description_buffer: &String) -> Result<Band, failure::Error> {
-        Factory::visit(|factory| Band::build(factory, description_buffer))
+    pub fn make(source_buffer: &String) -> Result<Band, failure::Error> {
+        Factory::visit(|factory| Band::build(factory, source_buffer))
     }
 
     pub fn to_ref(self) -> RBand {
@@ -418,15 +234,9 @@ impl Band {
             let voice_tag = tkr.voice_tag(talk.port())?;
 
             if voice_tag == "" {
-                writeln!(buf, "{} {}", talk_tag, Band::mref(tkr.id(), &tkr.name()))?;
+                writeln!(buf, "{} {}", talk_tag, tkr.id())?;
             } else {
-                writeln!(
-                    buf,
-                    "{} {}:{}",
-                    talk_tag,
-                    Band::mref(tkr.id(), &tkr.name()),
-                    voice_tag
-                )?;
+                writeln!(buf, "{} {}:{}", talk_tag, tkr.id(), voice_tag)?;
             }
         }
         Ok(buf)
@@ -437,14 +247,15 @@ impl Band {
 
         for rtkr in self.talkers.values() {
             let tkr = rtkr;
-            let (model, feature, ears): (String, String, &Vec<Ear>) = tkr.backup();
+            let (model, data, ears): (String, String, &Vec<Ear>) = tkr.backup();
 
             writeln!(
                 buf,
-                "\n{} {} {}",
+                "\n{} {}#{}\n[:{}:]\n",
                 model,
-                Band::mref(tkr.id(), &tkr.name()),
-                feature
+                tkr.id(),
+                &tkr.name(),
+                data
             )?;
 
             for ear in ears {
@@ -454,41 +265,28 @@ impl Band {
 
         for rmixer in self.mixers.values() {
             let mixer = rmixer.borrow();
-            writeln!(
-                buf,
-                "\n{} {}",
-                mixer::KIND,
-                Band::mref(mixer.id(), &mixer.name())
-            )?;
+            writeln!(buf, "\n{} {}#{}", mixer::KIND, mixer.id(), &mixer.name())?;
 
             for ear in mixer.talker().ears() {
                 ear.fold_talks(Band::talk_dep_line, &mut buf)?;
             }
             for routput in mixer.outputs() {
                 let output = routput.borrow();
-                let (kind, _, _) = output.backup();
-                writeln!(
-                    buf,
-                    "> {} {}",
-                    kind,
-                    Band::mref(output.id(), &output.name())
-                )?;
+                writeln!(buf, "< {}", output.id())?;
             }
 
             for routput in mixer.outputs() {
                 let output = routput.borrow();
-                let (kind, model, properties) = output.backup();
+                let (kind, model, configuration) = output.backup();
                 writeln!(
                     buf,
-                    "\n{} {} {}",
+                    "\n{} {} {}#{}\n[:{}:]\n",
                     kind,
-                    Band::mref(output.id(), &output.name()),
-                    model
+                    model,
+                    output.id(),
+                    &output.name(),
+                    configuration
                 )?;
-
-                for (tag, value) in properties {
-                    writeln!(buf, "> {} {}", tag, value)?;
-                }
             }
         }
         Ok(buf)
@@ -603,7 +401,7 @@ impl Band {
             for rmixer in self.mixers.values() {
                 rmixer
                     .borrow_mut()
-                    .add_output(factory.make_output(None, None, model, None)?);
+                    .add_output(factory.make_output(model, None, None, None)?);
             }
             Ok(())
         })

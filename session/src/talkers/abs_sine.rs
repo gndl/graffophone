@@ -16,7 +16,7 @@ impl AbsSine {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("", MODEL);
 
-        let freq = ear::audio(Some("frequence"), 0., 20000., 440., &Init::DefValue)?;
+        let freq = ear::audio(Some("freq"), 0., 20000., 440., &Init::DefValue)?;
         base.add_ear(freq);
         base.add_voice(voice::audio(None, 0.));
 

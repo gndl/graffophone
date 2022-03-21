@@ -11,6 +11,7 @@ pub mod factory;
 pub mod feedback;
 pub mod mixer;
 pub mod output;
+pub mod parser;
 pub mod player;
 pub mod plugins_manager;
 pub mod session;

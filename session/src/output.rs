@@ -46,8 +46,8 @@ pub trait Output {
 
     fn close(&mut self) -> Result<(), failure::Error>;
 
-    //                           kind  model        tag   dep
-    fn backup(&self) -> (&str, &str, Vec<(&str, String)>);
+    //                           kind  model configuration
+    fn backup(&self) -> (&str, &str, &str);
 }
 
 pub type ROutput = Rc<RefCell<dyn Output>>;

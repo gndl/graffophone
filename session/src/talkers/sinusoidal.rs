@@ -19,15 +19,9 @@ pub struct Sinusoidal {
 
 impl Sinusoidal {
     pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("", MODEL);
+        let mut base = TalkerBase::new("Sin", MODEL);
 
-        base.add_ear(ear::cv(
-            Some("frequence"),
-            0.,
-            20000.,
-            440.,
-            &Init::DefValue,
-        )?);
+        base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
 
         base.add_voice(voice::audio(None, 0.));
@@ -43,7 +37,7 @@ impl Sinusoidal {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Sinusoidal")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Sin")
     }
 }
 

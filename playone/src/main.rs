@@ -49,17 +49,14 @@ const FRAMES_PER_SECOND: usize = 10;
 const SAMPLES: usize = SAMPLE_RATE / FRAMES_PER_SECOND;
 
 const GSR: &str = "
-Sinusoidal 1#Sinusoidal_1 
-> frequence 440
+Sinusoidal 1#Sin 1
+> freq 440
 > phase 0
 
-track 2#track_2
-> I 1#Sinusoidal_1:O
-> gain 1
-
-mixer 5#mixer_5
+mixer 2#mixer
 > volume 1
-> track 2#track_2
+> in 1:out
+> gain 1
 ";
 
 fn main() {
@@ -80,22 +77,6 @@ fn main() {
     let bus = EventBus::new_ref();
     let band = Band::new_ref(None, None);
 
-    /*
-    band.borrow().run();
-    match run(&world, band.borrow().features_buffer()) {
-        Ok(_) => {}
-        e => {
-            eprintln!("Example failed with the following: {:?}", e);
-        }
-    }
-
-    match play_sin(&band) {
-        Ok(_) => {}
-        e => {
-            eprintln!("Example failed with the following: {:?}", e);
-        }
-    }
-     */
     match load_save_bands() {
         Ok(_) => {}
         e => {
@@ -251,12 +232,7 @@ fn play_sin(band: &RBand) -> Result<(), failure::Error> {
         Some(vec![track]),
         Some(vec![Rc::new(RefCell::new(feedback))]),
     )?;
-    /*
-    rmixer.borrow_mut().add_track(track);
-    rmixer
-        .borrow_mut()
-        .add_output(Rc::new(RefCell::new(feedback)));
-     */
+
     band.borrow_mut().add_mixer(rmixer);
     save_band(&band.borrow(), "play_sin_dst.gsr")
 }

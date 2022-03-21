@@ -15,13 +15,7 @@ impl AbsSine {
     pub fn new() -> Result<AbsSine, failure::Error> {
         let mut base = TalkerBase::new();
 
-        let freq = ear::audio(
-            Some("frequence".to_string()),
-            0.,
-            20000.,
-            440.,
-            Init::DefValue,
-        )?;
+        let freq = ear::audio(Some("freq".to_string()), 0., 20000., 440., Init::DefValue)?;
         base.add_ear(freq);
 
         let voice = voice::audio(None, None);

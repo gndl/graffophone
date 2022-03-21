@@ -11,13 +11,13 @@ use session::session::Session;
 use session::state::State;
 
 const GSR: &str = "
-Sinusoidal 1#Sinusoidal_1 
-> frequence 440
+Sinusoidal 2#Sin 1
+> freq 440
 > phase 0
 
-mixer 5#mixer_5
+mixer 1#mixer 1
 > volume 1
-> Tracks.0.In 1#Sinusoidal_1:Out
+> Tracks.0.In 2:Out
 > Tracks.0.gain 1
 > Tracks.0.left 1
 > Tracks.0.right 1
