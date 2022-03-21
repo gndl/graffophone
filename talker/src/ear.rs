@@ -39,72 +39,72 @@ pub fn def_talker(port_type: PortType, value: f32) -> RTalker {
 }
 
 pub struct Talk {
-    tkr: RTalker,
+    talker: RTalker,
     port: Index,
 }
 
 impl Talk {
     pub fn new(talker: &RTalker, port: Index) -> Talk {
         Self {
-            tkr: talker.clone(),
+            talker: talker.clone(),
             port: port,
         }
     }
 
     pub fn clone(&self) -> Talk {
         Self {
-            tkr: self.tkr.clone(),
+            talker: self.talker.clone(),
             port: self.port,
         }
     }
 
     pub fn talker<'a>(&'a self) -> &'a RTalker {
-        &self.tkr
+        &self.talker
     }
     pub fn port(&self) -> Index {
         self.port
     }
     pub fn value(&self) -> Option<f32> {
-        self.tkr.voice_value(self.port)
+        self.talker.voice_value(self.port)
     }
     pub fn visit_horn<F>(&self, mut f: F)
     where
         F: FnMut(&Horn),
     {
         {
-            match self.tkr.voices().get(self.port) {
+            match self.talker.voices().get(self.port) {
                 Some(voice) => f(voice.horn()),
                 None => (),
             }
         }
     }
     pub fn audio_buffer(&self) -> AudioBuf {
-        self.tkr.voice(self.port).audio_buffer()
+        self.talker.voice(self.port).audio_buffer()
     }
     pub fn control_buffer(&self) -> ControlBuf {
-        self.tkr.voice(self.port).control_buffer()
+        self.talker.voice(self.port).control_buffer()
     }
     pub fn control_value(&self) -> ControlVal {
-        self.tkr.voice(self.port).control_value()
+        self.talker.voice(self.port).control_value()
     }
     pub fn cv_buffer(&self) -> CvBuf {
-        self.tkr.voice(self.port).cv_buffer()
+        self.talker.voice(self.port).cv_buffer()
     }
     pub fn atom_buffer(&self) -> AtomBuf {
-        self.tkr.voice(self.port).atom_buffer()
+        self.talker.voice(self.port).atom_buffer()
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let port = self.port;
         {
-            let voice = self.tkr.voice(port);
+            let voice = self.talker.voice(port);
 
             if tick == voice.tick() {
                 return usize::min(len, voice.len());
             }
         }
 
-        self.tkr.talk(port, tick, len)
+        self.talker.talk(port, tick, len)
     }
 }
 /*
@@ -561,21 +561,22 @@ impl Ear {
         }
         false
     }
-    pub fn is_listening_talker_ports(&self, id: Id) -> HashSet<Index> {
-        let mut talker_ports = HashSet::new();
+    /*
+        pub fn is_listening_talker_ports(&self, id: Id) -> HashSet<Index> {
+            let mut talker_ports = HashSet::new();
 
-        for set in self.sets().iter() {
-            for hum in &set.hums {
-                for talk in &hum.talks {
-                    if talk.talker().id() == id {
-                        talker_ports.insert(talk.port);
+            for set in self.sets().iter() {
+                for hum in &set.hums {
+                    for talk in &hum.talks {
+                        if talk.talker().id() == id {
+                            talker_ports.insert(talk.port);
+                        }
                     }
                 }
             }
+            talker_ports
         }
-        talker_ports
-    }
-
+    */
     pub fn sets_len(&self) -> usize {
         self.sets().len()
     }
@@ -702,7 +703,7 @@ impl Ear {
     where
         F: FnMut(&RTalker, &mut P) -> Result<(), failure::Error>,
     {
-        self.iter_talks(|tlk, p| f(&tlk.tkr, p), p)
+        self.iter_talks(|tlk, p| f(&tlk.talker, p), p)
     }
 
     pub fn visit_horn<F>(&self, f: F)
