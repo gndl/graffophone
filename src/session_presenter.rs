@@ -45,6 +45,10 @@ impl SessionPresenter {
         self.session = Session::new(GSR.to_string()).unwrap();
     }
 
+    pub fn save_session(&mut self) {
+        self.manage_result(self.session.save());
+    }
+
     pub fn session<'a>(&'a self) -> &'a Session {
         &self.session
     }

@@ -132,6 +132,18 @@ impl ApplicationView {
         v_box.pack_start(&selected_talker_label, false, false, 0);
 
         // Actions
+        // New session
+        let new_ctrl = session_presenter.clone();
+        new_session_button.connect_clicked(move |_| {
+            new_ctrl.borrow_mut().new_session();
+        });
+
+        // Save session
+        let save_ctrl = session_presenter.clone();
+        save_session_button.connect_clicked(move |_| {
+            save_ctrl.borrow_mut().save_session();
+        });
+
         // talkers tree toggle
         talkers_tree_toggle.connect_toggled(move |tb| {
             if tb.get_active() {
@@ -139,12 +151,6 @@ impl ApplicationView {
             } else {
                 talkers_tree_scrolledwindow.hide();
             }
-        });
-
-        // New session
-        let new_ctrl = session_presenter.clone();
-        new_session_button.connect_clicked(move |_| {
-            new_ctrl.borrow_mut().new_session();
         });
 
         // Play
