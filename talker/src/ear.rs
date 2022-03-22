@@ -814,16 +814,16 @@ impl Ear {
         }
     }
 
-    pub fn add_hum_value_by_tag(
+    pub fn set_hum_value_by_tag(
         &self,
         set_idx: Index,
         hum_tag: &str,
         value: f32,
     ) -> Result<(), failure::Error> {
         let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.add_value(value))
+        self.set_hum(set_idx, hum_idx, |hum| hum.set_value(value))
     }
-    pub fn add_hum_voice_by_tag(
+    pub fn set_hum_voice_by_tag(
         &self,
         set_idx: Index,
         hum_tag: &str,
@@ -831,7 +831,7 @@ impl Ear {
         port: usize,
     ) -> Result<(), failure::Error> {
         let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.add_voice(talker, port))
+        self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(talker, port))
     }
     pub fn set_hum_value(
         &self,

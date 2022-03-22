@@ -91,14 +91,14 @@ impl Band {
     ) -> Result<(), failure::Error> {
         for cnx in &ptalker.connections {
             match &cnx.talk {
-                PTalk::Value(value) => talker.add_ear_hum_value_by_tag(
+                PTalk::Value(value) => talker.set_ear_hum_value_by_tag(
                     cnx.ear_tag,
                     cnx.set_idx,
                     cnx.hum_tag,
                     *value,
                 )?,
                 PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                    Some(tkr) => talker.add_ear_hum_voice_by_tag(
+                    Some(tkr) => talker.set_ear_hum_voice_by_tag(
                         cnx.ear_tag,
                         cnx.set_idx,
                         cnx.hum_tag,
@@ -152,14 +152,14 @@ impl Band {
 
             for cnx in &pmixer.connections {
                 match &cnx.talk {
-                    PTalk::Value(value) => mixer.talker().add_ear_hum_value_by_tag(
+                    PTalk::Value(value) => mixer.talker().set_ear_hum_value_by_tag(
                         cnx.ear_tag,
                         cnx.set_idx,
                         cnx.hum_tag,
                         *value,
                     )?,
                     PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                        Some(tkr) => mixer.talker().add_ear_hum_voice_by_tag(
+                        Some(tkr) => mixer.talker().set_ear_hum_voice_by_tag(
                             cnx.ear_tag,
                             cnx.set_idx,
                             cnx.hum_tag,
@@ -245,21 +245,19 @@ impl Band {
     pub fn serialize(&self) -> Result<String, failure::Error> {
         let mut buf = String::new();
 
-        for rtkr in self.talkers.values() {
-            let tkr = rtkr;
-            let (model, data, ears): (String, String, &Vec<Ear>) = tkr.backup();
+        for tkr in self.talkers.values() {
+            //            let tkr = rtkr;
+            if tkr.model() != mixer::KIND {
+                let (model, data, ears): (String, String, &Vec<Ear>) = tkr.backup();
 
-            writeln!(
-                buf,
-                "\n{} {}#{}\n[:{}:]\n",
-                model,
-                tkr.id(),
-                &tkr.name(),
-                data
-            )?;
+                writeln!(buf, "\n{} {}#{}", model, tkr.id(), &tkr.name(),)?;
 
-            for ear in ears {
-                ear.fold_talks(Band::talk_dep_line, &mut buf)?;
+                if !data.is_empty() {
+                    writeln!(buf, "[:{}:]", data)?;
+                }
+                for ear in ears {
+                    ear.fold_talks(Band::talk_dep_line, &mut buf)?;
+                }
             }
         }
 
@@ -280,13 +278,15 @@ impl Band {
                 let (kind, model, configuration) = output.backup();
                 writeln!(
                     buf,
-                    "\n{} {} {}#{}\n[:{}:]\n",
+                    "\n{} {} {}#{}",
                     kind,
                     model,
                     output.id(),
                     &output.name(),
-                    configuration
                 )?;
+                if !configuration.is_empty() {
+                    writeln!(buf, "[:{}:]", configuration)?;
+                }
             }
         }
         Ok(buf)

@@ -75,7 +75,7 @@ impl TalkerBase {
     pub fn add_ear(&mut self, ear: Ear) {
         self.ears.push(ear);
     }
-    pub fn add_ear_hum_value_by_tag(
+    pub fn set_ear_hum_value_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -84,16 +84,16 @@ impl TalkerBase {
     ) -> Result<(), failure::Error> {
         for ear in &self.ears {
             if ear.tag() == ear_tag {
-                return ear.add_hum_value_by_tag(set_idx, hum_tag, value);
+                return ear.set_hum_value_by_tag(set_idx, hum_tag, value);
             }
         }
         Err(failure::err_msg(format!(
-            "Talker {} add_ear_hum_value_by_tag : ear {} not found!",
+            "Talker {} set_ear_hum_value_by_tag : ear {} not found!",
             self.name(),
             ear_tag
         )))
     }
-    pub fn add_ear_hum_voice_by_tag(
+    pub fn set_ear_hum_voice_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -103,11 +103,11 @@ impl TalkerBase {
     ) -> Result<(), failure::Error> {
         for ear in &self.ears {
             if ear.tag() == ear_tag {
-                return ear.add_hum_voice_by_tag(set_idx, hum_tag, talker, port);
+                return ear.set_hum_voice_by_tag(set_idx, hum_tag, talker, port);
             }
         }
         Err(failure::err_msg(format!(
-            "Talker {} add_ear_hum_voice_by_tag : ear {} not found!",
+            "Talker {} set_ear_hum_voice_by_tag : ear {} not found!",
             self.name(),
             ear_tag
         )))
@@ -394,7 +394,7 @@ impl TalkerCab {
         None
     }
 
-    pub fn add_ear_hum_value_by_tag(
+    pub fn set_ear_hum_value_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -402,9 +402,9 @@ impl TalkerCab {
         value: f32,
     ) -> Result<(), failure::Error> {
         self.base
-            .add_ear_hum_value_by_tag(ear_tag, set_idx, hum_tag, value)
+            .set_ear_hum_value_by_tag(ear_tag, set_idx, hum_tag, value)
     }
-    pub fn add_ear_hum_voice_by_tag(
+    pub fn set_ear_hum_voice_by_tag(
         &self,
         ear_tag: &str,
         set_idx: Index,
@@ -413,7 +413,7 @@ impl TalkerCab {
         port: usize,
     ) -> Result<(), failure::Error> {
         self.base
-            .add_ear_hum_voice_by_tag(ear_tag, set_idx, hum_tag, talker, port)
+            .set_ear_hum_voice_by_tag(ear_tag, set_idx, hum_tag, talker, port)
     }
 
     pub fn set_ear_hum_value(
