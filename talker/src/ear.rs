@@ -334,7 +334,7 @@ impl Hum {
         Ok(self.with_talks(self.talks_with(talk_idx, None)))
     }
 
-    pub fn set_talk_value(&self, talk_idx: Index, value: f32) -> Result<Hum, failure::Error> {
+    fn set_talk_value(&self, talk_idx: Index, value: f32) -> Result<Hum, failure::Error> {
         Ok(self.with_talks(self.talks_with(
             talk_idx,
             Some(Talk::new(&def_talker(self.port_type, value), 0)),
@@ -686,13 +686,13 @@ impl Ear {
 
     pub fn fold_talks<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
-        F: FnMut(&str, Index, &str, &Talk, P) -> Result<P, failure::Error>,
+        F: FnMut(&str, Index, &str, Index, &Talk, P) -> Result<P, failure::Error>,
     {
         let mut acc = p;
         for (set_idx, set) in self.sets().iter().enumerate() {
             for hum in &set.hums {
-                for talk in &hum.talks {
-                    acc = f(&self.tag, set_idx, hum.tag(), &talk, acc)?;
+                for (talk_idx, talk) in hum.talks.iter().enumerate() {
+                    acc = f(&self.tag, set_idx, hum.tag(), talk_idx, &talk, acc)?;
                 }
             }
         }
@@ -832,6 +832,29 @@ impl Ear {
     ) -> Result<(), failure::Error> {
         let hum_idx = self.find_hum_index(hum_tag)?;
         self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(talker, port))
+    }
+    pub fn set_hum_talk_value_by_tag(
+        &self,
+        set_idx: Index,
+        hum_tag: &str,
+        talk_idx: Index,
+        value: f32,
+    ) -> Result<(), failure::Error> {
+        let hum_idx = self.find_hum_index(hum_tag)?;
+        self.set_hum(set_idx, hum_idx, |hum| hum.set_talk_value(talk_idx, value))
+    }
+    pub fn set_hum_talk_voice_by_tag(
+        &self,
+        set_idx: Index,
+        hum_tag: &str,
+        talk_idx: Index,
+        talker: &RTalker,
+        port: usize,
+    ) -> Result<(), failure::Error> {
+        let hum_idx = self.find_hum_index(hum_tag)?;
+        self.set_hum(set_idx, hum_idx, |hum| {
+            hum.set_talk_voice(talk_idx, talker, port)
+        })
     }
     pub fn set_hum_value(
         &self,

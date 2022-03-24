@@ -16,6 +16,7 @@ pub struct PConnection<'a> {
     pub ear_tag: &'a str,
     pub set_idx: usize,
     pub hum_tag: &'a str,
+    pub talk_idx: usize,
     pub talk: PTalk<'a>,
 }
 pub struct PTalker<'a> {
@@ -89,20 +90,29 @@ fn parse_connections<'a>(
         let ear_desc_end = src.find(" ").unwrap();
         let mut ear_desc = src.get(..ear_desc_end).unwrap();
 
-        let (ear_tag, set_idx, hum_tag) = if let Some(ear_tag_end) = ear_desc.find(".") {
+        let (ear_tag, set_idx, hum_tag, talk_idx) = if let Some(ear_tag_end) = ear_desc.find(".") {
             let ear_tag = ear_desc.get(..ear_tag_end).unwrap();
             ear_desc = ear_desc.get(ear_tag_end + ".".len()..).unwrap();
 
             if let Some(ear_set_end) = ear_desc.find(".") {
                 let set_desc = ear_desc.get(..ear_set_end).unwrap();
                 let set_idx = Index::from_str(set_desc).unwrap_or(0);
-                let hum_tag = ear_desc.get(ear_set_end + ".".len()..).unwrap();
-                (ear_tag, set_idx, hum_tag)
+                ear_desc = ear_desc.get(ear_set_end + ".".len()..).unwrap();
+
+                if let Some(ear_hum_end) = ear_desc.find(".") {
+                    let hum_tag = ear_desc.get(..ear_hum_end).unwrap();
+                    let talk_idx =
+                        Index::from_str(ear_desc.get(ear_hum_end + ".".len()..).unwrap())
+                            .unwrap_or(0);
+                    (ear_tag, set_idx, hum_tag, talk_idx)
+                } else {
+                    (ear_tag, set_idx, ear_desc, 0)
+                }
             } else {
-                (ear_tag, Index::from_str(ear_desc).unwrap_or(0), "")
+                (ear_tag, Index::from_str(ear_desc).unwrap_or(0), "", 0)
             }
         } else {
-            (ear_desc, 0, "")
+            (ear_desc, 0, "", 0)
         };
 
         let talk_desc_end = src.find("\n").unwrap();
@@ -131,6 +141,7 @@ fn parse_connections<'a>(
             ear_tag,
             set_idx,
             hum_tag,
+            talk_idx,
             talk,
         };
         connections.push(cnx);

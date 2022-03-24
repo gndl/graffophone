@@ -91,17 +91,19 @@ impl Band {
     ) -> Result<(), failure::Error> {
         for cnx in &ptalker.connections {
             match &cnx.talk {
-                PTalk::Value(value) => talker.set_ear_hum_value_by_tag(
+                PTalk::Value(value) => talker.set_ear_hum_talk_value_by_tag(
                     cnx.ear_tag,
                     cnx.set_idx,
                     cnx.hum_tag,
+                    cnx.talk_idx,
                     *value,
                 )?,
                 PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                    Some(tkr) => talker.set_ear_hum_voice_by_tag(
+                    Some(tkr) => talker.set_ear_hum_talk_voice_by_tag(
                         cnx.ear_tag,
                         cnx.set_idx,
                         cnx.hum_tag,
+                        cnx.talk_idx,
                         tkr,
                         tkr.voice_port(&talker_voice.voice)?,
                     )?,
@@ -152,17 +154,19 @@ impl Band {
 
             for cnx in &pmixer.connections {
                 match &cnx.talk {
-                    PTalk::Value(value) => mixer.talker().set_ear_hum_value_by_tag(
+                    PTalk::Value(value) => mixer.talker().set_ear_hum_talk_value_by_tag(
                         cnx.ear_tag,
                         cnx.set_idx,
                         cnx.hum_tag,
+                        cnx.talk_idx,
                         *value,
                     )?,
                     PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                        Some(tkr) => mixer.talker().set_ear_hum_voice_by_tag(
+                        Some(tkr) => mixer.talker().set_ear_hum_talk_voice_by_tag(
                             cnx.ear_tag,
                             cnx.set_idx,
                             cnx.hum_tag,
+                            cnx.talk_idx,
                             tkr,
                             tkr.voice_port(&talker_voice.voice)?,
                         )?,
@@ -222,10 +226,11 @@ impl Band {
         ear_tag: &str,
         set_idx: Index,
         hum_tag: &str,
+        talk_idx: Index,
         talk: &Talk,
         buf: &'a mut String,
     ) -> Result<&'a mut String, failure::Error> {
-        let talk_tag = format!("> {}.{}.{}", ear_tag, set_idx, hum_tag);
+        let talk_tag = format!("> {}.{}.{}.{}", ear_tag, set_idx, hum_tag, talk_idx);
         let tkr = &talk.talker();
 
         if tkr.is_hidden() {
