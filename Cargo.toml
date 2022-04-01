@@ -11,16 +11,16 @@ path = "playone/src/main.rs"
 [dependencies]
 failure = "0.1.5"
 ringbuf = "0.2.1"
-glib = "^0"
-gdk = "^0"
-cairo-rs = "^0"
+glib = "0.15.10"
+gdk = "0.15.4"
+cairo-rs = "0.15.10"
 talker = { path = "./talker" }
 session = { path = "./session" }
 
 [dependencies.gtk]
-version = "^0"
+version = "0.15.4"
 features = ["v3_24"]
 
 [dependencies.gio]
-version = "0.9.1"
+version = "0.15.10"
 features = ["v2_58"]

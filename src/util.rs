@@ -1,7 +1,8 @@
+/*
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
-/*
+
 pub fn hashmap_visit<K: Hash + Eq, V, F>(hashmap: HashMap<K, V>, key: K, mut f: F)
 where
     F: FnMut(&V),
@@ -20,3 +21,10 @@ where
     }
 }
 */
+
+pub fn print_cairo_result(result: Result<(), cairo::Error>) {
+    match result {
+        Ok(()) => (),
+        Err(e) => println!("TalkerControl Cairo error {}", e),
+    }
+}

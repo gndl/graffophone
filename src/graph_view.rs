@@ -4,15 +4,15 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use gtk::prelude::*;
-use gtk::{DrawingArea, WidgetExt};
+use crate::gtk::prelude::WidgetExtManual;
+use gtk::prelude::WidgetExt;
+use gtk::DrawingArea;
 
 use cairo::Context;
 
 use talker::identifier::Id;
 use talker::identifier::Identifiable;
 use talker::talker::RTalker;
-//use talker::talker::Talker;
 
 use session::event_bus::{Notification, REventBus};
 use session::mixer::Mixer;
@@ -23,6 +23,7 @@ use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::talker_control;
 use crate::talker_control::{ControlSupply, RTalkerControl};
+use crate::util;
 
 const MARGE: f64 = 10.;
 const ROW_SPACING: f64 = 5.;
@@ -134,8 +135,8 @@ impl EventReceiver {
         }
     }
 
-    pub fn on_button_release(&mut self, ev: &gdk::EventButton) -> Inhibit {
-        let (x, y) = ev.get_position();
+    pub fn on_button_release(&mut self, ev: &gdk::EventButton) -> gtk::Inhibit {
+        let (x, y) = ev.position();
 
         for tkrc in &self.talker_controls {
             match tkrc.borrow().on_button_release(x, y, &self.graph_presenter) {
@@ -144,12 +145,12 @@ impl EventReceiver {
                     for notification in notifications {
                         self.session_presenter.borrow().notify(notification);
                     }
-                    return Inhibit(true);
+                    return gtk::Inhibit(true);
                 }
                 Err(e) => self.session_presenter.borrow().notify_error(e),
             }
         }
-        Inhibit(false)
+        gtk::Inhibit(false)
     }
 }
 
@@ -467,30 +468,31 @@ impl GraphView {
     }
 
     fn build(&mut self, drawing_area: &DrawingArea, cc: &Context) {
-        let control_supply = ControlSupply::new(cc);
+        match ControlSupply::new(cc) {
+            Ok(control_supply) => match self.create_graph(drawing_area, &control_supply) {
+                Ok(talker_controls) => {
+                    self.event_receiver
+                        .borrow_mut()
+                        .set_talker_controls(&talker_controls);
 
-        match self.create_graph(drawing_area, &control_supply) {
-            Ok(talker_controls) => {
-                self.event_receiver
-                    .borrow_mut()
-                    .set_talker_controls(&talker_controls);
+                    self.talker_controls = talker_controls;
 
-                self.talker_controls = talker_controls;
-
-                drawing_area.set_size_request(self.width as i32, self.height as i32);
-                self.build_needed = false;
-            }
+                    drawing_area.set_size_request(self.width as i32, self.height as i32);
+                    self.build_needed = false;
+                }
+                Err(e) => eprintln!("{}", e),
+            },
             Err(e) => eprintln!("{}", e),
         }
     }
 
-    fn on_draw(&mut self, drawing_area: &DrawingArea, cc: &Context) -> Inhibit {
+    fn on_draw(&mut self, drawing_area: &DrawingArea, cc: &Context) -> gtk::Inhibit {
         if self.build_needed {
             self.build(drawing_area, cc);
         }
         style::background(cc);
         cc.rectangle(0., 0., self.width, self.height);
-        cc.fill();
+        util::print_cairo_result(cc.fill());
 
         //        let graph_presenter = &self.event_receiver.borrow().graph_presenter;
 
@@ -502,7 +504,7 @@ impl GraphView {
             tkrc.borrow().draw(cc, &self.graph_presenter.borrow());
         }
 
-        Inhibit(false)
+        gtk::Inhibit(false)
     }
 
     fn observe(observer: &RGraphView, bus: &REventBus) {

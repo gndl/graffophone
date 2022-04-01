@@ -8,9 +8,8 @@ extern crate gtk;
 
 extern crate session;
 
-use gio::prelude::*;
-
-use std::env::args;
+use crate::gtk::prelude::ApplicationExt;
+use crate::gtk::prelude::ApplicationExtManual;
 
 mod application_view;
 mod bounded_float_entry;
@@ -20,14 +19,14 @@ mod mixer_control;
 mod session_presenter;
 mod style;
 mod talker_control;
+mod util;
 
 use application_view::ApplicationView;
 use session_presenter::SessionPresenter;
 
 fn main() {
     let application =
-        gtk::Application::new(Some("com.github.gndl.graffophone"), Default::default())
-            .expect("Initialization failed...");
+        gtk::Application::new(Some("com.github.gndl.graffophone"), Default::default());
 
     application.connect_activate(|app| {
         let session_presenter = SessionPresenter::new_ref();
@@ -40,5 +39,5 @@ fn main() {
         }
     });
 
-    application.run(&args().collect::<Vec<_>>());
+    application.run();
 }

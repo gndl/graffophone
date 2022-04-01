@@ -34,6 +34,8 @@ use crate::state::State;
 // use crate::track::RTrack;
 // use crate::track::Track;
 
+pub const CONTENT_TYPE: &str = ".gsr";
+
 pub struct Session {
     filename: String,
     band: Band,

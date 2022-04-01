@@ -1,4 +1,9 @@
-use gtk::{prelude::WidgetExtManual, ContainerExt, DialogExt, GtkWindowExt, RangeExt, WidgetExt};
+use crate::gtk::prelude::ContainerExt;
+use crate::gtk::prelude::DialogExt;
+use crate::gtk::prelude::GtkWindowExt;
+use crate::gtk::prelude::RangeExt;
+use crate::gtk::prelude::WidgetExt;
+use crate::gtk::prelude::WidgetExtManual;
 
 pub fn create<Fcv: Fn(f64, bool) + 'static, Fend: Fn() + 'static>(
     min: f64,
@@ -51,7 +56,7 @@ pub fn run<Fcv: Fn(f64, bool) + 'static>(
     dialog.add_button("Default", gtk::ResponseType::Other(0));
     dialog.add_button("Ok", gtk::ResponseType::Ok);
     dialog.set_default_response(gtk::ResponseType::Ok);
-    dialog.get_content_area().add(&scale);
+    dialog.content_area().add(&scale);
     dialog.set_position(gtk::WindowPosition::Mouse);
     dialog.set_decorated(false);
     dialog.show_all();
@@ -60,7 +65,7 @@ pub fn run<Fcv: Fn(f64, bool) + 'static>(
 
     match dialog.run() {
         gtk::ResponseType::Ok => {
-            res = scale.get_value();
+            res = scale.value();
         }
         gtk::ResponseType::Other(0) => {
             res = def;

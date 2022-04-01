@@ -13,6 +13,7 @@ use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::style;
 use crate::style::Color;
+use crate::util;
 use session::event_bus::Notification;
 
 pub const ADD_TAG: &str = "+";
@@ -145,9 +146,14 @@ impl Dim {
     pub fn new(w: f64, h: f64) -> Dim {
         Self { w, h }
     }
-    pub fn of(cc: &Context, txt: &str) -> Dim {
-        let te = cc.text_extents(txt);
-        Dim::new(te.x_advance, te.height)
+    pub fn of(cc: &Context, txt: &str) -> Result<Dim, failure::Error> {
+        match cc.text_extents(txt) {
+            Ok(te) => Ok(Dim::new(te.x_advance, te.height)),
+            Err(e) => Err(failure::err_msg(format!(
+                "Dim::of {} text_extents :  {}",
+                txt, e
+            ))),
+        }
     }
 }
 
@@ -167,20 +173,20 @@ fn dim_to_area(b_x: f64, b_y: f64, dim: &Dim) -> Area {
 }
 
 impl<'a> ControlSupply<'a> {
-    pub fn new(cc: &'a Context) -> ControlSupply<'a> {
+    pub fn new(cc: &'a Context) -> Result<ControlSupply<'a>, failure::Error> {
         style::add(cc);
-        let add_dim = Dim::of(cc, ADD_TAG);
+        let add_dim = Dim::of(cc, ADD_TAG)?;
         style::sup(cc);
-        let sup_dim = Dim::of(cc, SUP_TAG);
+        let sup_dim = Dim::of(cc, SUP_TAG)?;
         style::value(cc);
-        let val_dim = Dim::of(cc, VAL_TAG);
+        let val_dim = Dim::of(cc, VAL_TAG)?;
         style::add(cc);
-        let add_in_dim = Dim::of(cc, ADD_IN_TAG);
+        let add_in_dim = Dim::of(cc, ADD_IN_TAG)?;
         style::switch(cc);
-        let maximize_dim = Dim::of(cc, MAXIMIZE_TAG);
-        let minimize_dim = Dim::of(cc, MINIMIZE_TAG);
-        let destroy_dim = Dim::of(cc, DESTROY_TAG);
-        Self {
+        let maximize_dim = Dim::of(cc, MAXIMIZE_TAG)?;
+        let minimize_dim = Dim::of(cc, MINIMIZE_TAG)?;
+        let destroy_dim = Dim::of(cc, DESTROY_TAG)?;
+        Ok(Self {
             cc,
             add_dim,
             sup_dim,
@@ -189,11 +195,16 @@ impl<'a> ControlSupply<'a> {
             maximize_dim,
             minimize_dim,
             destroy_dim,
-        }
+        })
     }
-    fn area_of(&self, txt: &str, b_x: f64, b_y: f64) -> Area {
-        let te = self.cc.text_extents(txt);
-        Area::of_content(b_x, b_y, te.x_advance, te.height)
+    fn area_of(&self, txt: &str, b_x: f64, b_y: f64) -> Result<Area, failure::Error> {
+        let te = self.cc.text_extents(txt).map_err(|e| {
+            failure::err_msg(format!(
+                "ControlSupply::area_of text_extents {} -> {}",
+                txt, e
+            ))
+        })?;
+        Ok(Area::of_content(b_x, b_y, te.x_advance, te.height))
     }
 }
 
@@ -258,7 +269,7 @@ impl TalkerControlBase {
 
         let model_area = if draw_model && !minimized {
             style::model(control_supply.cc);
-            let m_a = control_supply.area_of(&tkr.model(), 0., 0.);
+            let m_a = control_supply.area_of(&tkr.model(), 0., 0.)?;
             box_b_y = m_a.e_y;
             header_e_y += box_b_y;
             Some(m_a)
@@ -275,7 +286,8 @@ impl TalkerControlBase {
 
         let name_area = if draw_name {
             style::name(control_supply.cc);
-            let n_a = control_supply.area_of(&format_name(&tkr.name()), imize_area.e_x, header_e_y);
+            let n_a =
+                control_supply.area_of(&format_name(&tkr.name()), imize_area.e_x, header_e_y)?;
             box_e_x = n_a.e_x;
             header_e_y = n_a.e_y;
             Some(n_a)
@@ -285,7 +297,7 @@ impl TalkerControlBase {
 
         let data_area = if draw_data && !minimized {
             style::data(control_supply.cc);
-            let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y);
+            let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y)?;
             box_e_x = f64::max(box_e_x, d_a.e_x);
             header_e_y = d_a.e_y;
             Some(d_a)
@@ -315,7 +327,7 @@ impl TalkerControlBase {
 
                 let (ear_tag_area, hum_tag) = if ear.is_multi_hum() {
                     style::name(control_supply.cc);
-                    let tag_area = control_supply.area_of(&ear_tag, b_x, ears_e_y);
+                    let tag_area = control_supply.area_of(&ear_tag, b_x, ears_e_y)?;
                     b_y = tag_area.e_y;
                     (Some((ear_tag, tag_area)), None)
                 } else {
@@ -336,13 +348,14 @@ impl TalkerControlBase {
                             format_tag(hum.tag())
                         };
 
-                        let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y);
+                        let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y)?;
 
                         let (value, value_area, hum_area) = if hum.can_have_a_value() {
                             let (value, value_area) = if let Some(v) = hum.value() {
                                 let value = format_value(&v);
                                 style::value(control_supply.cc);
-                                let value_area = control_supply.area_of(&value, tag_area.e_x, b_y);
+                                let value_area =
+                                    control_supply.area_of(&value, tag_area.e_x, b_y)?;
 
                                 (Some(value), value_area)
                             } else {
@@ -413,7 +426,7 @@ impl TalkerControlBase {
 
             for (port, voice) in tkr.voices().iter().enumerate() {
                 let tag = format_tag(voice.tag());
-                let area = control_supply.area_of(&tag, voices_b_x, voices_e_y);
+                let area = control_supply.area_of(&tag, voices_b_x, voices_e_y)?;
 
                 voices_e_x = f64::max(voices_e_x, area.e_x);
                 voices_e_y = area.e_y;
@@ -503,13 +516,17 @@ impl TalkerControlBase {
         self.y = y;
     }
 
-    pub fn draw_box(&self, cc: &Context, graph_presenter: &GraphPresenter) {
+    pub fn draw_box(
+        &self,
+        cc: &Context,
+        graph_presenter: &GraphPresenter,
+    ) -> Result<(), cairo::Error> {
         let w = self.box_area.e_x - self.box_area.b_x; //self.width;
         let h = self.box_area.e_y - self.box_area.b_y;
 
         style::box_background(cc);
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
-        cc.fill();
+        cc.fill()?;
 
         if graph_presenter.talker_selected(self.id) {
             style::selected(cc);
@@ -517,10 +534,11 @@ impl TalkerControlBase {
             style::box_border(cc);
         }
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
-        cc.stroke();
+        cc.stroke()?;
+        Ok(())
     }
 
-    pub fn draw_header(&self, cc: &Context, draw_switch: bool) {
+    pub fn draw_header(&self, cc: &Context, draw_switch: bool) -> Result<(), cairo::Error> {
         if draw_switch {
             style::switch(cc);
             cc.move_to(
@@ -528,16 +546,16 @@ impl TalkerControlBase {
                 self.y + self.imize_area.content_e_y,
             );
             if self.minimized {
-                cc.show_text(MAXIMIZE_TAG);
+                cc.show_text(MAXIMIZE_TAG)?;
             } else {
-                cc.show_text(MINIMIZE_TAG);
+                cc.show_text(MINIMIZE_TAG)?;
             }
 
             cc.move_to(
                 self.x + self.destroy_area.content_b_x,
                 self.y + self.destroy_area.content_e_y,
             );
-            cc.show_text(DESTROY_TAG);
+            cc.show_text(DESTROY_TAG)?;
         }
         if let Some(model_area) = &self.model_area {
             style::model(cc);
@@ -545,7 +563,7 @@ impl TalkerControlBase {
                 self.x + model_area.content_b_x,
                 self.y + model_area.content_e_y,
             );
-            cc.show_text(&self.talker.model());
+            cc.show_text(&self.talker.model())?;
         }
         if let Some(name_area) = &self.name_area {
             style::name(cc);
@@ -553,7 +571,7 @@ impl TalkerControlBase {
                 self.x + name_area.content_b_x,
                 self.y + name_area.content_e_y,
             );
-            cc.show_text(&format_name(&self.talker.name()));
+            cc.show_text(&format_name(&self.talker.name()))?;
         }
         if let Some(data_area) = &self.data_area {
             style::data(cc);
@@ -561,11 +579,12 @@ impl TalkerControlBase {
                 self.x + data_area.content_b_x,
                 self.y + data_area.content_e_y,
             );
-            cc.show_text(&format_data(&self.talker.data_string()));
+            cc.show_text(&format_data(&self.talker.data_string()))?;
         }
+        Ok(())
     }
 
-    fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) {
+    fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) -> Result<(), cairo::Error> {
         if selected {
             style::selected_io_background(cc);
 
@@ -575,11 +594,12 @@ impl TalkerControlBase {
                 area.e_x - area.b_x,
                 area.e_y - area.b_y,
             );
-            cc.fill();
+            cc.fill()?;
         }
         style::add(cc);
         cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-        cc.show_text(ADD_IN_TAG);
+        cc.show_text(ADD_IN_TAG)?;
+        Ok(())
     }
 
     fn draw_io(
@@ -589,7 +609,7 @@ impl TalkerControlBase {
         txt: &String,
         port_type: PortType,
         selected: bool,
-    ) {
+    ) -> Result<(), cairo::Error> {
         if selected {
             style::selected_io_background(cc);
 
@@ -599,7 +619,7 @@ impl TalkerControlBase {
                 area.e_x - area.b_x,
                 area.e_y - area.b_y,
             );
-            cc.fill();
+            cc.fill()?;
 
             match port_type {
                 PortType::Audio => style::selected_audio(cc),
@@ -616,10 +636,15 @@ impl TalkerControlBase {
             }
         }
         cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-        cc.show_text(txt);
+        cc.show_text(txt)?;
+        Ok(())
     }
 
-    pub fn draw_ears_and_voices(&self, cc: &Context, graph_presenter: &GraphPresenter) {
+    pub fn draw_ears_and_voices(
+        &self,
+        cc: &Context,
+        graph_presenter: &GraphPresenter,
+    ) -> Result<(), cairo::Error> {
         if !self.minimized {
             for (ear_idx, ear) in self.ears.iter().enumerate() {
                 for (set_idx, set) in ear.sets.iter().enumerate() {
@@ -629,7 +654,7 @@ impl TalkerControlBase {
                             &hum.add_in_area,
                             graph_presenter
                                 .ear_hum_add_in_selected(self.id, ear_idx, set_idx, hum_idx),
-                        );
+                        )?;
 
                         self.draw_io(
                             cc,
@@ -637,7 +662,7 @@ impl TalkerControlBase {
                             &hum.tag,
                             hum.port_type,
                             graph_presenter.ear_hum_selected(self.id, ear_idx, set_idx, hum_idx),
-                        );
+                        )?;
 
                         if let Some(value_area) = &hum.value_area {
                             style::value(cc);
@@ -646,27 +671,27 @@ impl TalkerControlBase {
                                 self.y + value_area.content_e_y,
                             );
                             if let Some(v) = &hum.value {
-                                cc.show_text(&v);
+                                cc.show_text(&v)?;
                             } else {
-                                cc.show_text(VAL_TAG);
+                                cc.show_text(VAL_TAG)?;
                             }
                         }
                     }
                     if let Some(sa) = &set.sup_area {
                         style::sup(cc);
                         cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
-                        cc.show_text(SUP_TAG);
+                        cc.show_text(SUP_TAG)?;
                     }
                 }
                 if let Some((tag, area)) = &ear.tag_area {
                     style::name(cc);
                     cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-                    cc.show_text(&tag);
+                    cc.show_text(&tag)?;
                 }
                 if let Some(add_area) = ear.add_set_area {
                     style::add(cc);
                     cc.move_to(self.x + add_area.content_b_x, self.y + add_area.content_e_y);
-                    cc.show_text(ADD_TAG);
+                    cc.show_text(ADD_TAG)?;
                 }
             }
 
@@ -677,9 +702,10 @@ impl TalkerControlBase {
                     &voice.tag,
                     voice.port_type,
                     graph_presenter.voice_selected(self.id, voice_idx),
-                );
+                )?;
             }
         }
+        Ok(())
     }
 
     fn draw_connection(
@@ -689,7 +715,7 @@ impl TalkerControlBase {
         voice_tkrcb: &TalkerControlBase,
         voice_area: &Area,
         voice_color: &Color,
-    ) {
+    ) -> Result<(), cairo::Error> {
         style::connection(cc, voice_color);
 
         let x1 = voice_tkrcb.x + voice_area.e_x;
@@ -711,10 +737,15 @@ impl TalkerControlBase {
         }
 
         cc.line_to(x2, y2);
-        cc.stroke();
+        cc.stroke()?;
+        Ok(())
     }
 
-    pub fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
+    pub fn draw_connections(
+        &self,
+        cc: &Context,
+        talker_controls: &HashMap<Id, RTalkerControl>,
+    ) -> Result<(), cairo::Error> {
         for (ear_idx, ear) in self.talker.ears().iter().enumerate() {
             for (set_idx, set) in ear.sets().iter().enumerate() {
                 for (hum_idx, hum) in set.hums().iter().enumerate() {
@@ -747,7 +778,7 @@ impl TalkerControlBase {
                                             &voice_tkrcb,
                                             &voice_tkrcb.destroy_area,
                                             &style::WHITE_COLOR,
-                                        );
+                                        )?;
                                     } else {
                                         if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
                                             self.draw_connection(
@@ -756,7 +787,7 @@ impl TalkerControlBase {
                                                 &voice_tkrcb,
                                                 &voice.area,
                                                 &voice.color,
-                                            );
+                                            )?;
                                         }
                                     }
                                 }
@@ -766,6 +797,7 @@ impl TalkerControlBase {
                 }
             }
         }
+        Ok(())
     }
 
     fn on_hum_clicked(
@@ -960,15 +992,15 @@ pub trait TalkerControl {
         self.base().borrow().height()
     }
     fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
-        self.base().borrow().draw_connections(cc, talker_controls);
+        util::print_cairo_result(self.base().borrow().draw_connections(cc, talker_controls));
     }
 
     fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base().borrow();
 
-        base.draw_box(cc, graph_presenter);
-        base.draw_header(cc, true);
-        base.draw_ears_and_voices(cc, graph_presenter);
+        util::print_cairo_result(base.draw_box(cc, graph_presenter));
+        util::print_cairo_result(base.draw_header(cc, true));
+        util::print_cairo_result(base.draw_ears_and_voices(cc, graph_presenter));
     }
 
     fn move_to(&mut self, x: f64, y: f64) {

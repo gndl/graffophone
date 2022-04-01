@@ -1,21 +1,12 @@
-//#[macro_use]
 use std::cell::RefCell;
 use std::rc::Rc;
 
-//use gdk::EventMask;
-use gio::prelude::*;
-//use gtk::gtk_sys::GtkScrolledWindow;
+use gtk::prelude::TreeStoreExtManual;
 use gtk::prelude::*;
-use gtk::{
-    BoxExt, ButtonExt, CellRendererText, ContainerExt, GtkWindowExt, HeaderBarExt, IconSize,
-    ScrolledWindowExt, TreeStore, TreeView, TreeViewColumn, WidgetExt,
-};
-
-//use cairo::enums::{FontSlant, FontWeight};
-//use cairo::Context;
+use gtk::CellRendererText;
+use gtk::{IconSize, TreeStore, TreeView, TreeViewColumn};
 
 use session::event_bus::{Notification, REventBus};
-//use session::factory::Factory;
 use session::state::State;
 
 use crate::graph_view::GraphView;
@@ -36,6 +27,9 @@ impl ApplicationView {
         application: &gtk::Application,
         session_presenter: &RSessionPresenter,
     ) -> Result<ApplicationView, failure::Error> {
+        // ApplicationWindow
+        let window = gtk::ApplicationWindow::new(application);
+
         let selected_talker_label = gtk::Label::new(Some("Selected talkers :"));
 
         // header bar
@@ -60,9 +54,9 @@ impl ApplicationView {
             gtk::Button::from_icon_name(Some("gtk-save"), IconSize::SmallToolbar);
         headerbar.pack_start(&save_session_button);
 
-        let save_as_session_button =
+        let save_session_as_button =
             gtk::Button::from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
-        headerbar.pack_start(&save_as_session_button);
+        headerbar.pack_start(&save_session_as_button);
 
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&separator);
@@ -146,7 +140,7 @@ impl ApplicationView {
 
         // talkers tree toggle
         talkers_tree_toggle.connect_toggled(move |tb| {
-            if tb.get_active() {
+            if tb.is_active() {
                 talkers_tree_scrolledwindow.show();
             } else {
                 talkers_tree_scrolledwindow.hide();
@@ -170,32 +164,18 @@ impl ApplicationView {
         // talkers tree selection
         let session_ctrl = session_presenter.clone();
         talkers_tree.connect_cursor_changed(move |tree_view| {
-            let selection = tree_view.get_selection();
+            let selection = tree_view.selection();
 
-            if let Some((model, iter)) = selection.get_selected() {
-                match model.get_value(&iter, 1).get::<String>() {
-                    Ok(otalker_model) => match otalker_model {
-                        Some(talker_model) => {
-                            session_ctrl.borrow_mut().add_talker(&talker_model);
-                            graph_view.borrow_mut().draw();
-                        }
-                        None => {
-                            if let Some(path) = model.get_path(&iter) {
-                                if tree_view.row_expanded(&path) {
-                                    tree_view.collapse_row(&path);
-                                } else {
-                                    tree_view.expand_row(&path, true);
-                                }
-                            }
-                        }
-                    },
+            if let Some((model, iter)) = selection.selected() {
+                match model.value(&iter, 1).get::<String>() {
+                    Ok(talker_model) => {
+                        session_ctrl.borrow_mut().add_talker(&talker_model);
+                        graph_view.borrow_mut().draw();
+                    }
                     Err(e) => eprintln!("{}", e),
                 };
             }
         });
-
-        // ApplicationWindow
-        let window = gtk::ApplicationWindow::new(application);
 
         window.set_titlebar(Some(&headerbar));
         window.set_border_width(5);
@@ -231,14 +211,13 @@ impl ApplicationView {
         let talkers_store = TreeStore::new(&[String::static_type(), String::static_type()]);
 
         for (category, talkers) in categorized_talkers_label_model {
-            let category_iter = talkers_store.insert_with_values(None, None, &[0], &[&category]);
+            let category_iter = talkers_store.insert_with_values(None, None, &[(0, &category)]);
 
             for (label, model) in talkers {
                 talkers_store.insert_with_values(
                     Some(&category_iter),
                     None,
-                    &[0, 1],
-                    &[&label, &model],
+                    &[(0, &label), (1, &model)],
                 );
             }
         }

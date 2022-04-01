@@ -65,14 +65,14 @@ impl SessionPresenter {
         self.notify(Notification::Error(format!("{}", error)));
     }
 
-    pub fn manage_result(&mut self, result: Result<(), failure::Error>) {
+    pub fn manage_result(&self, result: Result<(), failure::Error>) {
         match result {
             Ok(()) => {}
             Err(e) => self.notify_error(e),
         }
     }
 
-    pub fn manage_state_result(&mut self, result: Result<State, failure::Error>) {
+    pub fn manage_state_result(&self, result: Result<State, failure::Error>) {
         match result {
             Ok(state) => self.event_bus.borrow().notify(Notification::State(state)),
             Err(e) => self.notify_error(e),
@@ -143,7 +143,7 @@ impl SessionPresenter {
     fn monitor_state(session_presenter_reference: &RSessionPresenter) {
         let this = session_presenter_reference.clone();
 
-        gtk::timeout_add_seconds(1, move || {
+        glib::timeout_add_seconds_local(1, move || {
             let state = this.borrow_mut().session.state();
             this.borrow().notify(Notification::State(state));
 

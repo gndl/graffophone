@@ -20,7 +20,6 @@ use std::rc::Rc;
 use cairo::Context;
 
 use talker::identifier::Id;
-//use talker::talker::RTalker;
 
 use session::event_bus::Notification;
 use session::mixer::RMixer;
@@ -29,6 +28,7 @@ use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::talker_control::{
     ControlSupply, RTalkerControl, RTalkerControlBase, TalkerControl, TalkerControlBase,
 };
+use crate::util;
 
 pub struct MixerControl {
     base: RTalkerControlBase,
@@ -71,15 +71,15 @@ impl TalkerControl for MixerControl {
     |_______________|
     */
     fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
-        self.base.borrow().draw_connections(cc, talker_controls);
+        util::print_cairo_result(self.base.borrow().draw_connections(cc, talker_controls));
     }
 
     fn draw(&self, cc: &Context, graph_presenter: &GraphPresenter) {
         let base = self.base.borrow();
-        base.draw_box(cc, graph_presenter);
-        base.draw_header(cc, false);
+        util::print_cairo_result(base.draw_box(cc, graph_presenter));
+        util::print_cairo_result(base.draw_header(cc, false));
 
-        base.draw_ears_and_voices(cc, graph_presenter);
+        util::print_cairo_result(base.draw_ears_and_voices(cc, graph_presenter));
     }
 
     fn move_to(&mut self, x: f64, y: f64) {
