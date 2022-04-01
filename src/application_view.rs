@@ -138,6 +138,33 @@ impl ApplicationView {
             save_ctrl.borrow_mut().save_session();
         });
 
+        // Save session as
+        let save_as_ctrl = session_presenter.clone();
+        save_session_as_button.connect_clicked(glib::clone!(@weak window =>move |_| {
+            let dialog = gtk::FileChooserDialog::new(
+                Some("Choose a file"),
+                Some(&window),
+                gtk::FileChooserAction::Save,
+            );
+            dialog.add_buttons(&[
+                ("Open", gtk::ResponseType::Ok),
+                ("Cancel", gtk::ResponseType::Cancel),
+            ]);
+            dialog.show_all();
+
+            match dialog.run() {
+                gtk::ResponseType::Ok => {
+                    if let Some(path_buf) = dialog.filename() {
+                        save_as_ctrl
+                            .borrow_mut()
+                            .save_session_as(&path_buf.to_string_lossy());
+                    }
+                }
+                _ => (),
+            }
+            dialog.close();
+        }));
+
         // talkers tree toggle
         talkers_tree_toggle.connect_toggled(move |tb| {
             if tb.is_active() {

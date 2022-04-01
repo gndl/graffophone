@@ -49,6 +49,11 @@ impl SessionPresenter {
         self.manage_result(self.session.save());
     }
 
+    pub fn save_session_as(&mut self, filename: &str) {
+        let res = self.session.save_as(filename);
+        self.manage_result(res);
+    }
+
     pub fn session<'a>(&'a self) -> &'a Session {
         &self.session
     }
