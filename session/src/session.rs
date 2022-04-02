@@ -202,4 +202,10 @@ impl Session {
         let state = self.player.stop()?;
         Ok(state)
     }
+
+    pub fn exit(&mut self) -> Result<State, failure::Error> {
+        self.synchronize_player()?;
+        let state = self.player.exit()?;
+        Ok(state)
+    }
 }

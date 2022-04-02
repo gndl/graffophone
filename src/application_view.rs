@@ -43,11 +43,8 @@ impl ApplicationView {
             gtk::Button::from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
 
-        let open_session_button = gtk::MenuButton::new();
-        open_session_button.set_image(Some(&gtk::Image::from_icon_name(
-            Some("gtk-open"),
-            IconSize::SmallToolbar,
-        )));
+        let open_session_button =
+            gtk::Button::from_icon_name(Some("gtk-open"), IconSize::SmallToolbar);
         headerbar.pack_start(&open_session_button);
 
         let save_session_button =
@@ -132,14 +129,39 @@ impl ApplicationView {
             new_ctrl.borrow_mut().new_session();
         });
 
+        // Open session
+        let open_session_ctrl = session_presenter.clone();
+        open_session_button.connect_clicked(glib::clone!(@weak window =>move |_| {
+            let dialog = gtk::FileChooserDialog::new(
+                Some("Choose a file"),
+                Some(&window),
+                gtk::FileChooserAction::Open,
+            );
+            dialog.add_buttons(&[
+                ("Open", gtk::ResponseType::Ok),
+                ("Cancel", gtk::ResponseType::Cancel),
+            ]);
+            dialog.show_all();
+
+            match dialog.run() {
+                gtk::ResponseType::Ok => {
+                    if let Some(path_buf) = dialog.filename() {
+                        open_session_ctrl.borrow_mut().open_session(&path_buf.to_string_lossy());
+                    }
+                }
+                _ => (),
+            }
+            dialog.close();
+        }));
+
         // Save session
-        let save_ctrl = session_presenter.clone();
+        let save_session_ctrl = session_presenter.clone();
         save_session_button.connect_clicked(move |_| {
-            save_ctrl.borrow_mut().save_session();
+            save_session_ctrl.borrow_mut().save_session();
         });
 
         // Save session as
-        let save_as_ctrl = session_presenter.clone();
+        let save_session_as_ctrl = session_presenter.clone();
         save_session_as_button.connect_clicked(glib::clone!(@weak window =>move |_| {
             let dialog = gtk::FileChooserDialog::new(
                 Some("Choose a file"),
@@ -155,7 +177,7 @@ impl ApplicationView {
             match dialog.run() {
                 gtk::ResponseType::Ok => {
                     if let Some(path_buf) = dialog.filename() {
-                        save_as_ctrl
+                        save_session_as_ctrl
                             .borrow_mut()
                             .save_session_as(&path_buf.to_string_lossy());
                     }

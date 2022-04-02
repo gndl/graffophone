@@ -16,7 +16,7 @@ Sinusoidal 2#Sin 1
 > phase 0
 
 mixer 1#mixer 1
-> volume 1
+> volume 0.01
 > Tracks.0.In 2:Out
 > Tracks.0.gain 1
 > Tracks.0.left 1
@@ -42,7 +42,20 @@ impl SessionPresenter {
     }
 
     pub fn new_session(&mut self) {
+        self.exit();
         self.session = Session::new(GSR.to_string()).unwrap();
+        self.notify(Notification::Session);
+    }
+
+    pub fn open_session(&mut self, filename: &str) {
+        self.exit();
+        match Session::from_file(filename) {
+            Ok(session) => {
+                self.session = session;
+                self.notify(Notification::Session);
+            }
+            Err(e) => self.notify_error(e),
+        }
     }
 
     pub fn save_session(&mut self) {
@@ -177,6 +190,11 @@ impl SessionPresenter {
 
     pub fn stop(&mut self) {
         let res = self.session.stop();
+        self.manage_state_result(res);
+    }
+
+    pub fn exit(&mut self) {
+        let res = self.session.exit();
         self.manage_state_result(res);
     }
 }
