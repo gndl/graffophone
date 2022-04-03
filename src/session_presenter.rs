@@ -44,7 +44,7 @@ impl SessionPresenter {
     pub fn new_session(&mut self) {
         self.exit();
         self.session = Session::new(GSR.to_string()).unwrap();
-        self.notify(Notification::Session);
+        self.notify_new_session();
     }
 
     pub fn open_session(&mut self, filename: &str) {
@@ -52,7 +52,7 @@ impl SessionPresenter {
         match Session::from_file(filename) {
             Ok(session) => {
                 self.session = session;
-                self.notify(Notification::Session);
+                self.notify_new_session();
             }
             Err(e) => self.notify_error(e),
         }
@@ -77,6 +77,12 @@ impl SessionPresenter {
 
     pub fn notify(&self, notification: Notification) {
         self.event_bus().borrow().notify(notification);
+    }
+
+    pub fn notify_new_session(&mut self) {
+        self.notify(Notification::Session);
+        let state = self.session.state();
+        self.notify(Notification::State(state));
     }
 
     pub fn notify_error(&self, error: failure::Error) {
@@ -104,8 +110,7 @@ impl SessionPresenter {
             )))
         });
         self.manage_result(res);
-        let state = self.session.state();
-        self.notify(Notification::State(state))
+        self.notify_new_session();
     }
 
     pub fn find_talker<'a>(&'a self, talker_id: Id) -> Option<&'a RTalker> {
