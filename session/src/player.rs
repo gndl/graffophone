@@ -133,33 +133,35 @@ fn run(
         match oorder {
             Ok(order) => match order {
                 Order::Start => {
+                    state = send_state(&order.to_string(), state, State::Playing);
                     band.open()?;
                     feedback.borrow_mut().open()?;
 
                     tick = start_tick;
-                    state = send_state(&order.to_string(), state, State::Playing);
                 }
                 Order::Pause => {
+                    send_state(&order.to_string(), state, State::Paused);
                     if state != State::Paused {
                         band.pause()?;
                         feedback.borrow_mut().pause()?;
 
-                        state = send_state(&order.to_string(), state, State::Paused);
+                        state = State::Paused;
                     }
                     oorder = order_receiver.recv();
                     continue;
                 }
                 Order::Play => {
+                    state = send_state(&order.to_string(), state, State::Playing);
                     band.run()?;
                     feedback.borrow_mut().run()?;
-                    state = send_state(&order.to_string(), state, State::Playing);
                 }
                 Order::Stop => {
+                    send_state(&order.to_string(), state, State::Stopped);
                     if state != State::Stopped {
                         band.close()?;
                         feedback.borrow_mut().close()?;
                         tick = start_tick;
-                        state = send_state(&order.to_string(), state, State::Stopped);
+                        state = State::Stopped;
                     }
                     oorder = order_receiver.recv();
                     continue;
@@ -299,7 +301,7 @@ impl Player {
         match self.state {
             State::Exited => {}
             _ => {
-                thread::sleep(Duration::from_millis(60));
+                thread::sleep(Duration::from_millis(30));
                 match self.state_receiver.try_recv() {
                     Err(_) => {}
                     Ok(state) => {
@@ -320,6 +322,7 @@ impl Player {
 
     pub fn start(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
+
         self.order_sender
             .send(Order::Start)
             .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?;
@@ -351,19 +354,22 @@ impl Player {
                 .order_sender
                 .send(Order::Pause)
                 .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
+
             State::Paused => self
                 .order_sender
                 .send(Order::Play)
                 .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
+
             _ => (),
-        };
+        }
         Ok(self.state())
     }
 
     pub fn stop(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
+
         match self.state {
-            State::Stopped => {}
+            State::Stopped => (),
             _ => self
                 .order_sender
                 .send(Order::Stop)
@@ -374,6 +380,7 @@ impl Player {
 
     pub fn set_time_range(&self, start_tick: i64, end_tick: i64) -> Result<State, failure::Error> {
         self.check_not_exited()?;
+
         self.order_sender
             .send(Order::SetTimeRange(start_tick, end_tick))
             .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
@@ -383,6 +390,7 @@ impl Player {
 
     pub fn load_band(&self, band_description: String) -> Result<State, failure::Error> {
         self.check_not_exited()?;
+
         self.order_sender
             .send(Order::LoadBand(band_description))
             .map_err(|e| failure::err_msg(format!("Player::load_band error : {}", e)))?;
@@ -392,6 +400,7 @@ impl Player {
 
     pub fn modify_band(&self, operation: &Operation) -> Result<State, failure::Error> {
         self.check_not_exited()?;
+
         self.order_sender
             .send(Order::ModifyBand(operation.clone()))
             .map_err(|e| failure::err_msg(format!("Player::load_band error : {}", e)))?;
@@ -401,12 +410,11 @@ impl Player {
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {
         match self.state {
-            State::Exited => {}
-            _ => {
-                self.order_sender
-                    .send(Order::Exit)
-                    .map_err(|e| failure::err_msg(format!("Player::exit error : {}", e)))?;
-            }
+            State::Exited => (),
+            _ => self
+                .order_sender
+                .send(Order::Exit)
+                .map_err(|e| failure::err_msg(format!("Player::exit error : {}", e)))?,
         }
         Ok(self.state())
     }

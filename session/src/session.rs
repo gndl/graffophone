@@ -15,24 +15,17 @@
  */
 
 use std::collections::HashMap;
-// use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
 use talker::identifier;
 use talker::talker::RTalker;
-// use talker::talker::Talker;
 
-// use crate::band::RBand;
 use crate::band::{Band, Operation};
-// use crate::mixer;
 use crate::mixer::RMixer;
 use crate::player::Player;
 use crate::state::State;
-// use crate::track;
-// use crate::track::RTrack;
-// use crate::track::Track;
 
 pub const CONTENT_TYPE: &str = ".gsr";
 
@@ -40,7 +33,6 @@ pub struct Session {
     filename: String,
     band: Band,
     player: Player,
-    player_synchronized: bool,
     start_tick: i64,
     end_tick: i64,
 }
@@ -51,7 +43,6 @@ impl Session {
             filename: "NewBand.gsr".to_string(),
             band: Band::make(&band_description)?,
             player: Player::new(band_description)?,
-            player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
         })
@@ -67,17 +58,11 @@ impl Session {
             filename: filename.to_string(),
             band: Band::make(&band_description)?,
             player: Player::new(band_description)?,
-            player_synchronized: false,
             start_tick: 0,
             end_tick: 0,
         })
     }
-    /*
-        pub fn load_file(filename: &str) -> Result<Band, failure::Error> {
-            let description_buffer = fs::read(filename)?;
-            Band::make(&description_buffer)
-        }
-    */
+
     pub fn filename<'a>(&'a self) -> &'a str {
         &self.filename
     }
@@ -92,11 +77,7 @@ impl Session {
             talker_model.to_string(),
         ))
     }
-    /*
-        pub fn sup_talker(&mut self, talker: &RTalker) -> Result<(), failure::Error> {
-            self.band.sup_talker(talker)
-        }
-    */
+
     pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
         self.band.mixers()
     }
@@ -116,10 +97,8 @@ impl Session {
         } else {
             self.start_tick = t;
         }
-        self.synchronize_player()?;
 
-        let state = self.player.set_time_range(self.start_tick, self.end_tick)?;
-        Ok(state)
+        self.player.set_time_range(self.start_tick, self.end_tick)
     }
 
     pub fn end_tick(&self) -> i64 {
@@ -128,10 +107,8 @@ impl Session {
 
     pub fn set_end_tick(&mut self, t: i64) -> Result<State, failure::Error> {
         self.end_tick = t;
-        self.synchronize_player()?;
 
-        let state = self.player.set_time_range(self.start_tick, self.end_tick)?;
-        Ok(state)
+        self.player.set_time_range(self.start_tick, self.end_tick)
     }
 
     pub fn player<'a>(&'a mut self) -> &'a Player {
@@ -150,14 +127,12 @@ impl Session {
     }
 
     pub fn load_band(&self) -> Result<State, failure::Error> {
-        let state = self.player.load_band(self.band.serialize()?)?;
-        Ok(state)
+        self.player.load_band(self.band.serialize()?)
     }
 
     pub fn modify_band(&mut self, operation: &Operation) -> Result<(), failure::Error> {
         self.player.modify_band(operation)?;
-        self.band.modify(operation)?;
-        Ok(())
+        self.band.modify(operation)
     }
 
     pub fn save(&self) -> Result<(), failure::Error> {
@@ -168,44 +143,26 @@ impl Session {
     }
     pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
         self.filename = filename.to_string();
-        self.save()?;
-        Ok(())
+        self.save()
     }
 
-    fn synchronize_player(&mut self) -> Result<(), failure::Error> {
-        if !self.player_synchronized {
-            // TODO : synchronize player
-            self.player_synchronized = true;
-        }
-        Ok(())
-    }
     pub fn start(&mut self) -> Result<State, failure::Error> {
-        self.synchronize_player()?;
-        let state = self.player.start()?;
-        Ok(state)
+        self.player.start()
     }
 
     pub fn play(&mut self) -> Result<State, failure::Error> {
-        self.synchronize_player()?;
-        let state = self.player.play()?;
-        Ok(state)
+        self.player.play()
     }
 
     pub fn pause(&mut self) -> Result<State, failure::Error> {
-        self.synchronize_player()?;
-        let state = self.player.pause()?;
-        Ok(state)
+        self.player.pause()
     }
 
     pub fn stop(&mut self) -> Result<State, failure::Error> {
-        self.synchronize_player()?;
-        let state = self.player.stop()?;
-        Ok(state)
+        self.player.stop()
     }
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {
-        self.synchronize_player()?;
-        let state = self.player.exit()?;
-        Ok(state)
+        self.player.exit()
     }
 }

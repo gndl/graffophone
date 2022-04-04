@@ -123,14 +123,6 @@ impl SessionPresenter {
             Err(e) => self.notify_error(e),
         }
     }
-    /*
-        pub fn sup_talker(&mut self, talker: &RTalker) {
-            match self.session.sup_talker(talker) {
-                Ok(_) => (),
-                Err(e) => self.notify_error(e),
-            }
-        }
-    */
 
     pub fn find_compatible_hum_with_voice_in_ear(
         &self,
@@ -178,19 +170,17 @@ impl SessionPresenter {
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {
-        let res = match self.session.state() {
-            State::Stopped => {
-                SessionPresenter::monitor_state(monitor);
-                self.session.start()
-            }
-            State::Playing => self.session.pause(),
-            State::Paused => {
-                SessionPresenter::monitor_state(monitor);
-                self.session.play()
-            }
-            State::Exited => Err(failure::err_msg("Player exited")),
+        let (res, monitor_state) = match self.session.state() {
+            State::Stopped => (self.session.start(), true),
+            State::Playing => (self.session.pause(), false),
+            State::Paused => (self.session.play(), true),
+            State::Exited => (Err(failure::err_msg("Player exited")), false),
         };
         self.manage_state_result(res);
+
+        if monitor_state {
+            SessionPresenter::monitor_state(monitor);
+        }
     }
 
     pub fn stop(&mut self) {
