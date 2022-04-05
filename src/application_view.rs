@@ -13,6 +13,7 @@ use crate::graph_view::GraphView;
 use crate::session_presenter::RSessionPresenter;
 
 pub struct ApplicationView {
+    headerbar: gtk::HeaderBar,
     talkers_tree: gtk::TreeView,
     play_or_pause_button: gtk::Button,
     stop_button: gtk::Button,
@@ -34,7 +35,7 @@ impl ApplicationView {
 
         // header bar
         let headerbar = gtk::HeaderBar::new();
-        headerbar.set_title(Some("Graffophone"));
+        headerbar.set_subtitle(Some("Graffophone"));
         headerbar.set_show_close_button(true);
 
         // header bar left controls
@@ -235,6 +236,7 @@ impl ApplicationView {
         window.show_all();
 
         Ok(Self {
+            headerbar,
             talkers_tree,
             play_or_pause_button,
             stop_button,
@@ -332,6 +334,7 @@ impl ApplicationView {
                         obs.borrow().stop_button.set_sensitive(false);
                     }
                 },
+                Notification::NewSession(name) => obs.borrow().headerbar.set_title(Some(&name)),
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
                 Notification::TimeRange(st, et) => {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)

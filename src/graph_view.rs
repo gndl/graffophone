@@ -513,9 +513,9 @@ impl GraphView {
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
                 Notification::SelectionChanged => obs.borrow_mut().refresh(),
-                Notification::Session | Notification::TalkerChanged | Notification::NewTalker => {
-                    obs.borrow_mut().draw()
-                }
+                Notification::NewSession(_)
+                | Notification::TalkerChanged
+                | Notification::NewTalker => obs.borrow_mut().draw(),
                 _ => (),
             }))
     }

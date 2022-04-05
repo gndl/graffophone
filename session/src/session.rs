@@ -40,7 +40,7 @@ pub struct Session {
 impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
         Ok(Self {
-            filename: "NewBand.gsr".to_string(),
+            filename: "NewSession.gsr".to_string(),
             band: Band::make(&band_description)?,
             player: Player::new(band_description)?,
             start_tick: 0,

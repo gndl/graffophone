@@ -80,7 +80,9 @@ impl SessionPresenter {
     }
 
     pub fn notify_new_session(&mut self) {
-        self.notify(Notification::Session);
+        self.notify(Notification::NewSession(
+            self.session.filename().to_string(),
+        ));
         let state = self.session.state();
         self.notify(Notification::State(state));
     }
