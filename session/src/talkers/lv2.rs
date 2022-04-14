@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 
 use livi;
-use livi::World;
 
 use talker::audio_format;
 use talker::audio_format::AudioFormat;
@@ -9,6 +8,7 @@ use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
 use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
+use talker::lv2_handler::Lv2Handler;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::voice;
 
@@ -33,10 +33,15 @@ pub struct Lv2 {
 }
 
 impl Lv2 {
-    pub fn new(world: &World, uri: &str) -> Result<CTalker, failure::Error> {
-        match world.plugin_by_uri(uri) {
+    pub fn new(lv2_handler: &Lv2Handler, uri: &str) -> Result<CTalker, failure::Error> {
+        match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
-                match unsafe { plugin.instantiate(AudioFormat::sample_rate() as f64) } {
+                match unsafe {
+                    plugin.instantiate(
+                        lv2_handler.features.clone(),
+                        AudioFormat::sample_rate() as f64,
+                    )
+                } {
                     Ok(instance) => {
                         let mut base = TalkerBase::new(&plugin.name(), uri);
                         let mut inputs_count = 0;
@@ -91,13 +96,13 @@ impl Lv2 {
                                     outputs_count = outputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceInput => {
-                                    let ear = ear::atom(Some(&port.name))?;
+                                    let ear = ear::atom(Some(lv2_handler), Some(&port.name))?;
                                     base.add_ear(ear);
                                     atom_sequence_inputs_indexes.push(inputs_count);
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceOutput => {
-                                    let vc = voice::atom(Some(&port.name));
+                                    let vc = voice::atom(Some(lv2_handler), Some(&port.name));
                                     base.add_voice(vc);
                                     atom_sequence_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
@@ -151,18 +156,18 @@ impl Talker for Lv2 {
 
     fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-
-        let control_inputs: Vec<f32> = self
-            .control_inputs_indexes
-            .iter()
-            .map(|i| base.ear(*i).get_control_value())
-            .collect();
-        let mut control_outputs: Vec<f32> = self
-            .control_outputs_indexes
-            .iter()
-            .map(|i| base.voice(*i).control_buffer()[0])
-            .collect();
-
+        /*
+                let control_inputs: Vec<f32> = self
+                    .control_inputs_indexes
+                    .iter()
+                    .map(|i| base.ear(*i).get_control_value())
+                    .collect();
+                let mut control_outputs: Vec<f32> = self
+                    .control_outputs_indexes
+                    .iter()
+                    .map(|i| base.voice(*i).control_buffer()[0])
+                    .collect();
+        */
         let audio_inputs: Vec<AudioBuf> = self
             .audio_inputs_indexes
             .iter()
@@ -172,17 +177,6 @@ impl Talker for Lv2 {
             .audio_outputs_indexes
             .iter()
             .map(|i| base.voice(*i).audio_buffer())
-            .collect();
-
-        let atom_sequence_inputs: Vec<AtomBuf> = self
-            .atom_sequence_inputs_indexes
-            .iter()
-            .map(|i| base.ear(*i).get_atom_buffer())
-            .collect();
-        let atom_sequence_outputs: Vec<MAtomBuf> = self
-            .atom_sequence_outputs_indexes
-            .iter()
-            .map(|i| base.voice(*i).atom_buffer())
             .collect();
 
         let cv_inputs: Vec<CvBuf> = self
@@ -196,21 +190,35 @@ impl Talker for Lv2 {
             .map(|i| base.voice(*i).cv_buffer())
             .collect();
 
-        let ports = livi::EmptyPortConnections::new(ln)
-            .with_control_inputs(control_inputs.iter())
-            .with_control_outputs(control_outputs.iter_mut())
+        let atom_sequence_inputs: Vec<AtomBuf> = self
+            .atom_sequence_inputs_indexes
+            .iter()
+            .map(|i| base.ear(*i).get_atom_buffer())
+            .collect();
+        let atom_sequence_outputs: Vec<MAtomBuf> = self
+            .atom_sequence_outputs_indexes
+            .iter()
+            .map(|i| base.voice(*i).atom_buffer())
+            .collect();
+
+        let ports = livi::EmptyPortConnections::new()
             .with_audio_inputs(audio_inputs.into_iter())
             .with_audio_outputs(audio_outputs.into_iter())
             .with_atom_sequence_inputs(atom_sequence_inputs.into_iter())
             .with_atom_sequence_outputs(atom_sequence_outputs.into_iter())
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
+        /*
+                    .with_control_inputs(control_inputs.iter())
+                    .with_control_outputs(control_outputs.iter_mut())
+        */
 
-        unsafe { self.instance.borrow_mut().run(ports).unwrap() };
-
-        for (i, port_idx) in self.control_outputs_indexes.iter().enumerate() {
-            base.voice(*port_idx).set_control_value(control_outputs[i]);
-        }
+        unsafe { self.instance.borrow_mut().run(ln, ports).unwrap() };
+        /*
+                for (i, port_idx) in self.control_outputs_indexes.iter().enumerate() {
+                    base.voice(*port_idx).set_control_value(control_outputs[i]);
+                }
+        */
         for voice in base.voices() {
             voice.set_tick_len(tick, ln);
         }

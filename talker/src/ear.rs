@@ -10,6 +10,7 @@ use horn::{AtomBuf, AudioBuf, ControlBuf, ControlVal, CvBuf, Horn, PortType};
 use identifier::Id;
 use identifier::Identifiable;
 use identifier::Index;
+use lv2_handler::Lv2Handler;
 use rtalker;
 use talker::{RTalker, TalkerCab};
 
@@ -26,7 +27,7 @@ pub fn def_cv_talker(value: f32) -> RTalker {
     rtalker!(CvTalker::new(value, Some(true)))
 }
 pub fn def_atom_talker() -> RTalker {
-    rtalker!(AtomTalker::new(Some(true)))
+    rtalker!(AtomTalker::new(None, Some(true)))
 }
 
 pub fn def_talker(port_type: PortType, value: f32) -> RTalker {
@@ -1108,8 +1109,10 @@ pub fn cv(
     )
 }
 
-pub fn atom(tag: Option<&str>) -> Result<Ear, failure::Error> {
-    mono_hum(tag, PortType::Atom, false, 0., 0., 0., &Init::DefValue)
+pub fn atom(olv2_handler: Option<&Lv2Handler>, tag: Option<&str>) -> Result<Ear, failure::Error> {
+    let talker = rtalker!(AtomTalker::new(olv2_handler, Some(true)));
+    let init = Init::Voice(&talker, 0);
+    mono_hum(tag, PortType::Atom, false, 0., 0., 0., &init)
 }
 
 pub fn multi_set(

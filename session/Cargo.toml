@@ -7,5 +7,6 @@ authors = ["gndl"]
 failure = "0.1.5"
 ringbuf = "0.2.1"
 cpal = {git = "https://github.com/RustAudio/cpal"}
-livi = { git = "https://github.com/wmedrano/livi-rs" }
+# livi = { git = "https://github.com/wmedrano/livi-rs" }
+livi = "0.5.3"
 talker = { path = "../talker" }

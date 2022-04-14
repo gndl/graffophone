@@ -2,6 +2,7 @@ use crate::audio_format::AudioFormat;
 use crate::horn::{
     AudioVal, ControlVal, CvVal, Horn, MAtomBuf, MAudioBuf, MControlBuf, MCvBuf, PortType,
 };
+use crate::lv2_handler::Lv2Handler;
 use std::cell::Cell;
 
 pub const DEF_OUTPUT_TAG: &'static str = "Out";
@@ -95,7 +96,7 @@ pub fn cv(tag: Option<&str>, value: f32) -> Voice {
     Voice::new(tag, len, Horn::cv(value, None))
 }
 
-pub fn atom(tag: Option<&str>) -> Voice {
+pub fn atom(olv2_handler: Option<&Lv2Handler>, tag: Option<&str>) -> Voice {
     let len = AudioFormat::chunk_size();
-    Voice::new(tag, len, Horn::atom())
+    Voice::new(tag, len, Horn::atom(olv2_handler))
 }

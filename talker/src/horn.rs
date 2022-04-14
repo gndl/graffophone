@@ -4,6 +4,8 @@ use std::fmt;
 use livi::event::LV2AtomSequence;
 
 use crate::audio_format::AudioFormat;
+use crate::lv2_handler;
+use crate::lv2_handler::Lv2Handler;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum PortType {
@@ -27,7 +29,7 @@ impl PortType {
             PortType::Audio => Horn::audio(0., None),
             PortType::Control => Horn::control(0.),
             PortType::Cv => Horn::cv(0., None),
-            PortType::Atom => Horn::atom(),
+            PortType::Atom => Horn::atom(None),
         }
     }
     pub fn to_string(&self) -> &str {
@@ -65,7 +67,7 @@ pub type HBuf = Cell<Vec<f32>>;
 pub type HAudioBuf = HBuf;
 pub type HControlBuf = HBuf;
 pub type HCvBuf = HBuf;
-pub type HAtomBuf = Cell<LV2AtomSequence>;
+pub type HAtomBuf = Option<Cell<LV2AtomSequence>>;
 
 fn buf_val(value: f32, default: f32) -> f32 {
     if value.is_nan() {
@@ -83,9 +85,6 @@ pub fn empty_buf() -> Cell<Vec<f32>> {
 pub fn empty_audio_buf() -> HAudioBuf {
     Cell::new(Vec::new())
 }
-pub fn empty_atom_buf() -> HAtomBuf {
-    Cell::new(LV2AtomSequence::new(0))
-}
 
 const ATOM_CAPACITY: usize = 64;
 
@@ -100,7 +99,7 @@ impl Horn {
         Horn {
             port_type: PortType::Audio,
             buf: Horn::audio_buf(value, len),
-            atom: empty_atom_buf(),
+            atom: None,
         }
     }
 
@@ -108,7 +107,7 @@ impl Horn {
         Horn {
             port_type: PortType::Control,
             buf: Horn::control_buf(value),
-            atom: empty_atom_buf(),
+            atom: None,
         }
     }
 
@@ -116,15 +115,15 @@ impl Horn {
         Horn {
             port_type: PortType::Cv,
             buf: Horn::cv_buf(value, len),
-            atom: empty_atom_buf(),
+            atom: None,
         }
     }
 
-    pub fn atom() -> Horn {
+    pub fn atom(olv2_handler: Option<&Lv2Handler>) -> Horn {
         Horn {
             port_type: PortType::Atom,
             buf: empty_buf(),
-            atom: Horn::atom_buf(),
+            atom: Horn::atom_buf(olv2_handler),
         }
     }
 
@@ -142,7 +141,7 @@ impl Horn {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
     pub fn atom_buffer(&self) -> MAtomBuf {
-        unsafe { self.atom.as_ptr().as_mut().unwrap() }
+        unsafe { &mut *self.atom.as_ref().unwrap().as_ptr().as_mut().unwrap() }
     }
 
     pub fn audio_value(&self, index: usize) -> AudioVal {
@@ -182,7 +181,19 @@ impl Horn {
         Cell::new(vec![buf_val(value, 0.); buf_len(olen)])
     }
 
-    pub fn atom_buf() -> HAtomBuf {
-        Cell::new(LV2AtomSequence::new(ATOM_CAPACITY))
+    pub fn atom_buf(olv2_handler: Option<&Lv2Handler>) -> HAtomBuf {
+        match olv2_handler {
+            Some(lv2_handler) => Some(Cell::new(LV2AtomSequence::new(
+                &lv2_handler.features,
+                ATOM_CAPACITY,
+            ))),
+            None => lv2_handler::visit(|lv2_handler| {
+                Ok(Some(Cell::new(LV2AtomSequence::new(
+                    &lv2_handler.features,
+                    ATOM_CAPACITY,
+                ))))
+            })
+            .unwrap_or(None),
+        }
     }
 }

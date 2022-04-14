@@ -1,14 +1,8 @@
-//use std::cell::RefCell;
 use std::collections::HashMap;
 use std::iter::Extend;
-//use std::rc::Rc;
 
-use livi;
-//use livi::Plugin;
-use livi::World;
-
-use talker::audio_format;
 use talker::identifier::Identifiable;
+use talker::lv2_handler;
 use talker::rtalker;
 use talker::talker::RTalker;
 use talker::talker::TalkerCab;
@@ -21,9 +15,6 @@ use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgressi
 use talkers::sinusoidal;
 use talkers::sinusoidal::Sinusoidal;
 
-const MIN_BLOCK_SIZE: usize = 1;
-const MAX_BLOCK_SIZE: usize = audio_format::DEFAULT_CHUNK_SIZE;
-
 enum PluginType {
     Internal,
     Lv2,
@@ -35,7 +26,6 @@ pub struct PluginHandler {
 }
 
 pub struct PluginsManager {
-    world: World,
     handlers: HashMap<String, PluginHandler>,
 }
 
@@ -50,23 +40,27 @@ impl PluginsManager {
         )
     }
 
-    pub fn make_plugins_handlers(world: &World) -> HashMap<String, PluginHandler> {
+    fn make_plugins_handlers() -> HashMap<String, PluginHandler> {
         println!("make_plugins_handlers start");
         let mut handlers = HashMap::new();
 
-        for plugin in world.iter_plugins() {
-            handlers.insert(
-                plugin.uri(), /*.to_string()*/
-                PluginHandler {
-                    base: TalkerHandlerBase::new(
-                        "lv2",          //plugin.class().label().to_str(),
-                        &plugin.uri(),  //.to_string().as_str(),
-                        &plugin.name(), //.to_str(),
-                    ),
-                    plugin_type: PluginType::Lv2,
-                },
-            );
-        }
+        lv2_handler::visit(|lv2_handler| {
+            for plugin in lv2_handler.world.iter_plugins() {
+                handlers.insert(
+                    plugin.uri(),
+                    PluginHandler {
+                        base: TalkerHandlerBase::new(
+                            "lv2", //plugin.class().label().to_str(),
+                            &plugin.uri(),
+                            &plugin.name(),
+                        ),
+                        plugin_type: PluginType::Lv2,
+                    },
+                );
+            }
+            Ok(())
+        })
+        .unwrap_or_else(|e| eprintln!("PluginsManager::make_plugins_handlers failed : {:?}", e));
 
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
@@ -79,50 +73,11 @@ impl PluginsManager {
     }
 
     pub fn new() -> Self {
-        let mut world = livi::World::new();
-        world
-            .initialize_block_length(MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)
-            .unwrap();
-
-        let handlers = PluginsManager::make_plugins_handlers(&world);
-
-        Self { world, handlers }
-    }
-
-    /*
-    fn add_handler(&mut self, base: TalkerHandlerBase) {
-        self.handlers.insert(
-            base.model().to_string(),
-            PluginHandler {
-                base,
-                plugin_type: PluginType::Internal,
-            },
-        );
-    }
-
-        pub fn load_plugins(&mut self) {
-            println!("load_plugins start");
-            for plugin in self.world.plugins() {
-                self.handlers.insert(
-                    plugin.uri().to_string(),
-                    PluginHandler {
-                        base: TalkerHandlerBase::new(
-                            plugin.class().label().to_str(),
-                            plugin.uri().to_string().as_str(),
-                            plugin.name().to_str(),
-                        ),
-                        plugin_type: PluginType::Lv2,
-                    },
-                );
-            }
-
-            self.add_handler(AbsSine::descriptor());
-            self.add_handler(Sinusoidal::descriptor());
-            self.add_handler(SecondDegreeFrequencyProgression::descriptor());
-
-            println!("load_plugins end");
+        Self {
+            handlers: PluginsManager::make_plugins_handlers(),
         }
-    */
+    }
+
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == sinusoidal::MODEL {
             Ok(rtalker!(Sinusoidal::new()?))
@@ -139,7 +94,9 @@ impl PluginsManager {
 
     pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
         match &ph.plugin_type {
-            PluginType::Lv2 => Ok(rtalker!(Lv2::new(&self.world, ph.base.model())?)),
+            PluginType::Lv2 => lv2_handler::visit(|lv2_handler| {
+                Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model())?))
+            }),
             PluginType::Internal => self.make_internal_talker(ph.base.model()),
         }
     }
