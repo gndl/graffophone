@@ -157,11 +157,43 @@ pub trait Talker {
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
 
-    fn update_with_data(
+    fn set_data_update(
         &mut self,
-        _base: &TalkerBase,
-        _data: &Data,
+        base: &TalkerBase,
+        data: Data,
     ) -> Result<Option<TalkerBase>, failure::Error> {
+        base.set_data(data);
+        Ok(None)
+    }
+
+    fn add_set_value_to_ear_update(
+        &mut self,
+        base: &TalkerBase,
+        ear_idx: Index,
+        hum_idx: Index,
+        value: f32,
+    ) -> Result<Option<TalkerBase>, failure::Error> {
+        base.ears[ear_idx].add_set_value(hum_idx, value)?;
+        Ok(None)
+    }
+    fn add_set_voice_to_ear_update(
+        &mut self,
+        base: &TalkerBase,
+        ear_idx: Index,
+        hum_idx: Index,
+        voice_talker: &RTalker,
+        port: usize,
+    ) -> Result<Option<TalkerBase>, failure::Error> {
+        base.ears[ear_idx].add_set_voice(hum_idx, voice_talker, port)?;
+        Ok(None)
+    }
+    fn sup_ear_set_update(
+        &mut self,
+        base: &TalkerBase,
+        ear_idx: usize,
+        set_idx: usize,
+    ) -> Result<Option<TalkerBase>, failure::Error> {
+        base.ears[ear_idx].sup_set(set_idx)?;
         Ok(None)
     }
 
@@ -217,6 +249,16 @@ impl TalkerCab {
         })
     }
 
+    fn update(&self, obase: Option<TalkerBase>) -> Result<Option<RTalker>, failure::Error> {
+        match obase {
+            Some(base) => {
+                let core = self.core.replace(Box::new(NilTalker::new()));
+                Ok(Some(TalkerCab::new_ref((base, core))))
+            }
+            None => Ok(None),
+        }
+    }
+
     pub fn identifier(&self) -> &RIdentifier {
         self.base.identifier()
     }
@@ -231,9 +273,6 @@ impl TalkerCab {
     pub fn data(&self) -> &RData {
         self.base.data()
     }
-    pub fn set_data(&self, data: Data) {
-        self.base.set_data(data);
-    }
     pub fn data_string(&self) -> String {
         self.base.data.borrow().to_string()
     }
@@ -241,33 +280,9 @@ impl TalkerCab {
         self.base.data.borrow().to_f()
     }
 
-    pub fn set_data_from_string(&self, s: &str) -> Result<(), failure::Error> {
-        match self.base.data.borrow().birth(s) {
-            Ok(d) => {
-                self.set_data(d);
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn update_with_data_string(&self, s: &str) -> Result<Option<RTalker>, failure::Error> {
-        match self.base.data.borrow().birth(s) {
-            Ok(d) => {
-                let obase = self.core.borrow_mut().update_with_data(&self.base, &d)?;
-                match obase {
-                    Some(base) => {
-                        let core = self.core.replace(Box::new(NilTalker::new()));
-                        Ok(Some(TalkerCab::new_ref((base, core))))
-                    }
-                    None => {
-                        self.set_data(d);
-                        Ok(None)
-                    }
-                }
-            }
-            Err(e) => Err(e),
-        }
+    pub fn set_data_from_string_update(&self, s: &str) -> Result<Option<RTalker>, failure::Error> {
+        let data = self.base.data.borrow().birth(s)?;
+        self.update(self.core.borrow_mut().set_data_update(&self.base, data)?)
     }
 
     pub fn ear(&self, ear_idx: Index) -> &Ear {
@@ -286,14 +301,6 @@ impl TalkerCab {
     pub fn voice_port_type(&self, port: usize) -> PortType {
         self.voice(port).port_type()
     }
-    /*
-       pub fn voice_port_type_is(&self, port: usize, port_type: PortType) -> bool {
-            self.voice_port_type(port) == port_type
-        }
-       pub fn voice_port_type_can_hear(&self, port: usize, port_type: PortType) -> bool {
-            self.voice_port_type(port).can_hear(port_type)
-        }
-    */
     pub fn voice_port(&self, tag: &str) -> Result<usize, failure::Error> {
         for (port, voice) in self.base.voices.iter().enumerate() {
             if voice.tag() == tag {
@@ -493,26 +500,44 @@ impl TalkerCab {
         self.base.ears[ear_idx].sup_talk(set_idx, hum_idx, talk_idx)
     }
 
-    pub fn add_set_value_to_ear(
+    pub fn add_set_value_to_ear_update(
         &self,
         ear_idx: Index,
         hum_idx: Index,
         value: f32,
-    ) -> Result<(), failure::Error> {
-        self.base.ears[ear_idx].add_set_value(hum_idx, value)
+    ) -> Result<Option<RTalker>, failure::Error> {
+        self.update(
+            self.core
+                .borrow_mut()
+                .add_set_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?,
+        )
     }
-    pub fn add_set_voice_to_ear(
+    pub fn add_set_voice_to_ear_update(
         &self,
         ear_idx: Index,
         hum_idx: Index,
         voice_talker: &RTalker,
         port: usize,
-    ) -> Result<(), failure::Error> {
-        self.base.ears[ear_idx].add_set_voice(hum_idx, voice_talker, port)
+    ) -> Result<Option<RTalker>, failure::Error> {
+        self.update(self.core.borrow_mut().add_set_voice_to_ear_update(
+            &self.base,
+            ear_idx,
+            hum_idx,
+            voice_talker,
+            port,
+        )?)
     }
 
-    pub fn sup_ear_set(&self, ear_idx: usize, set_idx: usize) -> Result<(), failure::Error> {
-        self.base.ears[ear_idx].sup_set(set_idx)
+    pub fn sup_ear_set_update(
+        &self,
+        ear_idx: usize,
+        set_idx: usize,
+    ) -> Result<Option<RTalker>, failure::Error> {
+        self.update(
+            self.core
+                .borrow_mut()
+                .sup_ear_set_update(&self.base, ear_idx, set_idx)?,
+        )
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {

@@ -193,14 +193,16 @@ impl Band {
         let mut talkers_ptalkers = Vec::new();
 
         for ptalker in ptalkers.values() {
-            let tkr =
+            let mut talker =
                 band.build_talker(factory, ptalker.model, Some(ptalker.id), Some(ptalker.name))?;
 
             if let Some(data) = ptalker.data {
-                tkr.set_data_from_string(data)?;
+                if let Some(updated_talker) = talker.set_data_from_string_update(data)? {
+                    talker = updated_talker;
+                }
             }
-            talkers_ptalkers.push((tkr.clone(), ptalker));
-            talkers.insert(ptalker.id, tkr.clone());
+            talkers_ptalkers.push((talker.clone(), ptalker));
+            talkers.insert(ptalker.id, talker.clone());
         }
 
         for (talker, ptalker) in talkers_ptalkers {
@@ -388,6 +390,29 @@ impl Band {
         Ok(())
     }
 
+    pub fn update_talker<F>(&mut self, talker_id: &Id, mut f: F) -> Result<(), failure::Error>
+    where
+        F: FnMut(&RTalker) -> Result<Option<RTalker>, failure::Error>,
+    {
+        let onew_tkr;
+        {
+            let tkr = self.fetch_talker(talker_id)?;
+
+            tkr.deactivate();
+            onew_tkr = f(tkr)?;
+
+            if onew_tkr.is_none() {
+                tkr.activate();
+            }
+        }
+
+        if let Some(new_tkr) = onew_tkr {
+            new_tkr.activate();
+            self.replace_talker(talker_id, new_tkr)?;
+        }
+        Ok(())
+    }
+
     pub fn sup_talker(&mut self, talker_id: &Id) -> Result<(), failure::Error> {
         self.talkers.remove(talker_id);
 
@@ -425,8 +450,15 @@ impl Band {
             None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
         }
     }
+    pub fn extract_talker(&mut self, talker_id: &Id) -> Result<RTalker, failure::Error> {
+        match self.talkers.remove(talker_id) {
+            Some(tkr) => Ok(tkr),
+            None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
+        }
+    }
 
     pub fn modify(&mut self, operation: &Operation) -> Result<(), failure::Error> {
+        let mut result = Ok(());
         match operation {
             Operation::AddTalker(tkr_id, model) => {
                 self.add_talker(&model, Some(*tkr_id), None)?;
@@ -435,21 +467,7 @@ impl Band {
                 self.sup_talker(tkr_id)?;
             }
             Operation::SetTalkerData(tkr_id, data) => {
-                let onew_tkr;
-                {
-                    let tkr = self.fetch_talker(tkr_id)?;
-
-                    tkr.deactivate();
-                    onew_tkr = tkr.update_with_data_string(&data)?;
-                    if onew_tkr.is_none() {
-                        tkr.activate();
-                    }
-                }
-
-                if let Some(new_tkr) = onew_tkr {
-                    new_tkr.activate();
-                    self.replace_talker(tkr_id, new_tkr)?;
-                }
+                self.update_talker(tkr_id, |tkr| tkr.set_data_from_string_update(&data))?
             }
             Operation::SetEarHumVoice(
                 ear_tkr_id,
@@ -553,35 +571,23 @@ impl Band {
                 ear_tkr.activate();
             }
             Operation::AddSetValueToEar(ear_tkr_id, ear_idx, hum_idx, value) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
-
-                ear_tkr.deactivate();
-
-                ear_tkr.add_set_value_to_ear(*ear_idx, *hum_idx, *value)?;
-
-                ear_tkr.activate();
+                self.update_talker(ear_tkr_id, |tkr| {
+                    tkr.add_set_value_to_ear_update(*ear_idx, *hum_idx, *value)
+                })?;
             }
             Operation::AddSetVoiceToEar(ear_tkr_id, ear_idx, hum_idx, voice_tkr_id, voice_port) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
-                let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+                let voice_tkr = self.extract_talker(voice_tkr_id)?;
 
-                ear_tkr.deactivate();
-
-                ear_tkr.add_set_voice_to_ear(*ear_idx, *hum_idx, &voice_tkr, *voice_port)?;
-
-                ear_tkr.activate();
+                result = self.update_talker(ear_tkr_id, |tkr| {
+                    tkr.add_set_voice_to_ear_update(*ear_idx, *hum_idx, &voice_tkr, *voice_port)
+                });
+                self.talkers.insert(*voice_tkr_id, voice_tkr);
             }
             Operation::SupEarSet(ear_tkr_id, ear_idx, set_idx) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
-
-                ear_tkr.deactivate();
-
-                ear_tkr.sup_ear_set(*ear_idx, *set_idx)?;
-
-                ear_tkr.activate();
+                self.update_talker(ear_tkr_id, |tkr| tkr.sup_ear_set_update(*ear_idx, *set_idx))?;
             }
         }
-        Ok(())
+        result
     }
 
     pub fn activate_talkers(&self) {
