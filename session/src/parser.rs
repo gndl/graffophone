@@ -87,7 +87,7 @@ fn parse_connections<'a>(
     while src.starts_with("> ") {
         src = src.get("> ".len()..).unwrap();
 
-        let ear_desc_end = src.find(" ").unwrap();
+        let ear_desc_end = src.find(" <- ").unwrap();
         let mut ear_desc = src.get(..ear_desc_end).unwrap();
 
         let (ear_tag, set_idx, hum_tag, talk_idx) = if let Some(ear_tag_end) = ear_desc.find(".") {
@@ -116,7 +116,7 @@ fn parse_connections<'a>(
         };
 
         let talk_desc_end = src.find("\n").unwrap();
-        let talk_desc = src.get(ear_desc_end + " ".len()..talk_desc_end).unwrap();
+        let talk_desc = src.get(ear_desc_end + " <- ".len()..talk_desc_end).unwrap();
 
         let talk = match f32::from_str(talk_desc) {
             Ok(value) => PTalk::Value(value),

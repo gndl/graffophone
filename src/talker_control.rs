@@ -834,10 +834,6 @@ impl TalkerControlBase {
                     .talker
                     .ear(ear_idx)
                     .talk_value_or_default(set_idx, hum_idx);
-                println!(
-                    "hum_range : min {}, max {}, def {}, cur {}",
-                    min, max, def, cur
-                );
 
                 let value = bounded_float_entry::run(
                     min.into(),
@@ -850,10 +846,7 @@ impl TalkerControlBase {
                         );
                     },
                 );
-                println!(
-                    "talker_control::on_hum_clicked : set_talker_ear_talk_value {}",
-                    value
-                );
+
                 let notifications = notifier.borrow_mut().set_talker_ear_talk_value(
                     talker_id,
                     ear_idx,

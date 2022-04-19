@@ -236,14 +236,14 @@ impl Band {
         let tkr = &talk.talker();
 
         if tkr.is_hidden() {
-            writeln!(buf, "{} {}", talk_tag, tkr.data_string())?;
+            writeln!(buf, "{} <- {}", talk_tag, tkr.data_string())?;
         } else {
             let voice_tag = tkr.voice_tag(talk.port())?;
 
             if voice_tag == "" {
-                writeln!(buf, "{} {}", talk_tag, tkr.id())?;
+                writeln!(buf, "{} <- {}", talk_tag, tkr.id())?;
             } else {
-                writeln!(buf, "{} {}:{}", talk_tag, tkr.id(), voice_tag)?;
+                writeln!(buf, "{} <- {}:{}", talk_tag, tkr.id(), voice_tag)?;
             }
         }
         Ok(buf)
