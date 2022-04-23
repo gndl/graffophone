@@ -554,7 +554,19 @@ impl Ear {
         for set in self.sets().iter() {
             for hum in &set.hums {
                 for talk in &hum.talks {
-                    if talk.talker().id() == id {
+                    if talk.talker.is(id) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+    pub fn depends_of(&self, id: Id) -> bool {
+        for set in self.sets().iter() {
+            for hum in &set.hums {
+                for talk in &hum.talks {
+                    if talk.talker.is(id) || talk.talker.depends_of(id) {
                         return true;
                     }
                 }

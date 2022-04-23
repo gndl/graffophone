@@ -457,6 +457,26 @@ impl Band {
         }
     }
 
+    fn check_cyclic_dependency(
+        &self,
+        voice_talker: &RTalker,
+        ear_talker_id: &Id,
+    ) -> Result<(), failure::Error> {
+        if voice_talker.is(*ear_talker_id) || voice_talker.depends_of(*ear_talker_id) {
+            let ear_tkr = self.fetch_talker(ear_talker_id)?;
+
+            Err(failure::err_msg(format!(
+                "Cyclic dependency : {} ({}) depends of {} ({})!",
+                voice_talker.name(),
+                voice_talker.id(),
+                ear_tkr.name(),
+                ear_talker_id
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn modify(&mut self, operation: &Operation) -> Result<(), failure::Error> {
         let mut result = Ok(());
         match operation {
@@ -477,8 +497,9 @@ impl Band {
                 voice_tkr_id,
                 voice_port,
             ) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
                 let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+                self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
                 ear_tkr.deactivate();
 
@@ -504,8 +525,9 @@ impl Band {
                 voice_tkr_id,
                 voice_port,
             ) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
                 let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+                self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
                 ear_tkr.deactivate();
 
@@ -546,8 +568,9 @@ impl Band {
                 voice_tkr_id,
                 voice_port,
             ) => {
-                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
                 let voice_tkr = self.fetch_talker(voice_tkr_id)?;
+                self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
+                let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
                 ear_tkr.deactivate();
 
@@ -577,6 +600,7 @@ impl Band {
             }
             Operation::AddSetVoiceToEar(ear_tkr_id, ear_idx, hum_idx, voice_tkr_id, voice_port) => {
                 let voice_tkr = self.extract_talker(voice_tkr_id)?;
+                self.check_cyclic_dependency(&voice_tkr, ear_tkr_id)?;
 
                 result = self.update_talker(ear_tkr_id, |tkr| {
                     tkr.add_set_voice_to_ear_update(*ear_idx, *hum_idx, &voice_tkr, *voice_port)

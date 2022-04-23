@@ -262,8 +262,18 @@ impl TalkerCab {
     pub fn identifier(&self) -> &RIdentifier {
         self.base.identifier()
     }
+
+    pub fn is(&self, id: Id) -> bool {
+        self.base.identifier.borrow().is(id)
+    }
+
     pub fn depends_of(&self, id: Id) -> bool {
-        self.base.identifier.borrow().id() == id
+        for ear in &self.base.ears {
+            if ear.depends_of(id) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn is_hidden(&self) -> bool {

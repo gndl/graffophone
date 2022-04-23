@@ -301,7 +301,7 @@ impl Player {
         match self.state {
             State::Exited => {}
             _ => {
-                thread::sleep(Duration::from_millis(30));
+                thread::sleep(Duration::from_millis(20));
                 match self.state_receiver.try_recv() {
                     Err(_) => {}
                     Ok(state) => {
@@ -398,14 +398,14 @@ impl Player {
         Ok(self.state)
     }
 
-    pub fn modify_band(&self, operation: &Operation) -> Result<State, failure::Error> {
+    pub fn modify_band(&mut self, operation: &Operation) -> Result<State, failure::Error> {
         self.check_not_exited()?;
 
         self.order_sender
             .send(Order::ModifyBand(operation.clone()))
             .map_err(|e| failure::err_msg(format!("Player::load_band error : {}", e)))?;
 
-        Ok(self.state)
+        Ok(self.state())
     }
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {

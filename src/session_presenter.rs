@@ -120,10 +120,8 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
-        match self.session.add_talker(talker_model) {
-            Ok(()) => (),
-            Err(e) => self.notify_error(e),
-        }
+        let res = self.session.add_talker(talker_model);
+        self.manage_state_result(res);
     }
 
     pub fn find_compatible_hum_with_voice_in_ear(
@@ -138,10 +136,8 @@ impl SessionPresenter {
     }
 
     pub fn modify_band(&mut self, operation: &Operation) {
-        match self.session.modify_band(operation) {
-            Ok(_) => (),
-            Err(e) => self.notify_error(e),
-        }
+        let res = self.session.modify_band(operation);
+        self.manage_state_result(res);
     }
 
     pub fn set_start_tick(&mut self, t: i64) {

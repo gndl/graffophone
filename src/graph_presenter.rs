@@ -381,6 +381,7 @@ impl GraphPresenter {
             if let Some((ear_tkr_id, ear_idx, set_idx, hum_idx)) = self.selected_hum {
                 if talker_id == ear_tkr_id {
                     self.selected_voice = Some((talker_id, voice_port));
+
                     notifications.push(Notification::VoiceSelected(talker_id, voice_port));
                     notifications.push(Notification::SelectionChanged);
                 } else {
@@ -398,12 +399,14 @@ impl GraphPresenter {
                 ));
             } else {
                 self.selected_voice = Some((talker_id, voice_port));
+
                 notifications.push(Notification::VoiceSelected(talker_id, voice_port));
                 notifications.push(Notification::SelectionChanged);
             }
             if let Some((ear_tkr_id, ear_idx, set_idx, hum_idx)) = self.selected_hum_add_in {
                 if talker_id == ear_tkr_id {
                     self.selected_voice = Some((talker_id, voice_port));
+
                     notifications.push(Notification::VoiceSelected(talker_id, voice_port));
                     notifications.push(Notification::SelectionChanged);
                 } else {
@@ -421,6 +424,7 @@ impl GraphPresenter {
                 ));
             } else {
                 self.selected_voice = Some((talker_id, voice_port));
+
                 notifications.push(Notification::VoiceSelected(talker_id, voice_port));
                 notifications.push(Notification::SelectionChanged);
             }

@@ -71,7 +71,7 @@ impl Session {
         self.band.talkers()
     }
 
-    pub fn add_talker(&mut self, talker_model: &str) -> Result<(), failure::Error> {
+    pub fn add_talker(&mut self, talker_model: &str) -> Result<State, failure::Error> {
         self.modify_band(&Operation::AddTalker(
             identifier::get_next_id(),
             talker_model.to_string(),
@@ -130,9 +130,9 @@ impl Session {
         self.player.load_band(self.band.serialize()?)
     }
 
-    pub fn modify_band(&mut self, operation: &Operation) -> Result<(), failure::Error> {
-        self.player.modify_band(operation)?;
-        self.band.modify(operation)
+    pub fn modify_band(&mut self, operation: &Operation) -> Result<State, failure::Error> {
+        self.band.modify(operation)?;
+        self.player.modify_band(operation)
     }
 
     pub fn save(&self) -> Result<(), failure::Error> {

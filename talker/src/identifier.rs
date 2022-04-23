@@ -85,7 +85,7 @@ impl Identifier {
         self.model = model.to_string();
     }
 
-    pub fn depends_of(&self, id: Id) -> bool {
+    pub fn is(&self, id: Id) -> bool {
         self.id == id
     }
 }
