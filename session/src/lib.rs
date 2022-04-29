@@ -1,6 +1,7 @@
 extern crate cpal;
 extern crate failure;
 extern crate livi;
+extern crate nom;
 extern crate ringbuf;
 extern crate talker;
 
