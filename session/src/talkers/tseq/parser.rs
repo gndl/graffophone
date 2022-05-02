@@ -47,9 +47,15 @@ pub struct Part<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct SeqRef<'a> {
+    pub id: &'a str,
+    pub mul: Option<f32>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Fragment<'a> {
     Part(Part<'a>),
-    Sequence(&'a str),
+    SeqRef(SeqRef<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -65,43 +71,21 @@ pub enum Exp<'a> {
     Notes(Notes<'a>),
     Pattern(Pattern<'a>),
     Velocities(Velocities<'a>),
-    Sequence(Sequence<'a>),
+    Seq(Sequence<'a>),
+    FreqOut(Sequence<'a>),
+    VelOut(Sequence<'a>),
+    MidiOut(Sequence<'a>),
 }
 
 fn comment(input: &str) -> IResult<&str, ()> {
     value((), tuple((char('#'), take_until("\n"), tag("\n"))))(input)
 }
-/*
-fn id(input: &str) -> IResult<&str, &str> {
-    let (input, id) =
-        delimited(space0, many0_count(alt((alphanumeric1, tag("_")))), space0)(input)?;
-    Ok((input, id))
-}
-pub fn id(input: &str) -> IResult<&str, &str> {
-    recognize(pair(
-        alt((alpha1, tag("_"))),
-        many0_count(alt((alphanumeric1, tag("_")))),
-    ))(input)
-}
-pub fn id(input: &str) -> IResult<&str, &str> {
-    take_while1(|c| is_alphanumeric(c) || c == b'_')(input)
-}
-*/
+
 pub fn id(input: &str) -> IResult<&str, &str> {
     recognize(many1_count(alt((alphanumeric1, tag("_")))))(input)
 }
-/*
-fn head(input: &str) -> IResult<&str, &str> {
-    let (input, (_, id, _, _)) =
-        tuple((space1,id, char(':'), space0))(input)?;
-    Ok((input, id))
-}
-*/
-fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str>
-/*
-where
-    F: Fn(&'a str) -> IResult<&'a str, &'a str>,
-*/ {
+
+fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> {
     delimited(
         preceded(tag(inst), space1),
         id,
@@ -177,25 +161,51 @@ fn part(input: &str) -> IResult<&str, Fragment> {
 }
 
 fn seq_ref(input: &str) -> IResult<&str, Fragment> {
-    let (input, id) = delimited(char('$'), id, space0)(input)?;
-    Ok((input, Fragment::Sequence(id)))
+    let (input, (id, mul, _)) = tuple((
+        delimited(char('$'), id, space0),
+        opt(preceded(terminated(char('*'), space0), float)),
+        space0,
+    ))(input)?;
+    Ok((input, Fragment::SeqRef(SeqRef { id, mul })))
 }
 
-fn sequence(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, beat, fragments, _)) = tuple((
-        head("seq"),
+fn sequence(input: &str) -> IResult<&str, Sequence> {
+    let (input, (_, id, _, beat, fragments, _)) = tuple((
+        space1,
+        id,
+        delimited(space0, char(':'), space0),
         opt(delimited(slash, id, space0)),
         many0(alt((seq_ref, part))),
         end,
     ))(input)?;
     Ok((
         input,
-        Exp::Sequence(Sequence {
+        Sequence {
             id,
             beat,
             fragments,
-        }),
+        },
     ))
+}
+
+fn seq(input: &str) -> IResult<&str, Exp> {
+    let (input, sequence) = preceded(tag("seq"), sequence)(input)?;
+    Ok((input, Exp::Seq(sequence)))
+}
+
+fn freqout(input: &str) -> IResult<&str, Exp> {
+    let (input, sequence) = preceded(tag("freqout"), sequence)(input)?;
+    Ok((input, Exp::FreqOut(sequence)))
+}
+
+fn velout(input: &str) -> IResult<&str, Exp> {
+    let (input, sequence) = preceded(tag("velout"), sequence)(input)?;
+    Ok((input, Exp::VelOut(sequence)))
+}
+
+fn midiout(input: &str) -> IResult<&str, Exp> {
+    let (input, sequence) = preceded(tag("midiout"), sequence)(input)?;
+    Ok((input, Exp::MidiOut(sequence)))
 }
 
 #[test]
@@ -356,21 +366,42 @@ fn parse_part() {
 
 #[test]
 fn parse_seq_ref() {
-    assert_eq!(seq_ref("$s_01"), Ok(("", Fragment::Sequence("s_01"),)));
-    assert_eq!(seq_ref("$1sr_"), Ok(("", Fragment::Sequence("1sr_"),)));
+    assert_eq!(
+        seq_ref("$s_01"),
+        Ok((
+            "",
+            Fragment::SeqRef(SeqRef {
+                id: "s_01",
+                mul: None
+            }),
+        ))
+    );
+    assert_eq!(
+        seq_ref("$1sr_ *2.5"),
+        Ok((
+            "",
+            Fragment::SeqRef(SeqRef {
+                id: "1sr_",
+                mul: Some(2.5)
+            }),
+        ))
+    );
 }
 
 #[test]
 fn parse_sequence() {
     assert_eq!(
-        sequence("seq seq_03:/ _b_ $s_1 p1 p1.n2 $s_2 p2.n1.v1 * 2 \n"),
+        sequence(" seq_03:/ _b_ $s_1 p1 p1.n2 $s_2*3 p2.n1.v1 * 2 \n"),
         Ok((
             "",
-            Exp::Sequence(Sequence {
+            Sequence {
                 id: "seq_03",
                 beat: Some("_b_"),
                 fragments: vec![
-                    Fragment::Sequence("s_1"),
+                    Fragment::SeqRef(SeqRef {
+                        id: "s_1",
+                        mul: None
+                    }),
                     Fragment::Part(Part {
                         pattern: "p1",
                         notes: None,
@@ -383,7 +414,10 @@ fn parse_sequence() {
                         velos: None,
                         mul: None,
                     }),
-                    Fragment::Sequence("s_2"),
+                    Fragment::SeqRef(SeqRef {
+                        id: "s_2",
+                        mul: Some(3.)
+                    }),
                     Fragment::Part(Part {
                         pattern: "p2",
                         notes: Some("n1"),
@@ -391,7 +425,43 @@ fn parse_sequence() {
                         mul: Some(2.),
                     })
                 ],
-            }),
+            }
+        ),)
+    );
+}
+
+#[test]
+fn parse_seq() {
+    assert_eq!(
+        seq("seq s : $s_1\n"),
+        Ok((
+            "",
+            Exp::Seq(Sequence {
+                id: "s",
+                beat: None,
+                fragments: vec![Fragment::SeqRef(SeqRef {
+                    id: "s_1",
+                    mul: None
+                })]
+            })
+        ))
+    );
+}
+
+#[test]
+fn parse_freqout() {
+    assert_eq!(
+        freqout("freqout   s : $s_1 \n"),
+        Ok((
+            "",
+            Exp::FreqOut(Sequence {
+                id: "s",
+                beat: None,
+                fragments: vec![Fragment::SeqRef(SeqRef {
+                    id: "s_1",
+                    mul: None
+                })]
+            })
         ))
     );
 }
