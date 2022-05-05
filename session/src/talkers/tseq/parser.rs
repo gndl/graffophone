@@ -75,10 +75,7 @@ pub enum Exp<'a> {
     FreqOut(Sequence<'a>),
     VelOut(Sequence<'a>),
     MidiOut(Sequence<'a>),
-}
-
-fn comment(input: &str) -> IResult<&str, ()> {
-    value((), tuple((char('#'), take_until("\n"), tag("\n"))))(input)
+    None,
 }
 
 pub fn id(input: &str) -> IResult<&str, &str> {
@@ -97,8 +94,14 @@ fn slash(input: &str) -> IResult<&str, char> {
     delimited(space0, char('/'), space0)(input)
 }
 
-fn end(input: &str) -> IResult<&str, char> {
-    preceded(space0, newline)(input)
+fn end(input: &str) -> IResult<&str, Exp> {
+    let (input, _) = many1_count(preceded(space0, newline))(input)?;
+    Ok((input, Exp::None))
+}
+
+fn comment(input: &str) -> IResult<&str, Exp> {
+    let (input, _) = delimited(char('#'), take_until("\n"), end)(input)?;
+    Ok((input, Exp::None))
 }
 
 fn beat(input: &str) -> IResult<&str, Exp> {
@@ -208,13 +211,21 @@ fn midiout(input: &str) -> IResult<&str, Exp> {
     Ok((input, Exp::MidiOut(sequence)))
 }
 
-#[test]
-fn parse_comment() {
-    assert_eq!(comment("# this is a comment !\n"), Ok(("", ())));
+fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
+    let (input, expressions) = many0(alt((
+        beat, pattern, notes, velocities, seq, freqout, velout, midiout, comment, end,
+    )))(input)
+    .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
+
+    if input.is_empty() {
+        Ok(expressions)
+    } else {
+        Err(failure::err_msg(format!("tseq parser error : {:?}", input)))
+    }
 }
 
 #[test]
-fn parse_beat() {
+fn test_beat() {
     assert_eq!(
         beat("beat Id06 : 09\n"),
         Ok(("", Exp::Beat(Beat { id: "Id06", bpm: 9 }),))
@@ -236,7 +247,7 @@ fn parse_beat() {
 }
 
 #[test]
-fn parse_pattern() {
+fn test_pattern() {
     assert_eq!(
         pattern("pattern p1: 0.5 .75 / 1\n"),
         Ok((
@@ -251,7 +262,7 @@ fn parse_pattern() {
 }
 
 #[test]
-fn parse_velocities() {
+fn test_velocities() {
     assert_eq!(
         velocities("velos v1: .5 1 .75 0.9\n"),
         Ok((
@@ -265,7 +276,7 @@ fn parse_velocities() {
 }
 
 #[test]
-fn parse_notes() {
+fn test_notes() {
     assert_eq!(
         notes("notes blank :\n"),
         Ok((
@@ -289,7 +300,7 @@ fn parse_notes() {
 }
 
 #[test]
-fn parse_part() {
+fn test_part() {
     assert_eq!(
         part("p.n.v*3"),
         Ok((
@@ -365,7 +376,7 @@ fn parse_part() {
 }
 
 #[test]
-fn parse_seq_ref() {
+fn test_seq_ref() {
     assert_eq!(
         seq_ref("$s_01"),
         Ok((
@@ -389,7 +400,7 @@ fn parse_seq_ref() {
 }
 
 #[test]
-fn parse_sequence() {
+fn test_sequence() {
     assert_eq!(
         sequence(" seq_03:/ _b_ $s_1 p1 p1.n2 $s_2*3 p2.n1.v1 * 2 \n"),
         Ok((
@@ -431,7 +442,7 @@ fn parse_sequence() {
 }
 
 #[test]
-fn parse_seq() {
+fn test_seq() {
     assert_eq!(
         seq("seq s : $s_1\n"),
         Ok((
@@ -449,7 +460,7 @@ fn parse_seq() {
 }
 
 #[test]
-fn parse_freqout() {
+fn test_freqout() {
     assert_eq!(
         freqout("freqout   s : $s_1 \n"),
         Ok((
@@ -463,6 +474,36 @@ fn parse_freqout() {
                 })]
             })
         ))
+    );
+}
+
+#[test]
+fn test_comment() {
+    assert_eq!(comment("# this is a comment !\n"), Ok(("", Exp::None)));
+    assert_eq!(comment("# this is a comment !\n\n\n"), Ok(("", Exp::None)));
+}
+
+#[test]
+fn test_end() {
+    assert_eq!(end("\n"), Ok(("", Exp::None)));
+    assert_eq!(end("\n   \n"), Ok(("", Exp::None)));
+    assert_eq!(end(" \n\n  \n"), Ok(("", Exp::None)));
+}
+
+#[test]
+fn test_parse() {
+    let res = parse("\n# 90 BPM\nbeat b : 90\n\nvelos v: 1\n\n").unwrap();
+    assert_eq!(
+        res,
+        vec![
+            Exp::None,
+            Exp::None,
+            Exp::Beat(Beat { id: "b", bpm: 90 }),
+            Exp::Velocities(Velocities {
+                id: "v",
+                values: vec![1.],
+            })
+        ]
     );
 }
 
