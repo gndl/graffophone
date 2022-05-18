@@ -1,80 +1,84 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_till, take_until, take_while1},
-    character::complete::{alpha1, alphanumeric1, char, digit1, newline, space0, space1},
-    character::{is_alphanumeric, is_newline},
-    combinator::{map, opt, recognize, value},
-    error::ParseError,
+    bytes::complete::{tag, take_until},
+    character::complete::{alphanumeric1, char, digit1, newline, space0, space1},
+    combinator::{opt, recognize},
     multi::{many0, many1_count},
     number::complete::float,
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
-pub struct Beat<'a> {
+pub struct PBeat<'a> {
     pub id: &'a str,
-    pub bpm: i32,
+    pub bpm: usize,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Notes<'a> {
+pub struct PPitchLine<'a> {
     pub id: &'a str,
-    pub names: Vec<&'a str>,
+    pub pitchs: Vec<&'a str>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Pattern<'a> {
+pub struct PHit {
+    pub position: f32,
+    pub duration: Option<f32>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PPattern<'a> {
     pub id: &'a str,
-    pub times: Vec<f32>,
+    pub hits: Vec<PHit>,
     pub duration: f32,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Velocities<'a> {
+pub struct PVelocityLine<'a> {
     pub id: &'a str,
     pub values: Vec<f32>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Part<'a> {
+pub struct PPart<'a> {
     pub pattern: &'a str,
-    pub notes: Option<&'a str>,
+    pub pitchs: Option<&'a str>,
     pub velos: Option<&'a str>,
     pub mul: Option<f32>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct SeqRef<'a> {
+pub struct PSeqRef<'a> {
     pub id: &'a str,
     pub mul: Option<f32>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Fragment<'a> {
-    Part(Part<'a>),
-    SeqRef(SeqRef<'a>),
+pub enum PFragment<'a> {
+    Part(PPart<'a>),
+    SeqRef(PSeqRef<'a>),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Sequence<'a> {
+pub struct PSequence<'a> {
     pub id: &'a str,
     pub beat: Option<&'a str>,
-    pub fragments: Vec<Fragment<'a>>,
+    pub fragments: Vec<PFragment<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Exp<'a> {
-    Beat(Beat<'a>),
-    Notes(Notes<'a>),
-    Pattern(Pattern<'a>),
-    Velocities(Velocities<'a>),
-    Seq(Sequence<'a>),
-    FreqOut(Sequence<'a>),
-    VelOut(Sequence<'a>),
-    MidiOut(Sequence<'a>),
+    Beat(PBeat<'a>),
+    PitchLine(PPitchLine<'a>),
+    Pattern(PPattern<'a>),
+    VelocityLine(PVelocityLine<'a>),
+    Seq(PSequence<'a>),
+    FreqOut(PSequence<'a>),
+    VelOut(PSequence<'a>),
+    MidiOut(PSequence<'a>),
     None,
 }
 
@@ -108,44 +112,45 @@ fn beat(input: &str) -> IResult<&str, Exp> {
     let (input, (id, bpm, _)) = tuple((head("beat"), digit1, end))(input)?;
     Ok((
         input,
-        Exp::Beat(Beat {
+        Exp::Beat(PBeat {
             id,
-            bpm: i32::from_str(bpm).unwrap(),
+            bpm: usize::from_str(bpm).unwrap(),
         }),
     ))
 }
 
-fn pattern(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, times, duration)) = tuple((
-        head("pattern"),
-        many0(terminated(float, space0)),
-        delimited(slash, float, end),
+fn hit(input: &str) -> IResult<&str, PHit> {
+    let (input, (position, duration)) = tuple((
+        terminated(float, space0),
+        opt(delimited(terminated(char('d'), space0), float, space0)),
     ))(input)?;
-    Ok((
-        input,
-        Exp::Pattern(Pattern {
-            id,
-            times,
-            duration,
-        }),
-    ))
+    Ok((input, PHit { position, duration }))
+}
+
+fn pattern(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, hits, duration)) =
+        tuple((head("pattern"), many0(hit), delimited(slash, float, end)))(input)?;
+    Ok((input, Exp::Pattern(PPattern { id, hits, duration })))
 }
 
 fn velocities(input: &str) -> IResult<&str, Exp> {
     let (input, (id, values, _)) =
         tuple((head("velos"), many0(terminated(float, space0)), end))(input)?;
-    Ok((input, Exp::Velocities(Velocities { id, values })))
+    Ok((input, Exp::VelocityLine(PVelocityLine { id, values })))
 }
 
-fn notes(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, names, _)) =
-        tuple((head("notes"), many0(terminated(alphanumeric1, space0)), end))(input)?;
+fn pitchs(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, pitchs, _)) = tuple((
+        head("pitchs"),
+        many0(terminated(alphanumeric1, space0)),
+        end,
+    ))(input)?;
 
-    Ok((input, Exp::Notes(Notes { id, names })))
+    Ok((input, Exp::PitchLine(PPitchLine { id, pitchs })))
 }
 
-fn part(input: &str) -> IResult<&str, Fragment> {
-    let (input, (pattern, notes, velos, mul, _)) = tuple((
+fn part(input: &str) -> IResult<&str, PFragment> {
+    let (input, (pattern, pitchs, velos, mul, _)) = tuple((
         id,
         opt(preceded(char('.'), id)),
         opt(preceded(char('.'), id)),
@@ -154,25 +159,25 @@ fn part(input: &str) -> IResult<&str, Fragment> {
     ))(input)?;
     Ok((
         input,
-        Fragment::Part(Part {
+        PFragment::Part(PPart {
             pattern,
-            notes,
+            pitchs,
             velos,
             mul,
         }),
     ))
 }
 
-fn seq_ref(input: &str) -> IResult<&str, Fragment> {
+fn seq_ref(input: &str) -> IResult<&str, PFragment> {
     let (input, (id, mul, _)) = tuple((
         delimited(char('$'), id, space0),
         opt(preceded(terminated(char('*'), space0), float)),
         space0,
     ))(input)?;
-    Ok((input, Fragment::SeqRef(SeqRef { id, mul })))
+    Ok((input, PFragment::SeqRef(PSeqRef { id, mul })))
 }
 
-fn sequence(input: &str) -> IResult<&str, Sequence> {
+fn sequence(input: &str) -> IResult<&str, PSequence> {
     let (input, (_, id, _, beat, fragments, _)) = tuple((
         space1,
         id,
@@ -183,7 +188,7 @@ fn sequence(input: &str) -> IResult<&str, Sequence> {
     ))(input)?;
     Ok((
         input,
-        Sequence {
+        PSequence {
             id,
             beat,
             fragments,
@@ -211,9 +216,9 @@ fn midiout(input: &str) -> IResult<&str, Exp> {
     Ok((input, Exp::MidiOut(sequence)))
 }
 
-fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
+pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
     let (input, expressions) = many0(alt((
-        beat, pattern, notes, velocities, seq, freqout, velout, midiout, comment, end,
+        beat, pattern, pitchs, velocities, seq, freqout, velout, midiout, comment, end,
     )))(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
@@ -228,17 +233,17 @@ fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
 fn test_beat() {
     assert_eq!(
         beat("beat Id06 : 09\n"),
-        Ok(("", Exp::Beat(Beat { id: "Id06", bpm: 9 }),))
+        Ok(("", Exp::Beat(PBeat { id: "Id06", bpm: 9 }),))
     );
     assert_eq!(
         beat("beat  9zZ:9  \n"),
-        Ok(("", Exp::Beat(Beat { id: "9zZ", bpm: 9 }),))
+        Ok(("", Exp::Beat(PBeat { id: "9zZ", bpm: 9 }),))
     );
     assert_eq!(
         beat("beat titi   : 90\n"),
         Ok((
             "",
-            Exp::Beat(Beat {
+            Exp::Beat(PBeat {
                 id: "titi",
                 bpm: 90,
             }),
@@ -252,9 +257,38 @@ fn test_pattern() {
         pattern("pattern p1: 0.5 .75 / 1\n"),
         Ok((
             "",
-            Exp::Pattern(Pattern {
+            Exp::Pattern(PPattern {
                 id: "p1",
-                times: vec![0.5, 0.75],
+                hits: vec![
+                    PHit {
+                        position: 0.5,
+                        duration: None
+                    },
+                    PHit {
+                        position: 0.75,
+                        duration: None
+                    }
+                ],
+                duration: 1.0
+            }),
+        ))
+    );
+    assert_eq!(
+        pattern("pattern p1: 0.5d.2 .75 d .3 / 1\n"),
+        Ok((
+            "",
+            Exp::Pattern(PPattern {
+                id: "p1",
+                hits: vec![
+                    PHit {
+                        position: 0.5,
+                        duration: Some(0.2),
+                    },
+                    PHit {
+                        position: 0.75,
+                        duration: Some(0.3)
+                    }
+                ],
                 duration: 1.0
             }),
         ))
@@ -267,7 +301,7 @@ fn test_velocities() {
         velocities("velos v1: .5 1 .75 0.9\n"),
         Ok((
             "",
-            Exp::Velocities(Velocities {
+            Exp::VelocityLine(PVelocityLine {
                 id: "v1",
                 values: vec![0.5, 1., 0.75, 0.9],
             }),
@@ -276,24 +310,24 @@ fn test_velocities() {
 }
 
 #[test]
-fn test_notes() {
+fn test_pitchs() {
     assert_eq!(
-        notes("notes blank :\n"),
+        pitchs("pitchs blank :\n"),
         Ok((
             "",
-            Exp::Notes(Notes {
+            Exp::PitchLine(PPitchLine {
                 id: "blank",
-                names: vec![]
+                pitchs: vec![]
             }),
         ))
     );
     assert_eq!(
-        notes("notes intro : a0 G9  B7 \n"),
+        pitchs("pitchs intro : a0 G9  B7 \n"),
         Ok((
             "",
-            Exp::Notes(Notes {
+            Exp::PitchLine(PPitchLine {
                 id: "intro",
-                names: vec!["a0", "G9", "B7"]
+                pitchs: vec!["a0", "G9", "B7"]
             }),
         ))
     );
@@ -305,9 +339,9 @@ fn test_part() {
         part("p.n.v*3"),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "p",
-                notes: Some("n"),
+                pitchs: Some("n"),
                 velos: Some("v"),
                 mul: Some(3.),
             }),
@@ -317,9 +351,9 @@ fn test_part() {
         part("p.n * 3 "),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "p",
-                notes: Some("n"),
+                pitchs: Some("n"),
                 velos: None,
                 mul: Some(3.),
             }),
@@ -329,9 +363,9 @@ fn test_part() {
         part("p.n.v0"),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "p",
-                notes: Some("n"),
+                pitchs: Some("n"),
                 velos: Some("v0"),
                 mul: None,
             }),
@@ -341,9 +375,9 @@ fn test_part() {
         part("p1*3 "),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "p1",
-                notes: None,
+                pitchs: None,
                 velos: None,
                 mul: Some(3.),
             }),
@@ -353,9 +387,9 @@ fn test_part() {
         part("p.n.v*3"),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "p",
-                notes: Some("n"),
+                pitchs: Some("n"),
                 velos: Some("v"),
                 mul: Some(3.),
             }),
@@ -365,9 +399,9 @@ fn test_part() {
         part("4_p0f"),
         Ok((
             "",
-            Fragment::Part(Part {
+            PFragment::Part(PPart {
                 pattern: "4_p0f",
-                notes: None,
+                pitchs: None,
                 velos: None,
                 mul: None,
             }),
@@ -381,7 +415,7 @@ fn test_seq_ref() {
         seq_ref("$s_01"),
         Ok((
             "",
-            Fragment::SeqRef(SeqRef {
+            PFragment::SeqRef(PSeqRef {
                 id: "s_01",
                 mul: None
             }),
@@ -391,7 +425,7 @@ fn test_seq_ref() {
         seq_ref("$1sr_ *2.5"),
         Ok((
             "",
-            Fragment::SeqRef(SeqRef {
+            PFragment::SeqRef(PSeqRef {
                 id: "1sr_",
                 mul: Some(2.5)
             }),
@@ -405,33 +439,33 @@ fn test_sequence() {
         sequence(" seq_03:/ _b_ $s_1 p1 p1.n2 $s_2*3 p2.n1.v1 * 2 \n"),
         Ok((
             "",
-            Sequence {
+            PSequence {
                 id: "seq_03",
                 beat: Some("_b_"),
                 fragments: vec![
-                    Fragment::SeqRef(SeqRef {
+                    PFragment::SeqRef(PSeqRef {
                         id: "s_1",
                         mul: None
                     }),
-                    Fragment::Part(Part {
+                    PFragment::Part(PPart {
                         pattern: "p1",
-                        notes: None,
+                        pitchs: None,
                         velos: None,
                         mul: None,
                     }),
-                    Fragment::Part(Part {
+                    PFragment::Part(PPart {
                         pattern: "p1",
-                        notes: Some("n2"),
+                        pitchs: Some("n2"),
                         velos: None,
                         mul: None,
                     }),
-                    Fragment::SeqRef(SeqRef {
+                    PFragment::SeqRef(PSeqRef {
                         id: "s_2",
                         mul: Some(3.)
                     }),
-                    Fragment::Part(Part {
+                    PFragment::Part(PPart {
                         pattern: "p2",
-                        notes: Some("n1"),
+                        pitchs: Some("n1"),
                         velos: Some("v1"),
                         mul: Some(2.),
                     })
@@ -447,10 +481,10 @@ fn test_seq() {
         seq("seq s : $s_1\n"),
         Ok((
             "",
-            Exp::Seq(Sequence {
+            Exp::Seq(PSequence {
                 id: "s",
                 beat: None,
-                fragments: vec![Fragment::SeqRef(SeqRef {
+                fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None
                 })]
@@ -465,10 +499,10 @@ fn test_freqout() {
         freqout("freqout   s : $s_1 \n"),
         Ok((
             "",
-            Exp::FreqOut(Sequence {
+            Exp::FreqOut(PSequence {
                 id: "s",
                 beat: None,
-                fragments: vec![Fragment::SeqRef(SeqRef {
+                fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None
                 })]
@@ -498,8 +532,8 @@ fn test_parse() {
         vec![
             Exp::None,
             Exp::None,
-            Exp::Beat(Beat { id: "b", bpm: 90 }),
-            Exp::Velocities(Velocities {
+            Exp::Beat(PBeat { id: "b", bpm: 90 }),
+            Exp::VelocityLine(PVelocityLine {
                 id: "v",
                 values: vec![1.],
             })
