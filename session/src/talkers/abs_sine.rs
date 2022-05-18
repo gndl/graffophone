@@ -1,5 +1,3 @@
-use std::f64::consts::PI;
-
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::ear;
@@ -30,7 +28,7 @@ impl AbsSine {
 impl Talker for AbsSine {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let c = (PI * 2.0) / AudioFormat::sample_rate() as f64;
+        let c = AudioFormat::frequence_coef();
 
         let freq_buf = base.ear_audio_buffer(0);
         let voice_buf = base.voice(port).audio_buffer();
