@@ -96,7 +96,7 @@ pub fn cv(tag: Option<&str>, value: f32) -> Voice {
     Voice::new(tag, len, Horn::cv(value, None))
 }
 
-pub fn atom(olv2_handler: Option<&Lv2Handler>, tag: Option<&str>) -> Voice {
+pub fn atom(tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) -> Voice {
     let len = AudioFormat::chunk_size();
     Voice::new(tag, len, Horn::atom(olv2_handler))
 }

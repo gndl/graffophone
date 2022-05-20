@@ -96,13 +96,13 @@ impl Lv2 {
                                     outputs_count = outputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceInput => {
-                                    let ear = ear::atom(Some(lv2_handler), Some(&port.name))?;
+                                    let ear = ear::atom(Some(&port.name), Some(lv2_handler))?;
                                     base.add_ear(ear);
                                     atom_sequence_inputs_indexes.push(inputs_count);
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceOutput => {
-                                    let vc = voice::atom(Some(lv2_handler), Some(&port.name));
+                                    let vc = voice::atom(Some(&port.name), Some(lv2_handler));
                                     base.add_voice(vc);
                                     atom_sequence_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;

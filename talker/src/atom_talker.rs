@@ -11,7 +11,7 @@ impl AtomTalker {
     pub fn new(olv2_handler: Option<&Lv2Handler>, hidden: Option<bool>) -> CTalker {
         let mut base = TalkerBase::new("", MODEL);
 
-        base.add_voice(voice::atom(olv2_handler, None));
+        base.add_voice(voice::atom(None, olv2_handler));
         base.set_hidden(hidden.unwrap_or(false));
 
         ctalker!(base, Self {})

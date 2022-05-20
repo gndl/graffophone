@@ -1121,7 +1121,7 @@ pub fn cv(
     )
 }
 
-pub fn atom(olv2_handler: Option<&Lv2Handler>, tag: Option<&str>) -> Result<Ear, failure::Error> {
+pub fn atom(tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) -> Result<Ear, failure::Error> {
     let talker = rtalker!(AtomTalker::new(olv2_handler, Some(true)));
     let init = Init::Voice(&talker, 0);
     mono_hum(tag, PortType::Atom, false, 0., 0., 0., &init)
