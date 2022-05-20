@@ -10,11 +10,11 @@ use talkers::tseq::tseq::Progression;
 const DEFAULT_BPM: usize = 90;
 
 pub struct FreqEvent {
-    start_tick: i64,
-    end_tick: i64,
-    start_freq: f32,
-    end_freq: f32,
-    progression: Progression,
+    pub start_tick: i64,
+    pub end_tick: i64,
+    pub start_freq: f32,
+    pub end_freq: f32,
+    pub progression: Progression,
 }
 
 struct EventsBuilder {
@@ -38,13 +38,13 @@ impl EventsBuilder {
 
     pub fn create_events(
         &mut self,
-        par: &ParsingResult,
+        pare: &ParsingResult,
         bpm: usize,
         sequence: &PSequence,
         events: &mut Vec<FreqEvent>,
     ) -> Result<(), failure::Error> {
         let bpm = match sequence.beat {
-            Some(id) => (par.fetch_beat(id)?).bpm,
+            Some(id) => (pare.fetch_beat(id)?).bpm,
             None => bpm,
         };
         let beat_ticks_count = ((AudioFormat::sample_rate() * 60) / bpm) as f32;
@@ -53,7 +53,7 @@ impl EventsBuilder {
             match fragment {
                 Part(part) => {
                     let mut part_is_empty = true;
-                    let pattern = par.fetch_pattern(part.pattern)?;
+                    let pattern = pare.fetch_pattern(part.pattern)?;
                     let pattern_hits_count = pattern.hits.len();
                     let pattern_ticks_count = (pattern.duration * beat_ticks_count) as i64;
                     let mut pattern_start_tick = self.tick;
@@ -61,7 +61,7 @@ impl EventsBuilder {
 
                     if pattern_hits_count > 0 && mul > 0. {
                         if let Some(pitchline_id) = part.pitchs {
-                            let pitchline = par.fetch_pitchline(pitchline_id)?;
+                            let pitchline = pare.fetch_pitchline(pitchline_id)?;
                             let pitchs_count = pitchline.len();
 
                             if pitchs_count > 0 {
@@ -133,8 +133,8 @@ impl EventsBuilder {
                     }
                 }
                 SeqRef(seqref) => {
-                    let seq = par.fetch_sequence(&seqref.id)?;
-                    self.create_events(par, bpm, seq, events)?;
+                    let seq = pare.fetch_sequence(&seqref.id)?;
+                    self.create_events(pare, bpm, seq, events)?;
                 }
             }
         }
@@ -160,21 +160,17 @@ impl EventsBuilder {
 }
 
 pub struct FreqSeq {
-    current_event: usize,
-    events: Vec<FreqEvent>,
+    pub events: Vec<FreqEvent>,
 }
 
 impl FreqSeq {
-    pub fn new(par: &ParsingResult, sequence: &PSequence) -> Result<FreqSeq, failure::Error> {
+    pub fn new(pare: &ParsingResult, sequence: &PSequence) -> Result<FreqSeq, failure::Error> {
         let mut builder = EventsBuilder::new();
         let mut events: Vec<FreqEvent> = Vec::new();
 
-        builder.create_events(par, DEFAULT_BPM, sequence, &mut events)?;
+        builder.create_events(pare, DEFAULT_BPM, sequence, &mut events)?;
         builder.create_last_event(&mut events);
 
-        Ok(FreqSeq {
-            current_event: 0,
-            events,
-        })
+        Ok(FreqSeq { events })
     }
 }
