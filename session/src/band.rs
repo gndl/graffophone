@@ -119,21 +119,7 @@ impl Band {
         Ok(())
     }
 
-    fn make_output(
-        &mut self,
-        factory: &Factory,
-        poutput: &POutput,
-    ) -> Result<ROutput, failure::Error> {
-        factory.make_output(
-            poutput.model,
-            Some(poutput.id),
-            Some(poutput.name),
-            poutput.data,
-        )
-    }
-
     fn make_mixer(
-        &mut self,
         factory: &Factory,
         talkers: &HashMap<Id, RTalker>,
         poutputs: &HashMap<Id, POutput>,
@@ -143,7 +129,15 @@ impl Band {
 
         for output_id in &pmixer.outputs {
             match poutputs.get(output_id) {
-                Some(otp) => outputs.push(self.make_output(factory, otp)?),
+                Some(poutput) => {
+                    let output = factory.make_output(
+                        poutput.model,
+                        Some(poutput.id),
+                        Some(poutput.name),
+                        poutput.data,
+                    )?;
+                    outputs.push(output);
+                }
                 None => return Err(failure::err_msg(format!("Output {} not found!", output_id))),
             }
         }
@@ -189,12 +183,11 @@ impl Band {
 
         let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
 
-        let mut talkers = HashMap::new();
         let mut talkers_ptalkers = Vec::new();
 
         for ptalker in ptalkers.values() {
             let mut talker =
-                band.build_talker(factory, ptalker.model, Some(ptalker.id), Some(ptalker.name))?;
+                factory.make_talker(ptalker.model, Some(ptalker.id), Some(ptalker.name))?;
 
             if let Some(data) = ptalker.data {
                 if let Some(updated_talker) = talker.set_data_from_string_update(data)? {
@@ -202,15 +195,15 @@ impl Band {
                 }
             }
             talkers_ptalkers.push((talker.clone(), ptalker));
-            talkers.insert(ptalker.id, talker.clone());
+            band.talkers.insert(talker.id(), talker);
         }
 
         for (talker, ptalker) in talkers_ptalkers {
-            Band::set_talker_ears(&talkers, &talker, &ptalker)?;
+            Band::set_talker_ears(&band.talkers, &talker, &ptalker)?;
         }
 
         for pmixer in pmixers.values() {
-            let rmixer = band.make_mixer(factory, &talkers, &poutputs, &pmixer)?;
+            let rmixer = Band::make_mixer(factory, &band.talkers, &poutputs, &pmixer)?;
             band.add_mixer(rmixer);
         }
 
@@ -253,7 +246,6 @@ impl Band {
         let mut buf = String::new();
 
         for tkr in self.talkers.values() {
-            //            let tkr = rtkr;
             if tkr.model() != mixer::KIND {
                 let (model, data, ears): (String, String, &Vec<Ear>) = tkr.backup();
 
@@ -348,7 +340,7 @@ impl Band {
         })
     }
 
-    pub fn replace_talker(
+    fn replace_talker(
         &mut self,
         talker_id: &Id,
         new_talker: RTalker,
