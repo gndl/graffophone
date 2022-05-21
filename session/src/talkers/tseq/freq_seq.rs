@@ -121,8 +121,10 @@ impl EventsBuilder {
                                             pitch_idx = 0;
                                         }
                                     }
-                                    pattern_start_tick += pattern_ticks_count;
                                     mul -= 1.;
+                                }
+                                if pitchs_count > pattern_hits_count {
+                                    pattern_start_tick += pattern_ticks_count;
                                 }
                                 self.tick = pattern_start_tick;
                             }
@@ -134,7 +136,11 @@ impl EventsBuilder {
                 }
                 SeqRef(seqref) => {
                     let seq = pare.fetch_sequence(&seqref.id)?;
-                    self.create_events(pare, bpm, seq, events)?;
+                    let mul = seqref.mul.unwrap_or(1);
+
+                    for _ in 0..mul {
+                        self.create_events(pare, bpm, seq, events)?;
+                    }
                 }
             }
         }
