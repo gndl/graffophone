@@ -53,7 +53,7 @@ pub struct PPart<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PSeqRef<'a> {
     pub id: &'a str,
-    pub mul: Option<f32>,
+    pub mul: Option<usize>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -171,10 +171,16 @@ fn part(input: &str) -> IResult<&str, PFragment> {
 fn seq_ref(input: &str) -> IResult<&str, PFragment> {
     let (input, (id, mul, _)) = tuple((
         delimited(char('$'), id, space0),
-        opt(preceded(terminated(char('*'), space0), float)),
+        opt(preceded(terminated(char('*'), space0), digit1)),
         space0,
     ))(input)?;
-    Ok((input, PFragment::SeqRef(PSeqRef { id, mul })))
+    Ok((
+        input,
+        PFragment::SeqRef(PSeqRef {
+            id,
+            mul: mul.map(|s| usize::from_str(s).unwrap()),
+        }),
+    ))
 }
 
 fn sequence(input: &str) -> IResult<&str, PSequence> {
@@ -422,12 +428,12 @@ fn test_seq_ref() {
         ))
     );
     assert_eq!(
-        seq_ref("$1sr_ *2.5"),
+        seq_ref("$1sr_ *2"),
         Ok((
             "",
             PFragment::SeqRef(PSeqRef {
                 id: "1sr_",
-                mul: Some(2.5)
+                mul: Some(2)
             }),
         ))
     );
@@ -461,7 +467,7 @@ fn test_sequence() {
                     }),
                     PFragment::SeqRef(PSeqRef {
                         id: "s_2",
-                        mul: Some(3.)
+                        mul: Some(3)
                     }),
                     PFragment::Part(PPart {
                         pattern: "p2",
