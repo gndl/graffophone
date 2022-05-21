@@ -14,6 +14,8 @@ use talkers::second_degree_frequency_progression;
 use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use talkers::sinusoidal;
 use talkers::sinusoidal::Sinusoidal;
+use talkers::tseq::tseq;
+use talkers::tseq::tseq::Tseq;
 
 enum PluginType {
     Internal,
@@ -66,6 +68,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
+            PluginsManager::tkr_hr_kv(Tseq::descriptor()),
         ]);
 
         println!("make_plugins_handlers end");
@@ -87,6 +90,8 @@ impl PluginsManager {
             Ok(rtalker!(SecondDegreeFrequencyProgression::new(
                 110., 0., 1., 1.
             )?))
+        } else if model == tseq::MODEL {
+            Ok(rtalker!(Tseq::new()?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }
@@ -102,7 +107,7 @@ impl PluginsManager {
     }
 
     pub fn make_talker(&self, model: &str) -> Result<RTalker, failure::Error> {
-        match self.handlers.get(model.to_string().as_str()) {
+        match self.handlers.get(model) {
             Some(ph) => self.mk_tkr(ph),
             None => Err(failure::err_msg("Unknown talker URI")),
         }
