@@ -31,12 +31,17 @@ impl TalkerBase {
     pub fn new(name: &str, model: &str) -> Self {
         TalkerBase::new_data(name, model, Data::Nil)
     }
-    pub fn with(&self, data: Data, ears: Vec<Ear>, voices: Vec<Voice>) -> Self {
+    pub fn with(
+        &self,
+        odata: Option<Data>,
+        oears: Option<Vec<Ear>>,
+        ovoices: Option<Vec<Voice>>,
+    ) -> Self {
         Self {
             identifier: RefCell::new(self.identifier.borrow().clone()),
-            data: RefCell::new(data),
-            ears,
-            voices,
+            data: RefCell::new(odata.unwrap_or(Data::Nil)),
+            ears: oears.unwrap_or(Vec::new()),
+            voices: ovoices.unwrap_or(Vec::new()),
             hidden: self.hidden,
         }
     }
@@ -252,6 +257,9 @@ impl TalkerCab {
     fn update(&self, obase: Option<TalkerBase>) -> Result<Option<RTalker>, failure::Error> {
         match obase {
             Some(base) => {
+                if base.id() != self.base.id() {
+                    base.set_id(self.base.id());
+                }
                 let core = self.core.replace(Box::new(NilTalker::new()));
                 Ok(Some(TalkerCab::new_ref((base, core))))
             }
@@ -292,7 +300,8 @@ impl TalkerCab {
 
     pub fn set_data_from_string_update(&self, s: &str) -> Result<Option<RTalker>, failure::Error> {
         let data = self.base.data.borrow().birth(s)?;
-        self.update(self.core.borrow_mut().set_data_update(&self.base, data)?)
+        let obase = self.core.borrow_mut().set_data_update(&self.base, data)?;
+        self.update(obase)
     }
 
     pub fn ear(&self, ear_idx: Index) -> &Ear {
@@ -516,11 +525,11 @@ impl TalkerCab {
         hum_idx: Index,
         value: f32,
     ) -> Result<Option<RTalker>, failure::Error> {
-        self.update(
-            self.core
-                .borrow_mut()
-                .add_set_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?,
-        )
+        let obase = self
+            .core
+            .borrow_mut()
+            .add_set_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?;
+        self.update(obase)
     }
     pub fn add_set_voice_to_ear_update(
         &self,
@@ -529,13 +538,14 @@ impl TalkerCab {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<RTalker>, failure::Error> {
-        self.update(self.core.borrow_mut().add_set_voice_to_ear_update(
+        let obase = self.core.borrow_mut().add_set_voice_to_ear_update(
             &self.base,
             ear_idx,
             hum_idx,
             voice_talker,
             port,
-        )?)
+        )?;
+        self.update(obase)
     }
 
     pub fn sup_ear_set_update(
@@ -543,11 +553,11 @@ impl TalkerCab {
         ear_idx: usize,
         set_idx: usize,
     ) -> Result<Option<RTalker>, failure::Error> {
-        self.update(
-            self.core
-                .borrow_mut()
-                .sup_ear_set_update(&self.base, ear_idx, set_idx)?,
-        )
+        let obase = self
+            .core
+            .borrow_mut()
+            .sup_ear_set_update(&self.base, ear_idx, set_idx)?;
+        self.update(obase)
     }
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
