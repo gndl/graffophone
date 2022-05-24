@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
-    character::complete::{alphanumeric1, char, digit1, newline, space0, space1},
+    character::complete::{alphanumeric1, char, digit1, newline, one_of, space0, space1},
     combinator::{opt, recognize},
     multi::{many0, many1_count},
     number::complete::float,
@@ -17,10 +17,25 @@ pub struct PBeat<'a> {
     pub bpm: usize,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum PProgression {
+    None,
+    Linear,
+    Cosin,
+    Early,
+    Late,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PPitch<'a> {
+    pub id: &'a str,
+    pub progression: PProgression,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct PPitchLine<'a> {
     pub id: &'a str,
-    pub pitchs: Vec<&'a str>,
+    pub pitchs: Vec<PPitch<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -37,9 +52,15 @@ pub struct PPattern<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct PVelocity {
+    pub value: f32,
+    pub progression: PProgression,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PVelocityLine<'a> {
     pub id: &'a str,
-    pub values: Vec<f32>,
+    pub velocities: Vec<PVelocity>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -104,7 +125,7 @@ fn end(input: &str) -> IResult<&str, Exp> {
 }
 
 fn comment(input: &str) -> IResult<&str, Exp> {
-    let (input, _) = delimited(char('#'), take_until("\n"), end)(input)?;
+    let (input, _) = delimited(tag(";;"), take_until("\n"), end)(input)?;
     Ok((input, Exp::None))
 }
 
@@ -133,18 +154,41 @@ fn pattern(input: &str) -> IResult<&str, Exp> {
     Ok((input, Exp::Pattern(PPattern { id, hits, duration })))
 }
 
-fn velocities(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, values, _)) =
-        tuple((head("velos"), many0(terminated(float, space0)), end))(input)?;
-    Ok((input, Exp::VelocityLine(PVelocityLine { id, values })))
+fn progression(input: &str) -> IResult<&str, PProgression> {
+    let (input, oprog) = preceded(space0, opt(one_of("-~<>")))(input)?;
+
+    let progression = match oprog {
+        Some(c) => match c {
+            '~' => PProgression::Cosin,
+            '<' => PProgression::Early,
+            '>' => PProgression::Late,
+            _ => PProgression::Linear,
+        },
+        None => PProgression::None,
+    };
+
+    Ok((input, progression))
+}
+
+fn velocity(input: &str) -> IResult<&str, PVelocity> {
+    let (input, (value, progression)) = tuple((float, progression))(input)?;
+    Ok((input, PVelocity { value, progression }))
+}
+
+fn velos(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, velocities, _)) =
+        tuple((head("velos"), many0(terminated(velocity, space0)), end))(input)?;
+    Ok((input, Exp::VelocityLine(PVelocityLine { id, velocities })))
+}
+
+fn pitch(input: &str) -> IResult<&str, PPitch> {
+    let (input, (id, progression)) = tuple((alphanumeric1, progression))(input)?;
+    Ok((input, PPitch { id, progression }))
 }
 
 fn pitchs(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, pitchs, _)) = tuple((
-        head("pitchs"),
-        many0(terminated(alphanumeric1, space0)),
-        end,
-    ))(input)?;
+    let (input, (id, pitchs, _)) =
+        tuple((head("pitchs"), many0(terminated(pitch, space0)), end))(input)?;
 
     Ok((input, Exp::PitchLine(PPitchLine { id, pitchs })))
 }
@@ -170,7 +214,7 @@ fn part(input: &str) -> IResult<&str, PFragment> {
 
 fn seq_ref(input: &str) -> IResult<&str, PFragment> {
     let (input, (id, mul, _)) = tuple((
-        delimited(char('$'), id, space0),
+        delimited(char('@'), id, space0),
         opt(preceded(terminated(char('*'), space0), digit1)),
         space0,
     ))(input)?;
@@ -224,7 +268,7 @@ fn midiout(input: &str) -> IResult<&str, Exp> {
 
 pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
     let (input, expressions) = many0(alt((
-        beat, pattern, pitchs, velocities, seq, freqout, velout, midiout, comment, end,
+        beat, pattern, pitchs, velos, seq, freqout, velout, midiout, comment, end,
     )))(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
@@ -302,14 +346,31 @@ fn test_pattern() {
 }
 
 #[test]
-fn test_velocities() {
+fn test_velos() {
     assert_eq!(
-        velocities("velos v1: .5 1 .75 0.9\n"),
+        velos("velos v1: .5 ~ 1 .75-0.9\n"),
         Ok((
             "",
             Exp::VelocityLine(PVelocityLine {
                 id: "v1",
-                values: vec![0.5, 1., 0.75, 0.9],
+                velocities: vec![
+                    PVelocity {
+                        value: 0.5,
+                        progression: PProgression::Cosin
+                    },
+                    PVelocity {
+                        value: 1.,
+                        progression: PProgression::None
+                    },
+                    PVelocity {
+                        value: 0.75,
+                        progression: PProgression::Linear
+                    },
+                    PVelocity {
+                        value: 0.9,
+                        progression: PProgression::None
+                    },
+                ],
             }),
         ))
     );
@@ -328,12 +389,33 @@ fn test_pitchs() {
         ))
     );
     assert_eq!(
-        pitchs("pitchs intro : a0 G9  B7 \n"),
+        pitchs("pitchs intro : G9 - B7~e5 > f2 <a0  \n"),
         Ok((
             "",
             Exp::PitchLine(PPitchLine {
                 id: "intro",
-                pitchs: vec!["a0", "G9", "B7"]
+                pitchs: vec![
+                    PPitch {
+                        id: "G9",
+                        progression: PProgression::Linear
+                    },
+                    PPitch {
+                        id: "B7",
+                        progression: PProgression::Cosin
+                    },
+                    PPitch {
+                        id: "e5",
+                        progression: PProgression::Late
+                    },
+                    PPitch {
+                        id: "f2",
+                        progression: PProgression::Early
+                    },
+                    PPitch {
+                        id: "a0",
+                        progression: PProgression::None
+                    },
+                ]
             }),
         ))
     );
@@ -418,7 +500,7 @@ fn test_part() {
 #[test]
 fn test_seq_ref() {
     assert_eq!(
-        seq_ref("$s_01"),
+        seq_ref("@s_01"),
         Ok((
             "",
             PFragment::SeqRef(PSeqRef {
@@ -428,7 +510,7 @@ fn test_seq_ref() {
         ))
     );
     assert_eq!(
-        seq_ref("$1sr_ *2"),
+        seq_ref("@1sr_ *2"),
         Ok((
             "",
             PFragment::SeqRef(PSeqRef {
@@ -442,7 +524,7 @@ fn test_seq_ref() {
 #[test]
 fn test_sequence() {
     assert_eq!(
-        sequence(" seq_03:/ _b_ $s_1 p1 p1.n2 $s_2*3 p2.n1.v1 * 2 \n"),
+        sequence(" seq_03:/ _b_ @s_1 p1 p1.n2 @s_2*3 p2.n1.v1 * 2 \n"),
         Ok((
             "",
             PSequence {
@@ -484,7 +566,7 @@ fn test_sequence() {
 #[test]
 fn test_seq() {
     assert_eq!(
-        seq("seq s : $s_1\n"),
+        seq("seq s : @s_1\n"),
         Ok((
             "",
             Exp::Seq(PSequence {
@@ -502,7 +584,7 @@ fn test_seq() {
 #[test]
 fn test_freqout() {
     assert_eq!(
-        freqout("freqout   s : $s_1 \n"),
+        freqout("freqout   s : @s_1 \n"),
         Ok((
             "",
             Exp::FreqOut(PSequence {
@@ -519,8 +601,8 @@ fn test_freqout() {
 
 #[test]
 fn test_comment() {
-    assert_eq!(comment("# this is a comment !\n"), Ok(("", Exp::None)));
-    assert_eq!(comment("# this is a comment !\n\n\n"), Ok(("", Exp::None)));
+    assert_eq!(comment(";; this is a comment !\n"), Ok(("", Exp::None)));
+    assert_eq!(comment(";; this is a comment !\n\n\n"), Ok(("", Exp::None)));
 }
 
 #[test]
@@ -532,7 +614,7 @@ fn test_end() {
 
 #[test]
 fn test_parse() {
-    let res = parse("\n# 90 BPM\nbeat b : 90\n\nvelos v: 1\n\n").unwrap();
+    let res = parse("\n;; 90 BPM\nbeat b : 90\n\nvelos v: 1\n\n").unwrap();
     assert_eq!(
         res,
         vec![
@@ -541,7 +623,10 @@ fn test_parse() {
             Exp::Beat(PBeat { id: "b", bpm: 90 }),
             Exp::VelocityLine(PVelocityLine {
                 id: "v",
-                values: vec![1.],
+                velocities: vec![PVelocity {
+                    value: 1.,
+                    progression: PProgression::None
+                }],
             })
         ]
     );

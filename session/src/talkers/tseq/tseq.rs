@@ -2,15 +2,14 @@ use std::f32;
 
 use talker::ctalker;
 use talker::data::Data;
-//use talker::ear;
-//use talker::ear::Init;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-use talkers::tseq::freq_seq::FreqSeq;
+use talkers::tseq::audio_seq::AudioSeq;
+use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser;
-use talkers::tseq::parser::{Exp, PSequence};
+use talkers::tseq::parser::Exp;
 use talkers::tseq::parsing_result::ParsingResult;
 use talkers::tseq::scale::Scale;
 
@@ -18,40 +17,13 @@ pub const MODEL: &str = "Tseq";
 
 const DEFAULT_BPM: usize = 90;
 
-#[derive(Clone, Copy)]
-pub enum Progression {
-    I,
-    L,
-    D,
-    CS,
-}
-
-struct VelEvent {
-    start_tick: i64,
-    end_tick: i64,
-    start_vel: f32,
-    end_vel: f32,
-    prog: Progression,
-}
-pub struct VelSeq {
-    current_event: usize,
-    events: Vec<VelEvent>,
-}
-
-struct MidiEvent {}
-pub struct MidiSeq {
-    current_event: usize,
-    events: Vec<MidiEvent>,
-}
-
 enum Seq {
-    Freq(FreqSeq),
-    Vel(VelSeq),
+    Freq(AudioSeq),
+    Vel(AudioSeq),
     Midi(MidiSeq),
 }
 
-pub const DEFAULT_DATA: &str = "# Text sequencer
-";
+pub const DEFAULT_DATA: &str = ";; Text sequencer";
 
 pub struct Tseq {
     sequences: Vec<Seq>,
@@ -100,11 +72,14 @@ impl Talker for Tseq {
                                 pare.beats.insert(beat.id, &beat);
                             }
                             Exp::PitchLine(ref pitchline) => {
-                                let mut freqs = Vec::new();
+                                let mut pitchs = Vec::new();
                                 for pitch in &pitchline.pitchs {
-                                    freqs.push(scale.fetch_frequency(pitch)?);
+                                    pitchs.push((
+                                        scale.fetch_frequency(pitch.id)?,
+                                        pitch.progression,
+                                    ));
                                 }
-                                pare.pitchlines.insert(pitchline.id, freqs);
+                                pare.pitchlines.insert(pitchline.id, pitchs);
                             }
                             Exp::Pattern(ref pattern) => {
                                 pare.patterns.insert(pattern.id, &pattern);
@@ -125,41 +100,28 @@ impl Talker for Tseq {
                     for out in outs {
                         match out {
                             Exp::FreqOut(seq) => {
-                                sequences.push(Seq::Freq(FreqSeq::new(&pare, &seq)?));
+                                sequences.push(Seq::Freq(AudioSeq::frequency(
+                                    &pare,
+                                    &seq,
+                                    DEFAULT_BPM,
+                                )?));
                                 new_base.add_voice(voice::cv(Some(seq.id), 0.));
                             }
                             Exp::VelOut(seq) => {
-                                let mut events: Vec<VelEvent> = Vec::new();
-                                create_velocity_events(
-                                    &mut pare,
-                                    DEFAULT_BPM,
+                                sequences.push(Seq::Vel(AudioSeq::velocity(
+                                    &pare,
                                     &seq,
-                                    0,
-                                    &mut events,
-                                )?;
-                                sequences.push(Seq::Vel(VelSeq {
-                                    current_event: 0,
-                                    events,
-                                }));
-                                new_base.add_voice(voice::cv(Some(seq.id), 0.));
+                                    DEFAULT_BPM,
+                                )?));
+                                new_base.add_voice(voice::audio(Some(seq.id), 0.));
                             }
                             Exp::MidiOut(seq) => {
-                                let mut events: Vec<MidiEvent> = Vec::new();
-                                create_midi_events(&mut pare, DEFAULT_BPM, &seq, 0, &mut events)?;
-                                sequences.push(Seq::Midi(MidiSeq {
-                                    current_event: 0,
-                                    events,
-                                }));
+                                sequences.push(Seq::Midi(MidiSeq::new(&pare, &seq, DEFAULT_BPM)?));
                                 new_base.add_voice(voice::atom(Some(seq.id), None));
                             }
                             _ => (),
                         }
                     }
-
-                    /*        new_base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
-                           new_base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
-
-                    */
                 }
                 self.current_events_indexies = vec![0; sequences.len()];
                 self.sequences = sequences;
@@ -178,74 +140,55 @@ impl Talker for Tseq {
         let ev_idx = self.current_events_indexies[port];
 
         self.current_events_indexies[port] = match &self.sequences[port] {
-            Seq::Freq(seq) => frequency_sequence_talk(base, port, tick, ln, &seq, ev_idx),
-            Seq::Vel(seq) => velocity_sequence_talk(base, port, tick, ln, &seq, ev_idx),
+            Seq::Freq(seq) => {
+                let voice_buf = base.voice(port).cv_buffer();
+                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, voice_buf)
+            }
+            Seq::Vel(seq) => {
+                let voice_buf = base.voice(port).audio_buffer();
+                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, voice_buf)
+            }
             Seq::Midi(seq) => midi_sequence_talk(base, port, tick, ln, &seq, ev_idx),
         };
         ln
     }
 }
 
-fn create_velocity_events(
-    _pare: &mut ParsingResult,
-    _bpm: usize,
-    _sequence: &PSequence,
-    tick: i64,
-    _events: &mut Vec<VelEvent>,
-) -> Result<i64, failure::Error> {
-    Ok(tick)
-}
-
-fn create_midi_events(
-    _pare: &mut ParsingResult,
-    _bpm: usize,
-    _sequence: &PSequence,
-    tick: i64,
-    _events: &mut Vec<MidiEvent>,
-) -> Result<i64, failure::Error> {
-    Ok(tick)
-}
-
-fn frequency_sequence_talk(
-    base: &TalkerBase,
-    port: usize,
+fn audio_sequence_talk(
+    _base: &TalkerBase,
+    _port: usize,
     tick: i64,
     len: usize,
-    freq_seq: &FreqSeq,
+    seq: &AudioSeq,
     current_event_index: usize,
+    voice_buf: &mut [f32],
 ) -> usize {
-    let voice_buf = base.voice(port).cv_buffer();
     let mut t = tick;
     let end_t = tick + len as i64;
-    let mut ev_idx = if current_event_index < freq_seq.events.len() {
+    let mut ev_idx = if current_event_index < seq.events.len() {
         current_event_index
     } else {
         current_event_index - 1
     };
 
-    while ev_idx > 0 && freq_seq.events[ev_idx].start_tick > end_t {
+    while ev_idx > 0 && seq.events[ev_idx].start_tick() > end_t {
         ev_idx -= 1;
     }
 
     while t < end_t {
-        while ev_idx < freq_seq.events.len() && freq_seq.events[ev_idx].end_tick <= t {
+        while ev_idx < seq.events.len() && seq.events[ev_idx].end_tick() <= t {
             ev_idx += 1;
         }
         let ofset = (t - tick) as usize;
         let out_len = len - ofset;
 
-        if ev_idx < freq_seq.events.len() {
-            let mut ev = &freq_seq.events[ev_idx];
+        if ev_idx < seq.events.len() {
+            let ev = &seq.events[ev_idx];
 
-            if ev.start_tick <= t {
-                let cur_len = usize::min((ev.end_tick - t) as usize, out_len);
-
-                for i in ofset..ofset + cur_len {
-                    voice_buf[i] = ev.start_freq;
-                }
-                t += cur_len as i64;
+            if ev.start_tick() <= t {
+                t = ev.assign_buffer(t, voice_buf, ofset, out_len);
             } else {
-                let cur_len = usize::min((ev.start_tick - t) as usize, out_len);
+                let cur_len = usize::min((ev.start_tick() - t) as usize, out_len);
 
                 for i in ofset..ofset + cur_len {
                     voice_buf[i] = 0.;
@@ -259,27 +202,15 @@ fn frequency_sequence_talk(
             break;
         }
     }
-
     ev_idx
 }
 
-fn velocity_sequence_talk(
-    base: &TalkerBase,
-    port: usize,
-    tick: i64,
-    len: usize,
-    vel_seq: &VelSeq,
-    current_event_index: usize,
-) -> usize {
-    current_event_index
-}
-
 fn midi_sequence_talk(
-    base: &TalkerBase,
-    port: usize,
-    tick: i64,
-    len: usize,
-    midi_seq: &MidiSeq,
+    _base: &TalkerBase,
+    _port: usize,
+    _tick: i64,
+    _len: usize,
+    _midi_seq: &MidiSeq,
     current_event_index: usize,
 ) -> usize {
     current_event_index
