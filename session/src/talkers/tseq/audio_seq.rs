@@ -5,8 +5,8 @@ use talkers::tseq::audio_event;
 use talkers::tseq::audio_event::RAudioEvent;
 use talkers::tseq::parser::PFragment::Part;
 use talkers::tseq::parser::PFragment::SeqRef;
-use talkers::tseq::parser::PProgression;
 use talkers::tseq::parser::PSequence;
+use talkers::tseq::parser::PTransition;
 use talkers::tseq::parsing_result::ParsingResult;
 
 struct EventsBuilder {
@@ -14,7 +14,7 @@ struct EventsBuilder {
     start_tick: i64,
     end_tick: i64,
     value: f32,
-    progression: PProgression,
+    transition: PTransition,
 }
 
 impl EventsBuilder {
@@ -24,7 +24,7 @@ impl EventsBuilder {
             start_tick: 0,
             end_tick: -1,
             value: 0.,
-            progression: PProgression::None,
+            transition: PTransition::None,
         }
     }
 
@@ -73,16 +73,17 @@ impl EventsBuilder {
                                         let hit = &pattern.hits[hit_idx];
                                         let start_tick = pattern_start_tick
                                             + (hit.position * beat_ticks_count) as i64;
-                                        let (next_value, next_progression) = pitchline[pitch_idx];
+                                        let (next_value, next_transition) = pitchline[pitch_idx];
 
                                         let end_tick = if self.end_tick < 0 {
+                                            // -1 provide a raising edge on new note
                                             start_tick - 1
                                         } else {
                                             self.end_tick
                                         };
 
                                         events.push(audio_event::create(
-                                            self.progression,
+                                            self.transition,
                                             self.start_tick,
                                             end_tick,
                                             self.value,
@@ -99,7 +100,7 @@ impl EventsBuilder {
                                             None => -1,
                                         };
                                         self.value = next_value;
-                                        self.progression = next_progression;
+                                        self.transition = next_transition;
 
                                         hit_idx += 1;
 
@@ -187,16 +188,16 @@ impl EventsBuilder {
 
                                         let velocity = &velocityline.velocities[vel_idx];
                                         let next_value = velocity.value;
-                                        let next_progression = velocity.progression;
+                                        let next_transition = velocity.transition;
 
                                         let end_tick = if self.end_tick < 0 {
-                                            start_tick - 1
+                                            start_tick
                                         } else {
                                             self.end_tick
                                         };
 
                                         events.push(audio_event::create(
-                                            self.progression,
+                                            self.transition,
                                             self.start_tick,
                                             end_tick,
                                             self.value,
@@ -213,7 +214,7 @@ impl EventsBuilder {
                                             None => -1,
                                         };
                                         self.value = next_value;
-                                        self.progression = next_progression;
+                                        self.transition = next_transition;
 
                                         hit_idx += 1;
 
@@ -261,7 +262,7 @@ impl EventsBuilder {
                 self.end_tick
             };
             events.push(audio_event::create(
-                PProgression::None,
+                PTransition::None,
                 self.start_tick,
                 end_tick,
                 self.value,

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::f32;
 
-use talkers::tseq::parser::{PBeat, PPattern, PProgression, PSequence, PVelocityLine};
+use talkers::tseq::parser::{PBeat, PPattern, PSequence, PTransition, PVelocityLine};
 
 pub struct ParsingResult<'a> {
     pub beats: HashMap<&'a str, &'a PBeat<'a>>,
-    pub pitchlines: HashMap<&'a str, Vec<(f32, PProgression)>>,
+    pub pitchlines: HashMap<&'a str, Vec<(f32, PTransition)>>,
     pub patterns: HashMap<&'a str, &'a PPattern<'a>>,
     pub velocitylines: HashMap<&'a str, &'a PVelocityLine<'a>>,
     pub sequences: HashMap<&'a str, &'a PSequence<'a>>,
@@ -30,7 +30,7 @@ impl<'a> ParsingResult<'a> {
     pub fn fetch_pitchline(
         &'a self,
         id: &str,
-    ) -> Result<&'a Vec<(f32, PProgression)>, failure::Error> {
+    ) -> Result<&'a Vec<(f32, PTransition)>, failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!(

@@ -74,10 +74,8 @@ impl Talker for Tseq {
                             Exp::PitchLine(ref pitchline) => {
                                 let mut pitchs = Vec::new();
                                 for pitch in &pitchline.pitchs {
-                                    pitchs.push((
-                                        scale.fetch_frequency(pitch.id)?,
-                                        pitch.progression,
-                                    ));
+                                    pitchs
+                                        .push((scale.fetch_frequency(pitch.id)?, pitch.transition));
                                 }
                                 pare.pitchlines.insert(pitchline.id, pitchs);
                             }

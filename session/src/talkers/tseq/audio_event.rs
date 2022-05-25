@@ -1,7 +1,7 @@
 use std::f32;
 
 //use talker::audio_format::AudioFormat;
-use talkers::tseq::parser::PProgression;
+use talkers::tseq::parser::PTransition;
 
 pub trait AudioEvent {
     fn start_tick(&self) -> i64;
@@ -82,33 +82,39 @@ impl AudioEvent for LinearEvent {
 }
 
 pub fn create(
-    progression: PProgression,
+    transition: PTransition,
     start_tick: i64,
     end_tick: i64,
     start_value: f32,
     end_value: f32,
 ) -> RAudioEvent {
-    match progression {
-        PProgression::None => Box::new(ConstantEvent::new(start_tick, end_tick, start_value)),
-        PProgression::Linear => Box::new(LinearEvent::new(
+    match transition {
+        PTransition::None => Box::new(ConstantEvent::new(start_tick, end_tick, start_value)),
+        PTransition::Linear => Box::new(LinearEvent::new(
             start_tick,
             end_tick,
             start_value,
             end_value,
         )),
-        PProgression::Cosin => Box::new(LinearEvent::new(
+        PTransition::Sin => Box::new(LinearEvent::new(
             start_tick,
             end_tick,
             start_value,
             end_value,
         )),
-        PProgression::Early => Box::new(LinearEvent::new(
+        PTransition::Early => Box::new(LinearEvent::new(
             start_tick,
             end_tick,
             start_value,
             end_value,
         )),
-        PProgression::Late => Box::new(LinearEvent::new(
+        PTransition::Late => Box::new(LinearEvent::new(
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+        PTransition::Round => Box::new(LinearEvent::new(
             start_tick,
             end_tick,
             start_value,

@@ -18,18 +18,19 @@ pub struct PBeat<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum PProgression {
+pub enum PTransition {
     None,
     Linear,
-    Cosin,
+    Sin,
     Early,
     Late,
+    Round,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PPitch<'a> {
     pub id: &'a str,
-    pub progression: PProgression,
+    pub transition: PTransition,
 }
 
 #[derive(Debug, PartialEq)]
@@ -54,7 +55,7 @@ pub struct PPattern<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PVelocity {
     pub value: f32,
-    pub progression: PProgression,
+    pub transition: PTransition,
 }
 
 #[derive(Debug, PartialEq)]
@@ -154,25 +155,27 @@ fn pattern(input: &str) -> IResult<&str, Exp> {
     Ok((input, Exp::Pattern(PPattern { id, hits, duration })))
 }
 
-fn progression(input: &str) -> IResult<&str, PProgression> {
-    let (input, oprog) = preceded(space0, opt(one_of("-~<>")))(input)?;
+fn transition(input: &str) -> IResult<&str, PTransition> {
+    let (input, oprog) = preceded(space0, opt(one_of("=~<>°!")))(input)?;
 
-    let progression = match oprog {
+    let transition = match oprog {
         Some(c) => match c {
-            '~' => PProgression::Cosin,
-            '<' => PProgression::Early,
-            '>' => PProgression::Late,
-            _ => PProgression::Linear,
+            '=' => PTransition::Linear,
+            '~' => PTransition::Sin,
+            '<' => PTransition::Early,
+            '>' => PTransition::Late,
+            '°' => PTransition::Round,
+            _ => PTransition::None,
         },
-        None => PProgression::None,
+        None => PTransition::None,
     };
 
-    Ok((input, progression))
+    Ok((input, transition))
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (value, progression)) = tuple((float, progression))(input)?;
-    Ok((input, PVelocity { value, progression }))
+    let (input, (value, transition)) = tuple((float, transition))(input)?;
+    Ok((input, PVelocity { value, transition }))
 }
 
 fn velos(input: &str) -> IResult<&str, Exp> {
@@ -182,8 +185,8 @@ fn velos(input: &str) -> IResult<&str, Exp> {
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitch> {
-    let (input, (id, progression)) = tuple((alphanumeric1, progression))(input)?;
-    Ok((input, PPitch { id, progression }))
+    let (input, (id, transition)) = tuple((alphanumeric1, transition))(input)?;
+    Ok((input, PPitch { id, transition }))
 }
 
 fn pitchs(input: &str) -> IResult<&str, Exp> {
@@ -348,7 +351,7 @@ fn test_pattern() {
 #[test]
 fn test_velos() {
     assert_eq!(
-        velos("velos v1: .5 ~ 1 .75-0.9\n"),
+        velos("velos v1: .5 ~ 1 .75=0.9\n"),
         Ok((
             "",
             Exp::VelocityLine(PVelocityLine {
@@ -356,19 +359,19 @@ fn test_velos() {
                 velocities: vec![
                     PVelocity {
                         value: 0.5,
-                        progression: PProgression::Cosin
+                        transition: PTransition::Sin
                     },
                     PVelocity {
                         value: 1.,
-                        progression: PProgression::None
+                        transition: PTransition::None
                     },
                     PVelocity {
                         value: 0.75,
-                        progression: PProgression::Linear
+                        transition: PTransition::Linear
                     },
                     PVelocity {
                         value: 0.9,
-                        progression: PProgression::None
+                        transition: PTransition::None
                     },
                 ],
             }),
@@ -389,7 +392,7 @@ fn test_pitchs() {
         ))
     );
     assert_eq!(
-        pitchs("pitchs intro : G9 - B7~e5 > f2 <a0  \n"),
+        pitchs("pitchs intro : G9 = B7~e5 > f2 <a0  \n"),
         Ok((
             "",
             Exp::PitchLine(PPitchLine {
@@ -397,23 +400,23 @@ fn test_pitchs() {
                 pitchs: vec![
                     PPitch {
                         id: "G9",
-                        progression: PProgression::Linear
+                        transition: PTransition::Linear
                     },
                     PPitch {
                         id: "B7",
-                        progression: PProgression::Cosin
+                        transition: PTransition::Sin
                     },
                     PPitch {
                         id: "e5",
-                        progression: PProgression::Late
+                        transition: PTransition::Late
                     },
                     PPitch {
                         id: "f2",
-                        progression: PProgression::Early
+                        transition: PTransition::Early
                     },
                     PPitch {
                         id: "a0",
-                        progression: PProgression::None
+                        transition: PTransition::None
                     },
                 ]
             }),
@@ -625,7 +628,7 @@ fn test_parse() {
                 id: "v",
                 velocities: vec![PVelocity {
                     value: 1.,
-                    progression: PProgression::None
+                    transition: PTransition::None
                 }],
             })
         ]
