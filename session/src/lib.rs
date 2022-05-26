@@ -17,5 +17,6 @@ pub mod player;
 pub mod plugins_manager;
 pub mod session;
 pub mod state;
+pub mod tables;
 pub mod talkers;
 pub mod track;

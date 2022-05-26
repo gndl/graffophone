@@ -83,11 +83,11 @@ impl EventsBuilder {
                                         };
 
                                         events.push(audio_event::create(
-                                            self.transition,
                                             self.start_tick,
                                             end_tick,
                                             self.value,
                                             next_value,
+                                            self.transition,
                                         ));
 
                                         self.start_tick = start_tick;
@@ -197,11 +197,11 @@ impl EventsBuilder {
                                         };
 
                                         events.push(audio_event::create(
-                                            self.transition,
                                             self.start_tick,
                                             end_tick,
                                             self.value,
                                             next_value,
+                                            self.transition,
                                         ));
 
                                         self.start_tick = start_tick;
@@ -262,11 +262,11 @@ impl EventsBuilder {
                 self.end_tick
             };
             events.push(audio_event::create(
-                PTransition::None,
                 self.start_tick,
                 end_tick,
                 self.value,
                 self.value,
+                PTransition::None,
             ));
         }
     }
