@@ -933,7 +933,14 @@ impl TalkerControlBase {
                     return Ok(Some(notifications));
                 }
             }
-            // TODO : edit talker name and data
+            // TODO : edit talker name
+
+            if let Some(data_area) = &self.data_area {
+                if data_area.is_under(rx, ry) {
+                    let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;
+                    return Ok(Some(vec![Notification::EditTalkerData(self.id)]));
+                }
+            }
 
             if self.imize_area.is_under(rx, ry) {
                 let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;

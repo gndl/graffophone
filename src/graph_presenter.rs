@@ -144,23 +144,23 @@ impl GraphPresenter {
             Notification::TalkerChanged,
         ])
     }
+    /*
+        pub fn set_talker_data(
+            &mut self,
+            talker_id: Id,
+            data: &str,
+            fly: bool,
+        ) -> Result<Vec<Notification>, failure::Error> {
+            self.session_presenter
+                .borrow_mut()
+                .set_talker_data(talker_id, data);
 
-    pub fn set_talker_data(
-        &mut self,
-        talker_id: Id,
-        data: &str,
-        fly: bool,
-    ) -> Result<Vec<Notification>, failure::Error> {
-        self.session_presenter
-            .borrow_mut()
-            .modify_band(&Operation::SetTalkerData(talker_id, data.to_string()));
-
-        if !fly {
-            return Ok(vec![Notification::TalkerChanged]);
+            if !fly {
+                return Ok(vec![Notification::TalkerChanged]);
+            }
+            Ok(vec![])
         }
-        Ok(vec![])
-    }
-
+    */
     pub fn set_talker_ear_talk_value(
         &mut self,
         talker_id: Id,

@@ -6,6 +6,9 @@ use gtk::prelude::*;
 use gtk::CellRendererText;
 use gtk::{IconSize, TreeStore, TreeView, TreeViewColumn};
 
+use talker::data::Data;
+use talker::identifier::Id;
+
 use session::event_bus::{Notification, REventBus};
 use session::state::State;
 
@@ -19,6 +22,12 @@ pub struct ApplicationView {
     stop_button: gtk::Button,
     play_icon: gtk::Image,
     pause_icon: gtk::Image,
+    text_view: sourceview4::View,
+    apply_text_button: gtk::Button,
+    validate_text_button: gtk::Button,
+    cancel_text_button: gtk::Button,
+    session_presenter: RSessionPresenter,
+    selected_talker_id: Option<Id>,
 }
 
 pub type RApplicationView = Rc<RefCell<ApplicationView>>;
@@ -67,6 +76,24 @@ impl ApplicationView {
         talkers_tree_toggle.set_active(true);
 
         headerbar.pack_start(&talkers_tree_toggle);
+
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&separator);
+
+        // Apply text
+        let apply_text_button =
+            gtk::Button::from_icon_name(Some("gtk-apply"), IconSize::SmallToolbar);
+        headerbar.pack_start(&apply_text_button);
+
+        // Validate text
+        let validate_text_button =
+            gtk::Button::from_icon_name(Some("gtk-goto-last"), IconSize::SmallToolbar);
+        headerbar.pack_start(&validate_text_button);
+
+        // Cancel text
+        let cancel_text_button =
+            gtk::Button::from_icon_name(Some("gtk-cancel"), IconSize::SmallToolbar);
+        headerbar.pack_start(&cancel_text_button);
 
         // header bar right controls
         let stop_button =
@@ -118,10 +145,13 @@ impl ApplicationView {
         graph_view_scrolledwindow.add(graph_view.borrow().drawing_area());
         split_pane.pack_start(&graph_view_scrolledwindow, true, true, 0);
 
+        // Text view
+        let text_view = sourceview4::View::new();
+
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 10);
+        v_box.pack_start(&text_view, false, false, 0);
         v_box.pack_start(&split_pane, true, true, 0);
-        v_box.pack_start(&selected_talker_label, false, false, 0);
 
         // Actions
         // New session
@@ -242,6 +272,12 @@ impl ApplicationView {
             stop_button,
             play_icon,
             pause_icon,
+            text_view,
+            apply_text_button,
+            validate_text_button,
+            cancel_text_button,
+            session_presenter: session_presenter.clone(),
+            selected_talker_id: None,
         })
     }
 
@@ -251,6 +287,7 @@ impl ApplicationView {
     ) -> Result<RApplicationView, failure::Error> {
         let av = ApplicationView::new(application, session_presenter)?;
         let rav = Rc::new(RefCell::new(av));
+        ApplicationView::create_text_editor(&rav);
         ApplicationView::observe(&rav, session_presenter.borrow().event_bus());
         Ok(rav)
     }
@@ -301,6 +338,87 @@ impl ApplicationView {
     }
     */
 
+    fn create_text_editor(application_view: &RApplicationView) {
+        // Apply text
+        let apply_text_view = application_view.clone();
+        application_view
+            .borrow()
+            .apply_text_button
+            .connect_clicked(move |_| {
+                apply_text_view.borrow().set_talker_data();
+            });
+
+        // Validate text
+        let validate_text_view = application_view.clone();
+        application_view
+            .borrow()
+            .validate_text_button
+            .connect_clicked(move |_| {
+                validate_text_view.borrow().set_talker_data();
+                validate_text_view.borrow_mut().disable_text_editor();
+            });
+
+        // Cancel text
+        let cancel_text_view = application_view.clone();
+        application_view
+            .borrow()
+            .cancel_text_button
+            .connect_clicked(move |_| {
+                cancel_text_view.borrow_mut().disable_text_editor();
+            });
+        application_view.borrow_mut().disable_text_editor();
+    }
+
+    fn edit_talker_data(&mut self, talker_id: Id) {
+        if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
+            match &*talker.data().borrow() {
+                Data::Int(_) => println!("Todo : Applicationview.edit_talker_data Data::Int"),
+                Data::Float(_) => println!("Todo : Applicationview.edit_talker_data Data::Float"),
+                Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
+                Data::Text(data) => match self.text_view.buffer() {
+                    Some(text_buffer) => {
+                        text_buffer.set_text(&data);
+                        self.text_view.show();
+                        self.apply_text_button.show();
+                        self.validate_text_button.show();
+                        self.cancel_text_button.show();
+                        self.selected_talker_id = Some(talker_id);
+                    }
+                    None => println!(
+                        "Todo : Applicationview.edit_talker_data Data::Text : no text_view buffer"
+                    ),
+                },
+                Data::File(_) => println!("Todo : Applicationview.edit_talker_data Data::File"),
+                _ => (),
+            }
+        }
+    }
+
+    fn set_talker_data(&self) {
+        if let Some(talker_id) = self.selected_talker_id {
+            if let Some(text_buffer) = self.text_view.buffer() {
+                if let Some(txt) =
+                    text_buffer.text(&text_buffer.start_iter(), &text_buffer.end_iter(), false)
+                {
+                    self.session_presenter
+                        .borrow_mut()
+                        .set_talker_data(talker_id, &txt);
+                }
+            }
+        }
+    }
+
+    fn disable_text_editor(&mut self) {
+        if let Some(text_buffer) = self.text_view.buffer() {
+            text_buffer.set_text("");
+        }
+        self.text_view.hide();
+        self.apply_text_button.hide();
+        self.validate_text_button.hide();
+        self.cancel_text_button.hide();
+        self.selected_talker_id = None;
+    }
+
     fn observe(observer: &RApplicationView, bus: &REventBus) {
         let obs = observer.clone();
 
@@ -340,6 +458,9 @@ impl ApplicationView {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)
                 }
                 Notification::TalkersRange(talkers) => obs.borrow().fill_talkers_tree(&talkers),
+                Notification::EditTalkerData(talker_id) => {
+                    obs.borrow_mut().edit_talker_data(*talker_id)
+                }
                 Notification::CurveAdded => println!("Todo : Applicationview.CurveAdded"),
                 Notification::CurveRemoved => println!("Todo : Applicationview.CurveRemoved"),
                 Notification::Info(msg) => println!("Todo : Applicationview.display_info {}", msg),
