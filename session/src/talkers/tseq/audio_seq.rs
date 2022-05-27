@@ -116,7 +116,9 @@ impl EventsBuilder {
                                     }
                                     mul -= 1.;
                                 }
-                                if pitchs_count > pattern_hits_count {
+                                if pitchs_count > pattern_hits_count
+                                    && pitchs_count % pattern_hits_count != 0
+                                {
                                     pattern_start_tick += pattern_ticks_count;
                                 }
                                 self.tick = pattern_start_tick;
@@ -230,7 +232,9 @@ impl EventsBuilder {
                                     }
                                     mul -= 1.;
                                 }
-                                if velos_count > pattern_hits_count {
+                                if velos_count > pattern_hits_count
+                                    && velos_count % pattern_hits_count != 0
+                                {
                                     pattern_start_tick += pattern_ticks_count;
                                 }
                                 self.tick = pattern_start_tick;
