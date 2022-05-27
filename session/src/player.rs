@@ -313,6 +313,24 @@ impl Player {
         self.state
     }
 
+    pub fn wait(&mut self) -> Result<State, failure::Error> {
+        match self.state {
+            State::Exited => (),
+            _ => {
+                thread::sleep(Duration::from_millis(20));
+                match self.state_receiver.recv() {
+                    Err(e) => {
+                        return Err(failure::err_msg(format!("Player::play error : {}", e)));
+                    }
+                    Ok(state) => {
+                        self.state = state;
+                    }
+                }
+            }
+        }
+        Ok(self.state)
+    }
+
     fn check_not_exited(&self) -> Result<(), failure::Error> {
         match self.state {
             State::Exited => Err(failure::err_msg("Player exited")),
