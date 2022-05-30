@@ -452,7 +452,10 @@ impl ApplicationView {
                         obs.borrow().stop_button.set_sensitive(false);
                     }
                 },
-                Notification::NewSession(name) => obs.borrow().headerbar.set_title(Some(&name)),
+                Notification::NewSession(name) => {
+                    obs.borrow_mut().disable_text_editor();
+                    obs.borrow().headerbar.set_title(Some(&name));
+                }
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
                 Notification::TimeRange(st, et) => {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)

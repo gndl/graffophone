@@ -126,6 +126,7 @@ impl SessionPresenter {
 
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
         self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string()));
+        self.notify(Notification::TalkerChanged);
     }
 
     pub fn find_compatible_hum_with_voice_in_ear(

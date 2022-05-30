@@ -937,7 +937,6 @@ impl TalkerControlBase {
 
             if let Some(data_area) = &self.data_area {
                 if data_area.is_under(rx, ry) {
-                    let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;
                     return Ok(Some(vec![Notification::EditTalkerData(self.id)]));
                 }
             }
