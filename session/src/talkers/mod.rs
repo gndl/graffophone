@@ -1,5 +1,6 @@
 pub mod abs_sine;
 pub mod lv2;
+pub mod round;
 pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
 pub mod tseq;

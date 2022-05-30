@@ -10,6 +10,8 @@ use talker::talker_handler::TalkerHandlerBase;
 use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
 use talkers::lv2::Lv2;
+use talkers::round;
+use talkers::round::Round;
 use talkers::second_degree_frequency_progression;
 use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use talkers::sinusoidal;
@@ -69,6 +71,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
+            PluginsManager::tkr_hr_kv(Round::descriptor()),
         ]);
 
         println!("make_plugins_handlers end");
@@ -92,6 +95,8 @@ impl PluginsManager {
             )?))
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new()?))
+        } else if model == round::MODEL {
+            Ok(rtalker!(Round::new()?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }
