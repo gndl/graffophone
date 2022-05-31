@@ -13,7 +13,6 @@ pub const MODEL: &str = "Sinusoidal";
 
 pub struct Sinusoidal {
     last_tick: i64,
-    last_freq: f64,
     last_angle: f64,
 }
 
@@ -23,6 +22,7 @@ impl Sinusoidal {
 
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
+        base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
         base.add_voice(voice::audio(None, 0.));
 
@@ -30,7 +30,6 @@ impl Sinusoidal {
             base,
             Self {
                 last_tick: 0,
-                last_freq: 0.,
                 last_angle: 0.,
             }
         ))
@@ -44,30 +43,26 @@ impl Sinusoidal {
 impl Talker for Sinusoidal {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let c = AudioFormat::frequence_coef();
-        let mut last_freq = 0.;
-        let mut last_angle = 0.;
-
-        if self.last_tick == tick {
-            last_freq = self.last_freq;
-            last_angle = self.last_angle;
-        }
-
         let freq_buf = base.ear_cv_buffer(0);
         let phase_buf = base.ear_audio_buffer(1);
+        let gain_buf = base.ear_audio_buffer(2);
         let voice_buf = base.voice(port).audio_buffer();
+        let c = AudioFormat::frequence_coef();
+
+        let mut last_angle = if self.last_tick == tick {
+            self.last_angle
+        } else {
+            -freq_buf[0] as f64 * c
+        };
 
         for i in 0..ln {
+            let a = last_angle + c * freq_buf[i] as f64;
             let p = phase_buf[i] as f64 * PI;
-            let a = last_angle + last_freq * c;
 
-            let sample = (a + p).sin() as f32;
-            voice_buf[i] = sample;
-            last_freq = freq_buf[i] as f64;
+            voice_buf[i] = ((a + p).sin() as f32) * gain_buf[i];
             last_angle = a;
         }
 
-        self.last_freq = last_freq;
         self.last_angle = last_angle;
         self.last_tick = tick + ln as i64;
         ln
