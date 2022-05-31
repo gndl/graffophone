@@ -1,5 +1,4 @@
 use std::f32;
-use std::f64::consts::PI;
 
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
@@ -14,9 +13,10 @@ use tables::round;
 pub const MODEL: &str = "Round";
 
 pub struct Round {
-    len_on_sr: f32,
+    tab_len_on_sr: f32,
     last_tick: i64,
-    last_pos: usize,
+    last_pos: i64,
+    last_phase: f32,
 }
 
 impl Round {
@@ -29,14 +29,15 @@ impl Round {
 
         base.add_voice(voice::audio(None, 0.));
 
-        let len_on_sr = (round::LEN as f64 / AudioFormat::sample_rate() as f64) as f32;
+        let tab_len_on_sr = (round::LEN as f64 / AudioFormat::sample_rate() as f64) as f32;
 
         Ok(ctalker!(
             base,
             Self {
-                len_on_sr,
+                tab_len_on_sr,
                 last_tick: 0,
                 last_pos: 0,
+                last_phase: 0.,
             }
         ))
     }
@@ -45,6 +46,7 @@ impl Round {
         TalkerHandlerBase::new("Oscillator", MODEL, "Round")
     }
 }
+const TAB_LEN: i64 = round::LEN as i64;
 
 impl Talker for Round {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
@@ -54,28 +56,37 @@ impl Talker for Round {
         let gain_buf = base.ear_audio_buffer(2);
         let voice_buf = base.voice(port).audio_buffer();
 
-        let phase_coef = round::LEN as f32 / 2.;
-        let mut last_pos: usize = 0;
+        let phase_coef = round::LEN as f32 * 0.5;
+        let tab_len_on_sr = self.tab_len_on_sr;
+        let mut last_pos = 0;
+        let mut last_phase = 0.;
 
         if self.last_tick == tick {
             last_pos = self.last_pos;
+            last_phase = self.last_phase;
         }
 
         for i in 0..ln {
-            let p = (phase_buf[i] * phase_coef) as usize;
-            let g = gain_buf[i];
+            let phase = phase_buf[i];
 
-            let mut pos = last_pos + (freq_buf[i] * self.len_on_sr) as usize + p;
+            if phase != last_phase {
+                last_pos += ((phase - last_phase) * phase_coef) as i64;
 
-            if pos >= round::LEN {
-                pos -= round::LEN;
+                if last_pos < 0 {
+                    last_pos += TAB_LEN;
+                }
             }
 
-            voice_buf[i] = round::TAB[pos] * g;
-            last_pos = pos;
+            let pos = last_pos + (freq_buf[i] * tab_len_on_sr) as i64;
+            let tab_idx = pos % TAB_LEN;
+
+            voice_buf[i] = round::TAB[tab_idx as usize] * gain_buf[i];
+            last_pos = tab_idx;
+            last_phase = phase;
         }
 
         self.last_pos = last_pos;
+        self.last_phase = last_phase;
         self.last_tick = tick + ln as i64;
         ln
     }
