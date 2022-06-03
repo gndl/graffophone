@@ -71,19 +71,22 @@ impl Talker for Tseq {
                             Exp::Beat(ref beat) => {
                                 pare.beats.insert(beat.id, &beat);
                             }
-                            Exp::PitchLine(ref pitchline) => {
+                            Exp::PitchLine(ref line) => {
                                 let mut pitchs = Vec::new();
-                                for pitch in &pitchline.pitchs {
+                                for pitch in &line.pitchs {
                                     pitchs
                                         .push((scale.fetch_frequency(pitch.id)?, pitch.transition));
                                 }
-                                pare.pitchlines.insert(pitchline.id, pitchs);
+                                pare.pitchlines.insert(line.id, pitchs);
                             }
-                            Exp::Pattern(ref pattern) => {
-                                pare.patterns.insert(pattern.id, &pattern);
+                            Exp::HitLine(ref line) => {
+                                pare.hitlines.insert(line.id, &line);
                             }
-                            Exp::VelocityLine(ref velocityline) => {
-                                pare.velocitylines.insert(velocityline.id, &velocityline);
+                            Exp::DurationLine(ref line) => {
+                                pare.durationlines.insert(line.id, &line);
+                            }
+                            Exp::VelocityLine(ref line) => {
+                                pare.velocitylines.insert(line.id, &line);
                             }
                             Exp::Seq(ref sequence) => {
                                 pare.sequences.insert(sequence.id, &sequence);
@@ -140,11 +143,11 @@ impl Talker for Tseq {
         self.current_events_indexies[port] = match &self.sequences[port] {
             Seq::Freq(seq) => {
                 let voice_buf = base.voice(port).cv_buffer();
-                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, voice_buf)
+                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, false, voice_buf)
             }
             Seq::Vel(seq) => {
                 let voice_buf = base.voice(port).audio_buffer();
-                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, voice_buf)
+                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, true, voice_buf)
             }
             Seq::Midi(seq) => midi_sequence_talk(base, port, tick, ln, &seq, ev_idx),
         };
@@ -159,6 +162,7 @@ fn audio_sequence_talk(
     len: usize,
     seq: &AudioSeq,
     current_event_index: usize,
+    conservative_off: bool,
     voice_buf: &mut [f32],
 ) -> usize {
     let mut t = tick;
@@ -177,7 +181,7 @@ fn audio_sequence_talk(
         while ev_idx < seq.events.len() && seq.events[ev_idx].end_tick() <= t {
             ev_idx += 1;
         }
-        let ofset = (t - tick) as usize;
+        let mut ofset = (t - tick) as usize;
         let out_len = len - ofset;
 
         if ev_idx < seq.events.len() {
@@ -188,14 +192,40 @@ fn audio_sequence_talk(
             } else {
                 let cur_len = usize::min((ev.start_tick() - t) as usize, out_len);
 
-                for i in ofset..ofset + cur_len {
-                    voice_buf[i] = 0.;
+                let end = if ofset == 0 {
+                    voice_buf[0] = voice_buf[len - 1];
+                    ofset = 1;
+                    cur_len
+                } else {
+                    ofset + cur_len
+                };
+
+                let off_value = if conservative_off {
+                    voice_buf[ofset - 1]
+                } else {
+                    0.
+                };
+
+                for i in ofset..end {
+                    voice_buf[i] = off_value;
                 }
                 t += cur_len as i64;
             }
         } else {
-            for i in ofset..out_len {
-                voice_buf[i] = 0.;
+            if conservative_off {
+                let end_coef = 0.9999;
+
+                if ofset == 0 {
+                    voice_buf[0] = voice_buf[len - 1] * end_coef;
+                    ofset = 1;
+                }
+                for i in ofset..len {
+                    voice_buf[i] = voice_buf[i - 1] * end_coef;
+                }
+            } else {
+                for i in ofset..len {
+                    voice_buf[i] = 0.;
+                }
             }
             break;
         }
