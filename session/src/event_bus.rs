@@ -8,6 +8,7 @@ use crate::state::State;
 pub enum Notification {
     State(State),
     NewSession(String),
+    NewSessionName(String),
     Tick(i64),
     TimeRange(i64, i64),
     Pause,

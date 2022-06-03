@@ -64,6 +64,12 @@ impl SessionPresenter {
 
     pub fn save_session_as(&mut self, filename: &str) {
         let res = self.session.save_as(filename);
+
+        if res.is_ok() {
+            self.notify(Notification::NewSessionName(
+                self.session.filename().to_string(),
+            ));
+        }
         self.manage_result(res);
     }
 
