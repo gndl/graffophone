@@ -18,8 +18,8 @@ use session::event_bus::Notification;
 
 pub const ADD_TAG: &str = "+";
 pub const SUP_TAG: &str = "-";
-pub const VAL_TAG: &str = "⟵";
-pub const ADD_IN_TAG: &str = "⟴";
+pub const VAL_TAG: &str = "←"; // ⟵
+pub const ADD_IN_TAG: &str = "⊕"; // ● ⟴ ⊕ ⊕
 pub const DESTROY_TAG: &str = "✖";
 pub const MAXIMIZE_TAG: &str = "▮";
 pub const MINIMIZE_TAG: &str = "▬";
