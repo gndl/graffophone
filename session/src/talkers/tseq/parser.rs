@@ -46,10 +46,16 @@ pub struct PHit {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PPattern<'a> {
+pub struct PHitLine<'a> {
     pub id: &'a str,
     pub hits: Vec<PHit>,
     pub duration: f32,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PDurationLine<'a> {
+    pub id: &'a str,
+    pub durations: Vec<f32>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -66,9 +72,11 @@ pub struct PVelocityLine<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct PPart<'a> {
-    pub pattern: &'a str,
-    pub pitchs: Option<&'a str>,
-    pub velos: Option<&'a str>,
+    pub hitline_id: &'a str,
+    pub durationline_id: Option<&'a str>,
+    pub pitchline_id: Option<&'a str>,
+    pub chordline_id: Option<&'a str>,
+    pub velocityline_id: Option<&'a str>,
     pub mul: Option<f32>,
 }
 
@@ -95,7 +103,8 @@ pub struct PSequence<'a> {
 pub enum Exp<'a> {
     Beat(PBeat<'a>),
     PitchLine(PPitchLine<'a>),
-    Pattern(PPattern<'a>),
+    HitLine(PHitLine<'a>),
+    DurationLine(PDurationLine<'a>),
     VelocityLine(PVelocityLine<'a>),
     Seq(PSequence<'a>),
     FreqOut(PSequence<'a>),
@@ -144,15 +153,21 @@ fn beat(input: &str) -> IResult<&str, Exp> {
 fn hit(input: &str) -> IResult<&str, PHit> {
     let (input, (position, duration)) = tuple((
         terminated(float, space0),
-        opt(delimited(terminated(char('d'), space0), float, space0)),
+        opt(delimited(terminated(char(','), space0), float, space0)),
     ))(input)?;
     Ok((input, PHit { position, duration }))
 }
 
-fn pattern(input: &str) -> IResult<&str, Exp> {
+fn hits(input: &str) -> IResult<&str, Exp> {
     let (input, (id, hits, duration)) =
-        tuple((head("pattern"), many0(hit), delimited(slash, float, end)))(input)?;
-    Ok((input, Exp::Pattern(PPattern { id, hits, duration })))
+        tuple((head("hits"), many0(hit), delimited(slash, float, end)))(input)?;
+    Ok((input, Exp::HitLine(PHitLine { id, hits, duration })))
+}
+
+fn durations(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, durations)) =
+        tuple((head("durations"), many0(terminated(float, space0))))(input)?;
+    Ok((input, Exp::DurationLine(PDurationLine { id, durations })))
 }
 
 fn transition(input: &str) -> IResult<&str, PTransition> {
@@ -197,19 +212,24 @@ fn pitchs(input: &str) -> IResult<&str, Exp> {
 }
 
 fn part(input: &str) -> IResult<&str, PFragment> {
-    let (input, (pattern, pitchs, velos, mul, _)) = tuple((
-        id,
-        opt(preceded(char('.'), id)),
-        opt(preceded(char('.'), id)),
-        opt(preceded(delimited(space0, char('*'), space0), float)),
-        space0,
-    ))(input)?;
+    let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, mul, _)) =
+        tuple((
+            id,
+            opt(preceded(char('&'), id)),
+            opt(preceded(char(','), id)),
+            opt(preceded(char('&'), id)),
+            opt(preceded(char(','), id)),
+            opt(preceded(delimited(space0, char('*'), space0), float)),
+            space0,
+        ))(input)?;
     Ok((
         input,
         PFragment::Part(PPart {
-            pattern,
-            pitchs,
-            velos,
+            hitline_id,
+            durationline_id,
+            pitchline_id,
+            chordline_id,
+            velocityline_id,
             mul,
         }),
     ))
@@ -271,7 +291,7 @@ fn midiout(input: &str) -> IResult<&str, Exp> {
 
 pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
     let (input, expressions) = many0(alt((
-        beat, pattern, pitchs, velos, seq, freqout, velout, midiout, comment, end,
+        beat, hits, durations, pitchs, velos, seq, freqout, velout, midiout, comment, end,
     )))(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
@@ -305,12 +325,12 @@ fn test_beat() {
 }
 
 #[test]
-fn test_pattern() {
+fn test_hits() {
     assert_eq!(
-        pattern("pattern p1: 0.5 .75 / 1\n"),
+        hits("hits p1: 0.5 .75 / 1\n"),
         Ok((
             "",
-            Exp::Pattern(PPattern {
+            Exp::HitLine(PHitLine {
                 id: "p1",
                 hits: vec![
                     PHit {
@@ -327,10 +347,10 @@ fn test_pattern() {
         ))
     );
     assert_eq!(
-        pattern("pattern p1: 0.5d.2 .75 d .3 / 1\n"),
+        hits("hits p1: 0.5,.2 .75 , .3 / 1\n"),
         Ok((
             "",
-            Exp::Pattern(PPattern {
+            Exp::HitLine(PHitLine {
                 id: "p1",
                 hits: vec![
                     PHit {
@@ -427,37 +447,43 @@ fn test_pitchs() {
 #[test]
 fn test_part() {
     assert_eq!(
-        part("p.n.v*3"),
+        part("p,n,v*3"),
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "p",
-                pitchs: Some("n"),
-                velos: Some("v"),
+                hitline_id: "p",
+                durationline_id: None,
+                pitchline_id: Some("n"),
+                chordline_id: None,
+                velocityline_id: Some("v"),
                 mul: Some(3.),
             }),
         ))
     );
     assert_eq!(
-        part("p.n * 3 "),
+        part("p,n * 3 "),
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "p",
-                pitchs: Some("n"),
-                velos: None,
+                hitline_id: "p",
+                durationline_id: None,
+                pitchline_id: Some("n"),
+                chordline_id: None,
+                velocityline_id: None,
                 mul: Some(3.),
             }),
         ))
     );
     assert_eq!(
-        part("p.n.v0"),
+        part("p,n,v0"),
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "p",
-                pitchs: Some("n"),
-                velos: Some("v0"),
+                hitline_id: "p",
+                durationline_id: None,
+                pitchline_id: Some("n"),
+                chordline_id: None,
+                velocityline_id: Some("v0"),
                 mul: None,
             }),
         ))
@@ -467,21 +493,25 @@ fn test_part() {
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "p1",
-                pitchs: None,
-                velos: None,
+                hitline_id: "p1",
+                durationline_id: None,
+                pitchline_id: None,
+                chordline_id: None,
+                velocityline_id: None,
                 mul: Some(3.),
             }),
         ))
     );
     assert_eq!(
-        part("p.n.v*3"),
+        part("p,n,v*3"),
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "p",
-                pitchs: Some("n"),
-                velos: Some("v"),
+                hitline_id: "p",
+                durationline_id: None,
+                pitchline_id: Some("n"),
+                chordline_id: None,
+                velocityline_id: Some("v"),
                 mul: Some(3.),
             }),
         ))
@@ -491,9 +521,11 @@ fn test_part() {
         Ok((
             "",
             PFragment::Part(PPart {
-                pattern: "4_p0f",
-                pitchs: None,
-                velos: None,
+                hitline_id: "4_p0f",
+                durationline_id: None,
+                pitchline_id: None,
+                chordline_id: None,
+                velocityline_id: None,
                 mul: None,
             }),
         ))
@@ -527,7 +559,7 @@ fn test_seq_ref() {
 #[test]
 fn test_sequence() {
     assert_eq!(
-        sequence(" seq_03:/ _b_ @s_1 p1 p1.n2 @s_2*3 p2.n1.v1 * 2 \n"),
+        sequence(" seq_03:/ _b_ @s_1 p1 p1,n2 @s_2*3 p2,n1,v1 * 2 \n"),
         Ok((
             "",
             PSequence {
@@ -539,15 +571,19 @@ fn test_sequence() {
                         mul: None
                     }),
                     PFragment::Part(PPart {
-                        pattern: "p1",
-                        pitchs: None,
-                        velos: None,
+                        hitline_id: "p1",
+                        durationline_id: None,
+                        pitchline_id: None,
+                        chordline_id: None,
+                        velocityline_id: None,
                         mul: None,
                     }),
                     PFragment::Part(PPart {
-                        pattern: "p1",
-                        pitchs: Some("n2"),
-                        velos: None,
+                        hitline_id: "p1",
+                        durationline_id: None,
+                        pitchline_id: Some("n2"),
+                        chordline_id: None,
+                        velocityline_id: None,
                         mul: None,
                     }),
                     PFragment::SeqRef(PSeqRef {
@@ -555,9 +591,11 @@ fn test_sequence() {
                         mul: Some(3)
                     }),
                     PFragment::Part(PPart {
-                        pattern: "p2",
-                        pitchs: Some("n1"),
-                        velos: Some("v1"),
+                        hitline_id: "p2",
+                        durationline_id: None,
+                        pitchline_id: Some("n1"),
+                        chordline_id: None,
+                        velocityline_id: Some("v1"),
                         mul: Some(2.),
                     })
                 ],

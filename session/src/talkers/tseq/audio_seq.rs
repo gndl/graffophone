@@ -45,14 +45,14 @@ impl EventsBuilder {
             match fragment {
                 Part(part) => {
                     let mut part_is_empty = true;
-                    let pattern = pare.fetch_pattern(part.pattern)?;
-                    let pattern_hits_count = pattern.hits.len();
-                    let pattern_ticks_count = (pattern.duration * beat_ticks_count) as i64;
-                    let mut pattern_start_tick = self.tick;
+                    let hitline = pare.fetch_hitline(part.hitline_id)?;
+                    let hitline_hits_count = hitline.hits.len();
+                    let hitline_ticks_count = (hitline.duration * beat_ticks_count) as i64;
+                    let mut hitline_start_tick = self.tick;
                     let mut mul = part.mul.unwrap_or(1.);
 
-                    if pattern_hits_count > 0 && mul > 0. {
-                        if let Some(pitchline_id) = part.pitchs {
+                    if hitline_hits_count > 0 && mul > 0. {
+                        if let Some(pitchline_id) = part.pitchline_id {
                             let pitchline = pare.fetch_pitchline(pitchline_id)?;
                             let pitchs_count = pitchline.len();
 
@@ -61,7 +61,7 @@ impl EventsBuilder {
 
                                 let mut hit_idx = 0;
                                 let mut pitch_idx = 0;
-                                let max_n = usize::max(pattern_hits_count, pitchs_count);
+                                let max_n = usize::max(hitline_hits_count, pitchs_count);
 
                                 while mul > 0. {
                                     let n = if mul < 1. {
@@ -70,8 +70,8 @@ impl EventsBuilder {
                                         max_n
                                     };
                                     for _ in 0..n {
-                                        let hit = &pattern.hits[hit_idx];
-                                        let start_tick = pattern_start_tick
+                                        let hit = &hitline.hits[hit_idx];
+                                        let start_tick = hitline_start_tick
                                             + (hit.position * beat_ticks_count) as i64;
                                         let (next_value, next_transition) = pitchline[pitch_idx];
 
@@ -93,7 +93,7 @@ impl EventsBuilder {
                                         self.start_tick = start_tick;
                                         self.end_tick = match hit.duration {
                                             Some(dur) => {
-                                                pattern_start_tick
+                                                hitline_start_tick
                                                     + ((hit.position + dur) * beat_ticks_count)
                                                         as i64
                                             }
@@ -104,9 +104,9 @@ impl EventsBuilder {
 
                                         hit_idx += 1;
 
-                                        if hit_idx == pattern_hits_count {
+                                        if hit_idx == hitline_hits_count {
                                             hit_idx = 0;
-                                            pattern_start_tick += pattern_ticks_count;
+                                            hitline_start_tick += hitline_ticks_count;
                                         }
 
                                         pitch_idx += 1;
@@ -116,17 +116,17 @@ impl EventsBuilder {
                                     }
                                     mul -= 1.;
                                 }
-                                if pitchs_count > pattern_hits_count
-                                    && pitchs_count % pattern_hits_count != 0
+                                if pitchs_count > hitline_hits_count
+                                    && pitchs_count % hitline_hits_count != 0
                                 {
-                                    pattern_start_tick += pattern_ticks_count;
+                                    hitline_start_tick += hitline_ticks_count;
                                 }
-                                self.tick = pattern_start_tick;
+                                self.tick = hitline_start_tick;
                             }
                         }
                     }
                     if part_is_empty {
-                        self.tick += (pattern_ticks_count as f32 * mul.ceil()) as i64;
+                        self.tick += (hitline_ticks_count as f32 * mul.ceil()) as i64;
                     }
                 }
                 SeqRef(seqref) => {
@@ -159,14 +159,14 @@ impl EventsBuilder {
             match fragment {
                 Part(part) => {
                     let mut part_is_empty = true;
-                    let pattern = pare.fetch_pattern(part.pattern)?;
-                    let pattern_hits_count = pattern.hits.len();
-                    let pattern_ticks_count = (pattern.duration * beat_ticks_count) as i64;
-                    let mut pattern_start_tick = self.tick;
+                    let hitline = pare.fetch_hitline(part.hitline_id)?;
+                    let hitline_hits_count = hitline.hits.len();
+                    let hitline_ticks_count = (hitline.duration * beat_ticks_count) as i64;
+                    let mut hitline_start_tick = self.tick;
                     let mut mul = part.mul.unwrap_or(1.);
 
-                    if pattern_hits_count > 0 && mul > 0. {
-                        if let Some(velocityline_id) = part.velos {
+                    if hitline_hits_count > 0 && mul > 0. {
+                        if let Some(velocityline_id) = part.velocityline_id {
                             let velocityline = pare.fetch_velocityline(velocityline_id)?;
                             let velos_count = velocityline.velocities.len();
 
@@ -175,7 +175,7 @@ impl EventsBuilder {
 
                                 let mut hit_idx = 0;
                                 let mut vel_idx = 0;
-                                let max_n = usize::max(pattern_hits_count, velos_count);
+                                let max_n = usize::max(hitline_hits_count, velos_count);
 
                                 while mul > 0. {
                                     let n = if mul < 1. {
@@ -184,8 +184,8 @@ impl EventsBuilder {
                                         max_n
                                     };
                                     for _ in 0..n {
-                                        let hit = &pattern.hits[hit_idx];
-                                        let start_tick = pattern_start_tick
+                                        let hit = &hitline.hits[hit_idx];
+                                        let start_tick = hitline_start_tick
                                             + (hit.position * beat_ticks_count) as i64;
 
                                         let velocity = &velocityline.velocities[vel_idx];
@@ -209,7 +209,7 @@ impl EventsBuilder {
                                         self.start_tick = start_tick;
                                         self.end_tick = match hit.duration {
                                             Some(dur) => {
-                                                pattern_start_tick
+                                                hitline_start_tick
                                                     + ((hit.position + dur) * beat_ticks_count)
                                                         as i64
                                             }
@@ -220,9 +220,9 @@ impl EventsBuilder {
 
                                         hit_idx += 1;
 
-                                        if hit_idx == pattern_hits_count {
+                                        if hit_idx == hitline_hits_count {
                                             hit_idx = 0;
-                                            pattern_start_tick += pattern_ticks_count;
+                                            hitline_start_tick += hitline_ticks_count;
                                         }
 
                                         vel_idx += 1;
@@ -232,17 +232,17 @@ impl EventsBuilder {
                                     }
                                     mul -= 1.;
                                 }
-                                if velos_count > pattern_hits_count
-                                    && velos_count % pattern_hits_count != 0
+                                if velos_count > hitline_hits_count
+                                    && velos_count % hitline_hits_count != 0
                                 {
-                                    pattern_start_tick += pattern_ticks_count;
+                                    hitline_start_tick += hitline_ticks_count;
                                 }
-                                self.tick = pattern_start_tick;
+                                self.tick = hitline_start_tick;
                             }
                         }
                     }
                     if part_is_empty {
-                        self.tick += (pattern_ticks_count as f32 * mul.ceil()) as i64;
+                        self.tick += (hitline_ticks_count as f32 * mul.ceil()) as i64;
                     }
                 }
                 SeqRef(seqref) => {
