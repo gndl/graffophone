@@ -28,17 +28,13 @@ const H00: f64 = 0.;
 const HFF: f64 = 1.;
 const H20: f64 = 32. / 255.;
 const H50: f64 = 80. / 255.;
-const H80: f64 = 128. / 255.;
 const H90: f64 = 144. / 255.;
 const HD3: f64 = 211. / 255.;
-const HE0: f64 = 224. / 255.;
 const HEE: f64 = 238. / 255.;
 
 pub const WHITE_COLOR: Color = (1., 1., 1.); // cyan
 const BACKGROUND_COLOR: Color = (H00, H00, H00);
 const SELECTED_IO_BACKGROUND_COLOR: Color = (1., 0.8, 0.4);
-const SELECTED_BOX_BACKGROUND_COLOR: Color = (0.6, 0.3, 0.);
-const REVERSE_SELECTION_COLOR: Color = (HE0, HFF, HE0);
 const BOX_BACKGROUND_COLOR: Color = (H20, H20, H20);
 const BOX_BORDER_COLOR: Color = (H50, H50, H50);
 const MODEL_COLOR: Color = (HD3, HD3, HD3); // lightgray
@@ -53,7 +49,6 @@ const SELECTED_AUDIO_COLOR: Color = (0., 0.4, 0.4); // cyan
 const SELECTED_CONTROL_COLOR: Color = (0.4, 0.4, 0.); // yellow
 const SELECTED_CV_COLOR: Color = (0.5, 0.3, 0.);
 const SELECTED_ATOM_COLOR: Color = (0.4, 0., 0.4); // magenta
-const SELECTED_IO_COLOR: Color = (0.1, 0.1, 0.1);
 const VALUE_COLOR: Color = (0.5, 0.5, 1.); // cyan
 const SUP_COLOR: Color = (HFF, H00, H00); // red
 const ADD_COLOR: Color = (0., 1., 0.); // green
@@ -66,19 +61,12 @@ pub fn selected_io_background(cc: &Context) {
     set_color(cc, SELECTED_IO_BACKGROUND_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
-pub fn reverse_selection(cc: &Context) {
-    set_color(cc, REVERSE_SELECTION_COLOR);
-    cc.set_font_size(FONT_SIZE);
-}
 pub fn box_background(cc: &Context) {
     set_color(cc, BOX_BACKGROUND_COLOR);
 }
 pub fn box_border(cc: &Context) {
     set_color(cc, BOX_BORDER_COLOR);
     cc.set_line_width(0.5);
-}
-pub fn selected_box_background(cc: &Context) {
-    set_color(cc, SELECTED_BOX_BACKGROUND_COLOR);
 }
 pub fn selected(cc: &Context) {
     selected_io_background(cc);
@@ -133,10 +121,6 @@ pub fn selected_atom(cc: &Context) {
     set_color(cc, SELECTED_ATOM_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
-pub fn selected_io(cc: &Context) {
-    set_color(cc, SELECTED_IO_COLOR);
-    cc.set_font_size(FONT_SIZE);
-}
 pub fn value(cc: &Context) {
     set_color(cc, VALUE_COLOR);
     cc.set_font_size(FONT_SIZE);
@@ -159,8 +143,6 @@ pub fn connection(cc: &Context, color: &Color) {
     cc.set_line_width(2.);
 }
 
-//pub fn flow            (cc: &Context,) {set_color(cc, _COLOR);} //Color.ofString "0x00FFFFFF" /* "cyan" */
-//pub fn marker          (cc: &Context,) {set_color(cc, _COLOR);} //Color.ofString "0xFF8000FF" /* "orange" */
 pub fn make_color(d1: u64, d2: u64) -> Color {
     let v = d1 + (d2 << 14);
     let r = (95 + (v % 3) * 80) as f64 / 255.;

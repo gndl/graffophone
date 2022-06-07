@@ -40,8 +40,6 @@ impl ApplicationView {
         // ApplicationWindow
         let window = gtk::ApplicationWindow::new(application);
 
-        let selected_talker_label = gtk::Label::new(Some("Selected talkers :"));
-
         // header bar
         let headerbar = gtk::HeaderBar::new();
         headerbar.set_subtitle(Some("Graffophone"));

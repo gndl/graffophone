@@ -30,18 +30,13 @@ const ROW_SPACING: f64 = 5.;
 const COLUMN_SPACING: f64 = 50.;
 
 struct ColumnProperty {
-    start: f64, // TODO : remove
     thickness: f64,
     count: i32,
 }
 
 impl ColumnProperty {
-    pub fn new(start: f64, thickness: f64, count: i32) -> ColumnProperty {
-        Self {
-            start,
-            thickness,
-            count,
-        }
+    pub fn new(thickness: f64, count: i32) -> ColumnProperty {
+        Self { thickness, count }
     }
 }
 
@@ -57,7 +52,7 @@ where
     match column_properties.get_mut(&n) {
         Some(cp) => f(cp, p),
         None => {
-            let mut cp = ColumnProperty::new(0., 0., 0);
+            let mut cp = ColumnProperty::new(0., 0);
             let r = f(&mut cp, p);
             column_properties.insert(n, cp);
             r
@@ -355,7 +350,7 @@ impl GraphView {
 
     fn create_graph(
         &mut self,
-        drawing_area: &DrawingArea,
+        _drawing_area: &DrawingArea,
         control_supply: &ControlSupply,
     ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
         let session_presenter = self.session_presenter.borrow();
@@ -364,7 +359,7 @@ impl GraphView {
             let mut collector = Collector::new(control_supply, &self.graph_presenter, 0, 1, None);
 
             /* create graph by covering mixers */
-            let mixers_column_property = ColumnProperty::new(0., 0., session.mixers().len() as i32);
+            let mixers_column_property = ColumnProperty::new(0., session.mixers().len() as i32);
             collector
                 .columns_properties
                 .insert(0, mixers_column_property);
