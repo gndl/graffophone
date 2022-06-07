@@ -108,17 +108,7 @@ impl Talk {
         self.talker.talk(port, tick, len)
     }
 }
-/*
-pub fn def_audio_talk(value: f32) -> Talk {
-    Talk::new(&def_audio_talker(value), 0)
-}
-pub fn def_control_talk(value: f32) -> Talk {
-    Talk::new(&def_control_talker(value), 0)
-}
-pub fn def_cv_talk(value: f32) -> Talk {
-    Talk::new(&def_cv_talker(value), 0)
-}
-*/
+
 pub fn def_talk(port_type: PortType, value: f32) -> Talk {
     match port_type {
         PortType::Audio => Talk::new(&def_audio_talker(value), 0),
@@ -538,6 +528,21 @@ impl Ear {
             sets: Cell::new(vec![Set::new(vec![hum])]),
         }
     }
+    pub fn clone(&self) -> Ear {
+        let mut sets: Vec<Set> = Vec::with_capacity(self.sets().len());
+
+        for set in self.sets().iter() {
+            sets.push(set.clone());
+        }
+
+        Self {
+            tag: self.tag.to_string(),
+            multi_hum: self.multi_hum,
+            stem_set: self.stem_set.as_ref().map(|set| set.clone()),
+            sets: Cell::new(sets),
+        }
+    }
+
     pub fn tag<'a>(&'a self) -> &'a String {
         &self.tag
     }
@@ -574,22 +579,7 @@ impl Ear {
         }
         false
     }
-    /*
-        pub fn is_listening_talker_ports(&self, id: Id) -> HashSet<Index> {
-            let mut talker_ports = HashSet::new();
 
-            for set in self.sets().iter() {
-                for hum in &set.hums {
-                    for talk in &hum.talks {
-                        if talk.talker().id() == id {
-                            talker_ports.insert(talk.port);
-                        }
-                    }
-                }
-            }
-            talker_ports
-        }
-    */
     pub fn sets_len(&self) -> usize {
         self.sets().len()
     }
@@ -679,6 +669,15 @@ impl Ear {
             for hum in &set.hums {
                 ln = hum.listen(tick, ln);
             }
+        }
+        ln
+    }
+
+    pub fn listen_set(&self, tick: i64, len: usize, set_idx: Index) -> usize {
+        let mut ln = len;
+
+        for hum in &self.sets()[set_idx].hums {
+            ln = hum.listen(tick, ln);
         }
         ln
     }

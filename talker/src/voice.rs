@@ -7,6 +7,7 @@ use std::cell::Cell;
 
 pub const DEF_OUTPUT_TAG: &'static str = "Out";
 
+#[derive(Clone)]
 pub struct Voice {
     tag: String,
     tick: Cell<i64>,
@@ -23,6 +24,7 @@ impl Voice {
             horn,
         }
     }
+
     pub fn port_type(&self) -> PortType {
         self.horn.port_type()
     }

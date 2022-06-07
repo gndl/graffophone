@@ -27,9 +27,7 @@ pub struct PTalker<'a> {
     pub connections: Vec<PConnection<'a>>,
 }
 pub struct PMixer<'a> {
-    pub id: Id,
-    pub name: &'a str,
-    pub connections: Vec<PConnection<'a>>,
+    pub talker: PTalker<'a>,
     pub outputs: Vec<Id>,
 }
 pub struct POutput<'a> {
@@ -191,9 +189,13 @@ pub fn parse<'a>(
             let (rest, outputs) = parse_outputs(rest)?;
 
             let mixer = PMixer {
-                id,
-                name,
-                connections,
+                talker: PTalker {
+                    model: "mixer",
+                    id,
+                    name,
+                    data: None,
+                    connections,
+                },
                 outputs,
             };
             mixers.insert(id, mixer);
@@ -236,118 +238,3 @@ pub fn parse<'a>(
 
     Ok((talkers, mixers, outputs))
 }
-
-/*
-   fn tidy_decs<'a>(
-       module: PModule<'a>,
-       (tkr_decs, mxr_decs, otp_decs): &mut (
-           HashMap<Id, PModule<'a>>,
-           HashMap<Id, PModule<'a>>,
-           HashMap<Id, PModule<'a>>,
-       ),
-   ) {
-       match module.kind {
-           "" => None,
-           mixer::KIND => mxr_decs.insert(module.id, module),
-           output::KIND => otp_decs.insert(module.id, module),
-           _ => if module.model == tkr_decs.insert(module.id, module),
-       };
-   }
-
-   fn make_decs<'a>(
-       source: &'a String,
-   ) -> Result<
-       (
-           HashMap<Id, PModule<'a>>,
-           HashMap<Id, PModule<'a>>,
-           HashMap<Id, PModule<'a>>,
-       ),
-       failure::Error,
-   > {
-       let mut decs = (HashMap::new(), HashMap::new(), HashMap::new());
-       let mut module = PModule::new("", "", 0, "");
-       let mut rest = source.as_str();
-
-       while rest.len() > 0 {
-           if rest.starts_with("\n") {
-               rest = rest.get("\n".len()..).unwrap();
-           } else if rest.starts_with("[:") {
-               let feat_end = rest.find(":]\n").unwrap();
-               module.data = rest.get("[:".len()..feat_end).unwrap();
-               rest = rest.get(feat_end + ":]\n".len()..).unwrap();
-           } else if rest.starts_with("> ") {
-               rest = rest.get("> ".len()..).unwrap();
-               let ear_desc_end = rest.find(" ").unwrap();
-               let ear_desc = rest.get(..ear_desc_end).unwrap();
-               let (ear_tag, set_idx, hum_tag) = parse_ear(ear_desc);
-               let talk_desc_end = rest.find("\n").unwrap();
-               let talk_desc = rest.get(ear_desc_end + " ".len()..talk_desc_end).unwrap();
-
-               let talk = match f32::from_str(talk_desc) {
-                   Ok(value) => PTalk::Value(value),
-                   Err(_) => {
-                       if let Some(talker_desc_end) = talk_desc.find(":") {
-                           let talker_desc = talk_desc.get(..talker_desc_end).unwrap();
-                           let voice = talk_desc.get(talker_desc_end + ":".len()..).unwrap();
-                           PTalk::TalkerVoice(PTalkerVoice {
-                               talker: id_from_str(talker_desc)?,
-                               voice,
-                           })
-                       } else {
-                           PTalk::TalkerVoice(PTalkerVoice {
-                               talker: id_from_str(talk_desc)?,
-                               voice: &"",
-                           })
-                       }
-                   }
-               };
-
-               let cnx = PConnection {
-                   ear_tag,
-                   set_idx,
-                   hum_tag,
-                   talk,
-               };
-               module.connections.push(cnx);
-               rest = rest.get(talk_desc_end + "\n".len()..).unwrap();
-           } else if rest.starts_with("< ") {
-               rest = rest.get("< ".len()..).unwrap();
-               let output_id_desc_end = rest.find("\n").unwrap();
-               let output_id_desc = rest.get(..output_id_desc_end).unwrap();
-               let id = id_from_str(output_id_desc)?;
-               module.outputs.push(id);
-               rest = rest.get(output_id_desc_end + "\n".len()..).unwrap();
-           } else if rest.starts_with("output ") {
-               Band::tidy_decs(module, &mut decs);
-
-               rest = rest.get("output ".len()..).unwrap();
-               let model_end = rest.find(" ").unwrap();
-               let model = rest.get(..model_end).unwrap();
-               rest = rest.get(model_end + " ".len()..).unwrap();
-               let mref_end = rest.find("\n").unwrap();
-               let mref = rest.get(..mref_end).unwrap();
-               let (id, name) = id_name_from_mref(mref)?;
-
-               module = PModule::new(output::KIND, model, id, name);
-               rest = rest.get(mref_end + "\n".len()..).unwrap();
-           } else if let Some(model_end) = rest.find(" ") {
-               Band::tidy_decs(module, &mut decs);
-               let model = rest.get(..model_end).unwrap();
-
-               rest = rest.get(model_end + " ".len()..).unwrap();
-
-               let mref_end = rest.find("\n").unwrap();
-               let mref = rest.get(..mref_end).unwrap();
-               let (id, name) = id_name_from_mref(mref)?;
-
-               module = PModule::new(model, model, id, name);
-               rest = rest.get(mref_end + "\n".len()..).unwrap();
-           } else {
-               rest = rest.get("\n".len()..).unwrap();
-           }
-       }
-       Band::tidy_decs(module, &mut decs);
-       Ok(decs)
-   }
-
-*/

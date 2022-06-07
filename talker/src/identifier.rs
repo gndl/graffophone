@@ -11,6 +11,7 @@ pub fn get_next_id() -> Id {
     ID_COUNT.load(Ordering::SeqCst)
 }
 
+#[derive(Clone)]
 pub struct Identifier {
     id: Id,
     name: String,
@@ -52,13 +53,6 @@ impl Identifier {
             id,
             name,
             model: model.to_string(),
-        }
-    }
-    pub fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            name: self.name.to_string(),
-            model: self.model.to_string(),
         }
     }
 

@@ -2,6 +2,7 @@ extern crate failure;
 use std::cell::RefCell;
 use std::str::FromStr;
 
+#[derive(Clone)]
 pub enum Data {
     Nil,
     Int(i64),

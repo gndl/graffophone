@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use talker::ear::{Ear, Talk};
 use talker::identifier::{Id, Identifiable, Identifier, Index};
@@ -27,7 +28,6 @@ use talker::talker::RTalker;
 use crate::factory::Factory;
 use crate::mixer;
 use crate::mixer::RMixer;
-use crate::output::ROutput;
 use crate::parser;
 use crate::parser::{PMixer, POutput, PTalk, PTalker};
 
@@ -84,44 +84,59 @@ impl Band {
         &self.mixers
     }
 
-    fn set_talker_ears(
-        talkers: &HashMap<Id, RTalker>,
-        talker: &RTalker,
+    fn set_talker_ears<'a>(
+        &'a mut self,
+        talkers_ptalkers: &mut HashMap<Id, (RTalker, &PTalker)>,
+        mut talker: RTalker,
         ptalker: &PTalker,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<RTalker, failure::Error> {
         for cnx in &ptalker.connections {
-            match &cnx.talk {
-                PTalk::Value(value) => talker.set_ear_hum_talk_value_by_tag(
+            let onew_talker = match &cnx.talk {
+                PTalk::Value(value) => talker.set_ear_hum_talk_value_update(
                     cnx.ear_tag,
                     cnx.set_idx,
                     cnx.hum_tag,
                     cnx.talk_idx,
                     *value,
                 )?,
-                PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                    Some(tkr) => talker.set_ear_hum_talk_voice_by_tag(
+                PTalk::TalkerVoice(talker_voice) => {
+                    let tkr = match talkers_ptalkers.remove(&talker_voice.talker) {
+                        Some((tkr, ptkr)) => self.set_talker_ears(talkers_ptalkers, tkr, ptkr)?,
+                        None => (self.fetch_talker(&talker_voice.talker)?).clone(),
+                    };
+                    let voice_port = match usize::from_str(talker_voice.voice) {
+                        Ok(p) => p,
+                        Err(_) => tkr.find_voice_port(&talker_voice.voice)?,
+                    };
+
+                    if voice_port >= tkr.voices().len() {
+                        return Err(failure::err_msg(format!(
+                            "Unknow voice {} for talker {}",
+                            talker_voice.voice, talker_voice.talker
+                        )));
+                    }
+
+                    talker.set_ear_hum_talk_voice_update(
                         cnx.ear_tag,
                         cnx.set_idx,
                         cnx.hum_tag,
                         cnx.talk_idx,
-                        tkr,
-                        tkr.voice_port(&talker_voice.voice)?,
-                    )?,
-                    None => {
-                        return Err(failure::err_msg(format!(
-                            "Talker {} not found!",
-                            talker_voice.talker
-                        )));
-                    }
-                },
+                        &tkr,
+                        voice_port,
+                    )?
+                }
+            };
+            if let Some(new_talker) = onew_talker {
+                talker = new_talker;
             }
         }
-        Ok(())
+        self.talkers.insert(ptalker.id, talker.clone());
+        Ok(talker)
     }
 
     fn make_mixer(
+        &mut self,
         factory: &Factory,
-        talkers: &HashMap<Id, RTalker>,
         poutputs: &HashMap<Id, POutput>,
         pmixer: &PMixer,
     ) -> Result<RMixer, failure::Error> {
@@ -142,39 +157,12 @@ impl Band {
             }
         }
 
-        let rmixer = factory.make_mixer(Some(pmixer.id), Some(pmixer.name), None, Some(outputs))?;
-        {
-            let mixer = rmixer.borrow_mut();
-
-            for cnx in &pmixer.connections {
-                match &cnx.talk {
-                    PTalk::Value(value) => mixer.talker().set_ear_hum_talk_value_by_tag(
-                        cnx.ear_tag,
-                        cnx.set_idx,
-                        cnx.hum_tag,
-                        cnx.talk_idx,
-                        *value,
-                    )?,
-                    PTalk::TalkerVoice(talker_voice) => match talkers.get(&talker_voice.talker) {
-                        Some(tkr) => mixer.talker().set_ear_hum_talk_voice_by_tag(
-                            cnx.ear_tag,
-                            cnx.set_idx,
-                            cnx.hum_tag,
-                            cnx.talk_idx,
-                            tkr,
-                            tkr.voice_port(&talker_voice.voice)?,
-                        )?,
-                        None => {
-                            return Err(failure::err_msg(format!(
-                                "Talker {} not found!",
-                                talker_voice.talker
-                            )));
-                        }
-                    },
-                }
-            }
-        }
-        Ok(rmixer)
+        factory.make_mixer(
+            Some(pmixer.talker.id),
+            Some(pmixer.talker.name),
+            None,
+            Some(outputs),
+        )
     }
 
     pub fn build(factory: &Factory, source: &String) -> Result<Band, failure::Error> {
@@ -183,7 +171,7 @@ impl Band {
 
         let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
 
-        let mut talkers_ptalkers = Vec::new();
+        let mut talkers_ptalkers = HashMap::new();
 
         for ptalker in ptalkers.values() {
             let mut talker =
@@ -194,17 +182,31 @@ impl Band {
                     talker = updated_talker;
                 }
             }
-            talkers_ptalkers.push((talker.clone(), ptalker));
-            band.talkers.insert(talker.id(), talker);
+            talkers_ptalkers.insert(talker.id(), (talker, ptalker));
         }
 
-        for (talker, ptalker) in talkers_ptalkers {
-            Band::set_talker_ears(&band.talkers, &talker, &ptalker)?;
+        loop {
+            let key = match talkers_ptalkers.keys().next() {
+                Some(k) => *k,
+                None => break,
+            };
+            match talkers_ptalkers.remove(&key) {
+                Some((tkr, ptkr)) => {
+                    band.set_talker_ears(&mut talkers_ptalkers, tkr, ptkr)?;
+                }
+                None => (),
+            }
         }
 
         for pmixer in pmixers.values() {
-            let rmixer = Band::make_mixer(factory, &band.talkers, &poutputs, &pmixer)?;
-            band.add_mixer(rmixer);
+            let rmixer = band.make_mixer(factory, &poutputs, &pmixer)?;
+
+            band.set_talker_ears(
+                &mut talkers_ptalkers,
+                rmixer.borrow_mut().talker().clone(),
+                &pmixer.talker,
+            )?;
+            band.mixers.insert(pmixer.talker.id, rmixer);
         }
 
         Ok(band)
@@ -231,13 +233,7 @@ impl Band {
         if tkr.is_hidden() {
             writeln!(buf, "{} <- {}", talk_tag, tkr.data_string())?;
         } else {
-            let voice_tag = tkr.voice_tag(talk.port())?;
-
-            if voice_tag == "" {
-                writeln!(buf, "{} <- {}", talk_tag, tkr.id())?;
-            } else {
-                writeln!(buf, "{} <- {}:{}", talk_tag, tkr.id(), voice_tag)?;
-            }
+            writeln!(buf, "{} <- {}:{}", talk_tag, tkr.id(), talk.port())?;
         }
         Ok(buf)
     }

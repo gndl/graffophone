@@ -197,3 +197,9 @@ impl Horn {
         }
     }
 }
+
+impl Clone for Horn {
+    fn clone(&self) -> Horn {
+        self.port_type.to_horn()
+    }
+}
