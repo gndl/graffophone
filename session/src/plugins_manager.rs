@@ -9,6 +9,8 @@ use talker::talker::TalkerCab;
 use talker::talker_handler::TalkerHandlerBase;
 use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
+use talkers::env_shaper;
+use talkers::env_shaper::EnvShaper;
 use talkers::lv2::Lv2;
 use talkers::round;
 use talkers::round::Round;
@@ -72,6 +74,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
+            PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
         ]);
 
         println!("make_plugins_handlers end");
@@ -97,6 +100,8 @@ impl PluginsManager {
             Ok(rtalker!(Tseq::new()?))
         } else if model == round::MODEL {
             Ok(rtalker!(Round::new()?))
+        } else if model == env_shaper::MODEL {
+            Ok(rtalker!(EnvShaper::new()?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }
