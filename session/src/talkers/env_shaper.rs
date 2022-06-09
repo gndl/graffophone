@@ -52,12 +52,10 @@ impl EnvShaper {
         base.add_ear(ear::cv(Some("dur"), 0., 1800., 1., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("a"), -1., 1., 0.5, &Init::DefValue)?);
         base.add_ear(ear::audio(Some("b"), -1., 1., 0.5, &Init::DefValue)?);
-        //      base.add_ear(ear::cv(Some("trigger"), 0., 20000., 0., &Init::DefValue)?);
-        //        base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
         let stem_set = Set::from_attributs(&vec![
-            ("trigger", PortType::Cv, 0., 20000., 0., Init::DefValue),
-            ("gain", PortType::Audio, -1., 1., 1., Init::DefValue),
+            ("trigger", PortType::Cv, 0., 20000., 0., Init::Empty),
+            ("gain", PortType::Audio, -1., 1., 1., Init::Empty),
         ])?;
 
         // let sets = vec![stem_set.clone()];
