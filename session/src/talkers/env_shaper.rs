@@ -49,7 +49,7 @@ impl EnvShaper {
 
         base.add_ear(ear::audio(None, -1., 1., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("time"), 0., 3600., 0., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("dur"), 0., 1800., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("dur"), 0., 400., 1., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("a"), -1., 1., 0.5, &Init::DefValue)?);
         base.add_ear(ear::audio(Some("b"), -1., 1., 0.5, &Init::DefValue)?);
 
