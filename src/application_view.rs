@@ -110,7 +110,7 @@ impl ApplicationView {
         headerbar.pack_end(&play_or_pause_button);
 
         // Split pane
-        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
 
         //            split_pane.set_size_request(-1, -1);
 
@@ -147,7 +147,7 @@ impl ApplicationView {
         let text_view = sourceview4::View::new();
 
         // Vertical box
-        let v_box = gtk::Box::new(gtk::Orientation::Vertical, 10);
+        let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
         v_box.pack_start(&text_view, false, false, 0);
         v_box.pack_start(&split_pane, true, true, 0);
 
