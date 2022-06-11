@@ -589,7 +589,7 @@ impl Ear {
         } else if self.sets().len() > 0 {
             return self.sets()[0].hums.len();
         }
-        return 0;
+        0
     }
 
     pub fn hum_range(&self, hum_idx: Index) -> (f32, f32, f32) {
@@ -600,7 +600,7 @@ impl Ear {
         } else if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
             return self.sets()[0].hums[hum_idx].range();
         }
-        return (0., 0., 0.);
+        (0., 0., 0.)
     }
 
     pub fn talk_def_value(&self, hum_idx: Index) -> f32 {
@@ -611,7 +611,7 @@ impl Ear {
         } else if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
             return self.sets()[0].hums[hum_idx].def_value();
         }
-        return 0.;
+        0.
     }
 
     pub fn talk_value_or_default(&self, set_idx: Index, hum_idx: Index) -> f32 {
@@ -622,7 +622,7 @@ impl Ear {
         } else if self.sets().len() > 0 && self.sets()[set_idx].hums.len() > hum_idx {
             return self.sets()[set_idx].hums[hum_idx].value_or_default();
         }
-        return 0.;
+        0.
     }
 
     pub fn get_set_hum_audio_buffer(&self, set_idx: Index, hum_idx: Index) -> AudioBuf {
@@ -698,13 +698,13 @@ impl Ear {
 
     pub fn fold_talks<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
-        F: FnMut(&str, Index, &str, Index, &Talk, P) -> Result<P, failure::Error>,
+        F: FnMut(Index, Index, Index, &Talk, P) -> Result<P, failure::Error>,
     {
         let mut acc = p;
         for (set_idx, set) in self.sets().iter().enumerate() {
-            for hum in &set.hums {
+            for (hum_idx, hum) in set.hums.iter().enumerate() {
                 for (talk_idx, talk) in hum.talks.iter().enumerate() {
-                    acc = f(&self.tag, set_idx, hum.tag(), talk_idx, &talk, acc)?;
+                    acc = f(set_idx, hum_idx, talk_idx, &talk, acc)?;
                 }
             }
         }
@@ -741,10 +741,10 @@ impl Ear {
 
             Ok(set_idx)
         } else {
-            return Err(failure::err_msg(format!(
+            Err(failure::err_msg(format!(
                 "Ear {} stem set not found!",
                 self.tag()
-            )));
+            )))
         }
     }
     pub fn sup_set(&self, set_idx: Index) -> Result<(), failure::Error> {
@@ -816,58 +816,6 @@ impl Ear {
         Ok(())
     }
 
-    pub fn find_hum_index(&self, hum_tag: &str) -> Result<Index, failure::Error> {
-        if let Some(set) = &self.stem_set {
-            set.find_hum_index(hum_tag)
-        } else if self.sets().len() > 0 {
-            self.sets()[0].find_hum_index(hum_tag)
-        } else {
-            Err(failure::err_msg(format!("hum {} not found!", hum_tag)))
-        }
-    }
-
-    pub fn set_hum_value_by_tag(
-        &self,
-        set_idx: Index,
-        hum_tag: &str,
-        value: f32,
-    ) -> Result<(), failure::Error> {
-        let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.set_value(value))
-    }
-    pub fn set_hum_voice_by_tag(
-        &self,
-        set_idx: Index,
-        hum_tag: &str,
-        talker: &RTalker,
-        port: usize,
-    ) -> Result<(), failure::Error> {
-        let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(talker, port))
-    }
-    pub fn set_hum_talk_value_by_tag(
-        &self,
-        set_idx: Index,
-        hum_tag: &str,
-        talk_idx: Index,
-        value: f32,
-    ) -> Result<(), failure::Error> {
-        let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.set_talk_value(talk_idx, value))
-    }
-    pub fn set_hum_talk_voice_by_tag(
-        &self,
-        set_idx: Index,
-        hum_tag: &str,
-        talk_idx: Index,
-        talker: &RTalker,
-        port: usize,
-    ) -> Result<(), failure::Error> {
-        let hum_idx = self.find_hum_index(hum_tag)?;
-        self.set_hum(set_idx, hum_idx, |hum| {
-            hum.set_talk_voice(talk_idx, talker, port)
-        })
-    }
     pub fn set_hum_value(
         &self,
         set_idx: Index,

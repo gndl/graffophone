@@ -300,7 +300,7 @@ impl GraphView {
 
             for ear in talker.ears() {
                 talks_count = ear.fold_talks(
-                    |_, _, _, _, tlk, tc| {
+                    |_, _, _, tlk, tc| {
                         if tlk.talker().is_hidden() {
                             Ok(tc)
                         } else {

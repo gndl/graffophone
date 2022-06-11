@@ -90,18 +90,6 @@ impl TalkerBase {
     pub fn add_ear(&mut self, ear: Ear) {
         self.ears.push(ear);
     }
-    fn find_ear(&self, ear_tag: &str) -> Result<&Ear, failure::Error> {
-        for ear in &self.ears {
-            if ear.tag() == ear_tag {
-                return Ok(ear);
-            }
-        }
-        Err(failure::err_msg(format!(
-            "Talker {} find_ear : ear {} not found!",
-            self.name(),
-            ear_tag
-        )))
-    }
 
     pub fn voice(&self, voice_idx: Index) -> &Voice {
         &self.voices[voice_idx]
@@ -320,18 +308,6 @@ impl TalkerCab {
     pub fn ears<'a>(&'a self) -> &'a Vec<Ear> {
         &self.base.ears
     }
-    pub fn find_ear_index(&self, ear_tag: &str) -> Result<Index, failure::Error> {
-        for (index, ear) in self.base.ears.iter().enumerate() {
-            if ear.tag() == ear_tag {
-                return Ok(index);
-            }
-        }
-        Err(failure::err_msg(format!(
-            "Talker {} find_ear_index : ear {} not found!",
-            self.name(),
-            ear_tag
-        )))
-    }
 
     pub fn voice(&self, voice_idx: Index) -> &Voice {
         self.base.voice(voice_idx)
@@ -341,18 +317,6 @@ impl TalkerCab {
     }
     pub fn voice_port_type(&self, port: usize) -> PortType {
         self.voice(port).port_type()
-    }
-    pub fn find_voice_port(&self, tag: &str) -> Result<usize, failure::Error> {
-        for (port, voice) in self.base.voices.iter().enumerate() {
-            if voice.tag() == tag {
-                return Ok(port);
-            }
-        }
-        Err(failure::err_msg(format!(
-            "Unknow voice {} for talker {}",
-            tag,
-            self.name()
-        )))
     }
 
     pub fn voice_tag(&self, port: usize) -> Result<String, failure::Error> {
@@ -415,78 +379,6 @@ impl TalkerCab {
             }
         }
         None
-    }
-
-    pub fn set_ear_hum_value_by_tag(
-        &self,
-        ear_tag: &str,
-        set_idx: Index,
-        hum_tag: &str,
-        value: f32,
-    ) -> Result<(), failure::Error> {
-        self.base
-            .find_ear(ear_tag)?
-            .set_hum_value_by_tag(set_idx, hum_tag, value)
-    }
-    pub fn set_ear_hum_voice_by_tag(
-        &self,
-        ear_tag: &str,
-        set_idx: Index,
-        hum_tag: &str,
-        talker: &RTalker,
-        port: usize,
-    ) -> Result<(), failure::Error> {
-        self.base
-            .find_ear(ear_tag)?
-            .set_hum_voice_by_tag(set_idx, hum_tag, talker, port)
-    }
-
-    pub fn set_ear_hum_talk_value_update(
-        &self,
-        ear_tag: &str,
-        set_idx: Index,
-        hum_tag: &str,
-        talk_idx: Index,
-        value: f32,
-    ) -> Result<Option<RTalker>, failure::Error> {
-        let ear_idx = self.find_ear_index(ear_tag)?;
-        let ear = &self.base.ears[ear_idx];
-
-        if set_idx < ear.sets_len() {
-            ear.set_hum_talk_value_by_tag(set_idx, hum_tag, talk_idx, value)?;
-            Ok(None)
-        } else {
-            let hum_idx = ear.find_hum_index(hum_tag)?;
-            let obase = self
-                .core
-                .borrow_mut()
-                .add_set_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?;
-            self.update(obase)
-        }
-    }
-    pub fn set_ear_hum_talk_voice_update(
-        &self,
-        ear_tag: &str,
-        set_idx: Index,
-        hum_tag: &str,
-        talk_idx: Index,
-        talker: &RTalker,
-        port: usize,
-    ) -> Result<Option<RTalker>, failure::Error> {
-        let ear_idx = self.find_ear_index(ear_tag)?;
-        let ear = &self.base.ears[ear_idx];
-
-        if set_idx < ear.sets_len() {
-            ear.set_hum_talk_voice_by_tag(set_idx, hum_tag, talk_idx, talker, port)?;
-            Ok(None)
-        } else {
-            let hum_idx = ear.find_hum_index(hum_tag)?;
-            let obase = self
-                .core
-                .borrow_mut()
-                .add_set_voice_to_ear_update(&self.base, ear_idx, hum_idx, talker, port)?;
-            self.update(obase)
-        }
     }
 
     pub fn set_ear_hum_value(

@@ -19,7 +19,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use talker::ear::{Ear, Talk};
 use talker::identifier::{Id, Identifiable, Identifier, Index};
@@ -38,8 +37,8 @@ pub enum Operation {
     SetTalkerData(Id, String),
     SetEarHumVoice(Id, Index, Index, Index, Id, Index),
     SetEarHumValue(Id, Index, Index, Index, f32),
-    SetEarTalkVoice(Id, Index, Index, Index, Index, Id, Index),
-    SetEarTalkValue(Id, Index, Index, Index, Index, f32),
+    SetEarTalkVoice(Id, Index, Index, Index, Index, Id, Index), // TODO: to remove
+    SetEarTalkValue(Id, Index, Index, Index, Index, f32),       // TODO: to remove
     AddValueToEarHum(Id, Index, Index, Index, f32),
     AddVoiceToEarHum(Id, Index, Index, Index, Id, Index),
     SupEarTalk(Id, Index, Index, Index, Index),
@@ -91,39 +90,47 @@ impl Band {
         ptalker: &PTalker,
     ) -> Result<RTalker, failure::Error> {
         for cnx in &ptalker.connections {
+            let ear = talker.ear(cnx.ear_idx);
+
             let onew_talker = match &cnx.talk {
-                PTalk::Value(value) => talker.set_ear_hum_talk_value_update(
-                    cnx.ear_tag,
-                    cnx.set_idx,
-                    cnx.hum_tag,
-                    cnx.talk_idx,
-                    *value,
-                )?,
+                PTalk::Value(value) => {
+                    if cnx.set_idx < ear.sets_len() {
+                        ear.set_talk_value(cnx.set_idx, cnx.hum_idx, cnx.talk_idx, *value)?;
+                        None
+                    } else {
+                        talker.add_set_value_to_ear_update(cnx.ear_idx, cnx.hum_idx, *value)?
+                    }
+                }
                 PTalk::TalkerVoice(talker_voice) => {
                     let tkr = match talkers_ptalkers.remove(&talker_voice.talker) {
                         Some((tkr, ptkr)) => self.set_talker_ears(talkers_ptalkers, tkr, ptkr)?,
                         None => (self.fetch_talker(&talker_voice.talker)?).clone(),
                     };
-                    let voice_port = match usize::from_str(talker_voice.voice) {
-                        Ok(p) => p,
-                        Err(_) => tkr.find_voice_port(&talker_voice.voice)?,
-                    };
 
-                    if voice_port >= tkr.voices().len() {
+                    if talker_voice.voice_port >= tkr.voices().len() {
                         return Err(failure::err_msg(format!(
                             "Unknow voice {} for talker {}",
-                            talker_voice.voice, talker_voice.talker
+                            talker_voice.voice_port, talker_voice.talker
                         )));
                     }
 
-                    talker.set_ear_hum_talk_voice_update(
-                        cnx.ear_tag,
-                        cnx.set_idx,
-                        cnx.hum_tag,
-                        cnx.talk_idx,
-                        &tkr,
-                        voice_port,
-                    )?
+                    if cnx.set_idx < ear.sets_len() {
+                        ear.set_talk_voice(
+                            cnx.set_idx,
+                            cnx.hum_idx,
+                            cnx.talk_idx,
+                            &tkr,
+                            talker_voice.voice_port,
+                        )?;
+                        None
+                    } else {
+                        talker.add_set_voice_to_ear_update(
+                            cnx.ear_idx,
+                            cnx.hum_idx,
+                            &tkr,
+                            talker_voice.voice_port,
+                        )?
+                    }
                 }
             };
             if let Some(new_talker) = onew_talker {
@@ -220,20 +227,20 @@ impl Band {
     }
 
     fn talk_dep_line<'a>(
-        ear_tag: &str,
+        ear_idx: Index,
         set_idx: Index,
-        hum_tag: &str,
+        hum_idx: Index,
         talk_idx: Index,
         talk: &Talk,
         buf: &'a mut String,
     ) -> Result<&'a mut String, failure::Error> {
-        let talk_tag = format!("> {}.{}.{}.{}", ear_tag, set_idx, hum_tag, talk_idx);
+        let talk_tag = format!(">{}.{}.{}.{}", ear_idx, set_idx, hum_idx, talk_idx);
         let tkr = &talk.talker();
 
         if tkr.is_hidden() {
-            writeln!(buf, "{} <- {}", talk_tag, tkr.data_string())?;
+            writeln!(buf, "{}<{}", talk_tag, tkr.data_string())?;
         } else {
-            writeln!(buf, "{} <- {}:{}", talk_tag, tkr.id(), talk.port())?;
+            writeln!(buf, "{}<{}:{}", talk_tag, tkr.id(), talk.port())?;
         }
         Ok(buf)
     }
@@ -250,8 +257,13 @@ impl Band {
                 if !data.is_empty() {
                     writeln!(buf, "[:{}:]", data)?;
                 }
-                for ear in ears {
-                    ear.fold_talks(Band::talk_dep_line, &mut buf)?;
+                for (ear_idx, ear) in ears.iter().enumerate() {
+                    ear.fold_talks(
+                        |set_idx, hum_idx, talk_idx, talk, buf| {
+                            Band::talk_dep_line(ear_idx, set_idx, hum_idx, talk_idx, talk, buf)
+                        },
+                        &mut buf,
+                    )?;
                 }
             }
         }
@@ -260,8 +272,13 @@ impl Band {
             let mixer = rmixer.borrow();
             writeln!(buf, "\n{} {}#{}", mixer::KIND, mixer.id(), &mixer.name())?;
 
-            for ear in mixer.talker().ears() {
-                ear.fold_talks(Band::talk_dep_line, &mut buf)?;
+            for (ear_idx, ear) in mixer.talker().ears().iter().enumerate() {
+                ear.fold_talks(
+                    |set_idx, hum_idx, talk_idx, talk, buf| {
+                        Band::talk_dep_line(ear_idx, set_idx, hum_idx, talk_idx, talk, buf)
+                    },
+                    &mut buf,
+                )?;
             }
             for routput in mixer.outputs() {
                 let output = routput.borrow();
@@ -327,9 +344,6 @@ impl Band {
         oid: Option<Id>,
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
-        if let Some(id) = oid {
-            println!("Band.add_talker {}", id);
-        }
         Factory::visit(|factory| {
             let tkr = self.build_talker(factory, model, oid, oname)?;
             Ok(tkr)

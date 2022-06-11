@@ -3,28 +3,28 @@ use std::str::FromStr;
 
 use talker::identifier::{Id, Index};
 
-pub struct PTalkerVoice<'a> {
+pub struct PTalkerVoice {
     pub talker: Id,
-    pub voice: &'a str,
+    pub voice_port: usize,
 }
-pub enum PTalk<'a> {
-    TalkerVoice(PTalkerVoice<'a>),
+pub enum PTalk {
+    TalkerVoice(PTalkerVoice),
     Value(f32),
 }
 
-pub struct PConnection<'a> {
-    pub ear_tag: &'a str,
+pub struct PConnection {
+    pub ear_idx: usize,
     pub set_idx: usize,
-    pub hum_tag: &'a str,
+    pub hum_idx: usize,
     pub talk_idx: usize,
-    pub talk: PTalk<'a>,
+    pub talk: PTalk,
 }
 pub struct PTalker<'a> {
     pub model: &'a str,
     pub id: Id,
     pub name: &'a str,
     pub data: Option<&'a str>,
-    pub connections: Vec<PConnection<'a>>,
+    pub connections: Vec<PConnection>,
 }
 pub struct PMixer<'a> {
     pub talker: PTalker<'a>,
@@ -76,69 +76,70 @@ fn parse_data<'a>(source: &'a str) -> Result<(&'a str, Option<&'a str>), failure
     }
 }
 
-fn parse_connections<'a>(
-    source: &'a str,
-) -> Result<(&'a str, Vec<PConnection<'a>>), failure::Error> {
+fn parse_connections<'a>(source: &'a str) -> Result<(&'a str, Vec<PConnection>), failure::Error> {
     let mut connections = Vec::new();
     let mut src = source;
 
-    while src.starts_with("> ") {
-        src = src.get("> ".len()..).unwrap();
+    while src.starts_with(">") {
+        src = src.get(">".len()..).unwrap();
 
-        let ear_desc_end = src.find(" <- ").unwrap();
+        let ear_desc_end = src.find("<").unwrap();
         let mut ear_desc = src.get(..ear_desc_end).unwrap();
 
-        let (ear_tag, set_idx, hum_tag, talk_idx) = if let Some(ear_tag_end) = ear_desc.find(".") {
-            let ear_tag = ear_desc.get(..ear_tag_end).unwrap();
-            ear_desc = ear_desc.get(ear_tag_end + ".".len()..).unwrap();
+        let (ear_idx, set_idx, hum_idx, talk_idx) = if let Some(ear_id_end) = ear_desc.find(".") {
+            let ear_id = ear_desc.get(..ear_id_end).unwrap();
+            let ear_idx = Index::from_str(ear_id).unwrap_or(0);
+            ear_desc = ear_desc.get(ear_id_end + ".".len()..).unwrap();
 
-            if let Some(ear_set_end) = ear_desc.find(".") {
-                let set_desc = ear_desc.get(..ear_set_end).unwrap();
-                let set_idx = Index::from_str(set_desc).unwrap_or(0);
-                ear_desc = ear_desc.get(ear_set_end + ".".len()..).unwrap();
+            if let Some(ear_set_id_end) = ear_desc.find(".") {
+                let set_id = ear_desc.get(..ear_set_id_end).unwrap();
+                let set_idx = Index::from_str(set_id).unwrap_or(0);
+                ear_desc = ear_desc.get(ear_set_id_end + ".".len()..).unwrap();
 
-                if let Some(ear_hum_end) = ear_desc.find(".") {
-                    let hum_tag = ear_desc.get(..ear_hum_end).unwrap();
-                    let talk_idx =
-                        Index::from_str(ear_desc.get(ear_hum_end + ".".len()..).unwrap())
-                            .unwrap_or(0);
-                    (ear_tag, set_idx, hum_tag, talk_idx)
+                if let Some(ear_hum_id_end) = ear_desc.find(".") {
+                    let hum_id = ear_desc.get(..ear_hum_id_end).unwrap();
+                    let hum_idx = Index::from_str(hum_id).unwrap_or(0);
+
+                    let talk_id = ear_desc.get(ear_hum_id_end + ".".len()..).unwrap();
+                    let talk_idx = Index::from_str(talk_id).unwrap_or(0);
+                    (ear_idx, set_idx, hum_idx, talk_idx)
                 } else {
-                    (ear_tag, set_idx, ear_desc, 0)
+                    (ear_idx, set_idx, Index::from_str(ear_desc).unwrap_or(0), 0)
                 }
             } else {
-                (ear_tag, Index::from_str(ear_desc).unwrap_or(0), "", 0)
+                (ear_idx, Index::from_str(ear_desc).unwrap_or(0), 0, 0)
             }
         } else {
-            (ear_desc, 0, "", 0)
+            (Index::from_str(ear_desc).unwrap_or(0), 0, 0, 0)
         };
 
         let talk_desc_end = src.find("\n").unwrap();
-        let talk_desc = src.get(ear_desc_end + " <- ".len()..talk_desc_end).unwrap();
+        let talk_desc = src.get(ear_desc_end + "<".len()..talk_desc_end).unwrap();
 
         let talk = match f32::from_str(talk_desc) {
             Ok(value) => PTalk::Value(value),
             Err(_) => {
                 if let Some(talker_desc_end) = talk_desc.find(":") {
                     let talker_desc = talk_desc.get(..talker_desc_end).unwrap();
-                    let voice = talk_desc.get(talker_desc_end + ":".len()..).unwrap();
+                    let voice_id = talk_desc.get(talker_desc_end + ":".len()..).unwrap();
+                    let voice_port = Index::from_str(voice_id).unwrap_or(0);
                     PTalk::TalkerVoice(PTalkerVoice {
                         talker: id_from_str(talker_desc)?,
-                        voice,
+                        voice_port,
                     })
                 } else {
                     PTalk::TalkerVoice(PTalkerVoice {
                         talker: id_from_str(talk_desc)?,
-                        voice: &"",
+                        voice_port: 0,
                     })
                 }
             }
         };
 
         let cnx = PConnection {
-            ear_tag,
+            ear_idx,
             set_idx,
-            hum_tag,
+            hum_idx,
             talk_idx,
             talk,
         };

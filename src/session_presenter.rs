@@ -12,15 +12,16 @@ use session::state::State;
 
 const GSR: &str = "
 Sinusoidal 2#Sin 1
-> freq <- 440
-> phase <- 0
+>0<440
+>1<0
+>2<1
 
 mixer 1#mixer 1
-> volume <- 0.01
-> Tracks.0.In <- 2:Out
-> Tracks.0.gain <- 1
-> Tracks.0.left <- 1
-> Tracks.0.right <- 1
+>0<0.01
+>1.0.0.0<2:0
+>1.0.1.0<1
+>1.0.2.0<1
+>1.0.3.0<1
 ";
 
 pub struct SessionPresenter {
