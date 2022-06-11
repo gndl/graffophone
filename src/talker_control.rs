@@ -401,6 +401,7 @@ impl TalkerControlBase {
                 let mut ear_e_y = b_y;
                 let add_set_area = if ear_is_multi_set {
                     let add_area = dim_to_area(b_x, b_y, &control_supply.add_dim);
+                    ear_e_x = f64::max(ear_e_x, add_area.e_x);
                     ear_e_y = add_area.e_y;
                     Some(add_area)
                 } else {
@@ -918,6 +919,7 @@ impl TalkerControlBase {
                             }
                         }
                     }
+
                     if let Some(add_set_area) = &ear.add_set_area {
                         if add_set_area.is_under(rx, ry) {
                             let notifications =
