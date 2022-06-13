@@ -71,6 +71,12 @@ impl Talker for Tseq {
                             Exp::Beat(ref beat) => {
                                 pare.beats.insert(beat.id, &beat);
                             }
+                            Exp::Chord(ref chord) => {
+                                pare.chords.insert(chord.id, &chord);
+                            }
+                            Exp::ChordLine(ref line) => {
+                                pare.chordlines.insert(line.id, &line);
+                            }
                             Exp::PitchLine(ref line) => {
                                 let mut pitchs = Vec::new();
                                 for pitch in &line.pitchs {

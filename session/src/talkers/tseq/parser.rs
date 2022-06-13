@@ -28,6 +28,31 @@ pub enum PTransition {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct PRatio {
+    pub num: f32,
+    pub den: f32,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PHarmonic {
+    pub freq_ratio: PRatio,
+    pub delay: Option<f32>,
+    pub velocity: Option<PVelocity>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PChord<'a> {
+    pub id: &'a str,
+    pub harmonics: Vec<PHarmonic>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PChordLine<'a> {
+    pub id: &'a str,
+    pub chords: Vec<&'a str>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PPitch<'a> {
     pub id: &'a str,
     pub transition: PTransition,
@@ -102,10 +127,12 @@ pub struct PSequence<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Exp<'a> {
     Beat(PBeat<'a>),
-    PitchLine(PPitchLine<'a>),
-    HitLine(PHitLine<'a>),
+    Chord(PChord<'a>),
+    ChordLine(PChordLine<'a>),
     DurationLine(PDurationLine<'a>),
     VelocityLine(PVelocityLine<'a>),
+    HitLine(PHitLine<'a>),
+    PitchLine(PPitchLine<'a>),
     Seq(PSequence<'a>),
     FreqOut(PSequence<'a>),
     VelOut(PSequence<'a>),
@@ -199,8 +226,53 @@ fn velos(input: &str) -> IResult<&str, Exp> {
     Ok((input, Exp::VelocityLine(PVelocityLine { id, velocities })))
 }
 
+fn ratio(input: &str) -> IResult<&str, PRatio> {
+    let (input, (num, den)) = tuple((float, opt(delimited(slash, float, space0))))(input)?;
+    Ok((
+        input,
+        PRatio {
+            num,
+            den: den.unwrap_or(1.),
+        },
+    ))
+}
+
+fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
+    let (input, (freq_ratio, delay, velocity)) = tuple((
+        ratio,
+        opt(delimited(terminated(char(','), space0), float, space0)),
+        opt(delimited(terminated(char(','), space0), velocity, space0)),
+    ))(input)?;
+    Ok((
+        input,
+        PHarmonic {
+            freq_ratio,
+            delay,
+            velocity,
+        },
+    ))
+}
+
+fn chord(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, harmonics, _)) =
+        tuple((head("chord"), many0(terminated(harmonic, space0)), end))(input)?;
+
+    Ok((input, Exp::Chord(PChord { id, harmonics })))
+}
+
+fn chords(input: &str) -> IResult<&str, Exp> {
+    let (input, (id, chords, _)) = tuple((
+        head("chords"),
+        many0(terminated(alphanumeric1, space0)),
+        end,
+    ))(input)?;
+
+    Ok((input, Exp::ChordLine(PChordLine { id, chords })))
+}
+
 fn pitch(input: &str) -> IResult<&str, PPitch> {
     let (input, (id, transition)) = tuple((alphanumeric1, transition))(input)?;
+
     Ok((input, PPitch { id, transition }))
 }
 
@@ -291,7 +363,8 @@ fn midiout(input: &str) -> IResult<&str, Exp> {
 
 pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
     let (input, expressions) = many0(alt((
-        beat, hits, durations, pitchs, velos, seq, freqout, velout, midiout, comment, end,
+        beat, chord, chords, hits, durations, pitchs, velos, seq, freqout, velout, midiout,
+        comment, end,
     )))(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
@@ -319,6 +392,53 @@ fn test_beat() {
             Exp::Beat(PBeat {
                 id: "titi",
                 bpm: 90,
+            }),
+        ))
+    );
+}
+
+#[test]
+fn test_chord() {
+    assert_eq!(
+        chord("chord c : 1 1.5,2 3/2,0.1,.4\n"),
+        Ok((
+            "",
+            Exp::Chord(PChord {
+                id: "c",
+                harmonics: vec![
+                    PHarmonic {
+                        freq_ratio: PRatio { num: 1., den: 1. },
+                        delay: None,
+                        velocity: None,
+                    },
+                    PHarmonic {
+                        freq_ratio: PRatio { num: 1.5, den: 1. },
+                        delay: Some(2.),
+                        velocity: None,
+                    },
+                    PHarmonic {
+                        freq_ratio: PRatio { num: 3., den: 2. },
+                        delay: Some(0.1),
+                        velocity: Some(PVelocity {
+                            value: 0.4,
+                            transition: PTransition::None
+                        }),
+                    }
+                ]
+            })
+        ))
+    );
+}
+
+#[test]
+fn test_chords() {
+    assert_eq!(
+        chords("chords cs : c1 c2 c3 \n"),
+        Ok((
+            "",
+            Exp::ChordLine(PChordLine {
+                id: "cs",
+                chords: vec!["c1", "c2", "c3"]
             }),
         ))
     );
