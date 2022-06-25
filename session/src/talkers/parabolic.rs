@@ -2,30 +2,31 @@ use talker::ctalker;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
-use tables::round;
+use tables::parabolic;
 use talkers::table_talker::TableTalker;
 
-pub const MODEL: &str = "Round";
+pub const MODEL: &str = "Parabolic";
 
-pub struct Round {
+pub struct Parabolic {
     table_talker: TableTalker,
 }
 
-impl Round {
+impl Parabolic {
     pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("Round", MODEL);
-        let table_talker = TableTalker::new(&mut base, round::LEN)?;
+        let mut base = TalkerBase::new("Parabolic", MODEL);
+        let table_talker = TableTalker::new(&mut base, parabolic::LEN)?;
 
         Ok(ctalker!(base, Self { table_talker }))
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Round")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Parabolic")
     }
 }
 
-impl Talker for Round {
+impl Talker for Parabolic {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
-        self.table_talker.talk(base, port, tick, len, &round::TAB)
+        self.table_talker
+            .talk(base, port, tick, len, &parabolic::TAB)
     }
 }

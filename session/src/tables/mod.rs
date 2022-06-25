@@ -1,3 +1,4 @@
+pub mod parabolic;
 pub mod round;
 pub mod sinramp;
 
@@ -43,6 +44,32 @@ mod tests {
 
         for _ in 0..mid_len {
             let y = ((1. - (x * x)).sqrt()) as f32;
+            writeln!(f, "{:.10},", y)?;
+            neg_part.push(-y);
+            x += step;
+        }
+
+        for y in neg_part {
+            writeln!(f, "{:.10},", y)?;
+        }
+        writeln!(f, "];")?;
+        Ok(())
+    }
+    #[test]
+    fn create_parabolic() -> Result<(), failure::Error> {
+        let mut f = File::create("src/tables/parabolic.rs")?;
+        let len = 96000;
+
+        writeln!(f, "pub const LEN:usize = {};", len)?;
+        writeln!(f, "pub const TAB: [f32; LEN] = [")?;
+
+        let mid_len = len / 2;
+        let step = 2. / mid_len as f64;
+        let mut neg_part: Vec<f32> = Vec::with_capacity(mid_len);
+        let mut x: f64 = -1.;
+
+        for _ in 0..mid_len {
+            let y = (1. - (x * x)) as f32;
             writeln!(f, "{:.10},", y)?;
             neg_part.push(-y);
             x += step;

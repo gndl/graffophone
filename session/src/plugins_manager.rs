@@ -12,6 +12,8 @@ use talkers::abs_sine::AbsSine;
 use talkers::env_shaper;
 use talkers::env_shaper::EnvShaper;
 use talkers::lv2::Lv2;
+use talkers::parabolic;
+use talkers::parabolic::Parabolic;
 use talkers::round;
 use talkers::round::Round;
 use talkers::second_degree_frequency_progression;
@@ -70,11 +72,12 @@ impl PluginsManager {
 
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
-            PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
-            PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
-            PluginsManager::tkr_hr_kv(Tseq::descriptor()),
-            PluginsManager::tkr_hr_kv(Round::descriptor()),
             PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
+            PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
+            PluginsManager::tkr_hr_kv(Round::descriptor()),
+            PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
+            PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(Tseq::descriptor()),
         ]);
 
         println!("make_plugins_handlers end");
@@ -88,20 +91,22 @@ impl PluginsManager {
     }
 
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
-        if model == sinusoidal::MODEL {
-            Ok(rtalker!(Sinusoidal::new()?))
-        } else if model == abs_sine::MODEL {
+        if model == abs_sine::MODEL {
             Ok(rtalker!(AbsSine::new()?))
+        } else if model == env_shaper::MODEL {
+            Ok(rtalker!(EnvShaper::new()?))
+        } else if model == parabolic::MODEL {
+            Ok(rtalker!(Parabolic::new()?))
+        } else if model == round::MODEL {
+            Ok(rtalker!(Round::new()?))
         } else if model == second_degree_frequency_progression::MODEL {
             Ok(rtalker!(SecondDegreeFrequencyProgression::new(
                 110., 0., 1., 1.
             )?))
+        } else if model == sinusoidal::MODEL {
+            Ok(rtalker!(Sinusoidal::new()?))
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new()?))
-        } else if model == round::MODEL {
-            Ok(rtalker!(Round::new()?))
-        } else if model == env_shaper::MODEL {
-            Ok(rtalker!(EnvShaper::new()?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }

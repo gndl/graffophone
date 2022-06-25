@@ -1,9 +1,11 @@
 pub mod abs_sine;
 pub mod env_shaper;
 pub mod lv2;
+pub mod parabolic;
 pub mod round;
 pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
+pub mod table_talker;
 pub mod tseq;
 
 pub use self::abs_sine::*;
