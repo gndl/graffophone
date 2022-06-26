@@ -1,17 +1,16 @@
 use std::f32;
 
 use talker::audio_format::AudioFormat;
-//use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
 use talker::talker::TalkerBase;
 use talker::voice;
 
 pub struct TableTalker {
-    tab_len: i64,
+    tab_len: f32,
     tab_len_on_sr: f32,
     last_tick: i64,
-    last_pos: i64,
+    last_pos: f32,
     last_phase: f32,
 }
 
@@ -26,10 +25,10 @@ impl TableTalker {
         let tab_len_on_sr = (tab_len as f64 / AudioFormat::sample_rate() as f64) as f32;
 
         Ok(Self {
-            tab_len: tab_len as i64,
+            tab_len: tab_len as f32,
             tab_len_on_sr,
             last_tick: 0,
-            last_pos: 0,
+            last_pos: 0.,
             last_phase: 0.,
         })
     }
@@ -48,9 +47,9 @@ impl TableTalker {
         let gain_buf = base.ear_audio_buffer(2);
         let voice_buf = base.voice(port).audio_buffer();
 
-        let phase_coef = self.tab_len as f32 * 0.5;
+        let phase_coef = self.tab_len * 0.5;
         let tab_len_on_sr = self.tab_len_on_sr;
-        let mut last_pos = 0;
+        let mut last_pos = 0.;
         let mut last_phase = 0.;
 
         if self.last_tick == tick {
@@ -62,18 +61,26 @@ impl TableTalker {
             let phase = phase_buf[i];
 
             if phase != last_phase {
-                last_pos += ((phase - last_phase) * phase_coef) as i64;
+                last_pos += (phase - last_phase) * phase_coef;
 
-                if last_pos < 0 {
+                if last_pos < 0. {
                     last_pos += self.tab_len;
                 }
             }
 
-            let pos = last_pos + (freq_buf[i] * tab_len_on_sr) as i64;
-            let tab_idx = pos % self.tab_len;
+            let freq = freq_buf[i];
+            let pos = (last_pos + freq * tab_len_on_sr) % self.tab_len;
+            let tab_idx = pos as usize;
 
-            voice_buf[i] = tab[tab_idx as usize] * gain_buf[i];
-            last_pos = tab_idx;
+            let v = if freq < 1. {
+                let pv = tab[tab_idx];
+                ((tab[tab_idx + 1] - pv) * pos.fract()) + pv
+            } else {
+                tab[tab_idx]
+            };
+
+            voice_buf[i] = v * gain_buf[i];
+            last_pos = pos;
             last_phase = phase;
         }
 

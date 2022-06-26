@@ -35,7 +35,7 @@ mod tests {
         let len = 96000;
 
         writeln!(f, "pub const LEN:usize = {};", len)?;
-        writeln!(f, "pub const TAB: [f32; LEN] = [")?;
+        writeln!(f, "pub const TAB: [f32; LEN + 1] = [")?;
 
         let mid_len = len / 2;
         let step = 2. / mid_len as f64;
@@ -52,16 +52,17 @@ mod tests {
         for y in neg_part {
             writeln!(f, "{:.10},", y)?;
         }
-        writeln!(f, "];")?;
+        writeln!(f, "0.0];")?;
         Ok(())
     }
+
     #[test]
     fn create_parabolic() -> Result<(), failure::Error> {
         let mut f = File::create("src/tables/parabolic.rs")?;
         let len = 96000;
 
         writeln!(f, "pub const LEN:usize = {};", len)?;
-        writeln!(f, "pub const TAB: [f32; LEN] = [")?;
+        writeln!(f, "pub const TAB: [f32; LEN + 1] = [")?;
 
         let mid_len = len / 2;
         let step = 2. / mid_len as f64;
@@ -78,7 +79,7 @@ mod tests {
         for y in neg_part {
             writeln!(f, "{:.10},", y)?;
         }
-        writeln!(f, "];")?;
+        writeln!(f, "0.0];")?;
         Ok(())
     }
 }
