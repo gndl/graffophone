@@ -48,19 +48,19 @@ impl ApplicationView {
         // header bar left controls
 
         let new_session_button =
-            gtk::Button::from_icon_name(Some("gtk-new"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("document-new"), IconSize::SmallToolbar);
         headerbar.pack_start(&new_session_button);
 
         let open_session_button =
-            gtk::Button::from_icon_name(Some("gtk-open"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("document-open"), IconSize::SmallToolbar);
         headerbar.pack_start(&open_session_button);
 
         let save_session_button =
-            gtk::Button::from_icon_name(Some("gtk-save"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("document-save"), IconSize::SmallToolbar);
         headerbar.pack_start(&save_session_button);
 
         let save_session_as_button =
-            gtk::Button::from_icon_name(Some("gtk-save-as"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("document-save-as"), IconSize::SmallToolbar);
         headerbar.pack_start(&save_session_as_button);
 
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
@@ -68,7 +68,7 @@ impl ApplicationView {
 
         let talkers_tree_toggle = gtk::ToggleButton::new();
         talkers_tree_toggle.set_image(Some(&gtk::Image::from_icon_name(
-            Some("gtk-index"),
+            Some("view-list-tree"),
             IconSize::SmallToolbar,
         )));
         talkers_tree_toggle.set_active(true);
@@ -80,32 +80,32 @@ impl ApplicationView {
 
         // Apply text
         let apply_text_button =
-            gtk::Button::from_icon_name(Some("gtk-apply"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("go-up"), IconSize::SmallToolbar);
         headerbar.pack_start(&apply_text_button);
 
         // Validate text
         let validate_text_button =
-            gtk::Button::from_icon_name(Some("gtk-goto-last"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("dialog-ok"), IconSize::SmallToolbar);
         headerbar.pack_start(&validate_text_button);
 
         // Cancel text
         let cancel_text_button =
-            gtk::Button::from_icon_name(Some("gtk-cancel"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("dialog-cancel"), IconSize::SmallToolbar);
         headerbar.pack_start(&cancel_text_button);
 
         // header bar right controls
         let stop_button =
-            gtk::Button::from_icon_name(Some("gtk-media-stop"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("media-playback-stop"), IconSize::SmallToolbar);
 
         headerbar.pack_end(&stop_button);
 
         let play_or_pause_button =
-            gtk::Button::from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
+            gtk::Button::from_icon_name(Some("media-playback-start"), IconSize::SmallToolbar);
 
-        let play_icon = gtk::Image::from_icon_name(Some("gtk-media-play"), IconSize::SmallToolbar);
+        let play_icon = gtk::Image::from_icon_name(Some("media-playback-start"), IconSize::SmallToolbar);
 
         let pause_icon =
-            gtk::Image::from_icon_name(Some("gtk-media-pause"), IconSize::SmallToolbar);
+            gtk::Image::from_icon_name(Some("media-playback-pause"), IconSize::SmallToolbar);
 
         headerbar.pack_end(&play_or_pause_button);
 
