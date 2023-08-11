@@ -6,4 +6,4 @@ authors = ["gndl"]
 [dependencies]
 failure = "0.1.8"
 # livi = { git = "https://github.com/wmedrano/livi-rs" }
-livi = "0.7.1"
+livi = "0.7.3"

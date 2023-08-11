@@ -54,17 +54,19 @@ impl PluginsManager {
 
         lv2_handler::visit(|lv2_handler| {
             for plugin in lv2_handler.world.iter_plugins() {
-                handlers.insert(
-                    plugin.uri(),
-                    PluginHandler {
-                        base: TalkerHandlerBase::new(
-                            "lv2", //plugin.class().label().to_str(),
-                            &plugin.uri(),
-                            &plugin.name(),
-                        ),
-                        plugin_type: PluginType::Lv2,
-                    },
-                );
+                for plugin_class in plugin.classes() {
+                    handlers.insert(
+                        plugin.uri(),
+                        PluginHandler {
+                            base: TalkerHandlerBase::new(
+                                plugin_class,
+                                &plugin.uri(),
+                                &plugin.name(),
+                            ),
+                            plugin_type: PluginType::Lv2,
+                        },
+                    );
+                }
             }
             Ok(())
         })
