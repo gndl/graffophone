@@ -76,11 +76,11 @@ impl SessionPresenter {
         self.manage_result(res);
     }
 
-    pub fn session<'a>(&'a self) -> &'a Session {
+    pub fn session(&self) -> &Session {
         &self.session
     }
 
-    pub fn event_bus<'a>(&'a self) -> &'a REventBus {
+    pub fn event_bus(&self) -> &REventBus {
         &self.event_bus
     }
 
@@ -124,7 +124,7 @@ impl SessionPresenter {
         self.notify_new_session();
     }
 
-    pub fn find_talker<'a>(&'a self, talker_id: Id) -> Option<&'a RTalker> {
+    pub fn find_talker(&self, talker_id: Id) -> Option<&RTalker> {
         self.session.talkers().get(&talker_id)
     }
 
@@ -141,10 +141,10 @@ impl SessionPresenter {
 
     pub fn find_compatible_hum_with_voice_in_ear(
         &self,
-        talker_id: Id,
-        ear_idx: Index,
-        voice_tkr_id: Id,
-        voice_port: Index,
+        _: Id,    // talker_id
+        _: Index, // ear_idx
+        _: Id,    // voice_tkr_id
+        _: Index, // voice_port
     ) -> Result<Index, failure::Error> {
         // TODO : do the job
         Ok(0)
