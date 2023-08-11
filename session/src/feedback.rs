@@ -83,7 +83,7 @@ impl Feedback {
         let err_fn = |err| {
             eprintln!("an error occurred on stream: {}", err);
         };
-        let stream = output_device.build_output_stream(&config, output_data_fn, err_fn)?;
+        let stream = output_device.build_output_stream(&config, output_data_fn, err_fn, None)?;
 
         stream
             .play()

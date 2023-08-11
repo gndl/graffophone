@@ -4,9 +4,10 @@ version = "0.1.0"
 authors = ["gndl"]
 
 [dependencies]
-failure = "0.1.5"
-ringbuf = "0.2.1"
-cpal = {git = "https://github.com/RustAudio/cpal"}
+failure = "0.1.8"
+ringbuf = "0.2.8"
+#cpal = {git = "https://github.com/RustAudio/cpal"}
+cpal = "0.15.2"
 # livi = { git = "https://github.com/wmedrano/livi-rs" }
 livi = "0.5.3"
 nom = "7.1"
