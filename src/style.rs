@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Ga�tan Dubreil
+ * Copyright (C) 2015 Gaetan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -13,7 +13,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-//use cairo::enums::{FontSlant, FontWeight};
 use cairo::Context;
 
 pub type Color = (f64, f64, f64);
@@ -74,7 +73,6 @@ pub fn selected(cc: &Context) {
 
 pub fn model(cc: &Context) {
     set_color(cc, MODEL_COLOR);
-    // cc.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
     cc.set_font_size(FONT_SIZE);
 }
 pub fn name(cc: &Context) {
@@ -125,17 +123,21 @@ pub fn value(cc: &Context) {
     set_color(cc, VALUE_COLOR);
     cc.set_font_size(FONT_SIZE);
 }
+
+pub fn symbol(cc: &Context) {
+    cc.set_line_width(1.);
+}
 pub fn sup(cc: &Context) {
+    symbol(cc);
     set_color(cc, SUP_COLOR);
-    cc.set_font_size(FONT_SIZE);
 }
 pub fn add(cc: &Context) {
+    symbol(cc);
     set_color(cc, ADD_COLOR);
-    cc.set_font_size(FONT_SIZE);
 }
 pub fn switch(cc: &Context) {
+    symbol(cc);
     set_color(cc, SWITCH_COLOR);
-    cc.set_font_size(FONT_SIZE);
 }
 
 pub fn connection(cc: &Context, color: &Color) {

@@ -1,93 +1,81 @@
-use crate::gtk::prelude::BoxExt;
-use crate::gtk::prelude::ContainerExt;
-use crate::gtk::prelude::DialogExt;
-use crate::gtk::prelude::GtkWindowExt;
-use crate::gtk::prelude::RangeExt;
-use crate::gtk::prelude::ScaleExt;
-use crate::gtk::prelude::WidgetExt;
-use crate::gtk::prelude::WidgetExtManual;
 use crate::gtk::Adjustment;
 use crate::gtk::SpinButton;
+use gtk::glib::IsA;
+use gtk::traits::{AdjustmentExt, BoxExt, ButtonExt};
 
-pub fn create<Fcv: Fn(f64, bool) + 'static, Fend: Fn() + 'static>(
-    min: f64,
-    max: f64,
-    current: f64,
-    fcv: Fcv,
-    fend: Fend,
-) {
-    let step = (max - min) / 200.;
-    let scale = gtk::Scale::with_range(gtk::Orientation::Vertical, min, max, step);
-    scale.set_size_request(64, 256);
-    scale.set_inverted(true);
-    scale.set_value(current);
-    scale.connect_change_value(move |_, _, v| {
-        fcv(v, true);
-        gtk::Inhibit(false)
-    });
-
-    let window = gtk::Window::new(gtk::WindowType::Toplevel /*Popup*/);
-    window.add(&scale);
-    window.set_default_size(64, 256);
-    window.set_position(gtk::WindowPosition::Mouse);
-    window.connect_leave_notify_event(move |_, _| {
-        fend();
-        gtk::Inhibit(false)
-    });
-    window.show_all();
-}
-
-pub fn run<Fcv: Fn(f64, bool) + 'static>(
+pub fn create<
+    OnValueChanged: Fn(f64) + 'static,
+    OnOk: Fn(f64) + 'static,
+    OnCancel: Fn(f64) + 'static,
+    OnDefault: Fn(f64) + 'static,
+>(
     min: f64,
     max: f64,
     def: f64,
     current: f64,
-    fcv: Fcv,
-) -> f64 {
+    on_value_changed: OnValueChanged,
+    on_ok: OnOk,
+    on_cancel: OnCancel,
+    on_default: OnDefault,
+) -> impl IsA<gtk::Widget> {
     let step = f64::min((max - min) / 40000., 1.);
     let adjustment = Adjustment::new(current, min, max, step, step * 100., 0.);
 
-    let scale = gtk::Scale::new(gtk::Orientation::Vertical, Some(&adjustment));
-    scale.set_size_request(64, 360);
-    scale.set_inverted(true);
-    scale.set_draw_value(false);
+    let scale = gtk::Scale::builder()
+        .adjustment(&adjustment)
+        .orientation(gtk::Orientation::Vertical)
+        .width_request(64)
+        .height_request(360)
+        .inverted(true)
+        .draw_value(false)
+        .build();
 
-    scale.connect_change_value(move |_, _, v| {
-        fcv(v, true);
-        gtk::Inhibit(false)
-    });
+    let entry = SpinButton::builder()
+        .adjustment(&adjustment)
+        .climb_rate(5.)
+        .digits(4)
+        .hexpand(false)
+        .build();
 
-    let entry = SpinButton::new(Some(&adjustment), 5., 4);
-    entry.set_expand(false);
+    let cancel_button = gtk::Button::builder().label("Cancel").hexpand(true).build();
+
+    let default_button = gtk::Button::builder()
+        .label("Default")
+        .hexpand(true)
+        .build();
+
+    let ok_button = gtk::Button::builder().label("Ok").hexpand(true).build();
 
     // box
-    let h_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-    h_box.pack_start(&scale, true, true, 0);
-    h_box.pack_start(&entry, false, false, 0);
+    let value_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(2)
+        .build();
+    value_box.append(&scale);
+    value_box.append(&entry);
 
-    let dialog = gtk::Dialog::new();
-    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-    dialog.add_button("Default", gtk::ResponseType::Other(0));
-    dialog.add_button("Ok", gtk::ResponseType::Ok);
-    dialog.set_default_response(gtk::ResponseType::Ok);
-    dialog.content_area().add(&h_box);
-    dialog.set_position(gtk::WindowPosition::Mouse);
-    dialog.set_decorated(false);
-    dialog.show_all();
+    let action_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(2)
+        .build();
+    action_box.append(&cancel_button);
+    action_box.append(&default_button);
+    action_box.append(&ok_button);
 
-    let mut res = current;
+    let widget = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(2)
+        .build();
+    widget.append(&value_box);
+    widget.append(&action_box);
 
-    match dialog.run() {
-        gtk::ResponseType::Ok => {
-            res = scale.value();
-        }
-        gtk::ResponseType::Other(0) => {
-            res = def;
-        }
-        _ => (), // Cancel
-    }
-    unsafe {
-        dialog.destroy();
-    }
-    res
+    adjustment.connect_value_changed(move |adj| on_value_changed(adj.value()));
+
+    cancel_button.connect_clicked(move |_| on_cancel(current));
+
+    default_button.connect_clicked(move |_| on_default(def));
+
+    ok_button.connect_clicked(move |_| on_ok(adjustment.value()));
+
+    return widget;
 }

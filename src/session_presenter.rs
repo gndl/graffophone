@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gtk::glib;
+
 use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
 
@@ -127,6 +129,7 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
+        println!("SessionPresenter add_talker {}", talker_model);
         let res = self.session.add_talker(talker_model);
         self.manage_state_result(res);
     }

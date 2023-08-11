@@ -169,18 +169,19 @@ impl GraphPresenter {
         hum_idx: Index,
         talk_idx: Index,
         value: f32,
-        fly: bool,
-    ) -> Result<Vec<Notification>, failure::Error> {
+        notify: bool,
+    ) {
         self.session_presenter
             .borrow_mut()
             .modify_band(&Operation::SetEarTalkValue(
                 talker_id, ear_idx, set_idx, hum_idx, talk_idx, value,
             ));
 
-        if !fly {
-            return Ok(vec![Notification::TalkerChanged]);
+        if notify {
+            self.session_presenter
+                .borrow()
+                .notify(Notification::TalkerChanged);
         }
-        Ok(vec![])
     }
 
     pub fn notify_talker_changed(&self) {

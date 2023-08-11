@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::f64::consts::PI;
 use std::rc::Rc;
 
 use cairo::Context;
@@ -9,7 +10,6 @@ use talker::identifier::Id;
 use talker::identifier::Identifiable;
 use talker::talker::RTalker;
 
-use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::style;
 use crate::style::Color;
@@ -19,7 +19,7 @@ use session::event_bus::Notification;
 pub const ADD_TAG: &str = "+";
 pub const SUP_TAG: &str = "-";
 pub const VAL_TAG: &str = "←"; // ⟵
-pub const ADD_IN_TAG: &str = "⊕"; // ● ⟴ ⊕ ⊕
+pub const ADD_IN_TAG: &str = "⊕"; // ● ⟴ ⊕
 pub const DESTROY_TAG: &str = "✖";
 pub const MAXIMIZE_TAG: &str = "▮";
 pub const MINIMIZE_TAG: &str = "▬";
@@ -28,6 +28,9 @@ const SPACE: f64 = 4.;
 
 const H_PADDING: f64 = 3.;
 const V_PADDING: f64 = 3.;
+
+const SYM_W: f64 = 10.;
+const SYM_H: f64 = 10.;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 struct Area {
@@ -72,7 +75,7 @@ impl Area {
         let w = self.e_x - self.b_x;
         let b_x = (l + r - w) * 0.5;
         Self {
-            b_x: b_x,
+            b_x,
             e_x: b_x + w,
             b_y: self.b_y,
             e_y: self.e_y,
@@ -148,12 +151,15 @@ impl Dim {
     }
     pub fn of(cc: &Context, txt: &str) -> Result<Dim, failure::Error> {
         match cc.text_extents(txt) {
-            Ok(te) => Ok(Dim::new(te.x_advance, te.height)),
+            Ok(te) => Ok(Dim::new(te.x_advance(), te.height())),
             Err(e) => Err(failure::err_msg(format!(
                 "Dim::of {} text_extents :  {}",
                 txt, e
             ))),
         }
+    }
+    pub fn of_symbol(cc: &Context, txt: &str) -> Result<Dim, failure::Error> {
+        Ok(Dim::new(SYM_W, SYM_H))
     }
 }
 
@@ -175,17 +181,17 @@ fn dim_to_area(b_x: f64, b_y: f64, dim: &Dim) -> Area {
 impl<'a> ControlSupply<'a> {
     pub fn new(cc: &'a Context) -> Result<ControlSupply<'a>, failure::Error> {
         style::add(cc);
-        let add_dim = Dim::of(cc, ADD_TAG)?;
+        let add_dim = Dim::of_symbol(cc, ADD_TAG)?;
         style::sup(cc);
-        let sup_dim = Dim::of(cc, SUP_TAG)?;
+        let sup_dim = Dim::of_symbol(cc, SUP_TAG)?;
         style::value(cc);
-        let val_dim = Dim::of(cc, VAL_TAG)?;
+        let val_dim = Dim::of_symbol(cc, VAL_TAG)?;
         style::add(cc);
-        let add_in_dim = Dim::of(cc, ADD_IN_TAG)?;
+        let add_in_dim = Dim::of_symbol(cc, ADD_IN_TAG)?;
         style::switch(cc);
-        let maximize_dim = Dim::of(cc, MAXIMIZE_TAG)?;
-        let minimize_dim = Dim::of(cc, MINIMIZE_TAG)?;
-        let destroy_dim = Dim::of(cc, DESTROY_TAG)?;
+        let maximize_dim = Dim::of_symbol(cc, MAXIMIZE_TAG)?;
+        let minimize_dim = Dim::of_symbol(cc, MINIMIZE_TAG)?;
+        let destroy_dim = Dim::of_symbol(cc, DESTROY_TAG)?;
         Ok(Self {
             cc,
             add_dim,
@@ -204,7 +210,7 @@ impl<'a> ControlSupply<'a> {
                 txt, e
             ))
         })?;
-        Ok(Area::of_content(b_x, b_y, te.x_advance, te.height))
+        Ok(Area::of_content(b_x, b_y, te.x_advance(), te.height()))
     }
 }
 
@@ -535,28 +541,45 @@ impl TalkerControlBase {
             style::box_border(cc);
         }
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
-        cc.stroke()?;
-        Ok(())
+        cc.stroke()
+    }
+
+    fn draw_imize(&self, cc: &Context, area: &Area, minimized: bool) -> Result<(), cairo::Error> {
+        if minimized {
+            cc.rectangle(
+                self.x + area.content_b_x + 3.,
+                self.y + area.content_e_y - SYM_H,
+                3.,
+                SYM_H,
+            );
+        } else {
+            cc.rectangle(
+                self.x + area.content_b_x,
+                self.y + area.content_e_y - SYM_H + 3.,
+                SYM_W,
+                3.,
+            );
+        }
+        cc.stroke()
+    }
+
+    fn draw_destroy(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
+        let x1 = self.x + area.content_b_x;
+        let y1 = self.y + area.content_e_y;
+        let x2 = x1 + SYM_W;
+        let y2 = y1 - SYM_H;
+        cc.move_to(x1, y1);
+        cc.line_to(x2, y2);
+        cc.move_to(x1, y2);
+        cc.line_to(x2, y1);
+        cc.stroke()
     }
 
     pub fn draw_header(&self, cc: &Context, draw_switch: bool) -> Result<(), cairo::Error> {
         if draw_switch {
             style::switch(cc);
-            cc.move_to(
-                self.x + self.imize_area.content_b_x,
-                self.y + self.imize_area.content_e_y,
-            );
-            if self.minimized {
-                cc.show_text(MAXIMIZE_TAG)?;
-            } else {
-                cc.show_text(MINIMIZE_TAG)?;
-            }
-
-            cc.move_to(
-                self.x + self.destroy_area.content_b_x,
-                self.y + self.destroy_area.content_e_y,
-            );
-            cc.show_text(DESTROY_TAG)?;
+            self.draw_imize(cc, &self.imize_area, self.minimized)?;
+            self.draw_destroy(cc, &self.destroy_area)?;
         }
         if let Some(model_area) = &self.model_area {
             style::model(cc);
@@ -585,6 +608,21 @@ impl TalkerControlBase {
         Ok(())
     }
 
+    fn draw_add(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
+        style::add(cc);
+        let x1 = self.x + area.content_b_x;
+        let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
+        let x2 = x1 + SYM_W;
+        cc.move_to(x1, y1);
+        cc.line_to(x2, y1);
+
+        let x3 = x1 + (SYM_W * 0.5);
+        let y2 = self.y + area.content_e_y;
+        let y3 = y2 - SYM_H;
+        cc.move_to(x3, y2);
+        cc.line_to(x3, y3);
+        cc.stroke()
+    }
     fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) -> Result<(), cairo::Error> {
         if selected {
             style::selected_io_background(cc);
@@ -597,12 +635,54 @@ impl TalkerControlBase {
             );
             cc.fill()?;
         }
-        style::add(cc);
-        cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-        cc.show_text(ADD_IN_TAG)?;
-        Ok(())
+        self.draw_add(cc, area)?;
+        let r = SYM_W * 0.5;
+        let a = PI * 0.5;
+        cc.arc(
+            self.x + area.content_b_x + r,
+            self.y + area.content_e_y - r,
+            r,
+            -a,
+            a,
+        );
+        cc.stroke()
     }
 
+    fn draw_sup(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
+        style::sup(cc);
+        let x1 = self.x + area.content_b_x;
+        let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
+        let x2 = x1 + SYM_W;
+        cc.move_to(x1, y1);
+        cc.line_to(x2, y1);
+        cc.stroke()
+    }
+    fn draw_value(
+        &self,
+        cc: &Context,
+        area: &Area,
+        value: &Option<String>,
+    ) -> Result<(), cairo::Error> {
+        style::value(cc);
+        if let Some(v) = value {
+            cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
+            cc.show_text(&v)
+        } else {
+            let x1 = self.x + area.content_b_x;
+            let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
+            let x2 = x1 + SYM_W;
+            cc.move_to(x1, y1);
+            cc.line_to(x2, y1);
+
+            let x3 = x1 + (SYM_W * 0.5);
+            let y2 = self.y + area.content_e_y;
+            let y3 = y2 - SYM_H;
+            cc.move_to(x3, y2);
+            cc.line_to(x1, y1);
+            cc.line_to(x3, y3);
+            cc.stroke()
+        }
+    }
     fn draw_io(
         &self,
         cc: &Context,
@@ -666,22 +746,11 @@ impl TalkerControlBase {
                         )?;
 
                         if let Some(value_area) = &hum.value_area {
-                            style::value(cc);
-                            cc.move_to(
-                                self.x + value_area.content_b_x,
-                                self.y + value_area.content_e_y,
-                            );
-                            if let Some(v) = &hum.value {
-                                cc.show_text(&v)?;
-                            } else {
-                                cc.show_text(VAL_TAG)?;
-                            }
+                            self.draw_value(cc, value_area, &hum.value)?;
                         }
                     }
                     if let Some(sa) = &set.sup_area {
-                        style::sup(cc);
-                        cc.move_to(self.x + sa.content_b_x, self.y + sa.content_e_y);
-                        cc.show_text(SUP_TAG)?;
+                        self.draw_sup(cc, sa)?;
                     }
                 }
                 if let Some((tag, area)) = &ear.tag_area {
@@ -690,9 +759,7 @@ impl TalkerControlBase {
                     cc.show_text(&tag)?;
                 }
                 if let Some(add_area) = ear.add_set_area {
-                    style::add(cc);
-                    cc.move_to(self.x + add_area.content_b_x, self.y + add_area.content_e_y);
-                    cc.show_text(ADD_TAG)?;
+                    self.draw_add(cc, &add_area)?;
                 }
             }
 
@@ -827,54 +894,9 @@ impl TalkerControlBase {
 
         if let Some(value_area) = &hum.value_area {
             if value_area.is_under(rx, ry) {
-                let ear_setter = graph_presenter.clone();
-                let notifier = graph_presenter.clone();
-                let talker_id = self.id;
-                let (min, max, def) = self.talker.ear(ear_idx).hum_range(hum_idx);
-                let cur = self
-                    .talker
-                    .ear(ear_idx)
-                    .talk_value_or_default(set_idx, hum_idx);
-
-                let value = bounded_float_entry::run(
-                    min.into(),
-                    max.into(),
-                    def.into(),
-                    cur.into(),
-                    move |v, fly| {
-                        let _ = ear_setter.borrow_mut().set_talker_ear_talk_value(
-                            talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, fly,
-                        );
-                    },
-                );
-
-                let notifications = notifier.borrow_mut().set_talker_ear_talk_value(
-                    talker_id,
-                    ear_idx,
-                    set_idx,
-                    hum_idx,
-                    0,
-                    value as f32,
-                    false,
-                )?;
-                /*
-                bounded_float_entry::create(
-                    min.into(),
-                    max.into(),
-                    cur.into(),
-                    move |v, fly| {
-                        let _ = ear_setter
-                            .borrow_mut()
-                            .set_talker_ear_talk_value(
-                                talker_id, ear_idx, talk_idx, v as f32, fly,
-                            );
-                    },
-                    move || {
-                        notifier.borrow().notify_talker_changed();
-                    },
-                );
-                 */
-                return Ok(Some(notifications));
+                return Ok(Some(vec![Notification::EarValueSelected(
+                    self.id, ear_idx, set_idx, hum_idx,
+                )]));
             }
         }
         return Ok(None);

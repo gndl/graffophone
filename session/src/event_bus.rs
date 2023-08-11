@@ -24,6 +24,7 @@ pub enum Notification {
     EarUnselected(Id, Index, Index, Index),
     EarAddInSelected(Id, Index, Index, Index),
     EarAddInUnselected(Id, Index, Index, Index),
+    EarValueSelected(Id, Index, Index, Index),
     VoiceSelected(Id, Index),
     VoiceUnselected(Id, Index),
     TalkSelected(Id, Index),
