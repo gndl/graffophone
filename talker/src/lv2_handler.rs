@@ -20,7 +20,6 @@ impl Lv2Handler {
         let features = world.build_features(livi::FeaturesBuilder {
             min_block_length: MIN_BLOCK_SIZE,
             max_block_length: MAX_BLOCK_SIZE,
-            worker_manager: std::sync::Arc::new(livi::WorkerManager::default()),
         });
 
         Lv2Handler { world, features }
