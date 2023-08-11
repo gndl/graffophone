@@ -7,7 +7,6 @@ use std::rc::Rc;
 use crate::gtk::prelude::PopoverExt;
 use gtk::prelude::*;
 use gtk::prelude::{DrawingAreaExtManual, IsA, WidgetExt};
-use gtk::DrawingArea;
 
 use cairo::Context;
 use gtk::gdk::Rectangle;
@@ -169,15 +168,15 @@ impl EventReceiver {
             },
             move |_| ok_popover.popdown(),
             move |_| {
-                gp_on_cancel.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, cur as f32, false,
-                );
+                gp_on_cancel
+                    .borrow_mut()
+                    .set_talker_ear_talk_value(talker_id, ear_idx, set_idx, hum_idx, 0, cur, false);
                 cancel_popover.popdown()
             },
             move |_| {
-                gp_on_default.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, def as f32, false,
-                );
+                gp_on_default
+                    .borrow_mut()
+                    .set_talker_ear_talk_value(talker_id, ear_idx, set_idx, hum_idx, 0, def, false);
                 default_popover.popdown()
             },
         );
@@ -252,6 +251,7 @@ impl GraphView {
         let area = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(0)
+            .css_classes(["graphview_area"])
             .build();
         area.append(&drawing_area);
         area.append(&popover);
@@ -273,7 +273,11 @@ impl GraphView {
         rgv
     }
 
-    fn connect_area(rgraphview: &RGraphView, drawing_area: &DrawingArea, popover: gtk::Popover) {
+    fn connect_area(
+        rgraphview: &RGraphView,
+        drawing_area: &gtk::DrawingArea,
+        popover: gtk::Popover,
+    ) {
         let er = rgraphview.borrow().event_receiver.clone();
 
         let click = gtk::GestureClick::new();
@@ -282,7 +286,7 @@ impl GraphView {
         drawing_area.add_controller(click);
 
         let gv_drawer = rgraphview.clone();
-        drawing_area.set_draw_func(move |w, cc, a, b| gv_drawer.borrow_mut().on_draw(w, cc));
+        drawing_area.set_draw_func(move |w, cc, _, _| gv_drawer.borrow_mut().on_draw(w, cc));
     }
 
     pub fn area(&self) -> &impl IsA<gtk::Widget> {
@@ -440,7 +444,7 @@ impl GraphView {
 
     fn create_graph(
         &mut self,
-        _drawing_area: &DrawingArea,
+        _drawing_area: &gtk::DrawingArea,
         control_supply: &ControlSupply,
     ) -> Result<HashMap<Id, RTalkerControl>, failure::Error> {
         let session_presenter = self.session_presenter.borrow();
@@ -552,7 +556,7 @@ impl GraphView {
         }
     }
 
-    fn build(&mut self, drawing_area: &DrawingArea, cc: &Context) {
+    fn build(&mut self, drawing_area: &gtk::DrawingArea, cc: &Context) {
         match ControlSupply::new(cc) {
             Ok(control_supply) => match self.create_graph(drawing_area, &control_supply) {
                 Ok(talker_controls) => {
@@ -571,7 +575,7 @@ impl GraphView {
         }
     }
 
-    fn on_draw(&mut self, drawing_area: &DrawingArea, cc: &Context) {
+    fn on_draw(&mut self, drawing_area: &gtk::DrawingArea, cc: &Context) {
         if self.build_needed {
             self.build(drawing_area, cc);
         }

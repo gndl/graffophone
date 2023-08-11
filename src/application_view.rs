@@ -131,11 +131,9 @@ impl ApplicationView {
         let graph_view = GraphView::new_ref(&session_presenter);
 
         let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
-            .css_classes(["scrolledwindow_for_graphview"])
             .hexpand(true)
             .vexpand(true)
             .child(graph_view.borrow().area())
-            // .child(&graph)
             .build();
         split_pane.append(&graph_view_scrolledwindow);
 
