@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys,time
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore
 
 class ScriptClass(QtGui.QWidget):
   def __init__(self, parent=None):
