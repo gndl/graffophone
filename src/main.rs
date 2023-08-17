@@ -29,7 +29,7 @@ use session_presenter::SessionPresenter;
 
 fn main() {
     let application =
-        gtk::Application::new(Some("com.github.gndl.graffophone"), Default::default());
+        gtk::Application::new(Some("com.gitlab.gndl.graffophone"), Default::default());
 
     application.connect_startup(|_| {
         // The CSS "magic" happens here.
@@ -45,6 +45,8 @@ fn main() {
     });
 
     application.connect_activate(|app| {
+        sourceview5::init();
+
         let session_presenter = SessionPresenter::new_ref();
 
         match ApplicationView::new_ref(app, &session_presenter) {
@@ -54,4 +56,6 @@ fn main() {
     });
 
     application.run();
+
+    sourceview5::finalize();
 }

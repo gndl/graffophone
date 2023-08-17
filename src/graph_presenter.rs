@@ -124,6 +124,23 @@ impl GraphPresenter {
         Ok(notifications)
     }
 
+    pub fn select_talker_data(
+        &mut self,
+        talker_id: Id,
+    ) -> Result<Vec<Notification>, failure::Error> {
+        let mut notifications = Vec::new();
+
+        for id in &self.selected_talkers {
+            notifications.push(Notification::TalkerUnselected(*id));
+        }
+        self.selected_talkers.clear();
+        self.selected_talkers.insert(talker_id);
+        notifications.push(Notification::TalkerSelected(talker_id));
+        notifications.push(Notification::SelectionChanged);
+        notifications.push(Notification::EditTalkerData(talker_id));
+        Ok(notifications)
+    }
+
     pub fn minimize_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
         if self.minimized_talkers.contains(&talker_id) {
             self.minimized_talkers.remove(&talker_id);

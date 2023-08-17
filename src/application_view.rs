@@ -2,14 +2,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
-use gtk::FileDialog;
 use gtk::{glib, Widget};
+use gtk::{FileDialog, TextBuffer};
 
 use talker::data::Data;
 use talker::identifier::Id;
 
 use session::event_bus::{Notification, REventBus};
 use session::state::State;
+use sourceview5::traits::BufferExt;
 
 use crate::graph_view::GraphView;
 use crate::session_presenter::RSessionPresenter;
@@ -71,11 +72,11 @@ impl ApplicationView {
         headerbar.pack_start(&apply_text_button);
 
         // Validate text
-        let validate_text_button = gtk::Button::from_icon_name("ui.dialog-ok");
+        let validate_text_button = gtk::Button::from_icon_name("dialog-ok");
         headerbar.pack_start(&validate_text_button);
 
         // Cancel text
-        let cancel_text_button = gtk::Button::from_icon_name("ui.dialog-cancel");
+        let cancel_text_button = gtk::Button::from_icon_name("dialog-cancel");
         headerbar.pack_start(&cancel_text_button);
 
         // header bar right controls
@@ -138,7 +139,11 @@ impl ApplicationView {
         split_pane.append(&graph_view_scrolledwindow);
 
         // Text view
-        let text_view = sourceview5::View::new();
+        let text_view = sourceview5::View::builder()
+            .wrap_mode(gtk::WrapMode::Word)
+            .vscroll_policy(gtk::ScrollablePolicy::Minimum)
+            .highlight_current_line(true)
+            .build();
 
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -354,7 +359,19 @@ impl ApplicationView {
                 Data::Float(_) => println!("Todo : Applicationview.edit_talker_data Data::Float"),
                 Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
                 Data::Text(data) => {
-                    self.text_view.buffer().set_text(&data);
+                    let text_buffer = sourceview5::Buffer::builder()
+                        .enable_undo(true)
+                        .highlight_matching_brackets(true)
+                        .highlight_syntax(true)
+                        .build();
+
+                    if let Some(scheme) =
+                        sourceview5::StyleSchemeManager::default().scheme("classic-dark")
+                    {
+                        text_buffer.set_style_scheme(Some(&scheme));
+                    }
+                    text_buffer.set_text(&data);
+                    self.text_view.set_buffer(Some(&text_buffer));
                     self.text_view.set_visible(true);
                     self.apply_text_button.set_visible(true);
                     self.validate_text_button.set_visible(true);
@@ -378,7 +395,7 @@ impl ApplicationView {
     }
 
     fn disable_text_editor(&mut self) {
-        self.text_view.buffer().set_text("");
+        //        self.text_view.set_buffer(None::<&impl IsA<TextBuffer>>);
         self.text_view.set_visible(false);
         self.apply_text_button.set_visible(false);
         self.validate_text_button.set_visible(false);

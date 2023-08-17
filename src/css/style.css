@@ -8,3 +8,8 @@ box.graphview_area {
     padding: 0px;
     background-color: black;
 }
+
+textview {
+    font-family: Monospace;
+    font-size: 12pt;
+}
