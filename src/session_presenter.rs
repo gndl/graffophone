@@ -88,6 +88,20 @@ impl SessionPresenter {
         self.event_bus().borrow().notify(notification);
     }
 
+    pub fn notify_notifications_result(
+        &self,
+        notifications_result: Result<Vec<Notification>, failure::Error>,
+    ) {
+        match notifications_result {
+            Ok(notifications) => {
+                for notification in notifications {
+                    self.notify(notification);
+                }
+            }
+            Err(e) => self.notify_error(e),
+        }
+    }
+
     pub fn notify_new_session(&mut self) {
         self.notify(Notification::NewSession(
             self.session.filename().to_string(),

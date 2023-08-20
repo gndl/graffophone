@@ -302,6 +302,10 @@ impl GraphView {
         self.drawing_area.queue_draw();
     }
 
+    pub fn unselect_talker(&self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
+        self.graph_presenter.borrow_mut().unselect_talker(talker_id)
+    }
+
     fn column_layout(
         x0: f64,
         y0: f64,

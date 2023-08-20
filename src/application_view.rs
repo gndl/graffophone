@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
+use gtk::FileDialog;
 use gtk::{glib, Widget};
-use gtk::{FileDialog, TextBuffer};
 
 use talker::data::Data;
 use talker::identifier::Id;
@@ -12,7 +12,7 @@ use session::event_bus::{Notification, REventBus};
 use session::state::State;
 use sourceview5::traits::BufferExt;
 
-use crate::graph_view::GraphView;
+use crate::graph_view::{GraphView, RGraphView};
 use crate::session_presenter::RSessionPresenter;
 use crate::ui::talker_object::TalkerObject;
 
@@ -26,6 +26,7 @@ pub struct ApplicationView {
     apply_text_button: gtk::Button,
     validate_text_button: gtk::Button,
     cancel_text_button: gtk::Button,
+    graph_view: RGraphView,
     session_presenter: RSessionPresenter,
     selected_talker_id: Option<Id>,
 }
@@ -261,6 +262,7 @@ impl ApplicationView {
             apply_text_button,
             validate_text_button,
             cancel_text_button,
+            graph_view,
             session_presenter: session_presenter.clone(),
             selected_talker_id: None,
         })
@@ -293,32 +295,14 @@ impl ApplicationView {
         }
     }
 
-    /*
-    fn build_talkers_menu(application: &gtk::Application, factory: &Factory, msgbox: &gtk::Label) {
-    let categories_menu_bar = gio::Menu::new();
-
-    for (category, talkers) in factory.get_categorized_talkers_label_model() {
-    let category_menu = gio::Menu::new();
-
-    for (label, model) in talkers {
-    let action_name = label.replace(" ", "_");
-
-    category_menu.append(Some(&label), Some(&action_name));
-
-    let model_action = gio::SimpleAction::new(&action_name, None);
-    model_action.connect_activate(clone!(@weak msgbox => move |_, _| {
-    msgbox.set_text(&model);
-                }));
-
-                application.add_action(&model_action);
-            }
-            categories_menu_bar.append_submenu(Some(&category), &category_menu);
+    fn unselect_talker(&self) {
+        if let Some(talker_id) = self.selected_talker_id {
+            let res = self.graph_view.borrow().unselect_talker(talker_id);
+            self.session_presenter
+                .borrow()
+                .notify_notifications_result(res);
         }
-
-        application.set_app_menu(Some(&categories_menu_bar));
     }
-    */
-
     fn create_text_editor(application_view: &RApplicationView) {
         // Apply text
         let apply_text_view = application_view.clone();
@@ -336,6 +320,7 @@ impl ApplicationView {
             .validate_text_button
             .connect_clicked(move |_| {
                 validate_text_view.borrow().set_talker_data();
+                validate_text_view.borrow().unselect_talker();
                 validate_text_view.borrow_mut().disable_text_editor();
             });
 
@@ -345,6 +330,7 @@ impl ApplicationView {
             .borrow()
             .cancel_text_button
             .connect_clicked(move |_| {
+                cancel_text_view.borrow().unselect_talker();
                 cancel_text_view.borrow_mut().disable_text_editor();
             });
         application_view.borrow_mut().disable_text_editor();

@@ -124,6 +124,16 @@ impl GraphPresenter {
         Ok(notifications)
     }
 
+    pub fn unselect_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
+        let mut notifications = Vec::new();
+
+        if self.selected_talkers.contains(&talker_id) {
+            self.selected_talkers.remove(&talker_id);
+            notifications.push(Notification::TalkerUnselected(talker_id));
+            notifications.push(Notification::SelectionChanged);
+        }
+        Ok(notifications)
+    }
     pub fn select_talker_data(
         &mut self,
         talker_id: Id,
