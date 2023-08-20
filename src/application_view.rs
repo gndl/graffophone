@@ -247,8 +247,6 @@ impl ApplicationView {
 
             let talker_model = talker_object.model();
             session_ctrl.borrow_mut().add_talker(talker_model.as_str());
-
-            graph_view.borrow_mut().draw();
         });
 
         window.present();

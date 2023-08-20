@@ -132,6 +132,7 @@ impl SessionPresenter {
         println!("SessionPresenter add_talker {}", talker_model);
         let res = self.session.add_talker(talker_model);
         self.manage_state_result(res);
+        self.notify(Notification::NewTalker);
     }
 
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
