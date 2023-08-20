@@ -201,7 +201,7 @@ impl ApplicationView {
                 .build();
 
             let save_session_as_ctrl_ctrl = save_session_as_ctrl.clone();
-            dialog.open(Some(&window), gio::Cancellable::NONE, move |file| {
+            dialog.save(Some(&window), gio::Cancellable::NONE, move |file| {
                 if let Ok(file) = file {
                     let path_buf = file.path().expect("Couldn't get file path");
                             save_session_as_ctrl_ctrl
