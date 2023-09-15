@@ -3,6 +3,9 @@ use std::f32;
 use tables::sinramp;
 use talkers::tseq::parser::PTransition;
 
+pub const DEFAULT_FREQUENCY: f32 = 0.;
+pub const DEFAULT_VELOCITY: f32 = 1.;
+
 pub trait AudioEvent {
     fn start_tick(&self) -> i64;
     fn end_tick(&self) -> i64;
@@ -121,6 +124,33 @@ impl AudioEvent for SinRampEvent {
     }
 }
 
+#[derive(Debug)]
+pub struct AudioEventParameter {
+    start_tick: i64,
+    end_tick: i64,
+    pub start_value: f32,
+    end_value: f32,
+    transition: PTransition,
+}
+
+impl AudioEventParameter {
+    pub fn new(
+        start_tick: i64,
+        end_tick: i64,
+        start_value: f32,
+        end_value: f32,
+        transition: PTransition,
+    ) -> AudioEventParameter {
+        Self {
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+            transition,
+        }
+    }
+}
+
 pub fn create(
     start_tick: i64,
     end_tick: i64,
@@ -161,4 +191,14 @@ pub fn create(
             end_value,
         )),
     }
+}
+
+pub fn create_from_parameter(parameter: &AudioEventParameter) -> RAudioEvent {
+    create(
+        parameter.start_tick,
+        parameter.end_tick,
+        parameter.start_value,
+        parameter.end_value,
+        parameter.transition,
+    )
 }

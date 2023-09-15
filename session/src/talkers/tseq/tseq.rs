@@ -7,11 +7,10 @@ use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
 use talkers::tseq::audio_seq::AudioSeq;
+use talkers::tseq::binder::Binder;
 use talkers::tseq::midi_seq::MidiSeq;
-use talkers::tseq::parser;
-use talkers::tseq::parser::Exp;
-use talkers::tseq::parsing_result::ParsingResult;
-use talkers::tseq::scale::Scale;
+use talkers::tseq::parser::Expression;
+use talkers::tseq::{audio_seq, parser};
 
 pub const MODEL: &str = "Tseq";
 
@@ -54,8 +53,6 @@ impl Talker for Tseq {
         base: &TalkerBase,
         data: Data,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        let scale = Scale::tempered();
-
         match data {
             Data::Text(ref txt) => {
                 let mut new_base = base.with(None, None, None);
@@ -63,67 +60,95 @@ impl Talker for Tseq {
 
                 let exps = parser::parse(&txt)?;
                 {
-                    let mut pare = ParsingResult::new();
+                    let mut binder = Binder::new();
                     let mut outs = Vec::new();
 
                     for exp in &exps {
                         match exp {
-                            Exp::Beat(ref beat) => {
-                                pare.beats.insert(beat.id, &beat);
+                            Expression::Beat(ref beat) => {
+                                binder.beats.insert(beat.id, &beat);
                             }
-                            Exp::Chord(ref chord) => {
-                                pare.chords.insert(chord.id, &chord);
+                            Expression::Chord(ref chord) => {
+                                binder.chords.insert(chord.id, &chord);
                             }
-                            Exp::ChordLine(ref line) => {
-                                pare.chordlines.insert(line.id, &line);
+                            Expression::ChordLine(ref line) => {
+                                binder.chordlines.push(&line);
                             }
-                            Exp::PitchLine(ref line) => {
-                                let mut pitchs = Vec::new();
-                                for pitch in &line.pitchs {
-                                    pitchs
-                                        .push((scale.fetch_frequency(pitch.id)?, pitch.transition));
-                                }
-                                pare.pitchlines.insert(line.id, pitchs);
+                            Expression::PitchLine(ref line) => {
+                                binder.pitchlines.push(&line);
                             }
-                            Exp::HitLine(ref line) => {
-                                pare.hitlines.insert(line.id, &line);
+                            Expression::HitLine(ref line) => {
+                                binder.hitlines.insert(line.id, &line);
                             }
-                            Exp::DurationLine(ref line) => {
-                                pare.durationlines.insert(line.id, &line);
+                            Expression::DurationLine(ref line) => {
+                                binder.durationlines.insert(line.id, &line);
                             }
-                            Exp::VelocityLine(ref line) => {
-                                pare.velocitylines.insert(line.id, &line);
+                            Expression::VelocityLine(ref line) => {
+                                binder.velocitylines.insert(line.id, &line);
                             }
-                            Exp::Seq(ref sequence) => {
-                                pare.sequences.insert(sequence.id, &sequence);
+                            Expression::Seq(ref sequence) => {
+                                binder.sequences.insert(sequence.id, &sequence);
                             }
-                            Exp::FreqOut(_) => outs.push(exp),
-                            Exp::VelOut(_) => outs.push(exp),
-                            Exp::MidiOut(_) => outs.push(exp),
-                            Exp::None => (),
+                            Expression::SeqOut(_) => outs.push(exp),
+                            Expression::VelOut(_) => outs.push(exp),
+                            Expression::MidiOut(_) => outs.push(exp),
+                            Expression::None => (),
                         }
                     }
 
+                    binder.deserialize()?;
+
                     for out in outs {
                         match out {
-                            Exp::FreqOut(seq) => {
-                                sequences.push(Seq::Freq(AudioSeq::frequency(
-                                    &pare,
+                            Expression::SeqOut(seq) => {
+                                let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
+                                    audio_seq::sequence(&binder, &seq, DEFAULT_BPM)?;
+
+                                let harmonics_count = harmonics_frequency_events.len();
+                                let display_harmonic_num = harmonics_count > 1;
+
+                                for idx in 0..harmonics_count {
+                                    let tag_base = if display_harmonic_num {
+                                        format!("{}.{}", seq.id, harmonics_count - idx)
+                                    } else {
+                                        seq.id.to_string()
+                                    };
+
+                                    if let Some(harmonic_frequency_events) =
+                                        harmonics_frequency_events.pop()
+                                    {
+                                        sequences.push(Seq::Freq(harmonic_frequency_events));
+
+                                        let tag = format!("{}.freq", tag_base);
+                                        new_base.add_voice(voice::cv(Some(&tag), 0.));
+                                    }
+                                    if let Some(harmonic_velocity_events) =
+                                        harmonics_velocity_events.pop()
+                                    {
+                                        if !harmonic_velocity_events.is_empty() {
+                                            sequences.push(Seq::Vel(harmonic_velocity_events));
+
+                                            let tag = format!("{}.vel", tag_base);
+                                            new_base.add_voice(voice::audio(Some(&tag), 0.));
+                                        }
+                                    }
+                                }
+                            }
+                            Expression::VelOut(seq) => {
+                                sequences.push(Seq::Vel(audio_seq::velocity(
+                                    &binder,
                                     &seq,
                                     DEFAULT_BPM,
                                 )?));
-                                new_base.add_voice(voice::cv(Some(seq.id), 0.));
+                                let tag = format!("{}.vel", seq.id);
+                                new_base.add_voice(voice::audio(Some(&tag), 0.));
                             }
-                            Exp::VelOut(seq) => {
-                                sequences.push(Seq::Vel(AudioSeq::velocity(
-                                    &pare,
+                            Expression::MidiOut(seq) => {
+                                sequences.push(Seq::Midi(MidiSeq::new(
+                                    &binder,
                                     &seq,
                                     DEFAULT_BPM,
                                 )?));
-                                new_base.add_voice(voice::audio(Some(seq.id), 0.));
-                            }
-                            Exp::MidiOut(seq) => {
-                                sequences.push(Seq::Midi(MidiSeq::new(&pare, &seq, DEFAULT_BPM)?));
                                 new_base.add_voice(voice::atom(Some(seq.id), None));
                             }
                             _ => (),
@@ -173,25 +198,25 @@ fn audio_sequence_talk(
 ) -> usize {
     let mut t = tick;
     let end_t = tick + len as i64;
-    let mut ev_idx = if current_event_index < seq.events.len() {
+    let mut ev_idx = if current_event_index < seq.len() {
         current_event_index
     } else {
         current_event_index - 1
     };
 
-    while ev_idx > 0 && seq.events[ev_idx].start_tick() > end_t {
+    while ev_idx > 0 && seq[ev_idx].start_tick() > end_t {
         ev_idx -= 1;
     }
 
     while t < end_t {
-        while ev_idx < seq.events.len() && seq.events[ev_idx].end_tick() <= t {
+        while ev_idx < seq.len() && seq[ev_idx].end_tick() <= t {
             ev_idx += 1;
         }
         let mut ofset = (t - tick) as usize;
         let out_len = len - ofset;
 
-        if ev_idx < seq.events.len() {
-            let ev = &seq.events[ev_idx];
+        if ev_idx < seq.len() {
+            let ev = &seq[ev_idx];
 
             if ev.start_tick() <= t {
                 t = ev.assign_buffer(t, voice_buf, ofset, out_len);

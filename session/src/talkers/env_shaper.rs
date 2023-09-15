@@ -140,7 +140,7 @@ impl Talker for EnvShaper {
         let cv_buf = base.ear_set_hum_cv_buffer(PLAYERS_EAR_INDEX, port, TRIGGER_HUM_INDEX);
         let gain_buf = base.ear_set_hum_audio_buffer(PLAYERS_EAR_INDEX, port, GAIN_HUM_INDEX);
 
-        let mut player_state = &mut self.players_states[port];
+        let player_state = &mut self.players_states[port];
         let mut last_cv = player_state.last_cv;
         let mut env_idx = player_state.env_idx;
 

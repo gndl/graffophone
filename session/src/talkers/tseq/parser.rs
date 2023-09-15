@@ -11,6 +11,12 @@ use nom::{
 
 use std::str::FromStr;
 
+const COUPLING_KW: char = '&';
+const JOIN_KW: char = '-';
+const REF_KW: char = '@';
+const MUL_KW: char = '*';
+const ON_KW: char = '/';
+
 #[derive(Debug, PartialEq)]
 pub struct PBeat<'a> {
     pub id: &'a str,
@@ -125,7 +131,7 @@ pub struct PSequence<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Exp<'a> {
+pub enum Expression<'a> {
     Beat(PBeat<'a>),
     Chord(PChord<'a>),
     ChordLine(PChordLine<'a>),
@@ -134,7 +140,7 @@ pub enum Exp<'a> {
     HitLine(PHitLine<'a>),
     PitchLine(PPitchLine<'a>),
     Seq(PSequence<'a>),
-    FreqOut(PSequence<'a>),
+    SeqOut(PSequence<'a>),
     VelOut(PSequence<'a>),
     MidiOut(PSequence<'a>),
     None,
@@ -152,25 +158,25 @@ fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> {
     )
 }
 
-fn slash(input: &str) -> IResult<&str, char> {
-    delimited(space0, char('/'), space0)(input)
+fn on(input: &str) -> IResult<&str, char> {
+    delimited(space0, char(ON_KW), space0)(input)
 }
 
-fn end(input: &str) -> IResult<&str, Exp> {
+fn end(input: &str) -> IResult<&str, Expression> {
     let (input, _) = many1_count(preceded(space0, newline))(input)?;
-    Ok((input, Exp::None))
+    Ok((input, Expression::None))
 }
 
-fn comment(input: &str) -> IResult<&str, Exp> {
+fn comment(input: &str) -> IResult<&str, Expression> {
     let (input, _) = delimited(tag(";;"), take_until("\n"), end)(input)?;
-    Ok((input, Exp::None))
+    Ok((input, Expression::None))
 }
 
-fn beat(input: &str) -> IResult<&str, Exp> {
+fn beat(input: &str) -> IResult<&str, Expression> {
     let (input, (id, bpm, _)) = tuple((head("beat"), digit1, end))(input)?;
     Ok((
         input,
-        Exp::Beat(PBeat {
+        Expression::Beat(PBeat {
             id,
             bpm: usize::from_str(bpm).unwrap(),
         }),
@@ -180,21 +186,24 @@ fn beat(input: &str) -> IResult<&str, Exp> {
 fn hit(input: &str) -> IResult<&str, PHit> {
     let (input, (position, duration)) = tuple((
         terminated(float, space0),
-        opt(delimited(terminated(char(','), space0), float, space0)),
+        opt(delimited(terminated(char(JOIN_KW), space0), float, space0)),
     ))(input)?;
     Ok((input, PHit { position, duration }))
 }
 
-fn hits(input: &str) -> IResult<&str, Exp> {
+fn hits(input: &str) -> IResult<&str, Expression> {
     let (input, (id, hits, duration)) =
-        tuple((head("hits"), many0(hit), delimited(slash, float, end)))(input)?;
-    Ok((input, Exp::HitLine(PHitLine { id, hits, duration })))
+        tuple((head("hits"), many0(hit), delimited(on, float, end)))(input)?;
+    Ok((input, Expression::HitLine(PHitLine { id, hits, duration })))
 }
 
-fn durations(input: &str) -> IResult<&str, Exp> {
+fn durations(input: &str) -> IResult<&str, Expression> {
     let (input, (id, durations)) =
         tuple((head("durations"), many0(terminated(float, space0))))(input)?;
-    Ok((input, Exp::DurationLine(PDurationLine { id, durations })))
+    Ok((
+        input,
+        Expression::DurationLine(PDurationLine { id, durations }),
+    ))
 }
 
 fn transition(input: &str) -> IResult<&str, PTransition> {
@@ -220,14 +229,17 @@ fn velocity(input: &str) -> IResult<&str, PVelocity> {
     Ok((input, PVelocity { value, transition }))
 }
 
-fn velos(input: &str) -> IResult<&str, Exp> {
+fn velos(input: &str) -> IResult<&str, Expression> {
     let (input, (id, velocities, _)) =
         tuple((head("velos"), many0(terminated(velocity, space0)), end))(input)?;
-    Ok((input, Exp::VelocityLine(PVelocityLine { id, velocities })))
+    Ok((
+        input,
+        Expression::VelocityLine(PVelocityLine { id, velocities }),
+    ))
 }
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
-    let (input, (num, den)) = tuple((float, opt(delimited(slash, float, space0))))(input)?;
+    let (input, (num, den)) = tuple((float, opt(delimited(on, float, space0))))(input)?;
     Ok((
         input,
         PRatio {
@@ -240,8 +252,12 @@ fn ratio(input: &str) -> IResult<&str, PRatio> {
 fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
     let (input, (freq_ratio, delay, velocity)) = tuple((
         ratio,
-        opt(delimited(terminated(char(','), space0), float, space0)),
-        opt(delimited(terminated(char(','), space0), velocity, space0)),
+        opt(delimited(terminated(char(JOIN_KW), space0), float, space0)),
+        opt(delimited(
+            terminated(char(JOIN_KW), space0),
+            velocity,
+            space0,
+        )),
     ))(input)?;
     Ok((
         input,
@@ -253,21 +269,18 @@ fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
     ))
 }
 
-fn chord(input: &str) -> IResult<&str, Exp> {
+fn chord(input: &str) -> IResult<&str, Expression> {
     let (input, (id, harmonics, _)) =
         tuple((head("chord"), many0(terminated(harmonic, space0)), end))(input)?;
 
-    Ok((input, Exp::Chord(PChord { id, harmonics })))
+    Ok((input, Expression::Chord(PChord { id, harmonics })))
 }
 
-fn chords(input: &str) -> IResult<&str, Exp> {
-    let (input, (id, chords, _)) = tuple((
-        head("chords"),
-        many0(terminated(alphanumeric1, space0)),
-        end,
-    ))(input)?;
+fn chords(input: &str) -> IResult<&str, Expression> {
+    let (input, (id, chords, _)) =
+        tuple((head("chords"), many0(terminated(id, space0)), end))(input)?;
 
-    Ok((input, Exp::ChordLine(PChordLine { id, chords })))
+    Ok((input, Expression::ChordLine(PChordLine { id, chords })))
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitch> {
@@ -276,22 +289,22 @@ fn pitch(input: &str) -> IResult<&str, PPitch> {
     Ok((input, PPitch { id, transition }))
 }
 
-fn pitchs(input: &str) -> IResult<&str, Exp> {
+fn pitchs(input: &str) -> IResult<&str, Expression> {
     let (input, (id, pitchs, _)) =
         tuple((head("pitchs"), many0(terminated(pitch, space0)), end))(input)?;
 
-    Ok((input, Exp::PitchLine(PPitchLine { id, pitchs })))
+    Ok((input, Expression::PitchLine(PPitchLine { id, pitchs })))
 }
 
 fn part(input: &str) -> IResult<&str, PFragment> {
     let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, mul, _)) =
         tuple((
             id,
-            opt(preceded(char('&'), id)),
-            opt(preceded(char(','), id)),
-            opt(preceded(char('&'), id)),
-            opt(preceded(char(','), id)),
-            opt(preceded(delimited(space0, char('*'), space0), float)),
+            opt(preceded(char(COUPLING_KW), id)),
+            opt(preceded(char(JOIN_KW), id)),
+            opt(preceded(char(COUPLING_KW), id)),
+            opt(preceded(char(JOIN_KW), id)),
+            opt(preceded(delimited(space0, char(MUL_KW), space0), float)),
             space0,
         ))(input)?;
     Ok((
@@ -309,8 +322,8 @@ fn part(input: &str) -> IResult<&str, PFragment> {
 
 fn seq_ref(input: &str) -> IResult<&str, PFragment> {
     let (input, (id, mul, _)) = tuple((
-        delimited(char('@'), id, space0),
-        opt(preceded(terminated(char('*'), space0), digit1)),
+        delimited(char(REF_KW), id, space0),
+        opt(preceded(terminated(char(MUL_KW), space0), digit1)),
         space0,
     ))(input)?;
     Ok((
@@ -327,7 +340,7 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
         space1,
         id,
         delimited(space0, char(':'), space0),
-        opt(delimited(slash, id, space0)),
+        opt(delimited(on, id, space0)),
         many0(alt((seq_ref, part))),
         end,
     ))(input)?;
@@ -341,30 +354,30 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
     ))
 }
 
-fn seq(input: &str) -> IResult<&str, Exp> {
+fn seq(input: &str) -> IResult<&str, Expression> {
     let (input, sequence) = preceded(tag("seq"), sequence)(input)?;
-    Ok((input, Exp::Seq(sequence)))
+    Ok((input, Expression::Seq(sequence)))
 }
 
-fn freqout(input: &str) -> IResult<&str, Exp> {
-    let (input, sequence) = preceded(tag("freqout"), sequence)(input)?;
-    Ok((input, Exp::FreqOut(sequence)))
+fn seqout(input: &str) -> IResult<&str, Expression> {
+    let (input, sequence) = preceded(tag("seqout"), sequence)(input)?;
+    Ok((input, Expression::SeqOut(sequence)))
 }
 
-fn velout(input: &str) -> IResult<&str, Exp> {
+fn velout(input: &str) -> IResult<&str, Expression> {
     let (input, sequence) = preceded(tag("velout"), sequence)(input)?;
-    Ok((input, Exp::VelOut(sequence)))
+    Ok((input, Expression::VelOut(sequence)))
 }
 
-fn midiout(input: &str) -> IResult<&str, Exp> {
+fn midiout(input: &str) -> IResult<&str, Expression> {
     let (input, sequence) = preceded(tag("midiout"), sequence)(input)?;
-    Ok((input, Exp::MidiOut(sequence)))
+    Ok((input, Expression::MidiOut(sequence)))
 }
 
-pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
+pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
     let (input, expressions) = many0(alt((
-        beat, chord, chords, hits, durations, pitchs, velos, seq, freqout, velout, midiout,
-        comment, end,
+        beat, chord, chords, hits, durations, pitchs, velos, seq, seqout, velout, midiout, comment,
+        end,
     )))(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
@@ -379,17 +392,17 @@ pub fn parse(input: &str) -> Result<Vec<Exp>, failure::Error> {
 fn test_beat() {
     assert_eq!(
         beat("beat Id06 : 09\n"),
-        Ok(("", Exp::Beat(PBeat { id: "Id06", bpm: 9 }),))
+        Ok(("", Expression::Beat(PBeat { id: "Id06", bpm: 9 }),))
     );
     assert_eq!(
         beat("beat  9zZ:9  \n"),
-        Ok(("", Exp::Beat(PBeat { id: "9zZ", bpm: 9 }),))
+        Ok(("", Expression::Beat(PBeat { id: "9zZ", bpm: 9 }),))
     );
     assert_eq!(
         beat("beat titi   : 90\n"),
         Ok((
             "",
-            Exp::Beat(PBeat {
+            Expression::Beat(PBeat {
                 id: "titi",
                 bpm: 90,
             }),
@@ -400,10 +413,13 @@ fn test_beat() {
 #[test]
 fn test_chord() {
     assert_eq!(
-        chord("chord c : 1 1.5,2 3/2,0.1,.4\n"),
+        chord(format!(
+            "chord c : 1 1.5{0}2 3{1}2{0}0.1{0}.4\n",
+            JOIN_KW, ON_KW
+        )),
         Ok((
             "",
-            Exp::Chord(PChord {
+            Expression::Chord(PChord {
                 id: "c",
                 harmonics: vec![
                     PHarmonic {
@@ -436,7 +452,7 @@ fn test_chords() {
         chords("chords cs : c1 c2 c3 \n"),
         Ok((
             "",
-            Exp::ChordLine(PChordLine {
+            Expression::ChordLine(PChordLine {
                 id: "cs",
                 chords: vec!["c1", "c2", "c3"]
             }),
@@ -450,7 +466,7 @@ fn test_hits() {
         hits("hits p1: 0.5 .75 / 1\n"),
         Ok((
             "",
-            Exp::HitLine(PHitLine {
+            Expression::HitLine(PHitLine {
                 id: "p1",
                 hits: vec![
                     PHit {
@@ -467,10 +483,10 @@ fn test_hits() {
         ))
     );
     assert_eq!(
-        hits("hits p1: 0.5,.2 .75 , .3 / 1\n"),
+        hits(format!("hits p1: 0.5{0}.2 .75 {0} .3 / 1\n", JOIN_KW)),
         Ok((
             "",
-            Exp::HitLine(PHitLine {
+            Expression::HitLine(PHitLine {
                 id: "p1",
                 hits: vec![
                     PHit {
@@ -494,7 +510,7 @@ fn test_velos() {
         velos("velos v1: .5 ~ 1 .75=0.9\n"),
         Ok((
             "",
-            Exp::VelocityLine(PVelocityLine {
+            Expression::VelocityLine(PVelocityLine {
                 id: "v1",
                 velocities: vec![
                     PVelocity {
@@ -525,7 +541,7 @@ fn test_pitchs() {
         pitchs("pitchs blank :\n"),
         Ok((
             "",
-            Exp::PitchLine(PPitchLine {
+            Expression::PitchLine(PPitchLine {
                 id: "blank",
                 pitchs: vec![]
             }),
@@ -535,7 +551,7 @@ fn test_pitchs() {
         pitchs("pitchs intro : G9 = B7~e5 > f2 <a0  \n"),
         Ok((
             "",
-            Exp::PitchLine(PPitchLine {
+            Expression::PitchLine(PPitchLine {
                 id: "intro",
                 pitchs: vec![
                     PPitch {
@@ -567,7 +583,7 @@ fn test_pitchs() {
 #[test]
 fn test_part() {
     assert_eq!(
-        part("p,n,v*3"),
+        part(format!("p{0}n{0}v{1}3", JOIN_KW, MUL_KW)),
         Ok((
             "",
             PFragment::Part(PPart {
@@ -581,7 +597,7 @@ fn test_part() {
         ))
     );
     assert_eq!(
-        part("p,n * 3 "),
+        part(format!("p{0}n {1} 3 ", JOIN_KW, MUL_KW)),
         Ok((
             "",
             PFragment::Part(PPart {
@@ -595,7 +611,7 @@ fn test_part() {
         ))
     );
     assert_eq!(
-        part("p,n,v0"),
+        part(format!("p{0}n{0}v0", JOIN_KW)),
         Ok((
             "",
             PFragment::Part(PPart {
@@ -609,7 +625,7 @@ fn test_part() {
         ))
     );
     assert_eq!(
-        part("p1*3 "),
+        part(format!("p1{0}3 ", MUL_KW)),
         Ok((
             "",
             PFragment::Part(PPart {
@@ -623,7 +639,7 @@ fn test_part() {
         ))
     );
     assert_eq!(
-        part("p,n,v*3"),
+        part(format!("p{0}n{0}v{1}3", JOIN_KW, MUL_KW)),
         Ok((
             "",
             PFragment::Part(PPart {
@@ -655,7 +671,7 @@ fn test_part() {
 #[test]
 fn test_seq_ref() {
     assert_eq!(
-        seq_ref("@s_01"),
+        seq_ref(format!("{}s_01", REF_KW)),
         Ok((
             "",
             PFragment::SeqRef(PSeqRef {
@@ -665,7 +681,7 @@ fn test_seq_ref() {
         ))
     );
     assert_eq!(
-        seq_ref("@1sr_ *2"),
+        seq_ref(format!("{0}1sr_ {1}2", REF_KW, MUL_KW)),
         Ok((
             "",
             PFragment::SeqRef(PSeqRef {
@@ -679,7 +695,10 @@ fn test_seq_ref() {
 #[test]
 fn test_sequence() {
     assert_eq!(
-        sequence(" seq_03:/ _b_ @s_1 p1 p1,n2 @s_2*3 p2,n1,v1 * 2 \n"),
+        sequence(format!(
+            " seq_03:/ _b_ {1}s_1 p1 p1{0}n2 {1}s_2{2}3 p2{0}n1{0}v1 {2} 2 \n",
+            JOIN_KW, REF_KW, MUL_KW
+        )),
         Ok((
             "",
             PSequence {
@@ -727,10 +746,10 @@ fn test_sequence() {
 #[test]
 fn test_seq() {
     assert_eq!(
-        seq("seq s : @s_1\n"),
+        seq(format!("seq s : {}s_1\n", REF_KW)),
         Ok((
             "",
-            Exp::Seq(PSequence {
+            Expression::Seq(PSequence {
                 id: "s",
                 beat: None,
                 fragments: vec![PFragment::SeqRef(PSeqRef {
@@ -743,12 +762,12 @@ fn test_seq() {
 }
 
 #[test]
-fn test_freqout() {
+fn test_seqout() {
     assert_eq!(
-        freqout("freqout   s : @s_1 \n"),
+        seqout(format!("seqout   s : {}s_1 \n", REF_KW)),
         Ok((
             "",
-            Exp::FreqOut(PSequence {
+            Expression::SeqOut(PSequence {
                 id: "s",
                 beat: None,
                 fragments: vec![PFragment::SeqRef(PSeqRef {
@@ -762,15 +781,21 @@ fn test_freqout() {
 
 #[test]
 fn test_comment() {
-    assert_eq!(comment(";; this is a comment !\n"), Ok(("", Exp::None)));
-    assert_eq!(comment(";; this is a comment !\n\n\n"), Ok(("", Exp::None)));
+    assert_eq!(
+        comment(";; this is a comment !\n"),
+        Ok(("", Expression::None))
+    );
+    assert_eq!(
+        comment(";; this is a comment !\n\n\n"),
+        Ok(("", Expression::None))
+    );
 }
 
 #[test]
 fn test_end() {
-    assert_eq!(end("\n"), Ok(("", Exp::None)));
-    assert_eq!(end("\n   \n"), Ok(("", Exp::None)));
-    assert_eq!(end(" \n\n  \n"), Ok(("", Exp::None)));
+    assert_eq!(end("\n"), Ok(("", Expression::None)));
+    assert_eq!(end("\n   \n"), Ok(("", Expression::None)));
+    assert_eq!(end(" \n\n  \n"), Ok(("", Expression::None)));
 }
 
 #[test]
@@ -779,10 +804,10 @@ fn test_parse() {
     assert_eq!(
         res,
         vec![
-            Exp::None,
-            Exp::None,
-            Exp::Beat(PBeat { id: "b", bpm: 90 }),
-            Exp::VelocityLine(PVelocityLine {
+            Expression::None,
+            Expression::None,
+            Expression::Beat(PBeat { id: "b", bpm: 90 }),
+            Expression::VelocityLine(PVelocityLine {
                 id: "v",
                 velocities: vec![PVelocity {
                     value: 1.,

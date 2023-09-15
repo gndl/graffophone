@@ -1,5 +1,5 @@
+use talkers::tseq::binder::Binder;
 use talkers::tseq::parser::PSequence;
-use talkers::tseq::parsing_result::ParsingResult;
 
 struct MidiEvent {}
 
@@ -10,7 +10,7 @@ pub struct MidiSeq {
 
 impl MidiSeq {
     pub fn new(
-        _pare: &ParsingResult,
+        _pare: &Binder,
         _sequence: &PSequence,
         _bpm: usize,
     ) -> Result<MidiSeq, failure::Error> {
