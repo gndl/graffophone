@@ -6,8 +6,6 @@ extern crate gtk;
 
 extern crate session;
 
-use gtk::prelude::*;
-
 use crate::gtk::prelude::ApplicationExt;
 use crate::gtk::prelude::ApplicationExtManual;
 use gtk::gdk::Display;

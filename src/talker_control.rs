@@ -158,7 +158,7 @@ impl Dim {
             ))),
         }
     }
-    pub fn of_symbol(cc: &Context, txt: &str) -> Result<Dim, failure::Error> {
+    pub fn of_symbol(_cc: &Context, _txt: &str) -> Result<Dim, failure::Error> {
         Ok(Dim::new(SYM_W, SYM_H))
     }
 }
