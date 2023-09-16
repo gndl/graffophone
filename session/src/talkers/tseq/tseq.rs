@@ -57,8 +57,9 @@ impl Talker for Tseq {
             Data::Text(ref txt) => {
                 let mut new_base = base.with(None, None, None);
                 let mut sequences: Vec<Seq> = Vec::new();
+                let input = format!("{}\n", txt);
 
-                let exps = parser::parse(&txt)?;
+                let exps = parser::parse(&input)?;
                 {
                     let mut binder = Binder::new();
                     let mut outs = Vec::new();
