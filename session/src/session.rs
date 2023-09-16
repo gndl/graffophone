@@ -27,7 +27,8 @@ use crate::mixer::RMixer;
 use crate::player::Player;
 use crate::state::State;
 
-pub const CONTENT_TYPE: &str = ".gsr";
+pub const SESSION_FILE_EXT: &str = ".gsr";
+pub const NEW_SESSION_FILENAME: &str = "new_session.gsr";
 
 pub struct Session {
     filename: String,
@@ -40,7 +41,7 @@ pub struct Session {
 impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
         Ok(Self {
-            filename: "NewSession.gsr".to_string(),
+            filename: NEW_SESSION_FILENAME.to_string(),
             band: Band::make(&band_description)?,
             player: Player::new(band_description)?,
             start_tick: 0,
@@ -143,6 +144,10 @@ impl Session {
     }
     pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
         self.filename = filename.to_string();
+
+        if !filename.ends_with(SESSION_FILE_EXT) {
+            self.filename.push_str(SESSION_FILE_EXT);
+        }
         self.save()
     }
 
