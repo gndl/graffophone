@@ -8,6 +8,7 @@ use gtk::{glib, Widget};
 use talker::data::Data;
 use talker::identifier::Id;
 
+use session;
 use session::event_bus::{Notification, REventBus};
 use session::state::State;
 use sourceview5::traits::BufferExt;
@@ -196,9 +197,8 @@ impl ApplicationView {
         // Save session as
         let save_session_as_ctrl = session_presenter.clone();
         save_session_as_button.connect_clicked(glib::clone!(@weak window =>move |_| {
-            let dialog = FileDialog::builder()
-                .title("Choose a Graffophone session record file")
-                .accept_label("Open")
+            let dialog = FileDialog::builder().title("Choose a Graffophone session record file")
+                .accept_label("Open").initial_name(session::session::NEW_SESSION_FILENAME)
                 .build();
 
             let save_session_as_ctrl_ctrl = save_session_as_ctrl.clone();
