@@ -371,7 +371,7 @@ impl Band {
                     invalidated_ports.insert(p);
                 }
             }
-            for p in less_ports..new_ports_count {
+            for p in less_ports..old_ports_count {
                 invalidated_ports.insert(p);
             }
         }
