@@ -361,6 +361,7 @@ impl ApplicationView {
                     self.validate_text_button.set_visible(true);
                     self.cancel_text_button.set_visible(true);
                     self.selected_talker_id = Some(talker_id);
+                    self.text_view.grab_focus();
                 }
                 Data::File(_) => println!("Todo : Applicationview.edit_talker_data Data::File"),
                 _ => (),
