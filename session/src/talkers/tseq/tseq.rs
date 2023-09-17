@@ -10,6 +10,7 @@ use talkers::tseq::audio_seq::AudioSeq;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
+use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
 use talkers::tseq::{audio_seq, parser};
 
 pub const MODEL: &str = "Tseq";
@@ -22,8 +23,6 @@ enum Seq {
     Midi(MidiSeq),
 }
 
-pub const DEFAULT_DATA: &str = ";; Text sequencer";
-
 pub struct Tseq {
     sequences: Vec<Seq>,
     current_events_indexies: Vec<usize>,
@@ -31,7 +30,7 @@ pub struct Tseq {
 
 impl Tseq {
     pub fn new() -> Result<CTalker, failure::Error> {
-        let base = TalkerBase::new_data("", MODEL, Data::Text(DEFAULT_DATA.to_string()));
+        let base = TalkerBase::new_data("", MODEL, Data::Text(SYNTAX_DESCRIPTION.to_string()));
 
         Ok(ctalker!(
             base,

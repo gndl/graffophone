@@ -4,4 +4,5 @@ pub mod binder;
 pub mod midi_seq;
 pub mod parser;
 pub mod scale;
+pub mod syntax;
 pub mod tseq;
