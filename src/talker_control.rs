@@ -119,10 +119,18 @@ struct VoiceControl {
 }
 
 fn format_label(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        s[0..max_len].to_string() + "..."
+    let mut label = s.trim_start();
+
+    if let Some(eol_pos) = label.find("\n") {
+        label = &label[0..eol_pos];
+    }
+
+    if label.is_empty() {
+        "...".to_string()
+    } else if label.len() > max_len {
+        label[0..max_len].to_string() + "..."
     } else {
-        s.to_string()
+        label.to_string()
     }
 }
 
@@ -130,7 +138,7 @@ fn format_name(s: &str) -> String {
     format_label(s, 24)
 }
 fn format_data(s: &str) -> String {
-    format_label(s, 6)
+    format_label(s, 15)
 }
 fn format_tag(s: &str) -> String {
     //    s[0..1].to_uppercase() + &s[1..s.len()]
