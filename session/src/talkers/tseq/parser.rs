@@ -34,7 +34,6 @@ use SEQUENCE_KW;
 use SEQUENCE_OUTPUT_KW;
 use SIN_TRANSITION_KW;
 use VELOCITYLINE_KW;
-use VELOCITY_OUTPUT_KW;
 
 #[derive(Debug, PartialEq)]
 pub struct PBeat<'a> {
@@ -160,7 +159,6 @@ pub enum Expression<'a> {
     PitchLine(PPitchLine<'a>),
     Seq(PSequence<'a>),
     SeqOut(PSequence<'a>),
-    VelOut(PSequence<'a>),
     MidiOut(PSequence<'a>),
     None,
 }
@@ -309,7 +307,7 @@ fn velocity(input: &str) -> IResult<&str, PVelocity> {
     Ok((input, PVelocity { value, transition }))
 }
 
-fn velos(input: &str) -> IResult<&str, Expression> {
+fn velocities(input: &str) -> IResult<&str, Expression> {
     let (input, (id, velocities, _)) = tuple((
         head(VELOCITYLINE_KW!()),
         many0(terminated(velocity, space0)),
@@ -402,11 +400,6 @@ fn seqout(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::SeqOut(sequence)))
 }
 
-fn velout(input: &str) -> IResult<&str, Expression> {
-    let (input, sequence) = preceded(tag(VELOCITY_OUTPUT_KW!()), sequence)(input)?;
-    Ok((input, Expression::VelOut(sequence)))
-}
-
 fn midiout(input: &str) -> IResult<&str, Expression> {
     let (input, sequence) = preceded(tag(MIDI_OUTPUT_KW!()), sequence)(input)?;
     Ok((input, Expression::MidiOut(sequence)))
@@ -420,10 +413,9 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
         hits,
         durations,
         pitchs,
-        velos,
+        velocities,
         seq,
         seqout,
-        velout,
         midiout,
         multiline_comment, // multiline_comment must be evaluated before line_comment
         line_comment,
@@ -585,7 +577,7 @@ fn test_hits() {
 #[test]
 fn test_velos() {
     assert_eq!(
-        velos(concat!(
+        velocities(concat!(
             VELOCITYLINE_KW!(),
             " v1",
             DEF_KW!(),

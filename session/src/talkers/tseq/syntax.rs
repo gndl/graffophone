@@ -132,12 +132,6 @@ macro_rules! SEQUENCE_OUTPUT_KW {
         "seqout"
     };
 }
-#[macro_export]
-macro_rules! VELOCITY_OUTPUT_KW {
-    () => {
-        "velout"
-    };
-}
 
 #[macro_export]
 macro_rules! MIDI_OUTPUT_KW {
@@ -217,10 +211,6 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     " <num>] [...]\n",
     SEQUENCE_OUTPUT_KW!(),
     " <sequence_output_id> ",
-    DEF_KW!(),
-    " ''\n",
-    VELOCITY_OUTPUT_KW!(),
-    " <velocity_output_id> ",
     DEF_KW!(),
     " ''\n",
     MULTILINE_COMMENT_KW!()

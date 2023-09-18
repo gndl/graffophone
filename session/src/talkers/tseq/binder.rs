@@ -5,7 +5,7 @@ use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
     PBeat, PChord, PChordLine, PDurationLine, PHitLine, PPitchLine, PSequence, PTransition,
-    PVelocityLine,
+    PVelocity, PVelocityLine,
 };
 use talkers::tseq::scale::Scale;
 
@@ -30,6 +30,7 @@ pub struct Binder<'a> {
     deserialized_chordlines: HashMap<&'a str, Vec<Vec<Harmonic>>>,
     pub durationlines: HashMap<&'a str, &'a PDurationLine<'a>>,
     pub velocitylines: HashMap<&'a str, &'a PVelocityLine<'a>>,
+    default_velocityline: PVelocityLine<'a>,
     pub hitlines: HashMap<&'a str, &'a PHitLine<'a>>,
     pub pitchlines: Vec<&'a PPitchLine<'a>>,
     deserialized_pitchlines: HashMap<&'a str, Vec<(f32, PTransition)>>,
@@ -46,6 +47,13 @@ impl<'a> Binder<'a> {
             deserialized_chordlines: HashMap::new(),
             durationlines: HashMap::new(),
             velocitylines: HashMap::new(),
+            default_velocityline: PVelocityLine {
+                id: "",
+                velocities: vec![PVelocity {
+                    value: 1.,
+                    transition: PTransition::None,
+                }],
+            },
             hitlines: HashMap::new(),
             pitchlines: Vec::new(),
             deserialized_pitchlines: HashMap::new(),
@@ -122,15 +130,22 @@ impl<'a> Binder<'a> {
             ))),
         }
     }
-    pub fn fetch_velocityline(&'a self, id: &str) -> Result<&'a PVelocityLine, failure::Error> {
-        match self.velocitylines.get(id) {
-            Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!(
-                "Tseq velocityline {} not found!",
-                id
-            ))),
+    pub fn fetch_velocityline(
+        &'a self,
+        oid: &'a Option<&str>,
+    ) -> Result<&'a PVelocityLine, failure::Error> {
+        match oid {
+            Some(id) => match self.velocitylines.get(id) {
+                Some(e) => Ok(e),
+                None => Err(failure::err_msg(format!(
+                    "Tseq velocityline {} not found!",
+                    id
+                ))),
+            },
+            None => Ok(&self.default_velocityline),
         }
     }
+
     pub fn fetch_chord(&'a self, id: &str) -> Result<&'a PChord, failure::Error> {
         match self.chords.get(id) {
             Some(e) => Ok(e),

@@ -82,9 +82,14 @@ impl EventsBuilder {
                                     binder.fetch_deserialized_chordline(&part.chordline_id)?;
                                 let chords_count = chordline.len();
 
+                                let velocityline =
+                                    binder.fetch_velocityline(&part.velocityline_id)?;
+                                let velocities_count = velocityline.velocities.len();
+
                                 let mut next_hit_idx = 0;
                                 let mut next_pitch_idx = 0;
                                 let mut next_chord_idx = 0;
+                                let mut next_velocity_idx = 0;
 
                                 let max_n = usize::max(hitline_hits_count, pitchs_count);
 
@@ -120,6 +125,9 @@ impl EventsBuilder {
                                             }
                                         }
 
+                                        let next_velocity =
+                                            &velocityline.velocities[next_velocity_idx];
+
                                         for (harmonic_idx, next_harmonic) in
                                             chordline[next_chord_idx].iter().enumerate()
                                         {
@@ -148,12 +156,15 @@ impl EventsBuilder {
                                                 ),
                                             );
 
+                                            let next_harmonic_velocity =
+                                                next_harmonic.velocity * next_velocity.value;
+
                                             harmonics_velocity_events[harmonic_idx].push(
                                                 audio_event::AudioEventParameter::new(
                                                     harmonic_event.start_tick,
                                                     harmonic_end_tick,
                                                     harmonic_event.velocity,
-                                                    next_harmonic.velocity,
+                                                    next_harmonic_velocity,
                                                     harmonic_event.velocity_transition,
                                                 ),
                                             );
@@ -163,9 +174,15 @@ impl EventsBuilder {
                                             harmonic_event.frequency = next_harmonic_frequency;
                                             harmonic_event.frequency_transition =
                                                 next_pitch_transition;
-                                            harmonic_event.velocity = next_harmonic.velocity;
-                                            harmonic_event.velocity_transition =
-                                                next_harmonic.velocity_transition;
+                                            harmonic_event.velocity = next_harmonic_velocity;
+                                            harmonic_event.velocity_transition = if next_harmonic
+                                                .velocity_transition
+                                                == PTransition::None
+                                            {
+                                                next_velocity.transition
+                                            } else {
+                                                next_harmonic.velocity_transition
+                                            };
                                         }
 
                                         next_hit_idx += 1;
@@ -185,6 +202,12 @@ impl EventsBuilder {
 
                                         if next_chord_idx == chords_count {
                                             next_chord_idx = 0;
+                                        }
+
+                                        next_velocity_idx += 1;
+
+                                        if next_velocity_idx == velocities_count {
+                                            next_velocity_idx = 0;
                                         }
                                     }
                                     mul -= 1.;
@@ -214,125 +237,6 @@ impl EventsBuilder {
                             harmonics_frequency_events,
                             harmonics_velocity_events,
                         )?;
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub fn create_velocity_events(
-        &mut self,
-        binder: &Binder,
-        bpm: usize,
-        sequence: &PSequence,
-        events: &mut AudioSeq,
-    ) -> Result<(), failure::Error> {
-        self.chord_events.push(Event::new());
-
-        let bpm = match sequence.beat {
-            Some(id) => (binder.fetch_beat(id)?).bpm,
-            None => bpm,
-        };
-        let beat_ticks_count = ((AudioFormat::sample_rate() * 60) / bpm) as f32;
-
-        for fragment in &sequence.fragments {
-            match fragment {
-                Part(part) => {
-                    let mut part_is_empty = true;
-                    let hitline = binder.fetch_hitline(part.hitline_id)?;
-                    let hitline_hits_count = hitline.hits.len();
-                    let hitline_ticks_count = (hitline.duration * beat_ticks_count) as i64;
-                    let mut hitline_start_tick = self.tick;
-                    let mut mul = part.mul.unwrap_or(1.);
-
-                    if hitline_hits_count > 0 && mul > 0. {
-                        if let Some(velocityline_id) = part.velocityline_id {
-                            let velocityline = binder.fetch_velocityline(velocityline_id)?;
-                            let velos_count = velocityline.velocities.len();
-
-                            if velos_count > 0 {
-                                part_is_empty = false;
-
-                                let mut next_hit_idx = 0;
-                                let mut vel_idx = 0;
-                                let max_n = usize::max(hitline_hits_count, velos_count);
-
-                                while mul > 0. {
-                                    let n = if mul < 1. {
-                                        ((max_n as f32) * mul) as usize
-                                    } else {
-                                        max_n
-                                    };
-                                    for _ in 0..n {
-                                        let next_hit = &hitline.hits[next_hit_idx];
-                                        let next_hit_start_tick = hitline_start_tick
-                                            + (next_hit.position * beat_ticks_count) as i64;
-
-                                        let velocity = &velocityline.velocities[vel_idx];
-                                        let next_velocity = velocity.value;
-                                        let next_velocity_transition = velocity.transition;
-
-                                        let end_tick = if self.chord_events[0].end_tick < 0 {
-                                            next_hit_start_tick
-                                        } else {
-                                            self.chord_events[0].end_tick
-                                        };
-
-                                        events.push(audio_event::create(
-                                            self.chord_events[0].start_tick,
-                                            end_tick,
-                                            self.chord_events[0].velocity,
-                                            next_velocity,
-                                            self.chord_events[0].velocity_transition,
-                                        ));
-
-                                        self.chord_events[0].start_tick = next_hit_start_tick;
-                                        self.chord_events[0].end_tick = match next_hit.duration {
-                                            Some(dur) => {
-                                                hitline_start_tick
-                                                    + ((next_hit.position + dur) * beat_ticks_count)
-                                                        as i64
-                                            }
-                                            None => -1,
-                                        };
-                                        self.chord_events[0].velocity = next_velocity;
-                                        self.chord_events[0].velocity_transition =
-                                            next_velocity_transition;
-
-                                        next_hit_idx += 1;
-
-                                        if next_hit_idx == hitline_hits_count {
-                                            next_hit_idx = 0;
-                                            hitline_start_tick += hitline_ticks_count;
-                                        }
-
-                                        vel_idx += 1;
-                                        if vel_idx == velos_count {
-                                            vel_idx = 0;
-                                        }
-                                    }
-                                    mul -= 1.;
-                                }
-                                if velos_count > hitline_hits_count
-                                    && velos_count % hitline_hits_count != 0
-                                {
-                                    hitline_start_tick += hitline_ticks_count;
-                                }
-                                self.tick = hitline_start_tick;
-                            }
-                        }
-                    }
-                    if part_is_empty {
-                        self.tick += (hitline_ticks_count as f32 * mul.ceil()) as i64;
-                    }
-                }
-                SeqRef(seqref) => {
-                    let seq = binder.fetch_sequence(&seqref.id)?;
-                    let mul = seqref.mul.unwrap_or(1);
-
-                    for _ in 0..mul {
-                        self.create_velocity_events(binder, bpm, seq, events)?;
                     }
                 }
             }
@@ -420,7 +324,7 @@ impl EventsBuilder {
     }
 }
 
-pub fn sequence(
+pub fn create_events(
     binder: &Binder,
     sequence: &PSequence,
     bpm: usize,
@@ -440,18 +344,4 @@ pub fn sequence(
         harmonics_frequency_events,
         harmonics_velocity_events_parameters,
     )
-}
-
-pub fn velocity(
-    binder: &Binder,
-    sequence: &PSequence,
-    bpm: usize,
-) -> Result<AudioSeq, failure::Error> {
-    let mut builder = EventsBuilder::new();
-    let mut events: AudioSeq = Vec::new();
-
-    builder.create_velocity_events(binder, bpm, sequence, &mut events)?;
-    builder.create_last_velocity_event(0, &mut events);
-
-    Ok(events)
 }

@@ -90,7 +90,6 @@ impl Talker for Tseq {
                                 binder.sequences.insert(sequence.id, &sequence);
                             }
                             Expression::SeqOut(_) => outs.push(exp),
-                            Expression::VelOut(_) => outs.push(exp),
                             Expression::MidiOut(_) => outs.push(exp),
                             Expression::None => (),
                         }
@@ -102,7 +101,7 @@ impl Talker for Tseq {
                         match out {
                             Expression::SeqOut(seq) => {
                                 let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                                    audio_seq::sequence(&binder, &seq, DEFAULT_BPM)?;
+                                    audio_seq::create_events(&binder, &seq, DEFAULT_BPM)?;
 
                                 let harmonics_count = harmonics_frequency_events.len();
                                 let display_harmonic_num = harmonics_count > 1;
@@ -128,20 +127,11 @@ impl Talker for Tseq {
                                         if !harmonic_velocity_events.is_empty() {
                                             sequences.push(Seq::Vel(harmonic_velocity_events));
 
-                                            let tag = format!("{}.vel", tag_base);
+                                            let tag = format!("{}.gain", tag_base);
                                             new_base.add_voice(voice::audio(Some(&tag), 0.));
                                         }
                                     }
                                 }
-                            }
-                            Expression::VelOut(seq) => {
-                                sequences.push(Seq::Vel(audio_seq::velocity(
-                                    &binder,
-                                    &seq,
-                                    DEFAULT_BPM,
-                                )?));
-                                let tag = format!("{}.vel", seq.id);
-                                new_base.add_voice(voice::audio(Some(&tag), 0.));
                             }
                             Expression::MidiOut(seq) => {
                                 sequences.push(Seq::Midi(MidiSeq::new(
