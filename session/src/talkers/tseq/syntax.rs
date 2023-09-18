@@ -54,6 +54,12 @@ macro_rules! BEAT_KW {
     };
 }
 #[macro_export]
+macro_rules! ATTACK_KW {
+    () => {
+        "attack"
+    };
+}
+#[macro_export]
 macro_rules! CHORD_KW {
     () => {
         "chord"
@@ -157,10 +163,18 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     "<delay>[",
     JOIN_KW!(),
     "<velocity>]] [...]\n",
+    ATTACK_KW!(),
+    " <attack_id> ",
+    DEF_KW!(),
+    "<delay>[",
+    JOIN_KW!(),
+    "<velocity>] [...]\n",
     CHORDLINE_KW!(),
     " <chords_id> ",
     DEF_KW!(),
-    " <chord_id> [...]\n",
+    " <chord_id>[",
+    JOIN_KW!(),
+    "<attack_id>] [...]\n",
     HITLINE_KW!(),
     " <hits_id> ",
     DEF_KW!(),

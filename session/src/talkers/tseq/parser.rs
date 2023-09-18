@@ -11,6 +11,7 @@ use nom::{
 
 use std::str::FromStr;
 
+use ATTACK_KW;
 use BEAT_KW;
 use CHORDLINE_KW;
 use CHORD_KW;
@@ -71,9 +72,27 @@ pub struct PChord<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct PAccent {
+    pub delay: f32,
+    pub velocity: Option<PVelocity>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PAttack<'a> {
+    pub id: &'a str,
+    pub accents: Vec<PAccent>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PChordAndAttack<'a> {
+    pub chord_id: &'a str,
+    pub attack_id: Option<&'a str>,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PChordLine<'a> {
     pub id: &'a str,
-    pub chords: Vec<&'a str>,
+    pub chords: Vec<PChordAndAttack<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -152,6 +171,7 @@ pub struct PSequence<'a> {
 pub enum Expression<'a> {
     Beat(PBeat<'a>),
     Chord(PChord<'a>),
+    Attack(PAttack<'a>),
     ChordLine(PChordLine<'a>),
     DurationLine(PDurationLine<'a>),
     VelocityLine(PVelocityLine<'a>),
@@ -250,9 +270,42 @@ fn chord(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::Chord(PChord { id, harmonics })))
 }
 
+fn accent(input: &str) -> IResult<&str, PAccent> {
+    let (input, (delay, velocity)) = tuple((
+        float,
+        opt(delimited(
+            terminated(char(JOIN_KW!()), space0),
+            velocity,
+            space0,
+        )),
+    ))(input)?;
+    Ok((input, PAccent { delay, velocity }))
+}
+
+fn attack(input: &str) -> IResult<&str, Expression> {
+    let (input, (id, accents, _)) =
+        tuple((head(ATTACK_KW!()), many0(terminated(accent, space0)), end))(input)?;
+
+    Ok((input, Expression::Attack(PAttack { id, accents })))
+}
+
+fn accentuated_chord(input: &str) -> IResult<&str, PChordAndAttack> {
+    let (input, (chord_id, attack_id)) = tuple((id, opt(preceded(char(JOIN_KW!()), id))))(input)?;
+    Ok((
+        input,
+        PChordAndAttack {
+            chord_id,
+            attack_id,
+        },
+    ))
+}
+
 fn chords(input: &str) -> IResult<&str, Expression> {
-    let (input, (id, chords, _)) =
-        tuple((head(CHORDLINE_KW!()), many0(terminated(id, space0)), end))(input)?;
+    let (input, (id, chords, _)) = tuple((
+        head(CHORDLINE_KW!()),
+        many0(terminated(accentuated_chord, space0)),
+        end,
+    ))(input)?;
 
     Ok((input, Expression::ChordLine(PChordLine { id, chords })))
 }
@@ -409,6 +462,7 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
     let (input, expressions) = many0(alt((
         beat,
         chord,
+        attack,
         chords,
         hits,
         durations,
@@ -501,12 +555,30 @@ fn test_chord() {
 #[test]
 fn test_chords() {
     assert_eq!(
-        chords(concat!(CHORDLINE_KW!(), " cs ", DEF_KW!(), " c1 c2 c3 \n")),
+        chords(concat!(
+            CHORDLINE_KW!(),
+            " cs ",
+            DEF_KW!(),
+            " c1 c2-a c3 \n"
+        )),
         Ok((
             "",
             Expression::ChordLine(PChordLine {
                 id: "cs",
-                chords: vec!["c1", "c2", "c3"]
+                chords: vec![
+                    PChordAndAttack {
+                        chord_id: "c1",
+                        attack_id: None
+                    },
+                    PChordAndAttack {
+                        chord_id: "c2",
+                        attack_id: Some("a")
+                    },
+                    PChordAndAttack {
+                        chord_id: "c3",
+                        attack_id: None
+                    }
+                ]
             }),
         ))
     );

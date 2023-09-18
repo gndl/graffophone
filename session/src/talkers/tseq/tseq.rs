@@ -71,6 +71,9 @@ impl Talker for Tseq {
                             Expression::Chord(ref chord) => {
                                 binder.chords.insert(chord.id, &chord);
                             }
+                            Expression::Attack(ref attack) => {
+                                binder.attacks.insert(attack.id, &attack);
+                            }
                             Expression::ChordLine(ref line) => {
                                 binder.chordlines.push(&line);
                             }

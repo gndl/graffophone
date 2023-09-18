@@ -4,8 +4,8 @@ use std::f32;
 use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
-    PBeat, PChord, PChordLine, PDurationLine, PHitLine, PPitchLine, PSequence, PTransition,
-    PVelocity, PVelocityLine,
+    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHitLine, PPitchLine, PSequence,
+    PTransition, PVelocity, PVelocityLine,
 };
 use talkers::tseq::scale::Scale;
 
@@ -25,6 +25,7 @@ const DEFAULT_CHORD: Harmonic = Harmonic {
 pub struct Binder<'a> {
     pub beats: HashMap<&'a str, &'a PBeat<'a>>,
     pub chords: HashMap<&'a str, &'a PChord<'a>>,
+    pub attacks: HashMap<&'a str, &'a PAttack<'a>>,
     pub chordlines: Vec<&'a PChordLine<'a>>,
     default_chordline: Vec<Vec<Harmonic>>,
     deserialized_chordlines: HashMap<&'a str, Vec<Vec<Harmonic>>>,
@@ -42,6 +43,7 @@ impl<'a> Binder<'a> {
         Self {
             beats: HashMap::new(),
             chords: HashMap::new(),
+            attacks: HashMap::new(),
             chordlines: Vec::new(),
             default_chordline: vec![vec![DEFAULT_CHORD]],
             deserialized_chordlines: HashMap::new(),
@@ -64,6 +66,7 @@ impl<'a> Binder<'a> {
     pub fn deserialize(&mut self) -> Result<(), failure::Error> {
         let scale = Scale::tempered();
 
+        // Deserialize pitchlines
         for pitchline in &self.pitchlines {
             let mut pitchs = Vec::new();
             for pitch in &pitchline.pitchs {
@@ -72,28 +75,41 @@ impl<'a> Binder<'a> {
             self.deserialized_pitchlines.insert(pitchline.id, pitchs);
         }
 
+        // Deserialize chordlines
         let sample_rate = AudioFormat::sample_rate() as f32;
+        let no_accents = Vec::new();
 
         for chordline in &self.chordlines {
             let mut deserialized_chordline = Vec::new();
 
-            for chord_id in &chordline.chords {
-                match self.chords.get(chord_id) {
+            for chord_and_attack in &chordline.chords {
+                match self.chords.get(chord_and_attack.chord_id) {
                     Some(chord) => {
+                        let accents = chord_and_attack
+                            .attack_id
+                            .and_then(|id| self.attacks.get(id))
+                            .map_or(&no_accents, |a| &a.accents);
                         let mut deserialized_chord = Vec::new();
 
-                        for pharmonic in &chord.harmonics {
+                        for (harmonic_idx, pharmonic) in chord.harmonics.iter().enumerate() {
+                            let mut delay = pharmonic.delay.unwrap_or(0.);
                             let mut velocity = audio_event::DEFAULT_VELOCITY;
                             let mut velocity_transition = PTransition::None;
 
-                            if let Some(pvelocity) = &pharmonic.velocity {
+                            let ovelocity = if harmonic_idx < accents.len() {
+                                delay = accents[harmonic_idx].delay;
+                                &accents[harmonic_idx].velocity
+                            } else {
+                                &pharmonic.velocity
+                            };
+                            if let Some(pvelocity) = ovelocity {
                                 velocity = pvelocity.value;
                                 velocity_transition = pvelocity.transition;
                             }
 
                             let harmonic = Harmonic {
                                 freq_ratio: pharmonic.freq_ratio.num / pharmonic.freq_ratio.den,
-                                delay_ticks: (pharmonic.delay.unwrap_or(0.) * sample_rate) as i64,
+                                delay_ticks: (delay * sample_rate) as i64,
                                 velocity,
                                 velocity_transition,
                             };
@@ -104,7 +120,7 @@ impl<'a> Binder<'a> {
                     None => {
                         return Err(failure::err_msg(format!(
                             "Tseq chord {} not found!",
-                            chord_id
+                            chord_and_attack.chord_id
                         )))
                     }
                 }
