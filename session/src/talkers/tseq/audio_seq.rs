@@ -46,7 +46,7 @@ impl EventsBuilder {
         }
     }
 
-    pub fn create_sequence_events(
+    pub fn create_events(
         &mut self,
         binder: &Binder,
         bpm: usize,
@@ -230,7 +230,7 @@ impl EventsBuilder {
                     let mul = seqref.mul.unwrap_or(1);
 
                     for _ in 0..mul {
-                        self.create_sequence_events(
+                        self.create_events(
                             binder,
                             bpm,
                             seq,
@@ -278,7 +278,7 @@ impl EventsBuilder {
         }
     }
 
-    pub fn create_last_sequence_events(
+    pub fn create_last_events(
         &self,
         mut harmonics_frequency_events: Vec<AudioSeq>,
         mut harmonics_velocity_events_parameters: Vec<Vec<AudioEventParameter>>,
@@ -333,14 +333,14 @@ pub fn create_events(
     let mut harmonics_frequency_events = Vec::new();
     let mut harmonics_velocity_events_parameters = Vec::new();
 
-    builder.create_sequence_events(
+    builder.create_events(
         binder,
         bpm,
         sequence,
         &mut harmonics_frequency_events,
         &mut harmonics_velocity_events_parameters,
     )?;
-    builder.create_last_sequence_events(
+    builder.create_last_events(
         harmonics_frequency_events,
         harmonics_velocity_events_parameters,
     )
