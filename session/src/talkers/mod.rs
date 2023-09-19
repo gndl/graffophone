@@ -1,4 +1,5 @@
 pub mod abs_sine;
+pub mod accumulator;
 pub mod env_shaper;
 pub mod lv2;
 pub mod parabolic;

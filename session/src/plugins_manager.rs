@@ -9,6 +9,8 @@ use talker::talker::TalkerCab;
 use talker::talker_handler::TalkerHandlerBase;
 use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
+use talkers::accumulator;
+use talkers::accumulator::Accumulator;
 use talkers::env_shaper;
 use talkers::env_shaper::EnvShaper;
 use talkers::lv2::Lv2;
@@ -74,6 +76,7 @@ impl PluginsManager {
 
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
+            PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
             PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
@@ -95,6 +98,8 @@ impl PluginsManager {
     pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
         if model == abs_sine::MODEL {
             Ok(rtalker!(AbsSine::new()?))
+        } else if model == accumulator::MODEL {
+            Ok(rtalker!(Accumulator::new()?))
         } else if model == env_shaper::MODEL {
             Ok(rtalker!(EnvShaper::new()?))
         } else if model == parabolic::MODEL {
