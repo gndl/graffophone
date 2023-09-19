@@ -35,6 +35,7 @@ impl Event {
 }
 struct EventsBuilder {
     tick: i64,
+    harmonic_count: usize,
     chord_events: Vec<Event>,
 }
 
@@ -42,6 +43,7 @@ impl EventsBuilder {
     pub fn new() -> EventsBuilder {
         Self {
             tick: 0,
+            harmonic_count: 0,
             chord_events: Vec::new(),
         }
     }
@@ -113,11 +115,11 @@ impl EventsBuilder {
                                         let (next_pitch_frequency, next_pitch_transition) =
                                             pitchline[next_pitch_idx];
 
-                                        if chordline[next_chord_idx].len()
-                                            > harmonics_frequency_events.len()
-                                        {
-                                            for _ in harmonics_frequency_events.len()
-                                                ..chordline[next_chord_idx].len()
+                                        let next_chord = &chordline[next_chord_idx];
+
+                                        if next_chord.len() > harmonics_frequency_events.len() {
+                                            for _ in
+                                                harmonics_frequency_events.len()..next_chord.len()
                                             {
                                                 harmonics_frequency_events.push(Vec::new());
                                                 harmonics_velocity_events.push(Vec::new());
@@ -128,87 +130,100 @@ impl EventsBuilder {
                                         let next_velocity =
                                             &velocityline.velocities[next_velocity_idx];
 
-                                        for (harmonic_idx, next_harmonic) in
-                                            chordline[next_chord_idx].iter().enumerate()
-                                        {
+                                        let max_harmonic_count =
+                                            usize::max(self.harmonic_count, next_chord.len());
+
+                                        for harmonic_idx in 0..max_harmonic_count {
                                             let harmonic_event =
                                                 &mut self.chord_events[harmonic_idx];
+
+                                            let next_harmonic_idx =
+                                                usize::min(harmonic_idx, next_chord.len() - 1);
+                                            let next_harmonic = &next_chord[next_harmonic_idx];
+
                                             let next_harmonic_start_tick =
                                                 next_hit_start_tick + next_harmonic.delay_ticks;
-
-                                            let harmonic_end_tick = if harmonic_event.end_tick < 0 {
-                                                // -1 provide a raising edge on new note
-                                                next_harmonic_start_tick - 1
-                                            } else {
-                                                harmonic_event.end_tick
-                                            };
 
                                             let next_harmonic_frequency =
                                                 next_pitch_frequency * next_harmonic.freq_ratio;
 
-                                            harmonics_frequency_events[harmonic_idx].push(
-                                                audio_event::create(
-                                                    harmonic_event.start_tick,
-                                                    harmonic_end_tick,
-                                                    harmonic_event.frequency,
-                                                    next_harmonic_frequency,
-                                                    harmonic_event.frequency_transition,
-                                                ),
-                                            );
-
                                             let next_harmonic_velocity =
                                                 next_harmonic.velocity * next_velocity.value;
 
-                                            harmonics_velocity_events[harmonic_idx].push(
-                                                audio_event::AudioEventParameter::new(
-                                                    harmonic_event.start_tick,
-                                                    harmonic_end_tick,
-                                                    harmonic_event.velocity,
-                                                    next_harmonic_velocity,
-                                                    harmonic_event.velocity_transition,
-                                                ),
-                                            );
+                                            if harmonic_idx < self.harmonic_count {
+                                                let harmonic_end_tick =
+                                                    if harmonic_event.end_tick < 0 {
+                                                        next_harmonic_start_tick
+                                                    } else {
+                                                        harmonic_event.end_tick
+                                                    };
 
-                                            harmonic_event.start_tick = next_harmonic_start_tick;
-                                            harmonic_event.end_tick = next_hit_end_tick;
-                                            harmonic_event.frequency = next_harmonic_frequency;
-                                            harmonic_event.frequency_transition =
-                                                next_pitch_transition;
-                                            harmonic_event.velocity = next_harmonic_velocity;
-                                            harmonic_event.velocity_transition = if next_harmonic
-                                                .velocity_transition
-                                                == PTransition::None
-                                            {
-                                                next_velocity.transition
-                                            } else {
-                                                next_harmonic.velocity_transition
-                                            };
+                                                harmonics_frequency_events[harmonic_idx].push(
+                                                    audio_event::create(
+                                                        harmonic_event.start_tick,
+                                                        harmonic_end_tick - 1, // -1 provide a raising edge on new note
+                                                        harmonic_event.frequency,
+                                                        next_harmonic_frequency,
+                                                        harmonic_event.frequency_transition,
+                                                    ),
+                                                );
+
+                                                harmonics_velocity_events[harmonic_idx].push(
+                                                    audio_event::AudioEventParameter::new(
+                                                        harmonic_event.start_tick,
+                                                        harmonic_end_tick,
+                                                        harmonic_event.velocity,
+                                                        next_harmonic_velocity,
+                                                        harmonic_event.velocity_transition,
+                                                    ),
+                                                );
+                                            }
+
+                                            if harmonic_idx < next_chord.len() {
+                                                harmonic_event.start_tick =
+                                                    next_harmonic_start_tick;
+                                                harmonic_event.end_tick = next_hit_end_tick;
+                                                harmonic_event.frequency = next_harmonic_frequency;
+                                                harmonic_event.frequency_transition =
+                                                    next_pitch_transition;
+                                                harmonic_event.velocity = next_harmonic_velocity;
+                                                harmonic_event.velocity_transition =
+                                                    if next_harmonic.velocity_transition
+                                                        == PTransition::None
+                                                    {
+                                                        next_velocity.transition
+                                                    } else {
+                                                        next_harmonic.velocity_transition
+                                                    };
+                                            }
                                         }
+                                        self.harmonic_count = next_chord.len();
 
-                                        next_hit_idx += 1;
-
-                                        if next_hit_idx == hitline_hits_count {
-                                            next_hit_idx = 0;
+                                        next_hit_idx = if next_hit_idx < hitline_hits_count - 1 {
+                                            next_hit_idx + 1
+                                        } else {
                                             hitline_start_tick += hitline_ticks_count;
-                                        }
+                                            0
+                                        };
 
-                                        next_pitch_idx += 1;
+                                        next_pitch_idx = if next_pitch_idx < pitchs_count - 1 {
+                                            next_pitch_idx + 1
+                                        } else {
+                                            0
+                                        };
 
-                                        if next_pitch_idx == pitchs_count {
-                                            next_pitch_idx = 0;
-                                        }
+                                        next_chord_idx = if next_chord_idx < chords_count - 1 {
+                                            next_chord_idx + 1
+                                        } else {
+                                            0
+                                        };
 
-                                        next_chord_idx += 1;
-
-                                        if next_chord_idx == chords_count {
-                                            next_chord_idx = 0;
-                                        }
-
-                                        next_velocity_idx += 1;
-
-                                        if next_velocity_idx == velocities_count {
-                                            next_velocity_idx = 0;
-                                        }
+                                        next_velocity_idx =
+                                            if next_velocity_idx < velocities_count - 1 {
+                                                next_velocity_idx + 1
+                                            } else {
+                                                0
+                                            };
                                     }
                                     mul -= 1.;
                                 }
@@ -280,10 +295,11 @@ impl EventsBuilder {
 
     pub fn create_last_events(
         &self,
+        harmonic_count: usize,
         mut harmonics_frequency_events: Vec<AudioSeq>,
         mut harmonics_velocity_events_parameters: Vec<Vec<AudioEventParameter>>,
     ) -> Result<(Vec<AudioSeq>, Vec<AudioSeq>), failure::Error> {
-        for harmonic_idx in 0..harmonics_frequency_events.len() {
+        for harmonic_idx in 0..harmonic_count {
             //let mut harmonic_frequency_events = &mut harmonics_frequency_events[harmonic_idx];
             self.create_last_frequency_event(
                 harmonic_idx,
@@ -300,19 +316,14 @@ impl EventsBuilder {
                     .all(|p| p.start_value == audio_event::DEFAULT_VELOCITY)
             {
                 harmonic_velocity_events_parameters.clear();
-            } /*else {
-                  println!(
-                      "{:?} && {:?}",
-                      self.chord_events[harmonic_idx], harmonic_velocity_events_parameters
-                  )
-              }*/
+            }
         }
         let mut harmonics_velocity_events: Vec<AudioSeq> = harmonics_velocity_events_parameters
             .iter()
             .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
             .collect();
 
-        for harmonic_idx in 0..harmonics_velocity_events.len() {
+        for harmonic_idx in 0..harmonic_count {
             if !harmonics_velocity_events[harmonic_idx].is_empty() {
                 self.create_last_velocity_event(
                     harmonic_idx,
@@ -341,6 +352,7 @@ pub fn create_events(
         &mut harmonics_velocity_events_parameters,
     )?;
     builder.create_last_events(
+        builder.harmonic_count,
         harmonics_frequency_events,
         harmonics_velocity_events_parameters,
     )
