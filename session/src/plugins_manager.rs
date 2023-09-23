@@ -11,9 +11,21 @@ use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
 use talkers::accumulator;
 use talkers::accumulator::Accumulator;
+use talkers::bsinusoidal;
+use talkers::bsinusoidal::Bsinusoidal;
+use talkers::bsquare;
+use talkers::bsquare::Bsquare;
 use talkers::env_shaper;
 use talkers::env_shaper::EnvShaper;
+use talkers::fuzz;
+use talkers::fuzz::Fuzz;
+use talkers::hub;
+use talkers::hub::Hub;
 use talkers::lv2::Lv2;
+use talkers::math;
+use talkers::math::Average;
+use talkers::math::Product;
+use talkers::math::Sum;
 use talkers::parabolic;
 use talkers::parabolic::Parabolic;
 use talkers::round;
@@ -22,6 +34,8 @@ use talkers::second_degree_frequency_progression;
 use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use talkers::sinusoidal;
 use talkers::sinusoidal::Sinusoidal;
+use talkers::square;
+use talkers::square::Square;
 use talkers::tseq::tseq;
 use talkers::tseq::tseq::Tseq;
 
@@ -77,11 +91,19 @@ impl PluginsManager {
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
             PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
+            PluginsManager::tkr_hr_kv(Average::descriptor()),
+            PluginsManager::tkr_hr_kv(Bsinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(Bsquare::descriptor()),
             PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
+            PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
+            PluginsManager::tkr_hr_kv(Hub::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
+            PluginsManager::tkr_hr_kv(Product::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(Square::descriptor()),
+            PluginsManager::tkr_hr_kv(Sum::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
         ]);
 
@@ -100,10 +122,22 @@ impl PluginsManager {
             Ok(rtalker!(AbsSine::new()?))
         } else if model == accumulator::MODEL {
             Ok(rtalker!(Accumulator::new()?))
+        } else if model == hub::MODEL {
+            Ok(rtalker!(Hub::new()?))
+        } else if model == bsinusoidal::MODEL {
+            Ok(rtalker!(Bsinusoidal::new()?))
+        } else if model == bsquare::MODEL {
+            Ok(rtalker!(Bsquare::new()?))
+        } else if model == math::AVERAGE_MODEL {
+            Ok(rtalker!(Average::new()?))
         } else if model == env_shaper::MODEL {
             Ok(rtalker!(EnvShaper::new()?))
+        } else if model == fuzz::MODEL {
+            Ok(rtalker!(Fuzz::new()?))
         } else if model == parabolic::MODEL {
             Ok(rtalker!(Parabolic::new()?))
+        } else if model == math::PRODUCT_MODEL {
+            Ok(rtalker!(Product::new()?))
         } else if model == round::MODEL {
             Ok(rtalker!(Round::new()?))
         } else if model == second_degree_frequency_progression::MODEL {
@@ -112,6 +146,10 @@ impl PluginsManager {
             )?))
         } else if model == sinusoidal::MODEL {
             Ok(rtalker!(Sinusoidal::new()?))
+        } else if model == square::MODEL {
+            Ok(rtalker!(Square::new()?))
+        } else if model == math::SUM_MODEL {
+            Ok(rtalker!(Sum::new()?))
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new()?))
         } else {

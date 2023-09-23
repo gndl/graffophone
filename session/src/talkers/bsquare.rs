@@ -1,6 +1,4 @@
-use nom::character::complete::i64;
 use std::f32;
-use std::f64::consts::PI;
 
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
@@ -78,9 +76,9 @@ impl Talker for Bsquare {
             let t = tick + i as i64;
 
             if i == next_rising_edge_idx {
-                let fr = freq_ear.listen(t, 1);
+                freq_ear.listen(t, 1);
                 let f = freq_buf[0];
-                let rr = ratio_ear.listen(t, 1);
+                ratio_ear.listen(t, 1);
                 let r = ratio_buf[0];
                 let p = sample_rate / f;
 

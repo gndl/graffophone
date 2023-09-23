@@ -1,16 +1,16 @@
 pub mod abs_sine;
 pub mod accumulator;
+pub mod bsinusoidal;
+pub mod bsquare;
 pub mod env_shaper;
+pub mod fuzz;
+pub mod hub;
 pub mod lv2;
+pub mod math;
 pub mod parabolic;
 pub mod round;
 pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
+pub mod square;
 pub mod table_talker;
 pub mod tseq;
-/*
-pub use self::abs_sine::*;
-pub use self::lv2::*;
-pub use self::second_degree_frequency_progression::*;
-pub use self::sinusoidal::*;
-*/
