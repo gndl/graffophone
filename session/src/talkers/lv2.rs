@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use livi;
+use livi::PortIndex;
 
 use talker::audio_format;
 use talker::audio_format::AudioFormat;
@@ -21,8 +22,8 @@ fn an_or(v: f32, def: f32) -> f32 {
 }
 
 pub struct Lv2 {
-    control_inputs_indexes: Vec<usize>,
-    control_outputs_indexes: Vec<usize>,
+    control_inputs_indexes: Vec<(usize, PortIndex)>,
+    control_outputs_indexes: Vec<(PortIndex, usize)>,
     audio_inputs_indexes: Vec<usize>,
     audio_outputs_indexes: Vec<usize>,
     atom_sequence_inputs_indexes: Vec<usize>,
@@ -60,12 +61,12 @@ impl Lv2 {
                                 livi::PortType::ControlInput => {
                                     let ear = ear::control(
                                         Some(&port.name),
-                                        audio_format::MIN_CONTROL,
-                                        audio_format::MAX_CONTROL,
+                                        port.min_value.unwrap_or(audio_format::MIN_CONTROL),
+                                        port.max_value.unwrap_or(audio_format::MAX_CONTROL),
                                         an_or(port.default_value, audio_format::DEF_CONTROL),
                                     )?;
                                     base.add_ear(ear);
-                                    control_inputs_indexes.push(inputs_count);
+                                    control_inputs_indexes.push((inputs_count, port.index));
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::ControlOutput => {
@@ -74,15 +75,15 @@ impl Lv2 {
                                         an_or(port.default_value, audio_format::DEF_CONTROL),
                                     );
                                     base.add_voice(vc);
-                                    control_outputs_indexes.push(outputs_count);
+                                    control_outputs_indexes.push((port.index, outputs_count));
                                     outputs_count = outputs_count + 1;
                                 }
                                 livi::PortType::AudioInput => {
                                     let ear = ear::audio(
                                         Some(&port.name),
-                                        audio_format::MIN_AUDIO,
-                                        audio_format::MAX_AUDIO,
-                                        audio_format::DEF_AUDIO,
+                                        port.min_value.unwrap_or(audio_format::MIN_AUDIO),
+                                        port.max_value.unwrap_or(audio_format::MAX_AUDIO),
+                                        an_or(port.default_value, audio_format::DEF_AUDIO),
                                         &Init::DefValue,
                                     )?;
                                     base.add_ear(ear);
@@ -110,9 +111,9 @@ impl Lv2 {
                                 livi::PortType::CVInput => {
                                     let ear = ear::cv(
                                         Some(&port.name),
-                                        audio_format::MIN_CV,
-                                        audio_format::MAX_CV,
-                                        audio_format::DEF_CV,
+                                        port.min_value.unwrap_or(audio_format::MIN_CV),
+                                        port.max_value.unwrap_or(audio_format::MAX_CV),
+                                        an_or(port.default_value, audio_format::DEF_CV),
                                         &Init::DefValue,
                                     )?;
                                     base.add_ear(ear);
@@ -156,18 +157,13 @@ impl Talker for Lv2 {
 
     fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        /*
-                let control_inputs: Vec<f32> = self
-                    .control_inputs_indexes
-                    .iter()
-                    .map(|i| base.ear(*i).get_control_value())
-                    .collect();
-                let mut control_outputs: Vec<f32> = self
-                    .control_outputs_indexes
-                    .iter()
-                    .map(|i| base.voice(*i).control_buffer()[0])
-                    .collect();
-        */
+
+        for (ear_idx, port_idx) in &self.control_inputs_indexes {
+            self.instance
+                .borrow_mut()
+                .set_control_input(*port_idx, base.ear(*ear_idx).get_control_value());
+        }
+
         let audio_inputs: Vec<AudioBuf> = self
             .audio_inputs_indexes
             .iter()
@@ -208,17 +204,15 @@ impl Talker for Lv2 {
             .with_atom_sequence_outputs(atom_sequence_outputs.into_iter())
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
-        /*
-                    .with_control_inputs(control_inputs.iter())
-                    .with_control_outputs(control_outputs.iter_mut())
-        */
 
         unsafe { self.instance.borrow_mut().run(ln, ports).unwrap() };
-        /*
-                for (i, port_idx) in self.control_outputs_indexes.iter().enumerate() {
-                    base.voice(*port_idx).set_control_value(control_outputs[i]);
-                }
-        */
+
+        for (port_idx, voice_idx) in &self.control_outputs_indexes {
+            if let Some(value) = self.instance.borrow().control_output(*port_idx) {
+                base.voice(*voice_idx).set_control_value(value);
+            }
+        }
+
         for voice in base.voices() {
             voice.set_tick_len(tick, ln);
         }
