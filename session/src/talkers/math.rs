@@ -58,12 +58,19 @@ impl Product {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new(PRODUCT_MODEL, PRODUCT_MODEL);
 
-        let stem_set =
+        let audio_stem_set =
+            Set::from_attributs(&vec![("", PortType::Audio, -1., 1., 0., Init::Empty)])?;
+
+        base.add_ear(Ear::new(Some("audio"), true, Some(audio_stem_set), None));
+
+        base.add_voice(voice::audio(Some("audio"), 0.));
+
+        let cv_stem_set =
             Set::from_attributs(&vec![("", PortType::Cv, -10000., 10000., 1., Init::Empty)])?;
 
-        base.add_ear(Ear::new(None, true, Some(stem_set), None));
+        base.add_ear(Ear::new(Some("ctrl"), true, Some(cv_stem_set), None));
 
-        base.add_voice(voice::cv(None, 0.));
+        base.add_voice(voice::cv(Some("ctrl"), 0.));
 
         Ok(ctalker!(base, Self {}))
     }
@@ -76,11 +83,13 @@ impl Product {
 impl Talker for Product {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let inputs_ear = base.ear(0);
+        let inputs_ear = base.ear(port);
         let voice_buf = base.voice(port).cv_buffer();
 
+        let init_val = if inputs_ear.sets_len() > 0 { 1. } else { 0. };
+
         for i in 0..ln {
-            voice_buf[i] = 1.;
+            voice_buf[i] = init_val;
         }
 
         for input_idx in 0..inputs_ear.sets_len() {
