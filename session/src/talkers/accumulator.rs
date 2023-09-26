@@ -64,7 +64,6 @@ impl Talker for Accumulator {
             }
 
             self.integ_val = self.integ_val + (e - (self.mid_error * dk)) * ik;
-
             self.prev_output = self.prev_output + self.integ_val;
 
             voice_buf[i] = self.prev_output;

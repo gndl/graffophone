@@ -2,6 +2,7 @@ use std::f32;
 
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
+use talker::dsp;
 use talker::ear;
 use talker::ear::Init;
 use talker::identifier::Index;
@@ -21,6 +22,8 @@ const RATIO_EAR_INDEX: Index = 1;
 const ROOF_EAR_INDEX: Index = 2;
 const FLOOR_EAR_INDEX: Index = 3;
 
+const AUDIO_VOICE_PORT: usize = 1;
+
 impl Bsquare {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("BSquare", MODEL);
@@ -30,7 +33,8 @@ impl Bsquare {
         base.add_ear(ear::cv(Some("roof"), -1000., 1000., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("floor"), -1000., 1000., 0., &Init::DefValue)?);
 
-        base.add_voice(voice::cv(None, 0.));
+        base.add_voice(voice::cv(Some("cv"), 0.));
+        base.add_voice(voice::audio(Some("au"), 0.));
 
         Ok(ctalker!(
             base,
@@ -116,6 +120,10 @@ impl Talker for Bsquare {
                     break;
                 }
             }
+        }
+
+        if port == AUDIO_VOICE_PORT {
+            dsp::audioize_buffer_by_clipping(voice_buf, 0, i);
         }
 
         self.next_rising_edge_tick = next_rising_edge_idx as i64 + tick;

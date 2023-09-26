@@ -1,4 +1,5 @@
 use talker::ctalker;
+use talker::dsp;
 use talker::ear;
 use talker::ear::Ear;
 use talker::ear::Init;
@@ -10,6 +11,8 @@ use talker::voice;
 
 pub const SUM_MODEL: &str = "Sum";
 
+const AUDIO_VOICE_PORT: usize = 1;
+
 pub struct Sum {}
 impl Sum {
     pub fn new() -> Result<CTalker, failure::Error> {
@@ -20,7 +23,8 @@ impl Sum {
 
         base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_voice(voice::cv(None, 0.));
+        base.add_voice(voice::cv(Some("cv"), 0.));
+        base.add_voice(voice::audio(Some("au"), 0.));
 
         Ok(ctalker!(base, Self {}))
     }
@@ -47,6 +51,10 @@ impl Talker for Sum {
                 voice_buf[i] = voice_buf[i] + input_buf[i];
             }
         }
+
+        if port == AUDIO_VOICE_PORT {
+            dsp::audioize_buffer_by_clipping(voice_buf, 0, ln);
+        }
         ln
     }
 }
@@ -58,19 +66,13 @@ impl Product {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new(PRODUCT_MODEL, PRODUCT_MODEL);
 
-        let audio_stem_set =
-            Set::from_attributs(&vec![("", PortType::Audio, -1., 1., 0., Init::Empty)])?;
+        let stem_set =
+            Set::from_attributs(&vec![("", PortType::Cv, -20000., 20000., 0., Init::Empty)])?;
 
-        base.add_ear(Ear::new(Some("audio"), true, Some(audio_stem_set), None));
+        base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_voice(voice::audio(Some("audio"), 0.));
-
-        let cv_stem_set =
-            Set::from_attributs(&vec![("", PortType::Cv, -10000., 10000., 1., Init::Empty)])?;
-
-        base.add_ear(Ear::new(Some("ctrl"), true, Some(cv_stem_set), None));
-
-        base.add_voice(voice::cv(Some("ctrl"), 0.));
+        base.add_voice(voice::cv(Some("cv"), 0.));
+        base.add_voice(voice::audio(Some("au"), 0.));
 
         Ok(ctalker!(base, Self {}))
     }
@@ -83,7 +85,7 @@ impl Product {
 impl Talker for Product {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let inputs_ear = base.ear(port);
+        let inputs_ear = base.ear(0);
         let voice_buf = base.voice(port).cv_buffer();
 
         let init_val = if inputs_ear.sets_len() > 0 { 1. } else { 0. };
@@ -91,13 +93,15 @@ impl Talker for Product {
         for i in 0..ln {
             voice_buf[i] = init_val;
         }
-
         for input_idx in 0..inputs_ear.sets_len() {
             let input_buf = inputs_ear.get_set_hum_cv_buffer(input_idx, 0);
 
             for i in 0..ln {
                 voice_buf[i] = voice_buf[i] * input_buf[i];
             }
+        }
+        if port == AUDIO_VOICE_PORT {
+            dsp::audioize_buffer_by_clipping(voice_buf, 0, ln);
         }
         ln
     }
@@ -112,7 +116,8 @@ impl Average {
 
         base.add_ear(ear::cv(None, -20000., 20000., 0., &Init::DefValue)?);
 
-        base.add_voice(voice::cv(None, 0.));
+        base.add_voice(voice::cv(Some("cv"), 0.));
+        base.add_voice(voice::audio(Some("au"), 0.));
 
         Ok(ctalker!(base, Self {}))
     }
@@ -130,6 +135,10 @@ impl Talker for Average {
 
         for i in 0..ln {
             voice_buf[i] = input_buf[i];
+        }
+
+        if port == AUDIO_VOICE_PORT {
+            dsp::audioize_buffer_by_clipping(voice_buf, 0, ln);
         }
 
         ln

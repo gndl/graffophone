@@ -7,6 +7,7 @@ pub mod audio_talker;
 pub mod control_talker;
 pub mod cv_talker;
 pub mod data;
+pub mod dsp;
 pub mod ear;
 pub mod horn;
 pub mod identifier;
