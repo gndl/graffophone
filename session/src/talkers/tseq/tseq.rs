@@ -111,13 +111,13 @@ impl Talker for Tseq {
 
                                 for idx in 0..harmonics_count {
                                     let tag_base = if display_harmonic_num {
-                                        format!("{}.{}", seq.id, harmonics_count - idx)
+                                        format!("{}.{}", seq.id, idx + 1)
                                     } else {
                                         seq.id.to_string()
                                     };
 
                                     if let Some(harmonic_frequency_events) =
-                                        harmonics_frequency_events.pop()
+                                        harmonics_frequency_events.pop_front()
                                     {
                                         sequences.push(Seq::Freq(harmonic_frequency_events));
 
@@ -125,7 +125,7 @@ impl Talker for Tseq {
                                         new_base.add_voice(voice::cv(Some(&tag), 0.));
                                     }
                                     if let Some(harmonic_velocity_events) =
-                                        harmonics_velocity_events.pop()
+                                        harmonics_velocity_events.pop_front()
                                     {
                                         if !harmonic_velocity_events.is_empty() {
                                             sequences.push(Seq::Vel(harmonic_velocity_events));

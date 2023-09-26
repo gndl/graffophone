@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::f32;
 
 use talker::audio_format::AudioFormat;
@@ -53,8 +54,8 @@ impl EventsBuilder {
         binder: &Binder,
         bpm: usize,
         sequence: &PSequence,
-        harmonics_frequency_events: &mut Vec<AudioSeq>,
-        harmonics_velocity_events: &mut Vec<Vec<AudioEventParameter>>,
+        harmonics_frequency_events: &mut VecDeque<AudioSeq>,
+        harmonics_velocity_events: &mut VecDeque<Vec<AudioEventParameter>>,
     ) -> Result<(), failure::Error> {
         let bpm = match sequence.beat {
             Some(id) => (binder.fetch_beat(id)?).bpm,
@@ -121,8 +122,8 @@ impl EventsBuilder {
                                             for _ in
                                                 harmonics_frequency_events.len()..next_chord.len()
                                             {
-                                                harmonics_frequency_events.push(Vec::new());
-                                                harmonics_velocity_events.push(Vec::new());
+                                                harmonics_frequency_events.push_back(Vec::new());
+                                                harmonics_velocity_events.push_back(Vec::new());
                                                 self.chord_events.push(Event::new());
                                             }
                                         }
@@ -296,9 +297,9 @@ impl EventsBuilder {
     pub fn create_last_events(
         &self,
         harmonic_count: usize,
-        mut harmonics_frequency_events: Vec<AudioSeq>,
-        mut harmonics_velocity_events_parameters: Vec<Vec<AudioEventParameter>>,
-    ) -> Result<(Vec<AudioSeq>, Vec<AudioSeq>), failure::Error> {
+        mut harmonics_frequency_events: VecDeque<AudioSeq>,
+        mut harmonics_velocity_events_parameters: VecDeque<Vec<AudioEventParameter>>,
+    ) -> Result<(VecDeque<AudioSeq>, VecDeque<AudioSeq>), failure::Error> {
         for harmonic_idx in 0..harmonic_count {
             //let mut harmonic_frequency_events = &mut harmonics_frequency_events[harmonic_idx];
             self.create_last_frequency_event(
@@ -318,10 +319,11 @@ impl EventsBuilder {
                 harmonic_velocity_events_parameters.clear();
             }
         }
-        let mut harmonics_velocity_events: Vec<AudioSeq> = harmonics_velocity_events_parameters
-            .iter()
-            .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
-            .collect();
+        let mut harmonics_velocity_events: VecDeque<AudioSeq> =
+            harmonics_velocity_events_parameters
+                .iter()
+                .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
+                .collect();
 
         for harmonic_idx in 0..harmonic_count {
             if !harmonics_velocity_events[harmonic_idx].is_empty() {
@@ -339,10 +341,10 @@ pub fn create_events(
     binder: &Binder,
     sequence: &PSequence,
     bpm: usize,
-) -> Result<(Vec<AudioSeq>, Vec<AudioSeq>), failure::Error> {
+) -> Result<(VecDeque<AudioSeq>, VecDeque<AudioSeq>), failure::Error> {
     let mut builder = EventsBuilder::new();
-    let mut harmonics_frequency_events = Vec::new();
-    let mut harmonics_velocity_events_parameters = Vec::new();
+    let mut harmonics_frequency_events = VecDeque::new();
+    let mut harmonics_velocity_events_parameters = VecDeque::new();
 
     builder.create_events(
         binder,
