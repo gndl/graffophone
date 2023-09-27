@@ -343,8 +343,8 @@ pub fn create_events(
     bpm: usize,
 ) -> Result<(VecDeque<AudioSeq>, VecDeque<AudioSeq>), failure::Error> {
     let mut builder = EventsBuilder::new();
-    let mut harmonics_frequency_events = VecDeque::new();
-    let mut harmonics_velocity_events_parameters = VecDeque::new();
+    let mut harmonics_frequency_events = VecDeque::with_capacity(6);
+    let mut harmonics_velocity_events_parameters = VecDeque::with_capacity(6);
 
     builder.create_events(
         binder,
