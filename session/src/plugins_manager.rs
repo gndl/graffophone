@@ -11,10 +11,10 @@ use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
 use talkers::accumulator;
 use talkers::accumulator::Accumulator;
-use talkers::bsinusoidal;
-use talkers::bsinusoidal::Bsinusoidal;
-use talkers::bsquare;
-use talkers::bsquare::Bsquare;
+use talkers::bounded_sinusoidal;
+use talkers::bounded_sinusoidal::BoundedSinusoidal;
+use talkers::bounded_square;
+use talkers::bounded_square::BoundedSquare;
 use talkers::env_shaper;
 use talkers::env_shaper::EnvShaper;
 use talkers::fuzz;
@@ -92,8 +92,8 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
             PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
-            PluginsManager::tkr_hr_kv(Bsinusoidal::descriptor()),
-            PluginsManager::tkr_hr_kv(Bsquare::descriptor()),
+            PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
             PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
             PluginsManager::tkr_hr_kv(Hub::descriptor()),
@@ -124,10 +124,10 @@ impl PluginsManager {
             Ok(rtalker!(Accumulator::new()?))
         } else if model == hub::MODEL {
             Ok(rtalker!(Hub::new()?))
-        } else if model == bsinusoidal::MODEL {
-            Ok(rtalker!(Bsinusoidal::new()?))
-        } else if model == bsquare::MODEL {
-            Ok(rtalker!(Bsquare::new()?))
+        } else if model == bounded_sinusoidal::MODEL {
+            Ok(rtalker!(BoundedSinusoidal::new()?))
+        } else if model == bounded_square::MODEL {
+            Ok(rtalker!(BoundedSquare::new()?))
         } else if model == math::AVERAGE_MODEL {
             Ok(rtalker!(Average::new()?))
         } else if model == env_shaper::MODEL {

@@ -11,9 +11,9 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "BSinusoidal";
+pub const MODEL: &str = "BoundedSinusoidal";
 
-pub struct Bsinusoidal {
+pub struct BoundedSinusoidal {
     last_tick: i64,
     last_freq: f64,
     last_angle: f64,
@@ -26,7 +26,7 @@ const FLOOR_EAR_INDEX: Index = 3;
 
 const AUDIO_VOICE_PORT: usize = 1;
 
-impl Bsinusoidal {
+impl BoundedSinusoidal {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("BSin", MODEL);
 
@@ -49,11 +49,11 @@ impl Bsinusoidal {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "BSin")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Bounded Sinusoidal")
     }
 }
 
-impl Talker for Bsinusoidal {
+impl Talker for BoundedSinusoidal {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);

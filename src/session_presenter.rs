@@ -18,7 +18,7 @@ Sinusoidal 2#Sin 1
 >1<0
 >2<1
 
-mixer 1#mixer 1
+Mixer 1#Mixer 1
 >0<0.01
 >1.0.0.0<2:0
 >1.0.1.0<1

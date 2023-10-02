@@ -36,7 +36,7 @@ impl Sinusoidal {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Sin")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Sinusoidal")
     }
 }
 

@@ -1,7 +1,7 @@
 pub mod abs_sine;
 pub mod accumulator;
-pub mod bsinusoidal;
-pub mod bsquare;
+pub mod bounded_sinusoidal;
+pub mod bounded_square;
 pub mod env_shaper;
 pub mod fuzz;
 pub mod hub;

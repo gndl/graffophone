@@ -10,9 +10,9 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "BSquare";
+pub const MODEL: &str = "BoundedSquare";
 
-pub struct Bsquare {
+pub struct BoundedSquare {
     next_rising_edge_tick: i64,
     next_falling_edge_tick: i64,
 }
@@ -24,7 +24,7 @@ const FLOOR_EAR_INDEX: Index = 3;
 
 const AUDIO_VOICE_PORT: usize = 1;
 
-impl Bsquare {
+impl BoundedSquare {
     pub fn new() -> Result<CTalker, failure::Error> {
         let mut base = TalkerBase::new("BSquare", MODEL);
 
@@ -46,11 +46,11 @@ impl Bsquare {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "BSquare")
+        TalkerHandlerBase::new("Oscillator", MODEL, "Bounded Square")
     }
 }
 
-impl Talker for Bsquare {
+impl Talker for BoundedSquare {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let freq_ear = base.ear(FREQ_EAR_INDEX);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);

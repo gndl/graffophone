@@ -16,7 +16,7 @@ use crate::output::ROutput;
 use crate::track::RTrack;
 use crate::track::Track;
 
-pub const KIND: &str = "mixer";
+pub const KIND: &str = "Mixer";
 
 const VOLUME_EAR_INDEX: Index = 0;
 const TRACKS_EAR_INDEX: Index = 1;

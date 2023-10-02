@@ -3,6 +3,9 @@ use std::str::FromStr;
 
 use talker::identifier::{Id, Index};
 
+use crate::mixer;
+use crate::output;
+
 pub struct PTalkerVoice {
     pub talker: Id,
     pub voice_port: usize,
@@ -180,18 +183,20 @@ pub fn parse<'a>(
     let mut outputs = HashMap::new();
 
     let mut src = source.as_str();
+    let mixer_tag = format!("{} ", mixer::KIND);
+    let output_tag = format!("{} ", output::KIND);
 
     while src.len() > 0 {
         if src.starts_with("\n") {
             src = src.get("\n".len()..).unwrap();
-        } else if src.starts_with("mixer ") {
-            let (rest, id, name) = parse_id_name(src.get("mixer ".len()..).unwrap())?;
+        } else if src.starts_with(&mixer_tag) {
+            let (rest, id, name) = parse_id_name(src.get(mixer_tag.len()..).unwrap())?;
             let (rest, connections) = parse_connections(rest)?;
             let (rest, outputs) = parse_outputs(rest)?;
 
             let mixer = PMixer {
                 talker: PTalker {
-                    model: "mixer",
+                    model: mixer::KIND,
                     id,
                     name,
                     data: None,
@@ -201,8 +206,8 @@ pub fn parse<'a>(
             };
             mixers.insert(id, mixer);
             src = rest;
-        } else if src.starts_with("output ") {
-            src = src.get("output ".len()..).unwrap();
+        } else if src.starts_with(&output_tag) {
+            src = src.get(output_tag.len()..).unwrap();
             let model_end = src.find(" ").unwrap();
             let model = src.get(..model_end).unwrap();
 
