@@ -238,7 +238,11 @@ impl Band {
         let tkr = &talk.talker();
 
         if tkr.is_hidden() {
-            writeln!(buf, "{}<{}", talk_tag, tkr.data_string())?;
+            let data = tkr.data_string();
+
+            if !data.is_empty() {
+                writeln!(buf, "{}<{}", talk_tag, data)?;
+            }
         } else {
             writeln!(buf, "{}<{}:{}", talk_tag, tkr.id(), talk.port())?;
         }
