@@ -24,6 +24,7 @@ pub struct ApplicationView {
     stop_button: gtk::Button,
     talkers_store: gio::ListStore,
     text_view: sourceview5::View,
+    text_view_scrolledwindow: gtk::ScrolledWindow,
     apply_text_button: gtk::Button,
     validate_text_button: gtk::Button,
     cancel_text_button: gtk::Button,
@@ -143,13 +144,21 @@ impl ApplicationView {
         // Text view
         let text_view = sourceview5::View::builder()
             .wrap_mode(gtk::WrapMode::Word)
-            .vscroll_policy(gtk::ScrollablePolicy::Minimum)
+            .vscroll_policy(gtk::ScrollablePolicy::Natural)
             .highlight_current_line(true)
+            .build();
+
+        let text_view_scrolledwindow = gtk::ScrolledWindow::builder()
+            .child(&text_view)
+            .hadjustment(&text_view.hadjustment().unwrap())
+            .vexpand(true)
+            .max_content_height(256)
+            .visible(false)
             .build();
 
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        v_box.append(&text_view);
+        v_box.append(&text_view_scrolledwindow);
         v_box.append(&split_pane);
 
         // ApplicationWindow
@@ -259,6 +268,7 @@ impl ApplicationView {
             stop_button,
             talkers_store,
             text_view,
+            text_view_scrolledwindow,
             apply_text_button,
             validate_text_button,
             cancel_text_button,
@@ -356,7 +366,7 @@ impl ApplicationView {
                     }
                     text_buffer.set_text(&data);
                     self.text_view.set_buffer(Some(&text_buffer));
-                    self.text_view.set_visible(true);
+                    self.text_view_scrolledwindow.set_visible(true);
                     self.apply_text_button.set_visible(true);
                     self.validate_text_button.set_visible(true);
                     self.cancel_text_button.set_visible(true);
@@ -381,7 +391,7 @@ impl ApplicationView {
 
     fn disable_text_editor(&mut self) {
         //        self.text_view.set_buffer(None::<&impl IsA<TextBuffer>>);
-        self.text_view.set_visible(false);
+        self.text_view_scrolledwindow.set_visible(false);
         self.apply_text_button.set_visible(false);
         self.validate_text_button.set_visible(false);
         self.cancel_text_button.set_visible(false);
