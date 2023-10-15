@@ -6,7 +6,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-use talkers::tseq::audio_seq::AudioSeq;
+use talkers::tseq::audio_seq::AudioEvents;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
@@ -18,8 +18,8 @@ pub const MODEL: &str = "Tseq";
 const DEFAULT_BPM: usize = 90;
 
 enum Seq {
-    Freq(AudioSeq),
-    Vel(AudioSeq),
+    Freq(AudioEvents),
+    Vel(AudioEvents),
     Midi(MidiSeq),
 }
 
@@ -66,31 +66,31 @@ impl Talker for Tseq {
                     for exp in &exps {
                         match exp {
                             Expression::Beat(ref beat) => {
-                                binder.beats.insert(beat.id, &beat);
+                                binder.parser_beats.insert(beat.id, &beat);
                             }
                             Expression::Chord(ref chord) => {
-                                binder.chords.insert(chord.id, &chord);
+                                binder.parser_chords.insert(chord.id, &chord);
                             }
                             Expression::Attack(ref attack) => {
-                                binder.attacks.insert(attack.id, &attack);
+                                binder.parser_attacks.insert(attack.id, &attack);
                             }
                             Expression::ChordLine(ref line) => {
-                                binder.chordlines.push(&line);
+                                binder.parser_chordlines.push(&line);
                             }
                             Expression::PitchLine(ref line) => {
-                                binder.pitchlines.push(&line);
+                                binder.parser_pitchlines.push(&line);
                             }
                             Expression::HitLine(ref line) => {
-                                binder.hitlines.insert(line.id, &line);
+                                binder.parser_hitlines.push(&line);
                             }
                             Expression::DurationLine(ref line) => {
-                                binder.durationlines.insert(line.id, &line);
+                                binder.parser_durationlines.push(&line);
                             }
                             Expression::VelocityLine(ref line) => {
-                                binder.velocitylines.insert(line.id, &line);
+                                binder.parser_velocitylines.insert(line.id, &line);
                             }
                             Expression::Seq(ref sequence) => {
-                                binder.sequences.insert(sequence.id, &sequence);
+                                binder.parser_sequences.insert(sequence.id, &sequence);
                             }
                             Expression::SeqOut(_) => outs.push(exp),
                             Expression::MidiOut(_) => outs.push(exp),
@@ -165,13 +165,22 @@ impl Talker for Tseq {
         let ev_idx = self.current_events_indexies[port];
 
         self.current_events_indexies[port] = match &self.sequences[port] {
-            Seq::Freq(seq) => {
+            Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
-                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, false, voice_buf)
+                audio_sequence_talk(
+                    base,
+                    port,
+                    tick,
+                    ln,
+                    &audio_events,
+                    ev_idx,
+                    false,
+                    voice_buf,
+                )
             }
-            Seq::Vel(seq) => {
+            Seq::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
-                audio_sequence_talk(base, port, tick, ln, &seq, ev_idx, true, voice_buf)
+                audio_sequence_talk(base, port, tick, ln, &audio_events, ev_idx, true, voice_buf)
             }
             Seq::Midi(seq) => midi_sequence_talk(base, port, tick, ln, &seq, ev_idx),
         };
@@ -184,32 +193,32 @@ fn audio_sequence_talk(
     _port: usize,
     tick: i64,
     len: usize,
-    seq: &AudioSeq,
+    audio_events: &AudioEvents,
     current_event_index: usize,
     conservative_off: bool,
     voice_buf: &mut [f32],
 ) -> usize {
     let mut t = tick;
     let end_t = tick + len as i64;
-    let mut ev_idx = if current_event_index < seq.len() {
+    let mut ev_idx = if current_event_index < audio_events.len() {
         current_event_index
     } else {
         current_event_index - 1
     };
 
-    while ev_idx > 0 && seq[ev_idx].start_tick() > end_t {
+    while ev_idx > 0 && audio_events[ev_idx].start_tick() > end_t {
         ev_idx -= 1;
     }
 
     while t < end_t {
-        while ev_idx < seq.len() && seq[ev_idx].end_tick() <= t {
+        while ev_idx < audio_events.len() && audio_events[ev_idx].end_tick() <= t {
             ev_idx += 1;
         }
         let mut ofset = (t - tick) as usize;
         let out_len = len - ofset;
 
-        if ev_idx < seq.len() {
-            let ev = &seq[ev_idx];
+        if ev_idx < audio_events.len() {
+            let ev = &audio_events[ev_idx];
 
             if ev.start_tick() <= t {
                 t = ev.assign_buffer(t, voice_buf, ofset, out_len);

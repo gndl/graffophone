@@ -1,22 +1,21 @@
 use std::collections::VecDeque;
 use std::f32;
 
-use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::audio_event::AudioEventParameter;
 use talkers::tseq::audio_event::RAudioEvent;
+use talkers::tseq::binder;
 use talkers::tseq::binder::Binder;
+use talkers::tseq::binder::Time;
 use talkers::tseq::parser::PFragment::Part;
 use talkers::tseq::parser::PFragment::SeqRef;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PTransition;
 
-pub type AudioSeq = Vec<RAudioEvent>;
+pub type AudioEvents = Vec<RAudioEvent>;
 
-#[derive(Debug)]
 struct Event {
-    start_tick: i64,
-    end_tick: i64,
+    delay: Time,
     frequency: f32,
     frequency_transition: PTransition,
     velocity: f32,
@@ -25,8 +24,7 @@ struct Event {
 impl Event {
     pub fn new() -> Event {
         Self {
-            start_tick: 0,
-            end_tick: -1,
+            delay: Time::Ticks(0),
             frequency: audio_event::DEFAULT_FREQUENCY,
             frequency_transition: PTransition::None,
             velocity: audio_event::DEFAULT_VELOCITY,
@@ -36,6 +34,8 @@ impl Event {
 }
 struct EventsBuilder {
     tick: i64,
+    hit_start_tick: i64,
+    hit_end_tick: i64,
     harmonic_count: usize,
     chord_events: Vec<Event>,
 }
@@ -44,6 +44,8 @@ impl EventsBuilder {
     pub fn new() -> EventsBuilder {
         Self {
             tick: 0,
+            hit_start_tick: 0,
+            hit_end_tick: 0,
             harmonic_count: 0,
             chord_events: Vec::new(),
         }
@@ -52,16 +54,15 @@ impl EventsBuilder {
     pub fn create_events(
         &mut self,
         binder: &Binder,
-        bpm: usize,
+        ticks_per_beat: f32,
         sequence: &PSequence,
-        harmonics_frequency_events: &mut VecDeque<AudioSeq>,
+        harmonics_frequency_events: &mut VecDeque<Vec<AudioEventParameter>>,
         harmonics_velocity_events: &mut VecDeque<Vec<AudioEventParameter>>,
     ) -> Result<(), failure::Error> {
-        let bpm = match sequence.beat {
-            Some(id) => (binder.fetch_beat(id)?).bpm,
-            None => bpm,
+        let ticks_per_beat = match sequence.beat {
+            Some(id) => binder.ticks_per_minute / (binder.fetch_beat(id)?).bpm as f32,
+            None => ticks_per_beat,
         };
-        let beat_ticks_count = ((AudioFormat::sample_rate() * 60) / bpm) as f32;
 
         for fragment in &sequence.fragments {
             match fragment {
@@ -69,20 +70,19 @@ impl EventsBuilder {
                     let mut part_is_empty = true;
                     let hitline = binder.fetch_hitline(part.hitline_id)?;
                     let hitline_hits_count = hitline.hits.len();
-                    let hitline_ticks_count = (hitline.duration * beat_ticks_count) as i64;
+                    let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
                     let mut hitline_start_tick = self.tick;
                     let mut mul = part.mul.unwrap_or(1.);
 
                     if hitline_hits_count > 0 && mul > 0. {
                         if let Some(pitchline_id) = part.pitchline_id {
-                            let pitchline = binder.fetch_deserialized_pitchline(pitchline_id)?;
+                            let pitchline = binder.fetch_pitchline(pitchline_id)?;
                             let pitchs_count = pitchline.len();
 
                             if pitchs_count > 0 {
                                 part_is_empty = false;
 
-                                let chordline =
-                                    binder.fetch_deserialized_chordline(&part.chordline_id)?;
+                                let chordline = binder.fetch_chordline(&part.chordline_id)?;
                                 let chords_count = chordline.len();
 
                                 let velocityline =
@@ -106,12 +106,17 @@ impl EventsBuilder {
                                     for _ in 0..n {
                                         let next_hit = &hitline.hits[next_hit_idx];
                                         let next_hit_start_tick = hitline_start_tick
-                                            + (next_hit.position * beat_ticks_count) as i64;
-                                        let next_hit_end_tick =
-                                            next_hit.duration.map_or(-1, |dur| {
-                                                next_hit_start_tick
-                                                    + (dur * beat_ticks_count) as i64
-                                            });
+                                            + binder::to_ticks(&next_hit.position, ticks_per_beat);
+                                        let next_hit_end_tick = binder::option_to_ticks(
+                                            &next_hit.duration,
+                                            next_hit_start_tick,
+                                            ticks_per_beat,
+                                        );
+
+                                        let hit_ticks_count =
+                                            (i64::min(self.hit_end_tick, next_hit_start_tick)
+                                                - self.hit_start_tick)
+                                                as f32;
 
                                         let (next_pitch_frequency, next_pitch_transition) =
                                             pitchline[next_pitch_idx];
@@ -142,9 +147,6 @@ impl EventsBuilder {
                                                 usize::min(harmonic_idx, next_chord.len() - 1);
                                             let next_harmonic = &next_chord[next_harmonic_idx];
 
-                                            let next_harmonic_start_tick =
-                                                next_hit_start_tick + next_harmonic.delay_ticks;
-
                                             let next_harmonic_frequency =
                                                 next_pitch_frequency * next_harmonic.freq_ratio;
 
@@ -152,17 +154,16 @@ impl EventsBuilder {
                                                 next_harmonic.velocity * next_velocity.value;
 
                                             if harmonic_idx < self.harmonic_count {
-                                                let harmonic_end_tick =
-                                                    if harmonic_event.end_tick < 0 {
-                                                        next_harmonic_start_tick
-                                                    } else {
-                                                        harmonic_event.end_tick
-                                                    };
+                                                let start_tick = self.hit_start_tick
+                                                    + binder::to_ticks(
+                                                        &harmonic_event.delay,
+                                                        hit_ticks_count,
+                                                    );
 
                                                 harmonics_frequency_events[harmonic_idx].push(
-                                                    audio_event::create(
-                                                        harmonic_event.start_tick,
-                                                        harmonic_end_tick - 1, // -1 provide a raising edge on new note
+                                                    audio_event::AudioEventParameter::new(
+                                                        start_tick,
+                                                        self.hit_end_tick,
                                                         harmonic_event.frequency,
                                                         next_harmonic_frequency,
                                                         harmonic_event.frequency_transition,
@@ -171,8 +172,8 @@ impl EventsBuilder {
 
                                                 harmonics_velocity_events[harmonic_idx].push(
                                                     audio_event::AudioEventParameter::new(
-                                                        harmonic_event.start_tick,
-                                                        harmonic_end_tick,
+                                                        start_tick,
+                                                        self.hit_end_tick,
                                                         harmonic_event.velocity,
                                                         next_harmonic_velocity,
                                                         harmonic_event.velocity_transition,
@@ -181,9 +182,7 @@ impl EventsBuilder {
                                             }
 
                                             if harmonic_idx < next_chord.len() {
-                                                harmonic_event.start_tick =
-                                                    next_harmonic_start_tick;
-                                                harmonic_event.end_tick = next_hit_end_tick;
+                                                harmonic_event.delay = next_harmonic.delay;
                                                 harmonic_event.frequency = next_harmonic_frequency;
                                                 harmonic_event.frequency_transition =
                                                     next_pitch_transition;
@@ -198,6 +197,8 @@ impl EventsBuilder {
                                                     };
                                             }
                                         }
+                                        self.hit_start_tick = next_hit_start_tick;
+                                        self.hit_end_tick = next_hit_end_tick;
                                         self.harmonic_count = next_chord.len();
 
                                         next_hit_idx = if next_hit_idx < hitline_hits_count - 1 {
@@ -248,7 +249,7 @@ impl EventsBuilder {
                     for _ in 0..mul {
                         self.create_events(
                             binder,
-                            bpm,
+                            ticks_per_beat,
                             seq,
                             harmonics_frequency_events,
                             harmonics_velocity_events,
@@ -260,80 +261,75 @@ impl EventsBuilder {
         Ok(())
     }
 
-    pub fn create_last_frequency_event(&self, harmonic_idx: usize, events: &mut AudioSeq) {
-        if self.chord_events[harmonic_idx].frequency > 0. {
-            let end_tick = if self.chord_events[harmonic_idx].end_tick < 0 {
-                self.tick
-            } else {
-                self.chord_events[harmonic_idx].end_tick
-            };
-            events.push(audio_event::create(
-                self.chord_events[harmonic_idx].start_tick,
-                end_tick,
-                self.chord_events[harmonic_idx].frequency,
-                self.chord_events[harmonic_idx].frequency,
-                PTransition::None,
-            ));
-        }
-    }
-
-    pub fn create_last_velocity_event(&self, harmonic_idx: usize, events: &mut AudioSeq) {
-        if self.chord_events[harmonic_idx].velocity > 0. {
-            let end_tick = if self.chord_events[harmonic_idx].end_tick < 0 {
-                self.tick
-            } else {
-                self.chord_events[harmonic_idx].end_tick
-            };
-            events.push(audio_event::create(
-                self.chord_events[harmonic_idx].start_tick,
-                end_tick,
-                self.chord_events[harmonic_idx].velocity,
-                self.chord_events[harmonic_idx].velocity,
-                PTransition::None,
-            ));
-        }
-    }
-
     pub fn create_last_events(
         &self,
-        harmonic_count: usize,
-        mut harmonics_frequency_events: VecDeque<AudioSeq>,
-        mut harmonics_velocity_events_parameters: VecDeque<Vec<AudioEventParameter>>,
-    ) -> Result<(VecDeque<AudioSeq>, VecDeque<AudioSeq>), failure::Error> {
-        for harmonic_idx in 0..harmonic_count {
-            //let mut harmonic_frequency_events = &mut harmonics_frequency_events[harmonic_idx];
-            self.create_last_frequency_event(
-                harmonic_idx,
-                &mut harmonics_frequency_events[harmonic_idx],
-            );
-        }
-        for harmonic_idx in 0..harmonics_velocity_events_parameters.len() {
-            let harmonic_velocity_events_parameters =
-                &mut harmonics_velocity_events_parameters[harmonic_idx];
+        harmonics_frequency_events_parameters: &mut VecDeque<Vec<AudioEventParameter>>,
+        harmonics_velocity_events_parameters: &mut VecDeque<Vec<AudioEventParameter>>,
+    ) {
+        let hit_end_tick = if self.hit_end_tick == binder::UNDEFINED_TICKS {
+            self.tick
+        } else {
+            self.hit_end_tick
+        };
+        let hit_ticks_count = (hit_end_tick - self.hit_start_tick) as f32;
 
-            if self.chord_events[harmonic_idx].velocity == audio_event::DEFAULT_VELOCITY
-                && harmonic_velocity_events_parameters
-                    .iter()
-                    .all(|p| p.start_value == audio_event::DEFAULT_VELOCITY)
-            {
-                harmonic_velocity_events_parameters.clear();
+        for harmonic_idx in 0..self.harmonic_count {
+            let harmonic_event = &self.chord_events[harmonic_idx];
+
+            let start_tick =
+                self.hit_start_tick + binder::to_ticks(&harmonic_event.delay, hit_ticks_count);
+
+            if harmonic_event.frequency > 0. {
+                harmonics_frequency_events_parameters[harmonic_idx].push(
+                    audio_event::AudioEventParameter::new(
+                        start_tick,
+                        hit_end_tick,
+                        harmonic_event.frequency,
+                        harmonic_event.frequency,
+                        PTransition::None,
+                    ),
+                );
             }
-        }
-        let mut harmonics_velocity_events: VecDeque<AudioSeq> =
-            harmonics_velocity_events_parameters
-                .iter()
-                .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
-                .collect();
 
-        for harmonic_idx in 0..harmonic_count {
-            if !harmonics_velocity_events[harmonic_idx].is_empty() {
-                self.create_last_velocity_event(
-                    harmonic_idx,
-                    &mut harmonics_velocity_events[harmonic_idx],
+            if harmonic_event.velocity > 0. {
+                harmonics_velocity_events_parameters[harmonic_idx].push(
+                    audio_event::AudioEventParameter::new(
+                        start_tick,
+                        hit_end_tick,
+                        harmonic_event.velocity,
+                        harmonic_event.velocity,
+                        PTransition::None,
+                    ),
                 );
             }
         }
-        Ok((harmonics_frequency_events, harmonics_velocity_events))
+    }
+}
+
+fn limit_overflowing_durations(
+    harmonics_frequency_events_parameters: &mut VecDeque<Vec<AudioEventParameter>>,
+    harmonics_velocity_events_parameters: &mut VecDeque<Vec<AudioEventParameter>>,
+) {
+    for frequency_events_parameters in harmonics_frequency_events_parameters {
+        for idx in 0..frequency_events_parameters.len() - 1 {
+            if frequency_events_parameters[idx].end_tick
+                >= frequency_events_parameters[idx + 1].start_tick
+            {
+                frequency_events_parameters[idx].end_tick =
+                    frequency_events_parameters[idx + 1].start_tick - 1; // -1 provide a raising edge on new note
+            }
+        }
+    }
+
+    for velocity_events_parameters in harmonics_velocity_events_parameters {
+        for idx in 0..velocity_events_parameters.len() - 1 {
+            if velocity_events_parameters[idx].end_tick
+                > velocity_events_parameters[idx + 1].start_tick
+            {
+                velocity_events_parameters[idx].end_tick =
+                    velocity_events_parameters[idx + 1].start_tick;
+            }
+        }
     }
 }
 
@@ -341,21 +337,40 @@ pub fn create_events(
     binder: &Binder,
     sequence: &PSequence,
     bpm: usize,
-) -> Result<(VecDeque<AudioSeq>, VecDeque<AudioSeq>), failure::Error> {
+) -> Result<(VecDeque<AudioEvents>, VecDeque<AudioEvents>), failure::Error> {
     let mut builder = EventsBuilder::new();
-    let mut harmonics_frequency_events = VecDeque::with_capacity(6);
+    let mut harmonics_frequency_events_parameters = VecDeque::with_capacity(6);
     let mut harmonics_velocity_events_parameters = VecDeque::with_capacity(6);
+
+    let ticks_per_beat = binder.ticks_per_minute / bpm as f32;
 
     builder.create_events(
         binder,
-        bpm,
+        ticks_per_beat,
         sequence,
-        &mut harmonics_frequency_events,
+        &mut harmonics_frequency_events_parameters,
         &mut harmonics_velocity_events_parameters,
     )?;
+
     builder.create_last_events(
-        builder.harmonic_count,
-        harmonics_frequency_events,
-        harmonics_velocity_events_parameters,
-    )
+        &mut harmonics_frequency_events_parameters,
+        &mut harmonics_velocity_events_parameters,
+    );
+
+    limit_overflowing_durations(
+        &mut harmonics_frequency_events_parameters,
+        &mut harmonics_velocity_events_parameters,
+    );
+
+    let harmonics_frequency_events: VecDeque<AudioEvents> = harmonics_frequency_events_parameters
+        .iter()
+        .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
+        .collect();
+
+    let harmonics_velocity_events: VecDeque<AudioEvents> = harmonics_velocity_events_parameters
+        .iter()
+        .map(|v| v.iter().map(audio_event::create_from_parameter).collect())
+        .collect();
+
+    Ok((harmonics_frequency_events, harmonics_velocity_events))
 }

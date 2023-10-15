@@ -28,18 +28,26 @@ use MIDI_OUTPUT_KW;
 use MULTILINE_COMMENT_KW;
 use MUL_KW;
 use ON_KW;
+use PER_KW;
 use PITCHLINE_KW;
 use REF_KW;
 use ROUND_TRANSITION_KW;
+use SECOND_SYM_KW;
 use SEQUENCE_KW;
 use SEQUENCE_OUTPUT_KW;
 use SIN_TRANSITION_KW;
 use VELOCITYLINE_KW;
 
 #[derive(Debug, PartialEq)]
-pub struct PBeat<'a> {
-    pub id: &'a str,
-    pub bpm: usize,
+pub struct PRatio {
+    pub num: f32,
+    pub den: f32,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PTime {
+    Rate(PRatio),
+    Second(PRatio),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -53,15 +61,15 @@ pub enum PTransition {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PRatio {
-    pub num: f32,
-    pub den: f32,
+pub struct PBeat<'a> {
+    pub id: &'a str,
+    pub bpm: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PHarmonic {
     pub freq_ratio: PRatio,
-    pub delay: Option<f32>,
+    pub delay: Option<PTime>,
     pub velocity: Option<PVelocity>,
 }
 
@@ -73,7 +81,7 @@ pub struct PChord<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct PAccent {
-    pub delay: f32,
+    pub delay: PTime,
     pub velocity: Option<PVelocity>,
 }
 
@@ -109,21 +117,21 @@ pub struct PPitchLine<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct PHit {
-    pub position: f32,
-    pub duration: Option<f32>,
+    pub position: PTime,
+    pub duration: Option<PTime>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PHitLine<'a> {
     pub id: &'a str,
     pub hits: Vec<PHit>,
-    pub duration: f32,
+    pub duration: PTime,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PDurationLine<'a> {
     pub id: &'a str,
-    pub durations: Vec<f32>,
+    pub durations: Vec<PTime>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -199,6 +207,10 @@ fn on(input: &str) -> IResult<&str, char> {
     delimited(space0, char(ON_KW!()), space0)(input)
 }
 
+fn per(input: &str) -> IResult<&str, char> {
+    delimited(space0, char(PER_KW!()), space0)(input)
+}
+
 fn end(input: &str) -> IResult<&str, Expression> {
     let (input, _) = many1_count(preceded(space0, newline))(input)?;
     Ok((input, Expression::None))
@@ -239,12 +251,22 @@ fn ratio(input: &str) -> IResult<&str, PRatio> {
     ))
 }
 
+fn time(input: &str) -> IResult<&str, PTime> {
+    let (input, (value, ounit)) = tuple((ratio, opt(char(SECOND_SYM_KW!()))))(input)?;
+    let duration = if ounit.is_some() {
+        PTime::Second(value)
+    } else {
+        PTime::Rate(value)
+    };
+    Ok((input, duration))
+}
+
 fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
     let (input, (freq_ratio, delay, velocity)) = tuple((
         ratio,
         opt(delimited(
             terminated(char(JOIN_KW!()), space0),
-            float,
+            time,
             space0,
         )),
         opt(delimited(
@@ -272,7 +294,7 @@ fn chord(input: &str) -> IResult<&str, Expression> {
 
 fn accent(input: &str) -> IResult<&str, PAccent> {
     let (input, (delay, velocity)) = tuple((
-        float,
+        time,
         opt(delimited(
             terminated(char(JOIN_KW!()), space0),
             velocity,
@@ -312,10 +334,10 @@ fn chords(input: &str) -> IResult<&str, Expression> {
 
 fn hit(input: &str) -> IResult<&str, PHit> {
     let (input, (position, duration)) = tuple((
-        terminated(float, space0),
+        terminated(time, space0),
         opt(delimited(
             terminated(char(JOIN_KW!()), space0),
-            float,
+            time,
             space0,
         )),
     ))(input)?;
@@ -324,13 +346,13 @@ fn hit(input: &str) -> IResult<&str, PHit> {
 
 fn hits(input: &str) -> IResult<&str, Expression> {
     let (input, (id, hits, duration)) =
-        tuple((head(HITLINE_KW!()), many0(hit), delimited(on, float, end)))(input)?;
+        tuple((head(HITLINE_KW!()), many0(hit), delimited(per, time, end)))(input)?;
     Ok((input, Expression::HitLine(PHitLine { id, hits, duration })))
 }
 
 fn durations(input: &str) -> IResult<&str, Expression> {
     let (input, (id, durations)) =
-        tuple((head(DURATIONLINE_KW!()), many0(terminated(float, space0))))(input)?;
+        tuple((head(DURATIONLINE_KW!()), many0(terminated(time, space0))))(input)?;
     Ok((
         input,
         Expression::DurationLine(PDurationLine { id, durations }),
@@ -515,11 +537,15 @@ fn test_chord() {
             DEF_KW!(),
             " 1 1.5",
             JOIN_KW!(),
-            "2 3",
+            "2",
+            SECOND_SYM_KW!(),
+            " 3",
             ON_KW!(),
             "2",
             JOIN_KW!(),
-            "0.1",
+            "1",
+            ON_KW!(),
+            "2",
             JOIN_KW!(),
             ".4\n"
         )),
@@ -535,12 +561,12 @@ fn test_chord() {
                     },
                     PHarmonic {
                         freq_ratio: PRatio { num: 1.5, den: 1. },
-                        delay: Some(2.),
+                        delay: Some(PTime::Second(PRatio { num: 2., den: 1. })),
                         velocity: None,
                     },
                     PHarmonic {
                         freq_ratio: PRatio { num: 3., den: 2. },
-                        delay: Some(0.1),
+                        delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
                             value: 0.4,
                             transition: PTransition::None
@@ -592,8 +618,8 @@ fn test_hits() {
             " p1",
             DEF_KW!(),
             " 0.5 .75 ",
-            ON_KW!(),
-            " 1\n"
+            PER_KW!(),
+            " 1/3s\n"
         )),
         Ok((
             "",
@@ -601,15 +627,15 @@ fn test_hits() {
                 id: "p1",
                 hits: vec![
                     PHit {
-                        position: 0.5,
+                        position: PTime::Rate(PRatio { num: 0.5, den: 1. }),
                         duration: None
                     },
                     PHit {
-                        position: 0.75,
+                        position: PTime::Rate(PRatio { num: 0.75, den: 1. }),
                         duration: None
                     }
                 ],
-                duration: 1.0
+                duration: PTime::Second(PRatio { num: 1., den: 3. })
             }),
         ))
     );
@@ -623,7 +649,7 @@ fn test_hits() {
             ".2 .75 ",
             JOIN_KW!(),
             " .3 ",
-            ON_KW!(),
+            PER_KW!(),
             " 1\n"
         )),
         Ok((
@@ -632,15 +658,15 @@ fn test_hits() {
                 id: "p1",
                 hits: vec![
                     PHit {
-                        position: 0.5,
-                        duration: Some(0.2),
+                        position: PTime::Rate(PRatio { num: 0.5, den: 1. }),
+                        duration: Some(PTime::Rate(PRatio { num: 0.2, den: 1. })),
                     },
                     PHit {
-                        position: 0.75,
-                        duration: Some(0.3)
+                        position: PTime::Rate(PRatio { num: 0.75, den: 1. }),
+                        duration: Some(PTime::Rate(PRatio { num: 0.3, den: 1. }))
                     }
                 ],
-                duration: 1.0
+                duration: PTime::Rate(PRatio { num: 1., den: 1. })
             }),
         ))
     );

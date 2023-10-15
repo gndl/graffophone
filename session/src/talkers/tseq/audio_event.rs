@@ -126,8 +126,8 @@ impl AudioEvent for SinRampEvent {
 
 #[derive(Debug)]
 pub struct AudioEventParameter {
-    start_tick: i64,
-    end_tick: i64,
+    pub start_tick: i64,
+    pub end_tick: i64,
     pub start_value: f32,
     end_value: f32,
     transition: PTransition,

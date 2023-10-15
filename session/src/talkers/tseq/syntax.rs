@@ -48,6 +48,12 @@ macro_rules! ON_KW {
     };
 }
 #[macro_export]
+macro_rules! PER_KW {
+    () => {
+        '%'
+    };
+}
+#[macro_export]
 macro_rules! BEAT_KW {
     () => {
         "beat"
@@ -81,6 +87,12 @@ macro_rules! HITLINE_KW {
 macro_rules! DURATIONLINE_KW {
     () => {
         "durations"
+    };
+}
+#[macro_export]
+macro_rules! SECOND_SYM_KW {
+    () => {
+        's'
     };
 }
 #[macro_export]
@@ -146,6 +158,20 @@ macro_rules! MIDI_OUTPUT_KW {
     };
 }
 
+#[macro_export]
+macro_rules! RATIO_DESC {
+    ($r:expr) => {
+        concat!(" <", $r, ">[", ON_KW!(), "<den>]",)
+    };
+}
+
+#[macro_export]
+macro_rules! TIME_DESC {
+    ($t:expr, $u:expr) => {
+        concat!(RATIO_DESC!($t), "[", SECOND_SYM_KW!(), "](", $u, "|second)")
+    };
+}
+
 pub const SYNTAX_DESCRIPTION: &str = concat!(
     MULTILINE_COMMENT_KW!(),
     " Description\n",
@@ -156,17 +182,18 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     CHORD_KW!(),
     " <chord_id> ",
     DEF_KW!(),
-    " <num>[",
-    ON_KW!(),
-    "<den>][",
+    RATIO_DESC!("ratio"),
+    "[",
     JOIN_KW!(),
-    "<delay>[",
+    TIME_DESC!("delay", "hit"),
+    "[",
     JOIN_KW!(),
     "<velocity>]] [...]\n",
     ATTACK_KW!(),
     " <attack_id> ",
     DEF_KW!(),
-    "<delay>[",
+    TIME_DESC!("delay", "hit"),
+    "[",
     JOIN_KW!(),
     "<velocity>] [...]\n",
     CHORDLINE_KW!(),
@@ -178,15 +205,19 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     HITLINE_KW!(),
     " <hits_id> ",
     DEF_KW!(),
-    " <position (beat)>[",
+    TIME_DESC!("position", "beat"),
+    "[",
     JOIN_KW!(),
-    "<duration (sec)>] [...] ",
-    ON_KW!(),
-    " <duration (beat)>\n",
+    TIME_DESC!("duration", "beat"),
+    "] [...] ",
+    PER_KW!(),
+    TIME_DESC!("duration", "beat"),
+    "\n",
     DURATIONLINE_KW!(),
     " <durations_id> ",
     DEF_KW!(),
-    " <duration (sec)>] [...]\n",
+    TIME_DESC!("duration", "beat"),
+    " [...]\n",
     PITCHLINE_KW!(),
     " <pitchs_id> ",
     DEF_KW!(),
