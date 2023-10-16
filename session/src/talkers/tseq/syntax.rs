@@ -54,6 +54,18 @@ macro_rules! PER_KW {
     };
 }
 #[macro_export]
+macro_rules! OPEN_PARENT_KW {
+    () => {
+        '('
+    };
+}
+#[macro_export]
+macro_rules! CLOSE_PARENT_KW {
+    () => {
+        ')'
+    };
+}
+#[macro_export]
 macro_rules! BEAT_KW {
     () => {
         "beat"
@@ -242,6 +254,8 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     " [",
     ON_KW!(),
     " <beat_id>] [",
+    OPEN_PARENT_KW!(),
+    "][",
     REF_KW!(),
     "<seq_id>|<hits_id>[",
     COUPLING_KW!(),
@@ -253,7 +267,10 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     JOIN_KW!(),
     "<velocities_id>]]][",
     MUL_KW!(),
-    " <num>] [...]\n",
+    " <num>] [...][",
+    CLOSE_PARENT_KW!(),
+    MUL_KW!(),
+    " <num>]\n",
     SEQUENCE_OUTPUT_KW!(),
     " <sequence_output_id> ",
     DEF_KW!(),

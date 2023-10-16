@@ -15,6 +15,7 @@ use ATTACK_KW;
 use BEAT_KW;
 use CHORDLINE_KW;
 use CHORD_KW;
+use CLOSE_PARENT_KW;
 use COUPLING_KW;
 use DEF_KW;
 use DURATIONLINE_KW;
@@ -28,6 +29,7 @@ use MIDI_OUTPUT_KW;
 use MULTILINE_COMMENT_KW;
 use MUL_KW;
 use ON_KW;
+use OPEN_PARENT_KW;
 use PER_KW;
 use PITCHLINE_KW;
 use REF_KW;
@@ -166,6 +168,7 @@ pub struct PSeqRef<'a> {
 pub enum PFragment<'a> {
     Part(PPart<'a>),
     SeqRef(PSeqRef<'a>),
+    Fragments((Vec<PFragment<'a>>, usize)),
 }
 
 #[derive(Debug, PartialEq)]
@@ -446,13 +449,28 @@ fn seq_ref(input: &str) -> IResult<&str, PFragment> {
     ))
 }
 
+fn fragments(input: &str) -> IResult<&str, PFragment> {
+    let (input, (fragments, mul)) = tuple((
+        delimited(
+            terminated(char(OPEN_PARENT_KW!()), space0),
+            many0(alt((seq_ref, part, fragments))),
+            terminated(char(CLOSE_PARENT_KW!()), space0),
+        ),
+        delimited(terminated(char(MUL_KW!()), space0), digit1, space0),
+    ))(input)?;
+    Ok((
+        input,
+        PFragment::Fragments((fragments, usize::from_str(mul).unwrap())),
+    ))
+}
+
 fn sequence(input: &str) -> IResult<&str, PSequence> {
     let (input, (_, id, _, beat, fragments, _)) = tuple((
         space1,
         id,
         delimited(space0, char(DEF_KW!()), space0),
         opt(delimited(on, id, space0)),
-        many0(alt((seq_ref, part))),
+        many0(alt((seq_ref, part, fragments))),
         end,
     ))(input)?;
     Ok((
@@ -882,6 +900,38 @@ fn test_seq_ref() {
                 id: "1sr_",
                 mul: Some(2)
             }),
+        ))
+    );
+}
+
+#[test]
+fn test_fragments() {
+    assert_eq!(
+        fragments(concat!(
+            OPEN_PARENT_KW!(),
+            "p ",
+            REF_KW!(),
+            "s ",
+            CLOSE_PARENT_KW!(),
+            MUL_KW!(),
+            "3"
+        )),
+        Ok((
+            "",
+            PFragment::Fragments((
+                vec![
+                    PFragment::Part(PPart {
+                        hitline_id: "p",
+                        durationline_id: None,
+                        pitchline_id: None,
+                        chordline_id: None,
+                        velocityline_id: None,
+                        mul: None,
+                    }),
+                    PFragment::SeqRef(PSeqRef { id: "s", mul: None })
+                ],
+                3
+            ))
         ))
     );
 }
