@@ -11,6 +11,8 @@ use talkers::abs_sine;
 use talkers::abs_sine::AbsSine;
 use talkers::accumulator;
 use talkers::accumulator::Accumulator;
+use talkers::adsrp;
+use talkers::adsrp::ADSRp;
 use talkers::bounded_sinusoidal;
 use talkers::bounded_sinusoidal::BoundedSinusoidal;
 use talkers::bounded_square;
@@ -91,6 +93,7 @@ impl PluginsManager {
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
             PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
+            PluginsManager::tkr_hr_kv(ADSRp::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
@@ -122,6 +125,8 @@ impl PluginsManager {
             Ok(rtalker!(AbsSine::new()?))
         } else if model == accumulator::MODEL {
             Ok(rtalker!(Accumulator::new()?))
+        } else if model == adsrp::MODEL {
+            Ok(rtalker!(ADSRp::new()?))
         } else if model == hub::MODEL {
             Ok(rtalker!(Hub::new()?))
         } else if model == bounded_sinusoidal::MODEL {

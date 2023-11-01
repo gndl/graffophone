@@ -1,5 +1,6 @@
 pub mod abs_sine;
 pub mod accumulator;
+pub mod adsrp;
 pub mod bounded_sinusoidal;
 pub mod bounded_square;
 pub mod env_shaper;
