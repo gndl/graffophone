@@ -983,19 +983,19 @@ impl Ear {
         Ok(())
     }
 
-    pub fn add_set_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
+    pub fn add_set_with_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
         let set_idx = self.add_set()?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.add_value(value))
+        self.set_hum(set_idx, hum_idx, |hum| hum.set_value(value))
     }
 
-    pub fn add_set_voice(
+    pub fn add_set_with_voice(
         &self,
         hum_idx: Index,
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<(), failure::Error> {
         let set_idx = self.add_set()?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.add_voice(voice_talker, port))
+        self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(voice_talker, port))
     }
 }
 

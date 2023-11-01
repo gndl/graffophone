@@ -84,7 +84,7 @@ impl EnvShaper {
 }
 
 impl Talker for EnvShaper {
-    fn add_set_value_to_ear_update(
+    fn add_set_with_value_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
@@ -95,12 +95,12 @@ impl Talker for EnvShaper {
 
         let mut new_base = base.clone();
 
-        new_base.ear(ear_idx).add_set_value(hum_idx, value)?;
+        new_base.ear(ear_idx).add_set_with_value(hum_idx, value)?;
         new_base.add_voice(voice::audio(None, 0.));
 
         Ok(Some(new_base))
     }
-    fn add_set_voice_to_ear_update(
+    fn add_set_with_voice_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
@@ -114,7 +114,7 @@ impl Talker for EnvShaper {
 
         new_base
             .ear(ear_idx)
-            .add_set_voice(hum_idx, voice_talker, port)?;
+            .add_set_with_voice(hum_idx, voice_talker, port)?;
         new_base.add_voice(voice::audio(None, 0.));
 
         Ok(Some(new_base))

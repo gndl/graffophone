@@ -173,17 +173,17 @@ pub trait Talker {
         Ok(None)
     }
 
-    fn add_set_value_to_ear_update(
+    fn add_set_with_value_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
         hum_idx: Index,
         value: f32,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        base.ears[ear_idx].add_set_value(hum_idx, value)?;
+        base.ears[ear_idx].add_set_with_value(hum_idx, value)?;
         Ok(None)
     }
-    fn add_set_voice_to_ear_update(
+    fn add_set_with_voice_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
@@ -191,7 +191,7 @@ pub trait Talker {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        base.ears[ear_idx].add_set_voice(hum_idx, voice_talker, port)?;
+        base.ears[ear_idx].add_set_with_voice(hum_idx, voice_talker, port)?;
         Ok(None)
     }
     fn sup_ear_set_update(
@@ -464,7 +464,7 @@ impl TalkerCab {
         let obase = self
             .core
             .borrow_mut()
-            .add_set_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?;
+            .add_set_with_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?;
         self.update(obase)
     }
     pub fn add_set_voice_to_ear_update(
@@ -474,7 +474,7 @@ impl TalkerCab {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<RTalker>, failure::Error> {
-        let obase = self.core.borrow_mut().add_set_voice_to_ear_update(
+        let obase = self.core.borrow_mut().add_set_with_voice_to_ear_update(
             &self.base,
             ear_idx,
             hum_idx,
