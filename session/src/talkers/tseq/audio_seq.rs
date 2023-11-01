@@ -353,7 +353,7 @@ fn limit_overflowing_durations(
                 >= frequency_events_parameters[idx + 1].start_tick
             {
                 frequency_events_parameters[idx].end_tick =
-                    frequency_events_parameters[idx + 1].start_tick - 1; // -1 provide a raising edge on new note
+                    frequency_events_parameters[idx + 1].start_tick;
             }
         }
     }
