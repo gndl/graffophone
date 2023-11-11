@@ -191,8 +191,8 @@ impl SessionPresenter {
             this.borrow().notify(Notification::State(state));
 
             match state {
-                State::Playing => glib::Continue(true),
-                _ => glib::Continue(false),
+                State::Playing => glib::ControlFlow::Continue,
+                _ => glib::ControlFlow::Break,
             }
         });
     }
