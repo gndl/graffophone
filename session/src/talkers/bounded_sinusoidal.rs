@@ -49,7 +49,7 @@ impl BoundedSinusoidal {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Bounded Sinusoidal")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Bounded Sinusoidal")
     }
 }
 

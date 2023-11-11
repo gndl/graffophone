@@ -46,7 +46,7 @@ impl BoundedSquare {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Bounded Square")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Bounded Square")
     }
 }
 

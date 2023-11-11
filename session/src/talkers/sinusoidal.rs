@@ -36,7 +36,7 @@ impl Sinusoidal {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Sinusoidal")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Sinusoidal")
     }
 }
 
@@ -56,7 +56,8 @@ impl Talker for Sinusoidal {
         };
 
         for i in 0..ln {
-            let a = last_angle + c * freq_buf[i] as f64;
+            let f = freq_buf[i] as f64;
+            let a = last_angle + c * f;
             let p = phase_buf[i] as f64 * PI;
 
             voice_buf[i] = ((a + p).sin() as f32) * gain_buf[i];

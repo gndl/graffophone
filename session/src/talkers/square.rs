@@ -42,7 +42,7 @@ impl Square {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Square")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Square")
     }
 }
 

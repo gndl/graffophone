@@ -56,7 +56,7 @@ impl Tseq {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Oscillator", MODEL, MODEL)
     }
 }
 

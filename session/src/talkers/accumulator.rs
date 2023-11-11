@@ -37,7 +37,7 @@ impl Accumulator {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Shaper", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Shaper", MODEL, MODEL)
     }
 }
 

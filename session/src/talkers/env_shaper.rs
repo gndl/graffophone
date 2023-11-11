@@ -83,7 +83,7 @@ impl EnvShaper {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("envelope", MODEL, "EnvShaper")
+        TalkerHandlerBase::builtin("Envelope", MODEL, "EnvShaper")
     }
 }
 

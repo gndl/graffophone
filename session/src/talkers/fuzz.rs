@@ -21,7 +21,7 @@ impl Fuzz {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Modulator", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Modulator", MODEL, MODEL)
     }
 }
 

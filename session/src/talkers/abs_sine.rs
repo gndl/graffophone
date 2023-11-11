@@ -21,7 +21,7 @@ impl AbsSine {
         Ok(ctalker!(base, Self {}))
     }
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Absolute sinusoidal")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Absolute sinusoidal")
     }
 }
 

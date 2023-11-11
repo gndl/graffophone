@@ -111,7 +111,7 @@ impl ADSRp {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("envelope", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Envelope", MODEL, MODEL)
     }
 }
 

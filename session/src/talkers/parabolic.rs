@@ -20,7 +20,7 @@ impl Parabolic {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Oscillator", MODEL, "Parabolic")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Parabolic")
     }
 }
 

@@ -30,7 +30,7 @@ impl Sum {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Mathematics", SUM_MODEL, SUM_MODEL)
+        TalkerHandlerBase::builtin("Mathematics", SUM_MODEL, SUM_MODEL)
     }
 }
 
@@ -78,7 +78,7 @@ impl Product {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Mathematics", PRODUCT_MODEL, PRODUCT_MODEL)
+        TalkerHandlerBase::builtin("Mathematics", PRODUCT_MODEL, PRODUCT_MODEL)
     }
 }
 
@@ -123,7 +123,7 @@ impl Average {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::new("Modulator", AVERAGE_MODEL, AVERAGE_MODEL)
+        TalkerHandlerBase::builtin("Modulator", AVERAGE_MODEL, AVERAGE_MODEL)
     }
 }
 
