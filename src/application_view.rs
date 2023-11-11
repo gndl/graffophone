@@ -22,7 +22,7 @@ pub struct ApplicationView {
     play_or_pause_button: gtk::Button,
     play_or_pause_icon: gtk::Image,
     stop_button: gtk::Button,
-    talkers_store: gio::ListStore,
+    talkers_box: gtk::Box,
     text_view: sourceview5::View,
     text_view_scrolledwindow: gtk::ScrolledWindow,
     apply_text_button: gtk::Button,
@@ -95,41 +95,17 @@ impl ApplicationView {
         // Split pane
         let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
 
-        // Talkers list
-        let talkers_store = gio::ListStore::new(TalkerObject::static_type());
+        // Talkers box
+        let talkers_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
-        let talkers_item_factory = gtk::SignalListItemFactory::new();
-        // talkers lit item factory setup
-        talkers_item_factory.connect_setup(move |_, list_item| {
-            // Create label
-            let label = gtk::Label::new(None);
-            let list_item = list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Needs to be ListItem");
-
-            list_item.set_child(Some(&label));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<TalkerObject>("label")
-                .bind(&label, "label", Widget::NONE);
-        });
-
-        let talkers_selection_model = gtk::SingleSelection::new(Some(talkers_store.clone()));
-        let talkers_list = gtk::ListView::builder()
-            .model(&talkers_selection_model)
-            .factory(&talkers_item_factory)
-            .single_click_activate(true)
-            .build();
-
-        let talkers_list_scrolledwindow = gtk::ScrolledWindow::builder()
+        let talkers_box_scrolledwindow = gtk::ScrolledWindow::builder()
             .min_content_width(256)
             .vexpand(true)
-            .child(&talkers_list)
+            .child(&talkers_box)
             .visible(false)
             .build();
-        split_pane.append(&talkers_list_scrolledwindow);
-        talkers_list_scrolledwindow.set_visible(true);
+        split_pane.append(&talkers_box_scrolledwindow);
+        talkers_box_scrolledwindow.set_visible(true);
 
         // Graph view
         let graph_view = GraphView::new_ref(&session_presenter);
@@ -224,9 +200,9 @@ impl ApplicationView {
         // talkers tree toggle
         talkers_list_toggle.connect_toggled(move |tb| {
             if tb.is_active() {
-                talkers_list_scrolledwindow.set_visible(true);
+                talkers_box_scrolledwindow.set_visible(true);
             } else {
-                talkers_list_scrolledwindow.set_visible(false);
+                talkers_box_scrolledwindow.set_visible(false);
             }
         });
 
@@ -244,21 +220,6 @@ impl ApplicationView {
             stop_ctrl.borrow_mut().stop();
         });
 
-        // talkers list selection
-        let session_ctrl = session_presenter.clone();
-
-        talkers_list.connect_activate(move |list_view, position| {
-            // Get `TalkerObject` from model
-            let model = list_view.model().expect("The model has to exist.");
-            let talker_object = model
-                .item(position)
-                .and_downcast::<TalkerObject>()
-                .expect("The item has to be an `TalkerObject`.");
-
-            let talker_model = talker_object.model();
-            session_ctrl.borrow_mut().add_talker(talker_model.as_str());
-        });
-
         window.present();
 
         Ok(Self {
@@ -266,7 +227,7 @@ impl ApplicationView {
             play_or_pause_button,
             play_or_pause_icon,
             stop_button,
-            talkers_store,
+            talkers_box,
             text_view,
             text_view_scrolledwindow,
             apply_text_button,
@@ -293,16 +254,61 @@ impl ApplicationView {
         &self,
         categorized_talkers_label_model: &Vec<(String, Vec<(String, String)>)>,
     ) {
-        //        let mut talkers_store = self.talkers_list.model().unwrap().model().unwrap();
-        //   let talkers_store = self.talkers_store;
-
         for (category, talkers) in categorized_talkers_label_model {
-            self.talkers_store.append(&TalkerObject::new(category, ""));
+            let talkers_store = gio::ListStore::new::<TalkerObject>();
+
+            let talkers_item_factory = gtk::SignalListItemFactory::new();
+            // talkers list item factory setup
+            talkers_item_factory.connect_setup(move |_, list_item| {
+                // Create label
+                let label = gtk::Label::new(None);
+                let list_item = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem");
+
+                list_item.set_child(Some(&label));
+
+                list_item
+                    .property_expression("item")
+                    .chain_property::<TalkerObject>("label")
+                    .bind(&label, "label", Widget::NONE);
+            });
+
+            let talkers_selection_model = gtk::SingleSelection::new(Some(talkers_store.clone()));
+            let talkers_list = gtk::ListView::builder()
+                .model(&talkers_selection_model)
+                .factory(&talkers_item_factory)
+                .single_click_activate(true)
+                .build();
+
+            // talkers list selection
+            let session_ctrl = self.session_presenter.clone();
+            talkers_list.connect_activate(move |list_view, position| {
+                let model = list_view.model().expect("The model has to exist.");
+                let talker_object = model
+                    .item(position)
+                    .and_downcast::<TalkerObject>()
+                    .expect("The item has to be an `TalkerObject`.");
+
+                let talker_model = talker_object.model();
+
+                if talker_model.is_empty() {
+                } else {
+                    session_ctrl.borrow_mut().add_talker(talker_model.as_str());
+                }
+            });
 
             for (label, model) in talkers {
-                self.talkers_store.append(&TalkerObject::new(label, model));
+                talkers_store.append(&TalkerObject::new(label, model));
             }
+            let expander = gtk::Expander::builder()
+                .label(category)
+                .child(&talkers_list)
+                .vexpand(false)
+                .build();
+            self.talkers_box.append(&expander);
         }
+        self.talkers_box.append(&gtk::Label::new(None));
     }
 
     fn unselect_talker(&self) {
