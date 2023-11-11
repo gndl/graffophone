@@ -15,12 +15,17 @@ use talker::voice;
 pub const MODEL: &str = "EnvShaper";
 
 struct PlayerState {
-    last_cv: f32,
+    last_trigger: f32,
     env_idx: usize,
+    last_out_gain: f32,
 }
 impl PlayerState {
-    pub fn new(last_cv: f32, env_idx: usize) -> Self {
-        Self { last_cv, env_idx }
+    pub fn new() -> Self {
+        Self {
+            last_trigger: 0.,
+            env_idx: 0,
+            last_out_gain: 0.,
+        }
     }
 }
 
@@ -54,7 +59,7 @@ impl EnvShaper {
         base.add_ear(ear::audio(Some("b"), -1., 1., 0.5, &Init::DefValue)?);
 
         let stem_set = Set::from_attributs(&vec![
-            ("trigger", PortType::Cv, 0., 20000., 0., Init::Empty),
+            ("trig", PortType::Cv, 0., 1., 0., Init::Empty),
             ("gain", PortType::Audio, -1., 1., 1., Init::Empty),
         ])?;
 
@@ -73,7 +78,6 @@ impl EnvShaper {
                 b: 0.,
                 env: vec![0.],
                 players_states: Vec::new(),
-                //                players_states: vec![PlayerState::new(0., 0)],
             }
         ))
     }
@@ -91,7 +95,7 @@ impl Talker for EnvShaper {
         hum_idx: Index,
         value: f32,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.push(PlayerState::new(0., 0));
+        self.players_states.push(PlayerState::new());
 
         let mut new_base = base.clone();
 
@@ -108,7 +112,7 @@ impl Talker for EnvShaper {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.push(PlayerState::new(0., 0));
+        self.players_states.push(PlayerState::new());
 
         let mut new_base = base.clone();
 
@@ -137,111 +141,102 @@ impl Talker for EnvShaper {
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.ear(PLAYERS_EAR_INDEX).listen_set(tick, len, port);
-        let cv_buf = base.ear_set_hum_cv_buffer(PLAYERS_EAR_INDEX, port, TRIGGER_HUM_INDEX);
+        let trigger_buf = base.ear_set_hum_cv_buffer(PLAYERS_EAR_INDEX, port, TRIGGER_HUM_INDEX);
         let gain_buf = base.ear_set_hum_audio_buffer(PLAYERS_EAR_INDEX, port, GAIN_HUM_INDEX);
 
         let player_state = &mut self.players_states[port];
-        let mut last_cv = player_state.last_cv;
+        let mut last_trigger = player_state.last_trigger;
         let mut env_idx = player_state.env_idx;
+        let mut last_out_gain = player_state.last_out_gain;
 
         let voice_buf = base.voice(port).audio_buffer();
 
         for i in 0..ln {
-            let cv = cv_buf[i];
+            let trigger = trigger_buf[i];
 
-            if cv == 0. {
-                if i == 0 {
-                    voice_buf[0] = voice_buf[len - 1];
-                } else {
-                    voice_buf[i] = voice_buf[i - 1];
-                }
-            } else {
-                if last_cv == 0. {
-                    let t = tick + i as i64;
-                    let sr = AudioFormat::sample_rate() as f64;
+            if trigger != 0. && last_trigger == 0. {
+                //                println!("{} trigger at {}", MODEL, tick + i as i64);
+                let t = tick + i as i64;
+                let sr = AudioFormat::sample_rate() as f64;
 
-                    let l = base.ear(TIME_EAR_INDEX).listen(t, 1);
+                let l = base.ear(TIME_EAR_INDEX).listen(t, 1);
+                if l > 0 {
+                    let start_tick = (base.ear_cv_buffer(TIME_EAR_INDEX)[0] as f64 * sr) as i64;
+
+                    let l = base.ear(DURATION_EAR_INDEX).listen(t, 1);
                     if l > 0 {
-                        let start_tick = (base.ear_cv_buffer(TIME_EAR_INDEX)[0] as f64 * sr) as i64;
+                        let duration =
+                            (base.ear_cv_buffer(DURATION_EAR_INDEX)[0] as f64 * sr) as usize;
 
-                        let l = base.ear(DURATION_EAR_INDEX).listen(t, 1);
+                        let l = base.ear(A_EAR_INDEX).listen(t, 1);
                         if l > 0 {
-                            let duration =
-                                (base.ear_cv_buffer(DURATION_EAR_INDEX)[0] as f64 * sr) as usize;
+                            let a = base.ear_cv_buffer(A_EAR_INDEX)[0];
 
-                            let l = base.ear(A_EAR_INDEX).listen(t, 1);
+                            let l = base.ear(B_EAR_INDEX).listen(t, 1);
                             if l > 0 {
-                                let a = base.ear_cv_buffer(A_EAR_INDEX)[0];
+                                let b = base.ear_cv_buffer(B_EAR_INDEX)[0];
 
-                                let l = base.ear(B_EAR_INDEX).listen(t, 1);
-                                if l > 0 {
-                                    let b = base.ear_cv_buffer(B_EAR_INDEX)[0];
-
-                                    if self.start_tick != start_tick
-                                        || self.duration < duration
-                                        || self.a != a
-                                        || self.b != b
-                                    {
-                                        if self.env.len() < duration {
-                                            self.env.resize(duration, 0.);
-                                        }
-
-                                        let chunk_size = AudioFormat::chunk_size();
-                                        let nb_chunk = duration / chunk_size;
-                                        let reminder = duration % chunk_size;
-
-                                        let mut e_i = 0;
-                                        let mut src_t = start_tick;
-
-                                        for _ in 0..nb_chunk {
-                                            base.ear(SRC_EAR_INDEX).listen(src_t, chunk_size);
-                                            let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
-
-                                            for src_idx in 0..chunk_size {
-                                                self.env[e_i] = a * src_buf[src_idx] + b;
-                                                e_i += 1;
-                                            }
-                                            src_t += duration as i64;
-                                        }
-
-                                        if reminder > 0 {
-                                            base.ear(SRC_EAR_INDEX).listen(src_t, reminder);
-                                            let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
-
-                                            for src_idx in 0..reminder {
-                                                self.env[e_i] = a * src_buf[src_idx] + b;
-                                                e_i += 1;
-                                            }
-                                        }
-                                        self.start_tick = start_tick;
-                                        self.duration = duration;
-                                        self.a = a;
-                                        self.b = b;
+                                if self.start_tick != start_tick
+                                    || self.duration < duration
+                                    || self.a != a
+                                    || self.b != b
+                                {
+                                    if self.env.len() < duration {
+                                        self.env.resize(duration, 0.);
                                     }
+
+                                    let chunk_size = AudioFormat::chunk_size();
+                                    let nb_chunk = duration / chunk_size;
+                                    let reminder = duration % chunk_size;
+
+                                    let mut e_i = 0;
+                                    let mut src_t = start_tick;
+
+                                    for _ in 0..nb_chunk {
+                                        base.ear(SRC_EAR_INDEX).listen(src_t, chunk_size);
+                                        let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
+
+                                        for src_idx in 0..chunk_size {
+                                            self.env[e_i] = a * src_buf[src_idx] + b;
+                                            e_i += 1;
+                                        }
+                                        src_t += duration as i64;
+                                    }
+
+                                    if reminder > 0 {
+                                        base.ear(SRC_EAR_INDEX).listen(src_t, reminder);
+                                        let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
+
+                                        for src_idx in 0..reminder {
+                                            self.env[e_i] = a * src_buf[src_idx] + b;
+                                            e_i += 1;
+                                        }
+                                    }
+                                    self.start_tick = start_tick;
+                                    self.duration = duration;
+                                    self.a = a;
+                                    self.b = b;
                                 }
                             }
                         }
                     }
-                    env_idx = 0;
                 }
-
-                if env_idx < self.duration {
-                    voice_buf[i] = self.env[env_idx] * gain_buf[i];
-                    env_idx += 1;
-                } else {
-                    if i == 0 {
-                        voice_buf[0] = voice_buf[len - 1] * 0.9999;
-                    } else {
-                        voice_buf[i] = voice_buf[i - 1] * 0.9999;
-                    }
-                }
+                env_idx = 0;
             }
-            last_cv = cv;
+
+            if env_idx < self.duration {
+                last_out_gain = self.env[env_idx] * gain_buf[i];
+                env_idx += 1;
+            } else {
+                last_out_gain = last_out_gain * 0.9999;
+            }
+            voice_buf[i] = last_out_gain;
+            last_trigger = trigger;
         }
 
-        player_state.last_cv = last_cv;
+        player_state.last_trigger = last_trigger;
         player_state.env_idx = env_idx;
-        //        self.players_states[port] = PlayerState::new(last_cv, env_idx);
+        player_state.last_out_gain = last_out_gain;
         ln
     }
 }
