@@ -72,19 +72,26 @@ impl PluginsManager {
 
         lv2_handler::visit(|lv2_handler| {
             for plugin in lv2_handler.world.iter_plugins() {
-                for plugin_class in plugin.classes() {
-                    handlers.insert(
-                        plugin.uri(),
-                        PluginHandler {
-                            base: TalkerHandlerBase::new(
-                                plugin_class,
-                                &plugin.uri(),
-                                &plugin.name(),
-                            ),
-                            plugin_type: PluginType::Lv2,
-                        },
-                    );
+                let mut categories = Vec::new();
+                for classe in plugin.classes() {
+                    let category = match classe.find(" Plugin") {
+                        Some(ep) => classe.get(..ep).unwrap(),
+                        None => classe,
+                    };
+                    categories.push(category.to_string());
                 }
+
+                handlers.insert(
+                    plugin.uri(),
+                    PluginHandler {
+                        base: TalkerHandlerBase::with_multi_categories(
+                            categories,
+                            &plugin.uri(),
+                            &plugin.name(),
+                        ),
+                        plugin_type: PluginType::Lv2,
+                    },
+                );
             }
             Ok(())
         })
@@ -183,14 +190,16 @@ impl PluginsManager {
         let mut categories_vec: Vec<(String, Vec<(String, String)>)> = Vec::new();
 
         for (model, ph) in self.handlers.iter() {
-            match categories_map.get_mut(ph.base.category()) {
-                Some(category_talkers) => {
-                    category_talkers.push((ph.base.label(), model));
-                }
-                None => {
-                    let mut category_talkers = Vec::new();
-                    category_talkers.push((ph.base.label(), model));
-                    categories_map.insert(ph.base.category(), category_talkers);
+            for category in &ph.base.categories {
+                match categories_map.get_mut(category) {
+                    Some(category_talkers) => {
+                        category_talkers.push((ph.base.label(), model));
+                    }
+                    None => {
+                        let mut category_talkers = Vec::new();
+                        category_talkers.push((ph.base.label(), model));
+                        categories_map.insert(category, category_talkers);
+                    }
                 }
             }
         }
@@ -212,7 +221,7 @@ impl PluginsManager {
         let mut talkers = Vec::new();
 
         for (_model, ph) in self.handlers.iter() {
-            println!("Plugin {} ({})", ph.base.model(), ph.base.category());
+            println!("Plugin {}", ph.base.model());
 
             match self.mk_tkr(ph) {
                 Ok(tkr) => {

@@ -1,22 +1,26 @@
 use crate::talker::Talker;
 
 pub struct TalkerHandlerBase {
-    pub category: String,
+    pub categories: Vec<String>,
     pub model: String,
     pub label: String,
 }
 
 impl TalkerHandlerBase {
-    pub fn new(category: &str, model: &str, label: &str) -> Self {
+    pub fn with_multi_categories(categories: Vec<String>, model: &str, label: &str) -> Self {
         Self {
-            category: category.to_string(),
+            categories: categories,
             model: model.to_string(),
             label: label.to_string(),
         }
     }
+    pub fn builtin(category: &str, model: &str, label: &str) -> Self {
+        let builtin_label = format!("Builtin {}", label);
+        TalkerHandlerBase::with_multi_categories(vec![category.to_string()], &model, &builtin_label)
+    }
 
-    pub fn category<'a>(&'a self) -> &'a String {
-        &self.category
+    pub fn categories<'a>(&'a self) -> &'a Vec<String> {
+        &self.categories
     }
     pub fn model<'a>(&'a self) -> &'a String {
         &self.model
@@ -29,8 +33,8 @@ impl TalkerHandlerBase {
 pub trait TalkerHandler {
     fn base<'a>(&'a self) -> &'a TalkerHandlerBase;
 
-    fn category<'a>(&'a self) -> &'a String {
-        &self.base().category
+    fn categories<'a>(&'a self) -> &'a Vec<String> {
+        &self.base().categories
     }
     fn model<'a>(&'a self) -> &'a String {
         &self.base().model
