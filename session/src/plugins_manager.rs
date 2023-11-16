@@ -190,15 +190,19 @@ impl PluginsManager {
         let mut categories_vec: Vec<(String, Vec<(String, String)>)> = Vec::new();
 
         for (model, ph) in self.handlers.iter() {
+            let plugin_categories_count = ph.base.categories.len();
+
             for category in &ph.base.categories {
-                match categories_map.get_mut(category) {
-                    Some(category_talkers) => {
-                        category_talkers.push((ph.base.label(), model));
-                    }
-                    None => {
-                        let mut category_talkers = Vec::new();
-                        category_talkers.push((ph.base.label(), model));
-                        categories_map.insert(category, category_talkers);
+                if plugin_categories_count == 1 || category != "Plugin" {
+                    match categories_map.get_mut(category) {
+                        Some(category_talkers) => {
+                            category_talkers.push((ph.base.label(), model));
+                        }
+                        None => {
+                            let mut category_talkers = Vec::new();
+                            category_talkers.push((ph.base.label(), model));
+                            categories_map.insert(category, category_talkers);
+                        }
                     }
                 }
             }
