@@ -12,6 +12,7 @@ use talker::voice;
 pub const MODEL: &str = "Sinusoidal";
 
 pub struct Sinusoidal {
+    frequence_coef: f64,
     last_tick: i64,
     last_angle: f64,
 }
@@ -29,6 +30,7 @@ impl Sinusoidal {
         Ok(ctalker!(
             base,
             Self {
+                frequence_coef: AudioFormat::frequence_coef(),
                 last_tick: 0,
                 last_angle: 0.,
             }
@@ -47,12 +49,16 @@ impl Talker for Sinusoidal {
         let phase_buf = base.ear_audio_buffer(1);
         let gain_buf = base.ear_audio_buffer(2);
         let voice_buf = base.voice(port).audio_buffer();
-        let c = AudioFormat::frequence_coef();
+        let c = self.frequence_coef;
 
         let mut last_angle = if self.last_tick == tick {
             self.last_angle
         } else {
-            -freq_buf[0] as f64 * c
+            if tick == 0 {
+                0.
+            } else {
+                -freq_buf[0] as f64 * c
+            }
         };
 
         for i in 0..ln {
