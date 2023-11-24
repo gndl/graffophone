@@ -12,6 +12,7 @@ pub mod parabolic;
 pub mod round;
 pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
+pub mod sinusoidal_fptg;
 pub mod square;
 pub mod table_talker;
 pub mod tseq;

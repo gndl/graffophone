@@ -36,6 +36,8 @@ use talkers::second_degree_frequency_progression;
 use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
 use talkers::sinusoidal;
 use talkers::sinusoidal::Sinusoidal;
+use talkers::sinusoidal_fptg;
+use talkers::sinusoidal_fptg::SinusoidalFPTG;
 use talkers::square;
 use talkers::square::Square;
 use talkers::tseq::tseq;
@@ -112,6 +114,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Round::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
+            PluginsManager::tkr_hr_kv(SinusoidalFPTG::descriptor()),
             PluginsManager::tkr_hr_kv(Square::descriptor()),
             PluginsManager::tkr_hr_kv(Sum::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
@@ -158,6 +161,8 @@ impl PluginsManager {
             )?))
         } else if model == sinusoidal::MODEL {
             Ok(rtalker!(Sinusoidal::new()?))
+        } else if model == sinusoidal_fptg::MODEL {
+            Ok(rtalker!(SinusoidalFPTG::new()?))
         } else if model == square::MODEL {
             Ok(rtalker!(Square::new()?))
         } else if model == math::SUM_MODEL {
