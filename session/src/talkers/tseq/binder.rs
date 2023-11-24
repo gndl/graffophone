@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::f32;
+use std::str::FromStr;
 
 use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
@@ -148,7 +149,19 @@ impl<'a> Binder<'a> {
         for ppitchline in &self.parser_pitchlines {
             let mut pitchs = Vec::new();
             for pitch in &ppitchline.pitchs {
-                pitchs.push((scale.fetch_frequency(pitch.id)?, pitch.transition));
+                let freq = match scale.fetch_frequency(pitch.id) {
+                    Some(f) => *f,
+                    None => match f32::from_str(pitch.id) {
+                        Ok(f) => f,
+                        Err(_) => {
+                            return Err(failure::err_msg(format!(
+                                "Tseq pitch {} not found!",
+                                pitch.id
+                            )))
+                        }
+                    },
+                };
+                pitchs.push((freq, pitch.transition));
             }
             self.pitchlines.insert(ppitchline.id, pitchs);
         }

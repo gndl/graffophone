@@ -5,11 +5,8 @@ pub struct Scale {
 }
 
 impl Scale {
-    pub fn fetch_frequency(&self, pitch: &str) -> Result<f32, failure::Error> {
-        match self.pitch_freq_map.get(pitch) {
-            Some(f) => Ok(*f),
-            None => Err(failure::err_msg(format!("Tseq pitch {} not found!", pitch))),
-        }
+    pub fn fetch_frequency(&self, pitch: &str) -> Option<&f32> {
+        self.pitch_freq_map.get(pitch)
     }
 
     pub fn tempered() -> Scale {
