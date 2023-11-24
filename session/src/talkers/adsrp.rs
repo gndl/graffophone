@@ -123,13 +123,13 @@ impl Talker for ADSRp {
         hum_idx: Index,
         value: f32,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.push(PlayerState::new());
-
         let mut new_base = base.clone();
-
         new_base.ear(ear_idx).add_set_with_value(hum_idx, value)?;
-        new_base.add_voice(voice::audio(None, 0.));
 
+        if ear_idx == PLAYERS_EAR_INDEX {
+            self.players_states.push(PlayerState::new());
+            new_base.add_voice(voice::audio(None, 0.));
+        }
         Ok(Some(new_base))
     }
     fn add_set_with_voice_to_ear_update(
@@ -140,15 +140,15 @@ impl Talker for ADSRp {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.push(PlayerState::new());
-
         let mut new_base = base.clone();
-
         new_base
             .ear(ear_idx)
             .add_set_with_voice(hum_idx, voice_talker, port)?;
-        new_base.add_voice(voice::audio(None, 0.));
 
+        if ear_idx == PLAYERS_EAR_INDEX {
+            self.players_states.push(PlayerState::new());
+            new_base.add_voice(voice::audio(None, 0.));
+        }
         Ok(Some(new_base))
     }
     fn sup_ear_set_update(
@@ -157,12 +157,13 @@ impl Talker for ADSRp {
         ear_idx: usize,
         set_idx: usize,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.remove(set_idx);
-
         let mut new_base = base.clone();
-
         new_base.ear(ear_idx).sup_set(set_idx)?;
-        new_base.sup_voice(set_idx);
+
+        if ear_idx == PLAYERS_EAR_INDEX {
+            self.players_states.remove(set_idx);
+            new_base.sup_voice(set_idx);
+        }
 
         Ok(Some(new_base))
     }
