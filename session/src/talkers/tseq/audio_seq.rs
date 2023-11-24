@@ -7,13 +7,13 @@ use talkers::tseq::audio_event::RAudioEvent;
 use talkers::tseq::binder;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::binder::Time;
-use talkers::tseq::parser::PFragment;
 use talkers::tseq::parser::PFragment::Fragments;
 use talkers::tseq::parser::PFragment::Part;
 use talkers::tseq::parser::PFragment::SeqRef;
 use talkers::tseq::parser::PPart;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PTransition;
+use talkers::tseq::parser::{PFragment, PVelocity};
 
 pub type AudioEvents = Vec<RAudioEvent>;
 
@@ -21,8 +21,7 @@ struct Event {
     delay: Time,
     frequency: f32,
     frequency_transition: PTransition,
-    velocity: f32,
-    velocity_transition: PTransition,
+    velocity: PVelocity,
 }
 impl Event {
     pub fn new() -> Event {
@@ -30,8 +29,12 @@ impl Event {
             delay: Time::Ticks(0),
             frequency: audio_event::DEFAULT_FREQUENCY,
             frequency_transition: PTransition::None,
-            velocity: audio_event::DEFAULT_VELOCITY,
-            velocity_transition: PTransition::None,
+            velocity: PVelocity {
+                value: audio_event::DEFAULT_VELOCITY,
+                fadein: false,
+                fadeout: false,
+                transition: PTransition::None,
+            },
         }
     }
 }
@@ -140,7 +143,7 @@ impl EventsBuilder {
                                     next_pitch_frequency * next_harmonic.freq_ratio;
 
                                 let next_harmonic_velocity =
-                                    next_harmonic.velocity * next_velocity.value;
+                                    next_harmonic.velocity.value * next_velocity.value;
 
                                 if harmonic_idx < self.harmonic_count {
                                     let start_tick = self.hit_start_tick
@@ -153,6 +156,8 @@ impl EventsBuilder {
                                             harmonic_event.frequency,
                                             next_harmonic_frequency,
                                             harmonic_event.frequency_transition,
+                                            false,
+                                            false,
                                         ),
                                     );
 
@@ -160,9 +165,11 @@ impl EventsBuilder {
                                         audio_event::AudioEventParameter::new(
                                             start_tick,
                                             self.hit_end_tick,
-                                            harmonic_event.velocity,
+                                            harmonic_event.velocity.value,
                                             next_harmonic_velocity,
-                                            harmonic_event.velocity_transition,
+                                            harmonic_event.velocity.transition,
+                                            harmonic_event.velocity.fadein,
+                                            harmonic_event.velocity.fadeout,
                                         ),
                                     );
                                 }
@@ -171,13 +178,20 @@ impl EventsBuilder {
                                     harmonic_event.delay = next_harmonic.delay;
                                     harmonic_event.frequency = next_harmonic_frequency;
                                     harmonic_event.frequency_transition = next_pitch_transition;
-                                    harmonic_event.velocity = next_harmonic_velocity;
-                                    harmonic_event.velocity_transition =
-                                        if next_harmonic.velocity_transition == PTransition::None {
+                                    harmonic_event.velocity = PVelocity {
+                                        value: next_harmonic_velocity,
+                                        transition: if next_harmonic.velocity.transition
+                                            == PTransition::None
+                                        {
                                             next_velocity.transition
                                         } else {
-                                            next_harmonic.velocity_transition
-                                        };
+                                            next_harmonic.velocity.transition
+                                        },
+                                        fadein: next_harmonic.velocity.fadein
+                                            || next_velocity.fadein,
+                                        fadeout: next_harmonic.velocity.fadeout
+                                            || next_velocity.fadeout,
+                                    }
                                 }
                             }
                             self.hit_start_tick = next_hit_start_tick;
@@ -324,18 +338,22 @@ impl EventsBuilder {
                         harmonic_event.frequency,
                         harmonic_event.frequency,
                         PTransition::None,
+                        false,
+                        false,
                     ),
                 );
             }
 
-            if harmonic_event.velocity > 0. {
+            if harmonic_event.velocity.value > 0. {
                 harmonics_velocity_events_parameters[harmonic_idx].push(
                     audio_event::AudioEventParameter::new(
                         start_tick,
                         hit_end_tick,
-                        harmonic_event.velocity,
-                        harmonic_event.velocity,
+                        harmonic_event.velocity.value,
+                        harmonic_event.velocity.value,
                         PTransition::None,
+                        harmonic_event.velocity.fadein,
+                        true,
                     ),
                 );
             }

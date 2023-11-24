@@ -16,7 +16,6 @@ mod tests {
         let len = 32768;
 
         writeln!(f, "pub const LEN:usize = {};", len)?;
-        //        writeln!(f, "pub fn get(i: usize) -> f32 {{ let tab:[f32] = [")?;
         writeln!(f, "pub const TAB: [f32; LEN] = [")?;
 
         for i in 0..len {
@@ -25,7 +24,25 @@ mod tests {
             writeln!(f, "{:.10},", v as f32)?;
         }
         writeln!(f, "];")?;
-        //        writeln!(f, "]; tab[i]}}")?;
+
+        let velocity_fading_len = 288;
+
+        writeln!(
+            f,
+            "pub const VELOCITY_FADING_LEN:usize = {};",
+            velocity_fading_len
+        )?;
+        writeln!(
+            f,
+            "pub const VELOCITY_FADING_TAB: [f32; VELOCITY_FADING_LEN] = ["
+        )?;
+
+        for i in 0..velocity_fading_len {
+            let a = ((i as f64 * PI) / (velocity_fading_len as f64)) - (PI * 0.5);
+            let v = (a.sin() + 1.) * 0.5;
+            writeln!(f, "{:.10},", v as f32)?;
+        }
+        writeln!(f, "];")?;
         Ok(())
     }
 

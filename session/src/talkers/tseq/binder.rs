@@ -42,14 +42,17 @@ pub fn option_to_ticks(otime: &Option<Time>, ofset: i64, rate_uq: f32) -> i64 {
 pub struct Harmonic {
     pub freq_ratio: f32,
     pub delay: Time,
-    pub velocity: f32,
-    pub velocity_transition: PTransition,
+    pub velocity: PVelocity,
 }
 const DEFAULT_CHORD: Harmonic = Harmonic {
     freq_ratio: 1.,
     delay: Time::Ticks(0),
-    velocity: 1.,
-    velocity_transition: PTransition::None,
+    velocity: PVelocity {
+        value: 1.,
+        fadein: false,
+        fadeout: false,
+        transition: PTransition::None,
+    },
 };
 
 pub struct Hit {
@@ -131,6 +134,8 @@ impl<'a> Binder<'a> {
                 id: "",
                 velocities: vec![PVelocity {
                     value: 1.,
+                    fadein: false,
+                    fadeout: false,
                     transition: PTransition::None,
                 }],
             },
@@ -186,8 +191,12 @@ impl<'a> Binder<'a> {
                                 .delay
                                 .as_ref()
                                 .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
-                            let mut velocity = audio_event::DEFAULT_VELOCITY;
-                            let mut velocity_transition = PTransition::None;
+                            let mut velocity = PVelocity {
+                                value: audio_event::DEFAULT_VELOCITY,
+                                fadein: false,
+                                fadeout: false,
+                                transition: PTransition::None,
+                            };
 
                             let ovelocity = if harmonic_idx < paccents.len() {
                                 delay =
@@ -197,15 +206,13 @@ impl<'a> Binder<'a> {
                                 &pharmonic.velocity
                             };
                             if let Some(pvelocity) = ovelocity {
-                                velocity = pvelocity.value;
-                                velocity_transition = pvelocity.transition;
+                                velocity = *pvelocity;
                             }
 
                             let harmonic = Harmonic {
                                 freq_ratio: pharmonic.freq_ratio.num / pharmonic.freq_ratio.den,
                                 delay,
                                 velocity,
-                                velocity_transition,
                             };
                             chord.push(harmonic);
                         }

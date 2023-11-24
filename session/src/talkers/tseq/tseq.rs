@@ -263,16 +263,10 @@ fn audio_sequence_talk(
                 t += cur_len as i64;
             }
         } else {
-            if conservative_off {
-                for i in ofset..len {
-                    last_value = last_value * 0.996;
-                    voice_buf[i] = last_value;
-                }
-            } else {
-                for i in ofset..len {
-                    voice_buf[i] = 0.;
-                }
+            for i in ofset..len {
+                voice_buf[i] = 0.;
             }
+
             t += out_len as i64;
         }
         ofset = (t - tick) as usize;

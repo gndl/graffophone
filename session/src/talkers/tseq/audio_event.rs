@@ -45,6 +45,94 @@ impl AudioEvent for ConstantEvent {
     }
 }
 
+fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
+    if fadein {
+        i64::min(start_tick + sinramp::VELOCITY_FADING_LEN as i64, end_tick)
+    } else {
+        start_tick
+    }
+}
+
+fn fadeout_tick(start_tick: i64, end_tick: i64, fadeout: bool) -> i64 {
+    if fadeout {
+        i64::max(start_tick, end_tick - sinramp::VELOCITY_FADING_LEN as i64)
+    } else {
+        end_tick
+    }
+}
+// ConstantEvent
+pub struct FadingEvent {
+    start_tick: i64,
+    fadein_tick: i64,
+    fadeout_tick: i64,
+    end_tick: i64,
+    value: f32,
+}
+impl FadingEvent {
+    pub fn new(
+        start_tick: i64,
+        fadein_tick: i64,
+        fadeout_tick: i64,
+        end_tick: i64,
+        value: f32,
+    ) -> Self {
+        Self {
+            start_tick,
+            fadein_tick,
+            fadeout_tick,
+            end_tick,
+            value,
+        }
+    }
+}
+impl AudioEvent for FadingEvent {
+    fn start_tick(&self) -> i64 {
+        self.start_tick
+    }
+    fn end_tick(&self) -> i64 {
+        self.end_tick
+    }
+    fn assign_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) -> i64 {
+        let mut t = tick;
+        let end_tick = i64::min(tick + len as i64, self.end_tick);
+
+        if tick < self.fadein_tick {
+            let end_t = i64::min(self.fadein_tick, end_tick);
+            let ln = (end_t - t) as usize;
+            let mut fadein_idx = (t - self.start_tick) as usize;
+
+            for i in ofset..ofset + ln {
+                buf[i] = self.value * sinramp::VELOCITY_FADING_TAB[fadein_idx];
+                fadein_idx += 1;
+            }
+            t += ln as i64;
+        }
+
+        if t < self.fadeout_tick && t < end_tick {
+            let end_t = i64::min(self.fadeout_tick, end_tick);
+            let ln = (end_t - t) as usize;
+            let pos = ofset + (t - tick) as usize;
+
+            for i in pos..pos + ln {
+                buf[i] = self.value;
+            }
+            t += ln as i64;
+        }
+
+        if t < end_tick {
+            let ln = (end_tick - t) as usize;
+            let pos = ofset + (t - tick) as usize;
+            let mut fadeout_idx = sinramp::VELOCITY_FADING_LEN - (t - self.fadeout_tick) as usize;
+
+            for i in pos..pos + ln {
+                fadeout_idx -= 1;
+                buf[i] = self.value * sinramp::VELOCITY_FADING_TAB[fadeout_idx];
+            }
+        }
+        end_tick
+    }
+}
+
 // LinearEvent
 pub struct LinearEvent {
     start_tick: i64,
@@ -131,6 +219,8 @@ pub struct AudioEventParameter {
     pub start_value: f32,
     end_value: f32,
     transition: PTransition,
+    fadein: bool,
+    fadeout: bool,
 }
 
 impl AudioEventParameter {
@@ -140,6 +230,8 @@ impl AudioEventParameter {
         start_value: f32,
         end_value: f32,
         transition: PTransition,
+        fadein: bool,
+        fadeout: bool,
     ) -> AudioEventParameter {
         Self {
             start_tick,
@@ -147,6 +239,8 @@ impl AudioEventParameter {
             start_value,
             end_value,
             transition,
+            fadein,
+            fadeout,
         }
     }
 }
@@ -157,9 +251,23 @@ pub fn create(
     start_value: f32,
     end_value: f32,
     transition: PTransition,
+    fadein: bool,
+    fadeout: bool,
 ) -> RAudioEvent {
     match transition {
-        PTransition::None => Box::new(ConstantEvent::new(start_tick, end_tick, start_value)),
+        PTransition::None => {
+            if fadein || fadeout {
+                Box::new(FadingEvent::new(
+                    start_tick,
+                    fadein_tick(start_tick, end_tick, fadein),
+                    fadeout_tick(start_tick, end_tick, fadeout),
+                    end_tick,
+                    start_value,
+                ))
+            } else {
+                Box::new(ConstantEvent::new(start_tick, end_tick, start_value))
+            }
+        }
         PTransition::Linear => Box::new(LinearEvent::new(
             start_tick,
             end_tick,
@@ -200,5 +308,7 @@ pub fn create_from_parameter(parameter: &AudioEventParameter) -> RAudioEvent {
         parameter.start_value,
         parameter.end_value,
         parameter.transition,
+        parameter.fadein,
+        parameter.fadeout,
     )
 }

@@ -151,6 +151,18 @@ macro_rules! VELOCITYLINE_KW {
     };
 }
 #[macro_export]
+macro_rules! FADEIN_KW {
+    () => {
+        '/'
+    };
+}
+#[macro_export]
+macro_rules! FADEOUT_KW {
+    () => {
+        '\\'
+    };
+}
+#[macro_export]
 macro_rules! SEQUENCE_KW {
     () => {
         "seq"
@@ -200,14 +212,22 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     TIME_DESC!("delay", "hit"),
     "[",
     JOIN_KW!(),
-    "<velocity>]] [...]\n",
+    "[",
+    FADEIN_KW!(),
+    "]<velocity>[",
+    FADEOUT_KW!(),
+    "]]] [...]\n",
     ATTACK_KW!(),
     " <attack_id> ",
     DEF_KW!(),
     TIME_DESC!("delay", "hit"),
     "[",
     JOIN_KW!(),
-    "<velocity>] [...]\n",
+    "[",
+    FADEIN_KW!(),
+    "]<velocity>[",
+    FADEOUT_KW!(),
+    "]] [...]\n",
     CHORDLINE_KW!(),
     " <chords_id> ",
     DEF_KW!(),
@@ -237,7 +257,11 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     VELOCITYLINE_KW!(),
     " <velocities_id> ",
     DEF_KW!(),
-    " <velocity_value> [",
+    " [",
+    FADEIN_KW!(),
+    "]<velocity_value>[",
+    FADEOUT_KW!(),
+    "|",
     LINEAR_TRANSITION_KW!(),
     "|",
     SIN_TRANSITION_KW!(),

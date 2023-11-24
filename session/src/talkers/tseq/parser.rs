@@ -11,8 +11,6 @@ use nom::{
 
 use std::str::FromStr;
 
-use ATTACK_KW;
-use BEAT_KW;
 use CHORDLINE_KW;
 use CHORD_KW;
 use CLOSE_PARENT_KW;
@@ -39,6 +37,8 @@ use SEQUENCE_KW;
 use SEQUENCE_OUTPUT_KW;
 use SIN_TRANSITION_KW;
 use VELOCITYLINE_KW;
+use {ATTACK_KW, FADEIN_KW};
+use {BEAT_KW, FADEOUT_KW};
 
 #[derive(Debug, PartialEq)]
 pub struct PRatio {
@@ -136,9 +136,11 @@ pub struct PDurationLine<'a> {
     pub durations: Vec<PTime>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct PVelocity {
     pub value: f32,
+    pub fadein: bool,
+    pub fadeout: bool,
     pub transition: PTransition,
 }
 
@@ -381,8 +383,21 @@ fn transition(input: &str) -> IResult<&str, PTransition> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (value, transition)) = tuple((float, transition))(input)?;
-    Ok((input, PVelocity { value, transition }))
+    let (input, (fadein, value, fadeout, transition)) = tuple((
+        opt(char(FADEIN_KW!())),
+        float,
+        opt(char(FADEOUT_KW!())),
+        transition,
+    ))(input)?;
+    Ok((
+        input,
+        PVelocity {
+            value,
+            fadein: fadein.is_some(),
+            fadeout: fadeout.is_some(),
+            transition,
+        },
+    ))
 }
 
 fn velocities(input: &str) -> IResult<&str, Expression> {
@@ -587,6 +602,8 @@ fn test_chord() {
                         delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
                             value: 0.4,
+                            fadein: false,
+                            fadeout: false,
                             transition: PTransition::None
                         }),
                     }
@@ -697,7 +714,7 @@ fn test_velos() {
             VELOCITYLINE_KW!(),
             " v1",
             DEF_KW!(),
-            " .5 ~ 1 .75=0.9\n"
+            " /.5\\ ~ /1 .75\\=0.9\n"
         )),
         Ok((
             "",
@@ -706,18 +723,26 @@ fn test_velos() {
                 velocities: vec![
                     PVelocity {
                         value: 0.5,
+                        fadein: true,
+                        fadeout: true,
                         transition: PTransition::Sin
                     },
                     PVelocity {
                         value: 1.,
+                        fadein: true,
+                        fadeout: false,
                         transition: PTransition::None
                     },
                     PVelocity {
                         value: 0.75,
+                        fadein: false,
+                        fadeout: true,
                         transition: PTransition::Linear
                     },
                     PVelocity {
                         value: 0.9,
+                        fadein: false,
+                        fadeout: false,
                         transition: PTransition::None
                     },
                 ],
@@ -1098,7 +1123,9 @@ fn test_parse() {
                 id: "v",
                 velocities: vec![PVelocity {
                     value: 1.,
-                    transition: PTransition::None
+                    transition: PTransition::None,
+                    fadein: false,
+                    fadeout: false
                 }],
             })
         ]
