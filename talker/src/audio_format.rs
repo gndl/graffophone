@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 const CHANNELS: usize = 2;
-const DEFAULT_SAMPLE_RATE: usize = 44_100;
+const DEFAULT_SAMPLE_RATE: usize = 48000; // 44_100;
 static SAMPLE_RATE: AtomicUsize = AtomicUsize::new(DEFAULT_SAMPLE_RATE);
 //const FRAMES_PER_SECOND: usize = 10;
 pub const DEFAULT_CHUNK_SIZE: usize = 2048; //4410;

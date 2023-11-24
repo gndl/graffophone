@@ -5,6 +5,7 @@ use cpal;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf;
 use ringbuf::RingBuffer;
+use talker::audio_format::AudioFormat;
 
 use talker::identifier::RIdentifier;
 
@@ -39,7 +40,6 @@ impl Feedback {
         let config: cpal::StreamConfig = output_device.default_output_config()?.into();
 
         let nb_channels = config.channels as usize;
-
         Ok(Self {
             identifier: output::new_identifier("", MODEL),
             nb_channels,
@@ -60,7 +60,8 @@ impl Feedback {
             .default_output_device()
             .expect("failed to get default output device");
 
-        let config: cpal::StreamConfig = output_device.default_output_config()?.into();
+        let mut config: cpal::StreamConfig = output_device.default_output_config()?.into();
+        config.sample_rate = cpal::SampleRate(AudioFormat::sample_rate() as u32);
 
         let latency_samples = nb_samples * nb_channels;
 
