@@ -5,10 +5,11 @@ use std::str::FromStr;
 use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
-    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchLine, PSequence,
-    PTime, PTransition, PVelocity, PVelocityLine,
+    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
+    PSequence, PTime, PTransition, PVelocity, PVelocityLine,
 };
-use talkers::tseq::scale::Scale;
+use talkers::tseq::scale;
+use talkers::tseq::scale::RScale;
 
 pub const UNDEFINED_TICKS: i64 = i64::MAX;
 
@@ -81,6 +82,13 @@ fn to_hitline(phitline: &PHitLine, ticks_per_second: f32) -> HitLine {
     }
 }
 
+fn to_freq_ratio(pitch_gap: &PPitchGap, scale: &RScale) -> f32 {
+    match pitch_gap {
+        PPitchGap::FreqRatio(r) => r.num / r.den,
+        PPitchGap::Interval(i) => scale.frequency_ratio(*i),
+    }
+}
+
 pub struct DurationLine {
     pub durations: Vec<Time>,
 }
@@ -149,7 +157,7 @@ impl<'a> Binder<'a> {
 
     pub fn deserialize(&mut self) -> Result<(), failure::Error> {
         // Deserialize pitchlines
-        let scale = Scale::tempered();
+        let scale = scale::create("tempered")?;
 
         for ppitchline in &self.parser_pitchlines {
             let mut pitchs = Vec::new();
@@ -210,7 +218,7 @@ impl<'a> Binder<'a> {
                             }
 
                             let harmonic = Harmonic {
-                                freq_ratio: pharmonic.freq_ratio.num / pharmonic.freq_ratio.den,
+                                freq_ratio: to_freq_ratio(&pharmonic.pitch_gap, &scale),
                                 delay,
                                 velocity,
                             };

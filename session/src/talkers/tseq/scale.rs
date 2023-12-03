@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 
-pub struct Scale {
+pub trait Scale {
+    fn fetch_frequency(&self, pitch: &str) -> Option<&f32>;
+    fn frequency_ratio(&self, interval: i32) -> f32;
+}
+pub type RScale = Box<dyn Scale>;
+
+pub struct TemperedScale {
     pitch_freq_map: HashMap<&'static str, f32>,
 }
-
-impl Scale {
-    pub fn fetch_frequency(&self, pitch: &str) -> Option<&f32> {
-        self.pitch_freq_map.get(pitch)
-    }
-
-    pub fn tempered() -> Scale {
+impl TemperedScale {
+    pub fn new() -> Self {
         Self {
             pitch_freq_map: HashMap::from([
                 ("c10", 16744.032),
@@ -146,5 +147,22 @@ impl Scale {
                 ("b0", 30.867),
             ]),
         }
+    }
+}
+
+impl Scale for TemperedScale {
+    fn fetch_frequency(&self, pitch: &str) -> Option<&f32> {
+        self.pitch_freq_map.get(pitch)
+    }
+    fn frequency_ratio(&self, interval: i32) -> f32 {
+        (interval as f32 / 12.).exp2()
+    }
+}
+
+pub fn create(scale_name: &str) -> Result<RScale, failure::Error> {
+    if scale_name == "tempered" {
+        Ok(Box::new(TemperedScale::new()))
+    } else {
+        Err(failure::err_msg(format!("Scale {} not found!", scale_name)))
     }
 }

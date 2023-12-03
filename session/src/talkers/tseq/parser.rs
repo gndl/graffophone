@@ -11,7 +11,6 @@ use nom::{
 
 use std::str::FromStr;
 
-use CHORDLINE_KW;
 use CHORD_KW;
 use CLOSE_PARENT_KW;
 use COUPLING_KW;
@@ -39,6 +38,7 @@ use SIN_TRANSITION_KW;
 use VELOCITYLINE_KW;
 use {ATTACK_KW, FADEIN_KW};
 use {BEAT_KW, FADEOUT_KW};
+use {CHORDLINE_KW, INTERVAL_KW};
 
 #[derive(Debug, PartialEq)]
 pub struct PRatio {
@@ -69,8 +69,14 @@ pub struct PBeat<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum PPitchGap {
+    FreqRatio(PRatio),
+    Interval(i32),
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PHarmonic {
-    pub freq_ratio: PRatio,
+    pub pitch_gap: PPitchGap,
     pub delay: Option<PTime>,
     pub velocity: Option<PVelocity>,
 }
@@ -246,7 +252,7 @@ fn beat(input: &str) -> IResult<&str, Expression> {
 }
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
-    let (input, (num, den)) = tuple((float, opt(delimited(on, float, space0))))(input)?;
+    let (input, (num, den, _)) = tuple((float, opt(preceded(on, float)), space0))(input)?;
     Ok((
         input,
         PRatio {
@@ -256,8 +262,18 @@ fn ratio(input: &str) -> IResult<&str, PRatio> {
     ))
 }
 
+fn freq_ratio(input: &str) -> IResult<&str, PPitchGap> {
+    let (input, freq_ratio) = ratio(input)?;
+    Ok((input, PPitchGap::FreqRatio(freq_ratio)))
+}
+
+fn interval(input: &str) -> IResult<&str, PPitchGap> {
+    let (input, interval) = delimited(char(INTERVAL_KW!()), digit1, space0)(input)?;
+    Ok((input, PPitchGap::Interval(i32::from_str(interval).unwrap())))
+}
+
 fn time(input: &str) -> IResult<&str, PTime> {
-    let (input, (value, ounit)) = tuple((ratio, opt(char(SECOND_SYM_KW!()))))(input)?;
+    let (input, (value, ounit, _)) = tuple((ratio, opt(char(SECOND_SYM_KW!())), space0))(input)?;
     let duration = if ounit.is_some() {
         PTime::Second(value)
     } else {
@@ -267,23 +283,16 @@ fn time(input: &str) -> IResult<&str, PTime> {
 }
 
 fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
-    let (input, (freq_ratio, delay, velocity)) = tuple((
-        ratio,
-        opt(delimited(
-            terminated(char(JOIN_KW!()), space0),
-            time,
-            space0,
-        )),
-        opt(delimited(
-            terminated(char(JOIN_KW!()), space0),
-            velocity,
-            space0,
-        )),
+    let (input, (pitch_gap, delay, velocity, _)) = tuple((
+        alt((freq_ratio, interval)),
+        opt(preceded(terminated(char(JOIN_KW!()), space0), time)),
+        opt(preceded(terminated(char(JOIN_KW!()), space0), velocity)),
+        space0,
     ))(input)?;
     Ok((
         input,
         PHarmonic {
-            freq_ratio,
+            pitch_gap,
             delay,
             velocity,
         },
@@ -365,7 +374,7 @@ fn durations(input: &str) -> IResult<&str, Expression> {
 }
 
 fn transition(input: &str) -> IResult<&str, PTransition> {
-    let (input, oprog) = preceded(space0, opt(one_of("=~<>°!")))(input)?;
+    let (input, oprog) = delimited(space0, opt(one_of("=~<>°")), space0)(input)?;
 
     let transition = match oprog {
         Some(c) => match c {
@@ -383,11 +392,12 @@ fn transition(input: &str) -> IResult<&str, PTransition> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (fadein, value, fadeout, transition)) = tuple((
+    let (input, (fadein, value, fadeout, transition, _)) = tuple((
         opt(char(FADEIN_KW!())),
         float,
         opt(char(FADEOUT_KW!())),
         transition,
+        space0,
     ))(input)?;
     Ok((
         input,
@@ -563,42 +573,49 @@ fn test_beat() {
 
 #[test]
 fn test_chord() {
+    let s = concat!(
+        CHORD_KW!(),
+        " c ",
+        DEF_KW!(),
+        " 1 1.5",
+        JOIN_KW!(),
+        "2",
+        SECOND_SYM_KW!(),
+        " 3",
+        ON_KW!(),
+        "2",
+        JOIN_KW!(),
+        "1",
+        ON_KW!(),
+        "2",
+        JOIN_KW!(),
+        ".4 ",
+        INTERVAL_KW!(),
+        "6 ",
+        JOIN_KW!(),
+        "2",
+        INTERVAL_KW!(),
+        "15\n"
+    );
     assert_eq!(
-        chord(concat!(
-            CHORD_KW!(),
-            " c ",
-            DEF_KW!(),
-            " 1 1.5",
-            JOIN_KW!(),
-            "2",
-            SECOND_SYM_KW!(),
-            " 3",
-            ON_KW!(),
-            "2",
-            JOIN_KW!(),
-            "1",
-            ON_KW!(),
-            "2",
-            JOIN_KW!(),
-            ".4\n"
-        )),
+        chord(s),
         Ok((
             "",
             Expression::Chord(PChord {
                 id: "c",
                 harmonics: vec![
                     PHarmonic {
-                        freq_ratio: PRatio { num: 1., den: 1. },
+                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 1., den: 1. }),
                         delay: None,
                         velocity: None,
                     },
                     PHarmonic {
-                        freq_ratio: PRatio { num: 1.5, den: 1. },
+                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 1.5, den: 1. }),
                         delay: Some(PTime::Second(PRatio { num: 2., den: 1. })),
                         velocity: None,
                     },
                     PHarmonic {
-                        freq_ratio: PRatio { num: 3., den: 2. },
+                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 3., den: 2. }),
                         delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
                             value: 0.4,
@@ -606,7 +623,17 @@ fn test_chord() {
                             fadeout: false,
                             transition: PTransition::None
                         }),
-                    }
+                    },
+                    PHarmonic {
+                        pitch_gap: PPitchGap::Interval(6),
+                        delay: Some(PTime::Rate(PRatio { num: 2., den: 1. })),
+                        velocity: None,
+                    },
+                    PHarmonic {
+                        pitch_gap: PPitchGap::Interval(15),
+                        delay: None,
+                        velocity: None,
+                    },
                 ]
             })
         ))

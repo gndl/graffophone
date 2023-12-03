@@ -151,6 +151,12 @@ macro_rules! VELOCITYLINE_KW {
     };
 }
 #[macro_export]
+macro_rules! INTERVAL_KW {
+    () => {
+        '!'
+    };
+}
+#[macro_export]
 macro_rules! FADEIN_KW {
     () => {
         '/'
