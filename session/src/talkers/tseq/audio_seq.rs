@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::f32;
 
 use talkers::tseq::audio_event;
+use talkers::tseq::audio_event::AudioEvent;
 use talkers::tseq::audio_event::AudioEventParameter;
-use talkers::tseq::audio_event::RAudioEvent;
 use talkers::tseq::binder;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::binder::Time;
@@ -15,7 +15,7 @@ use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PTransition;
 use talkers::tseq::parser::{PFragment, PVelocity};
 
-pub type AudioEvents = Vec<RAudioEvent>;
+pub type AudioEvents = Vec<AudioEvent>;
 
 struct Event {
     delay: Time,

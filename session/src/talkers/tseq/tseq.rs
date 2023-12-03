@@ -249,11 +249,20 @@ fn audio_sequence_talk(
 
         if ev_idx < ev_count {
             let ev = &audio_events[ev_idx];
+            let ev_start_tick = ev.start_tick();
 
-            if ev.start_tick() <= t {
-                t = ev.assign_buffer(t, voice_buf, ofset, out_len);
+            if ev_start_tick <= t {
+                let ev_out_len = usize::min((ev.end_tick() - t) as usize, out_len);
+
+                let ev_out_end_t = ev.assign_buffer(t, voice_buf, ofset, ev_out_len);
+
+                ev.fadein_buffer(t, voice_buf, ofset, ev_out_len);
+
+                ev.fadeout_buffer(t, voice_buf, ofset, ev_out_len);
+
+                t = ev_out_end_t;
             } else {
-                let cur_len = usize::min((ev.start_tick() - t) as usize, out_len);
+                let cur_len = usize::min((ev_start_tick - t) as usize, out_len);
 
                 last_value = if conservative_off { last_value } else { 0. };
 
