@@ -68,47 +68,53 @@ impl AudioEvent {
     pub fn end_tick(&self) -> i64 {
         self.base.end_tick
     }
-    pub fn assign_buffer(&self, t: i64, buf: &mut [f32], ofset: usize, len: usize) -> i64 {
-        self.core.assign_buffer(&self.base, t, buf, ofset, len)
+    pub fn assign_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) -> i64 {
+        let out_len = usize::min((self.base.end_tick - tick) as usize, len);
+
+        let out_end_t = self
+            .core
+            .assign_buffer(&self.base, tick, buf, ofset, out_len);
+
+        if tick < self.base.fadein_tick {
+            self.fadein_buffer(tick, buf, ofset, out_len);
+        }
+
+        if out_end_t > self.base.fadeout_tick {
+            self.fadeout_buffer(tick, buf, ofset, out_len);
+        }
+
+        out_end_t
     }
     pub fn fadein_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
-        let fadein_tick = self.base.fadein_tick;
+        let ln = usize::min(len, (self.base.fadein_tick - tick) as usize);
+        let mut fadein_idx = (tick - self.base.start_tick) as usize;
 
-        if tick < fadein_tick {
-            let ln = usize::min(len, (fadein_tick - tick) as usize);
-            let mut fadein_idx = (tick - fadein_tick) as usize;
-
-            for i in ofset..ofset + ln {
-                buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadein_idx];
-                fadein_idx += 1;
-            }
+        for i in ofset..ofset + ln {
+            buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadein_idx];
+            fadein_idx += 1;
         }
     }
 
     pub fn fadeout_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
         let fadeout_tick = self.base.fadeout_tick;
-        let end_t = tick + len as i64;
+        let (pos, ln, mut fadeout_idx) = if tick < fadeout_tick {
+            let fo_ofset = (fadeout_tick - tick) as usize;
+            (
+                ofset + fo_ofset,
+                len - fo_ofset,
+                sinramp::VELOCITY_FADING_LEN,
+            )
+        } else {
+            (
+                ofset,
+                len,
+                sinramp::VELOCITY_FADING_LEN - (tick - fadeout_tick) as usize,
+            )
+        };
 
-        if end_t > fadeout_tick {
-            let (pos, ln, mut fadeout_idx) = if tick < fadeout_tick {
-                let fo_ofset = (fadeout_tick - tick) as usize;
-                (
-                    ofset + fo_ofset,
-                    len - fo_ofset,
-                    sinramp::VELOCITY_FADING_LEN,
-                )
-            } else {
-                (
-                    ofset,
-                    len,
-                    sinramp::VELOCITY_FADING_LEN - (tick - fadeout_tick) as usize,
-                )
-            };
-
-            for i in pos..pos + ln {
-                fadeout_idx -= 1;
-                buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadeout_idx];
-            }
+        for i in pos..pos + ln {
+            fadeout_idx -= 1;
+            buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadeout_idx];
         }
     }
 }

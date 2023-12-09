@@ -252,15 +252,7 @@ fn audio_sequence_talk(
             let ev_start_tick = ev.start_tick();
 
             if ev_start_tick <= t {
-                let ev_out_len = usize::min((ev.end_tick() - t) as usize, out_len);
-
-                let ev_out_end_t = ev.assign_buffer(t, voice_buf, ofset, ev_out_len);
-
-                ev.fadein_buffer(t, voice_buf, ofset, ev_out_len);
-
-                ev.fadeout_buffer(t, voice_buf, ofset, ev_out_len);
-
-                t = ev_out_end_t;
+                t = ev.assign_buffer(t, voice_buf, ofset, out_len);
             } else {
                 let cur_len = usize::min((ev_start_tick - t) as usize, out_len);
 
