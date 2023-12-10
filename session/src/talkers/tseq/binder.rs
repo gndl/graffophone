@@ -254,10 +254,13 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    pub fn fetch_beat(&'a self, id: &str) -> Result<&'a PBeat, failure::Error> {
+    pub fn fetch_beat(&'a self, id: &str) -> Result<f32, failure::Error> {
         match self.parser_beats.get(id) {
-            Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Tseq beat {} not found!", id))),
+            Some(e) => Ok(e.bpm as f32),
+            None => match f32::from_str(id) {
+                Ok(f) => Ok(f),
+                Err(_) => Err(failure::err_msg(format!("Tseq beat {} not found!", id))),
+            },
         }
     }
     pub fn fetch_durationline(&'a self, id: &str) -> Result<&'a DurationLine, failure::Error> {

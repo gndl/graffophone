@@ -11,8 +11,8 @@ use nom::{
 
 use std::str::FromStr;
 
-use CHORD_KW;
-use CLOSE_PARENT_KW;
+use ASSIGNMENT_KW;
+use BEAT_KW;
 use COUPLING_KW;
 use DEF_KW;
 use DURATIONLINE_KW;
@@ -26,7 +26,6 @@ use MIDI_OUTPUT_KW;
 use MULTILINE_COMMENT_KW;
 use MUL_KW;
 use ON_KW;
-use OPEN_PARENT_KW;
 use PER_KW;
 use PITCHLINE_KW;
 use REF_KW;
@@ -36,9 +35,9 @@ use SEQUENCE_KW;
 use SEQUENCE_OUTPUT_KW;
 use SIN_TRANSITION_KW;
 use VELOCITYLINE_KW;
-use {ATTACK_KW, FADEIN_KW};
-use {BEAT_KW, FADEOUT_KW};
-use {CHORDLINE_KW, INTERVAL_KW};
+use {ATTACK_KW, CHORDLINE_KW, CHORD_KW, INTERVAL_KW};
+use {CLOSE_PARENT_KW, OPEN_PARENT_KW};
+use {FADEIN_KW, FADEOUT_KW};
 
 #[derive(Debug, PartialEq)]
 pub struct PRatio {
@@ -50,6 +49,11 @@ pub struct PRatio {
 pub enum PTime {
     Rate(PRatio),
     Second(PRatio),
+}
+#[derive(Debug, PartialEq)]
+pub struct PProperty<'a> {
+    pub label: &'a str,
+    pub value: &'a str,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -249,6 +253,12 @@ fn beat(input: &str) -> IResult<&str, Expression> {
             bpm: usize::from_str(bpm).unwrap(),
         }),
     ))
+}
+
+fn property(input: &str) -> IResult<&str, PProperty> {
+    let (input, (label, _, _, _, value, _)) =
+        tuple((id, space0, char(ASSIGNMENT_KW!()), space0, id, space0))(input)?;
+    Ok((input, PProperty { label, value }))
 }
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
@@ -490,14 +500,21 @@ fn fragments(input: &str) -> IResult<&str, PFragment> {
 }
 
 fn sequence(input: &str) -> IResult<&str, PSequence> {
-    let (input, (_, id, _, beat, fragments, _)) = tuple((
+    let (input, (_, id, _, properties, fragments, _)) = tuple((
         space1,
         id,
         delimited(space0, char(DEF_KW!()), space0),
-        opt(delimited(on, id, space0)),
+        many0(property),
         many0(alt((seq_ref, part, fragments))),
         end,
     ))(input)?;
+    let mut beat = None;
+
+    for property in properties {
+        if property.label == BEAT_KW!() {
+            beat = Some(property.value);
+        }
+    }
     Ok((
         input,
         PSequence {
@@ -994,7 +1011,8 @@ fn test_sequence() {
         sequence(concat!(
             " seq_03",
             DEF_KW!(),
-            ON_KW!(),
+            BEAT_KW!(),
+            ASSIGNMENT_KW!(),
             " _b_ ",
             REF_KW!(),
             "s_1 p1 p1",
@@ -1071,6 +1089,7 @@ fn test_seq() {
             Expression::Seq(PSequence {
                 id: "s",
                 beat: None,
+
                 fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None
@@ -1096,6 +1115,7 @@ fn test_seqout() {
             Expression::SeqOut(PSequence {
                 id: "s",
                 beat: None,
+
                 fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None

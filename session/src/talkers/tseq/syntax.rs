@@ -18,6 +18,12 @@ macro_rules! DEF_KW {
     };
 }
 #[macro_export]
+macro_rules! ASSIGNMENT_KW {
+    () => {
+        '='
+    };
+}
+#[macro_export]
 macro_rules! COUPLING_KW {
     () => {
         '&'
@@ -282,8 +288,9 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     " <seq_id> ",
     DEF_KW!(),
     " [",
-    ON_KW!(),
-    " <beat_id>] [",
+    BEAT_KW!(),
+    ASSIGNMENT_KW!(),
+    " <beat_id>|<bpm>] [",
     OPEN_PARENT_KW!(),
     "][",
     REF_KW!(),

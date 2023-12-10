@@ -296,7 +296,7 @@ impl EventsBuilder {
         harmonics_velocity_events: &mut VecDeque<Vec<AudioEventParameter>>,
     ) -> Result<(), failure::Error> {
         let ticks_per_beat = match sequence.beat {
-            Some(id) => binder.ticks_per_minute / (binder.fetch_beat(id)?).bpm as f32,
+            Some(id) => binder.ticks_per_minute / (binder.fetch_beat(id)?),
             None => ticks_per_beat,
         };
 

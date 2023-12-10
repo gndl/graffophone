@@ -114,11 +114,17 @@ impl Talker for Tseq {
 
                     binder.deserialize()?;
 
+                    let default_bpm = binder
+                        .parser_beats
+                        .iter()
+                        .last()
+                        .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
+
                     for out in outs {
                         match out {
                             Expression::SeqOut(seq) => {
                                 let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                                    audio_seq::create_events(&binder, &seq, DEFAULT_BPM)?;
+                                    audio_seq::create_events(&binder, &seq, default_bpm)?;
 
                                 let harmonics_count = harmonics_frequency_events.len();
                                 let display_harmonic_num = harmonics_count > 1;
@@ -170,7 +176,7 @@ impl Talker for Tseq {
                                 sequences.push(Seq::Midi(MidiSeq::new(
                                     &binder,
                                     &seq,
-                                    DEFAULT_BPM,
+                                    default_bpm,
                                 )?));
                                 new_base.add_voice(voice::atom(Some(seq.id), None));
                             }
