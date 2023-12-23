@@ -6,7 +6,7 @@ use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
-    PSequence, PTime, PTransition, PVelocity, PVelocityLine,
+    PSequence, PShape, PTime, PVelocity, PVelocityLine,
 };
 use talkers::tseq::scale;
 use talkers::tseq::scale::RScale;
@@ -49,10 +49,10 @@ const DEFAULT_CHORD: Harmonic = Harmonic {
     freq_ratio: 1.,
     delay: Time::Ticks(0),
     velocity: PVelocity {
-        value: 1.,
+        level: 1.,
         fadein: false,
         fadeout: false,
-        transition: PTransition::None,
+        transition: PShape::None,
     },
 };
 
@@ -106,6 +106,8 @@ pub struct Binder<'a> {
     pub ticks_per_second: f32,
     pub ticks_per_minute: f32,
     pub parser_beats: HashMap<&'a str, &'a PBeat<'a>>,
+    pub envelops_indexes: HashMap<&'a str, usize>,
+    pub no_envelop: usize,
     pub parser_chords: HashMap<&'a str, &'a PChord<'a>>,
     pub parser_attacks: HashMap<&'a str, &'a PAttack<'a>>,
     pub parser_chordlines: Vec<&'a PChordLine<'a>>,
@@ -118,7 +120,7 @@ pub struct Binder<'a> {
     pub parser_hitlines: Vec<&'a PHitLine<'a>>,
     pub hitlines: HashMap<&'a str, HitLine>,
     pub parser_pitchlines: Vec<&'a PPitchLine<'a>>,
-    pitchlines: HashMap<&'a str, Vec<(f32, PTransition)>>,
+    pitchlines: HashMap<&'a str, Vec<(f32, PShape)>>,
     pub parser_sequences: HashMap<&'a str, &'a PSequence<'a>>,
 }
 
@@ -130,6 +132,8 @@ impl<'a> Binder<'a> {
             ticks_per_second,
             ticks_per_minute,
             parser_beats: HashMap::new(),
+            envelops_indexes: HashMap::new(),
+            no_envelop: usize::MAX,
             parser_chords: HashMap::new(),
             parser_attacks: HashMap::new(),
             parser_chordlines: Vec::new(),
@@ -141,10 +145,10 @@ impl<'a> Binder<'a> {
             default_velocityline: PVelocityLine {
                 id: "",
                 velocities: vec![PVelocity {
-                    value: 1.,
+                    level: 1.,
                     fadein: false,
                     fadeout: false,
-                    transition: PTransition::None,
+                    transition: PShape::None,
                 }],
             },
             parser_hitlines: Vec::new(),
@@ -200,10 +204,10 @@ impl<'a> Binder<'a> {
                                 .as_ref()
                                 .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
                             let mut velocity = PVelocity {
-                                value: audio_event::DEFAULT_VELOCITY,
+                                level: audio_event::DEFAULT_VELOCITY,
                                 fadein: false,
                                 fadeout: false,
-                                transition: PTransition::None,
+                                transition: PShape::None,
                             };
 
                             let ovelocity = if harmonic_idx < paccents.len() {
@@ -263,6 +267,12 @@ impl<'a> Binder<'a> {
             },
         }
     }
+    pub fn fetch_envelop_index(&'a self, id: &str) -> Result<usize, failure::Error> {
+        match self.envelops_indexes.get(id) {
+            Some(ei) => Ok(*ei),
+            None => Err(failure::err_msg(format!("Tseq envelop {} not found!", id))),
+        }
+    }
     pub fn fetch_durationline(&'a self, id: &str) -> Result<&'a DurationLine, failure::Error> {
         match self.durationlines.get(id) {
             Some(e) => Ok(e),
@@ -314,10 +324,7 @@ impl<'a> Binder<'a> {
             None => Err(failure::err_msg(format!("Tseq hits {} not found!", id))),
         }
     }
-    pub fn fetch_pitchline(
-        &'a self,
-        id: &str,
-    ) -> Result<&'a Vec<(f32, PTransition)>, failure::Error> {
+    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&'a Vec<(f32, PShape)>, failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!("Tseq pitchs {} not found!", id))),

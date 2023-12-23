@@ -1,14 +1,18 @@
 use std::f32;
 
+use tables::fading;
 use tables::sinramp;
-use talkers::tseq::parser::PTransition;
+use tables::roundramp;
+use tables::earlyramp;
+use tables::lateramp;
+use talkers::tseq::parser::PShape;
 
 pub const DEFAULT_FREQUENCY: f32 = 0.;
 pub const DEFAULT_VELOCITY: f32 = 1.;
 
 fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
     if fadein {
-        i64::min(start_tick + sinramp::VELOCITY_FADING_LEN as i64, end_tick)
+        i64::min(start_tick + fading::LEN as i64, end_tick)
     } else {
         start_tick
     }
@@ -16,7 +20,7 @@ fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
 
 fn fadeout_tick(start_tick: i64, end_tick: i64, fadeout: bool) -> i64 {
     if fadeout {
-        i64::max(start_tick, end_tick - sinramp::VELOCITY_FADING_LEN as i64)
+        i64::max(start_tick, end_tick - fading::LEN as i64)
     } else {
         end_tick
     }
@@ -27,14 +31,22 @@ pub struct AudioEventBase {
     pub fadein_tick: i64,
     pub fadeout_tick: i64,
     pub end_tick: i64,
+    pub envelop_index: usize,
 }
 impl AudioEventBase {
-    pub fn new(start_tick: i64, fadein_tick: i64, fadeout_tick: i64, end_tick: i64) -> Self {
+    pub fn new(
+        start_tick: i64,
+        fadein_tick: i64,
+        fadeout_tick: i64,
+        end_tick: i64,
+        envelop_index: usize,
+    ) -> Self {
         Self {
             start_tick,
             fadein_tick,
             fadeout_tick,
             end_tick,
+            envelop_index,
         }
     }
 }
@@ -68,7 +80,15 @@ impl AudioEvent {
     pub fn end_tick(&self) -> i64 {
         self.base.end_tick
     }
-    pub fn assign_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) -> i64 {
+
+    pub fn assign_buffer(
+        &self,
+        envelops: &Vec<Vec<f32>>,
+        tick: i64,
+        buf: &mut [f32],
+        ofset: usize,
+        len: usize,
+    ) -> i64 {
         let out_len = usize::min((self.base.end_tick - tick) as usize, len);
 
         let out_end_t = self
@@ -83,6 +103,26 @@ impl AudioEvent {
             self.fadeout_buffer(tick, buf, ofset, out_len);
         }
 
+        if self.base.envelop_index < envelops.len() {
+            let envelop = envelops[self.base.envelop_index].as_slice();
+            let mut envelop_idx = (tick - self.base.start_tick) as usize;
+
+            let env_remaining_len = if envelop.len() >= envelop_idx {
+                envelop.len() - envelop_idx
+            } else {
+                for i in ofset + envelop_idx..ofset + out_len {
+                    buf[i] = 0.;
+                }
+                0
+            };
+
+            let env_out_len = usize::min(out_len, env_remaining_len);
+
+            for i in ofset..ofset + env_out_len {
+                buf[i] = buf[i] * envelop[envelop_idx];
+                envelop_idx += 1;
+            }
+        }
         out_end_t
     }
     pub fn fadein_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
@@ -90,7 +130,7 @@ impl AudioEvent {
         let mut fadein_idx = (tick - self.base.start_tick) as usize;
 
         for i in ofset..ofset + ln {
-            buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadein_idx];
+            buf[i] = buf[i] * fading::TAB[fadein_idx];
             fadein_idx += 1;
         }
     }
@@ -99,22 +139,14 @@ impl AudioEvent {
         let fadeout_tick = self.base.fadeout_tick;
         let (pos, ln, mut fadeout_idx) = if tick < fadeout_tick {
             let fo_ofset = (fadeout_tick - tick) as usize;
-            (
-                ofset + fo_ofset,
-                len - fo_ofset,
-                sinramp::VELOCITY_FADING_LEN,
-            )
+            (ofset + fo_ofset, len - fo_ofset, fading::LEN)
         } else {
-            (
-                ofset,
-                len,
-                sinramp::VELOCITY_FADING_LEN - (tick - fadeout_tick) as usize,
-            )
+            (ofset, len, fading::LEN - (tick - fadeout_tick) as usize)
         };
 
         for i in pos..pos + ln {
             fadeout_idx -= 1;
-            buf[i] = buf[i] * sinramp::VELOCITY_FADING_TAB[fadeout_idx];
+            buf[i] = buf[i] * fading::TAB[fadeout_idx];
         }
     }
 }
@@ -212,15 +244,149 @@ impl AudioEventCore for SinRampEvent {
     }
 }
 
+// AliasedCurveEvent
+pub struct AliasedCurveEvent {
+    table:&'static[f32],start_tick:usize,duration:usize,
+    start_value: f32,
+    dv: f32,
+}
+impl AliasedCurveEvent {
+    pub fn new(table:&'static[f32],start_tick: i64, end_tick: i64, start_value: f32, end_value: f32) -> Self {
+        Self {table,start_tick:start_tick as usize,duration:(end_tick - start_tick)as usize,
+            start_value,
+            dv: end_value - start_value,
+        }
+    }
+}
+impl AudioEventCore for AliasedCurveEvent {
+    fn assign_buffer(
+        &self,
+        _base: &AudioEventBase,
+        tick: i64,
+        buf: &mut [f32],
+        ofset: usize,
+        len: usize,
+    ) -> i64 {
+        let start_tick = self.start_tick;
+        let duration = self.duration;
+        let tab_len = self.table.len();
+        let mut t = tick as usize;
+
+        for i in ofset..ofset + len {
+            let tab_idx = ((t - start_tick) * tab_len ) / duration;
+            buf[i] = self.table[tab_idx] * self.dv + self.start_value;
+            t += 1;
+        }
+        t as i64
+    }
+}
+
+// InterpolatedCurveEvent
+pub struct InterpolatedCurveEvent {
+    table:&'static[f32],
+    start_value: f32,
+    len_on_dt: f32,
+    dv: f32,
+}
+impl InterpolatedCurveEvent {
+    pub fn new(table:&'static[f32],start_tick: i64, end_tick: i64, start_value: f32, end_value: f32) -> Self {
+        Self {table,
+            start_value,
+            len_on_dt: (table.len() - 1) as f32 / (end_tick - start_tick) as f32,
+            dv: end_value - start_value,
+        }
+    }
+}
+impl AudioEventCore for InterpolatedCurveEvent {
+    fn assign_buffer(
+        &self,
+        base: &AudioEventBase,
+        tick: i64,
+        buf: &mut [f32],
+        ofset: usize,
+        len: usize,
+    ) -> i64 {
+        let len_on_dt = self.len_on_dt;
+        let mut pos = (tick - base.start_tick) as f32;
+
+        for i in ofset..ofset + len {
+            let tab_pos = pos * len_on_dt;
+            let tab_idx = tab_pos as usize;
+            let prev_c = self.table[tab_idx];
+            let next_c = self.table[tab_idx + 1];
+            let c = prev_c + (next_c - prev_c) * tab_pos.fract();
+            buf[i] = c * self.dv + self.start_value;
+            pos += 1.;
+        }
+        tick + len as i64
+    }
+}
+
+pub fn create(
+    start_tick: i64,
+    end_tick: i64,
+    start_value: f32,
+    end_value: f32,
+    transition: PShape,
+    fadein: bool,
+    fadeout: bool,
+    envelop_index: usize,
+) -> AudioEvent {
+    let base = AudioEventBase::new(
+        start_tick,
+        fadein_tick(start_tick, end_tick, fadein),
+        fadeout_tick(start_tick, end_tick, fadeout),
+        end_tick,
+        envelop_index,
+    );
+
+    let core: Box<dyn AudioEventCore> = match transition {
+        PShape::None => Box::new(ConstantEvent::new(start_value)),
+        PShape::Linear => Box::new(LinearEvent::new(
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+        PShape::Sin => Box::new(InterpolatedCurveEvent::new(&sinramp::TAB,
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+        PShape::Early => Box::new(InterpolatedCurveEvent::new(&earlyramp::TAB,
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+        PShape::Late => Box::new(InterpolatedCurveEvent::new(&lateramp::TAB,
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+        PShape::Round => Box::new(InterpolatedCurveEvent::new(&roundramp::TAB,
+            start_tick,
+            end_tick,
+            start_value,
+            end_value,
+        )),
+    };
+
+    AudioEvent { base, core }
+}
+
 #[derive(Debug)]
 pub struct AudioEventParameter {
     pub start_tick: i64,
     pub end_tick: i64,
     pub start_value: f32,
     end_value: f32,
-    transition: PTransition,
+    transition: PShape,
     fadein: bool,
     fadeout: bool,
+    envelop_index: usize,
 }
 
 impl AudioEventParameter {
@@ -229,9 +395,10 @@ impl AudioEventParameter {
         end_tick: i64,
         start_value: f32,
         end_value: f32,
-        transition: PTransition,
+        transition: PShape,
         fadein: bool,
         fadeout: bool,
+        envelop_index: usize,
     ) -> AudioEventParameter {
         Self {
             start_tick,
@@ -241,61 +408,9 @@ impl AudioEventParameter {
             transition,
             fadein,
             fadeout,
+            envelop_index,
         }
     }
-}
-
-pub fn create(
-    start_tick: i64,
-    end_tick: i64,
-    start_value: f32,
-    end_value: f32,
-    transition: PTransition,
-    fadein: bool,
-    fadeout: bool,
-) -> AudioEvent {
-    let base = AudioEventBase::new(
-        start_tick,
-        fadein_tick(start_tick, end_tick, fadein),
-        fadeout_tick(start_tick, end_tick, fadeout),
-        end_tick,
-    );
-
-    let core: Box<dyn AudioEventCore> = match transition {
-        PTransition::None => Box::new(ConstantEvent::new(start_value)),
-        PTransition::Linear => Box::new(LinearEvent::new(
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-        )),
-        PTransition::Sin => Box::new(SinRampEvent::new(
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-        )),
-        PTransition::Early => Box::new(SinRampEvent::new(
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-        )),
-        PTransition::Late => Box::new(SinRampEvent::new(
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-        )),
-        PTransition::Round => Box::new(SinRampEvent::new(
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-        )),
-    };
-
-    AudioEvent { base, core }
 }
 
 pub fn create_from_parameter(parameter: &AudioEventParameter) -> AudioEvent {
@@ -307,5 +422,6 @@ pub fn create_from_parameter(parameter: &AudioEventParameter) -> AudioEvent {
         parameter.transition,
         parameter.fadein,
         parameter.fadeout,
+        parameter.envelop_index,
     )
 }

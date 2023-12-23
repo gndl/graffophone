@@ -78,6 +78,12 @@ macro_rules! BEAT_KW {
     };
 }
 #[macro_export]
+macro_rules! ENVELOP_KW {
+    () => {
+        "envelop"
+    };
+}
+#[macro_export]
 macro_rules! ATTACK_KW {
     () => {
         "attack"
@@ -121,31 +127,31 @@ macro_rules! PITCHLINE_KW {
 }
 
 #[macro_export]
-macro_rules! LINEAR_TRANSITION_KW {
+macro_rules! LINEAR_SHAPE_KW {
     () => {
         '='
     };
 }
 #[macro_export]
-macro_rules! SIN_TRANSITION_KW {
+macro_rules! SIN_SHAPE_KW {
     () => {
         '~'
     };
 }
 #[macro_export]
-macro_rules! EARLY_TRANSITION_KW {
+macro_rules! EARLY_SHAPE_KW {
     () => {
         '<'
     };
 }
 #[macro_export]
-macro_rules! LATE_TRANSITION_KW {
+macro_rules! LATE_SHAPE_KW {
     () => {
         '>'
     };
 }
 #[macro_export]
-macro_rules! ROUND_TRANSITION_KW {
+macro_rules! ROUND_SHAPE_KW {
     () => {
         '°'
     };
@@ -265,7 +271,17 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     PITCHLINE_KW!(),
     " <pitchs_id> ",
     DEF_KW!(),
-    " <pitch> [...]\n",
+    " <pitch> [",
+    LINEAR_SHAPE_KW!(),
+    "|",
+    SIN_SHAPE_KW!(),
+    "|",
+    EARLY_SHAPE_KW!(),
+    "|",
+    LATE_SHAPE_KW!(),
+    "|",
+    ROUND_SHAPE_KW!(),
+    "] [...]\n",
     VELOCITYLINE_KW!(),
     " <velocities_id> ",
     DEF_KW!(),
@@ -273,17 +289,31 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     FADEIN_KW!(),
     "]<velocity_value>[",
     FADEOUT_KW!(),
+    "][",
+    LINEAR_SHAPE_KW!(),
     "|",
-    LINEAR_TRANSITION_KW!(),
+    SIN_SHAPE_KW!(),
     "|",
-    SIN_TRANSITION_KW!(),
+    EARLY_SHAPE_KW!(),
     "|",
-    EARLY_TRANSITION_KW!(),
+    LATE_SHAPE_KW!(),
     "|",
-    LATE_TRANSITION_KW!(),
-    "|",
-    ROUND_TRANSITION_KW!(),
+    ROUND_SHAPE_KW!(),
     "] [...]\n",
+    ENVELOP_KW!(),
+    " <envelop_id> ",
+    DEF_KW!(),
+    " <duration>(s) ",
+    LINEAR_SHAPE_KW!(),
+    "|",
+    SIN_SHAPE_KW!(),
+    "|",
+    EARLY_SHAPE_KW!(),
+    "|",
+    LATE_SHAPE_KW!(),
+    "|",
+    ROUND_SHAPE_KW!(),
+    " <level> [...]\n",
     SEQUENCE_KW!(),
     " <seq_id> ",
     DEF_KW!(),
@@ -291,6 +321,9 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     BEAT_KW!(),
     ASSIGNMENT_KW!(),
     " <beat_id>|<bpm>] [",
+    ENVELOP_KW!(),
+    ASSIGNMENT_KW!(),
+    " <envelop_id>] [",
     OPEN_PARENT_KW!(),
     "][",
     REF_KW!(),

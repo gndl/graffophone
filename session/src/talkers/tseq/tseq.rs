@@ -8,6 +8,7 @@ use talker::voice;
 
 use talkers::tseq::audio_seq::AudioEvents;
 use talkers::tseq::binder::Binder;
+use talkers::tseq::envelop;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
 use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
@@ -38,6 +39,7 @@ impl EventReminder {
     }
 }
 pub struct Tseq {
+    envelops: Vec<Vec<f32>>,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
 }
@@ -49,6 +51,7 @@ impl Tseq {
         Ok(ctalker!(
             base,
             Self {
+                envelops: Vec::new(),
                 sequences: Vec::new(),
                 events_reminder: Vec::new()
             }
@@ -69,6 +72,7 @@ impl Talker for Tseq {
         match data {
             Data::Text(ref txt) => {
                 let mut new_base = base.with(None, None, None);
+                let mut envelops = Vec::new();
                 let mut sequences: Vec<Seq> = Vec::new();
                 let input = format!("{}\n", txt);
 
@@ -102,6 +106,10 @@ impl Talker for Tseq {
                             }
                             Expression::VelocityLine(ref line) => {
                                 binder.parser_velocitylines.insert(line.id, &line);
+                            }
+                            Expression::Envelop(ref envelop) => {
+                                binder.envelops_indexes.insert(envelop.id, envelops.len());
+                                envelops.push(envelop::create(envelop, binder.ticks_per_second))
                             }
                             Expression::Seq(ref sequence) => {
                                 binder.parser_sequences.insert(sequence.id, &sequence);
@@ -185,6 +193,7 @@ impl Talker for Tseq {
                     }
                 }
 
+                self.envelops = envelops;
                 self.events_reminder = Vec::with_capacity(sequences.len());
 
                 for _ in 0..sequences.len() {
@@ -209,7 +218,15 @@ impl Talker for Tseq {
         match &self.sequences[port] {
             Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
-                audio_sequence_talk(tick, ln, &audio_events, ev_rmd, false, voice_buf);
+                audio_sequence_talk(
+                    &self.envelops,
+                    tick,
+                    ln,
+                    &audio_events,
+                    ev_rmd,
+                    false,
+                    voice_buf,
+                );
             }
             Seq::Trig(events_start_ticks) => {
                 let voice_buf = base.voice(port).cv_buffer();
@@ -217,7 +234,15 @@ impl Talker for Tseq {
             }
             Seq::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
-                audio_sequence_talk(tick, ln, &audio_events, ev_rmd, true, voice_buf);
+                audio_sequence_talk(
+                    &self.envelops,
+                    tick,
+                    ln,
+                    &audio_events,
+                    ev_rmd,
+                    true,
+                    voice_buf,
+                );
             }
             Seq::Midi(seq) => midi_sequence_talk(base, port, tick, ln, &seq, ev_rmd),
         };
@@ -226,6 +251,7 @@ impl Talker for Tseq {
 }
 
 fn audio_sequence_talk(
+    envelops: &Vec<Vec<f32>>,
     tick: i64,
     len: usize,
     audio_events: &AudioEvents,
@@ -258,7 +284,7 @@ fn audio_sequence_talk(
             let ev_start_tick = ev.start_tick();
 
             if ev_start_tick <= t {
-                t = ev.assign_buffer(t, voice_buf, ofset, out_len);
+                t = ev.assign_buffer(envelops, t, voice_buf, ofset, out_len);
             } else {
                 let cur_len = usize::min((ev_start_tick - t) as usize, out_len);
 
