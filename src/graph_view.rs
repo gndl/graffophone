@@ -340,7 +340,7 @@ impl GraphView {
 
         /* position GTalkers */
         let mut prev_x = w;
-        let mut h = 0.;
+        let mut h = y0;
 
         for (col_nbr, column_property) in columns_properties {
             let mut col_tkrcs: BTreeMap<i32, &RTalkerControl> = BTreeMap::new();
