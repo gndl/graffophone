@@ -130,12 +130,12 @@ const RAMP_LEN : usize = 24000;
         writeln!(f, "pub const TAB: [f32; LEN] = [")?;
 
         let step = 1. / RAMP_LEN as f64;
-        let mut x: f64 = -1.;
+        let mut x: f64 = 1.;
 
         for _ in 0..RAMP_LEN {
-            let y = (1.-(x * x)) as f32;
+            let y = (1.-(x * x * x)) as f32;
             writeln!(f, "{:.8},", y)?;
-            x += step;
+            x -= step;
         }
         writeln!(f, "];")?;
 
@@ -153,7 +153,7 @@ const RAMP_LEN : usize = 24000;
         let mut x: f64 = 0.;
 
         for _ in 0..RAMP_LEN {
-            let y = (x * x) as f32;
+            let y = (x * x * x) as f32;
             writeln!(f, "{:.8},", y)?;
             x += step;
         }
