@@ -23,9 +23,10 @@ use std::time::Duration;
 use talker::audio_format::AudioFormat;
 
 use crate::band::{Band, Operation};
-// use crate::feedback;
 use crate::feedback::Feedback;
+use crate::output::ROutput;
 use crate::state::State;
+use tables::fadeout;
 
 #[derive(PartialEq, Debug, Clone)]
 enum Order {
@@ -79,6 +80,30 @@ fn create_band(
         }
     }
     Ok(band)
+}
+
+fn fadeout_band(
+    band: &Band,
+    state: State,
+    tick: i64,
+    buf: &mut Vec<f32>,
+    channels: &mut Vec<Vec<f32>>,
+    extra_outputs: &Vec<ROutput>,
+    ) -> i64 {
+    if state == State::Playing {
+        let len = fadeout::LEN;
+        let fadeout_buf : &[f32] = &fadeout::TAB;
+
+        for rmixer in band.mixers().values() {
+            let _ = rmixer
+                .borrow_mut()
+                .come_out(tick, buf, channels, len, extra_outputs, Some(fadeout_buf));
+        }
+        tick + len as i64
+    }
+    else {
+        tick
+    }
 }
 
 pub struct Player {
@@ -141,6 +166,7 @@ fn run(
                 }
                 Order::Pause => {
                     send_state(&order.to_string(), state, State::Paused);
+
                     if state != State::Paused {
                         band.pause()?;
                         feedback.borrow_mut().pause()?;
@@ -156,7 +182,10 @@ fn run(
                     feedback.borrow_mut().run()?;
                 }
                 Order::Stop => {
+                    fadeout_band(&band, state, tick, &mut buf, &mut channels, &extra_outputs);
+
                     send_state(&order.to_string(), state, State::Stopped);
+
                     if state != State::Stopped {
                         band.close()?;
                         feedback.borrow_mut().close()?;
@@ -209,6 +238,8 @@ fn run(
                     }
                 }
                 Order::Exit => {
+                    fadeout_band(&band, state, tick, &mut buf, &mut channels, &extra_outputs);
+
                     send_state(&order.to_string(), state, State::Exited);
                     break;
                 }
@@ -235,7 +266,7 @@ fn run(
         for rmixer in band.mixers().values() {
             match rmixer
                 .borrow_mut()
-                .come_out(tick, &mut buf, &mut channels, len, &extra_outputs)
+                .come_out(tick, &mut buf, &mut channels, len, &extra_outputs, None)
             {
                 Ok(ln) => {
                     len = ln;

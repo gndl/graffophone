@@ -1,6 +1,7 @@
 use std::f32;
 
-use tables::fading;
+use tables::fadein;
+use tables::fadeout;
 use tables::sinramp;
 use tables::roundramp;
 use tables::earlyramp;
@@ -12,7 +13,7 @@ pub const DEFAULT_VELOCITY: f32 = 1.;
 
 fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
     if fadein {
-        i64::min(start_tick + fading::LEN as i64, end_tick)
+        i64::min(start_tick + fadein::LEN as i64, end_tick)
     } else {
         start_tick
     }
@@ -20,7 +21,7 @@ fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
 
 fn fadeout_tick(start_tick: i64, end_tick: i64, fadeout: bool) -> i64 {
     if fadeout {
-        i64::max(start_tick, end_tick - fading::LEN as i64)
+        i64::max(start_tick, end_tick - fadeout::LEN as i64)
     } else {
         end_tick
     }
@@ -130,23 +131,24 @@ impl AudioEvent {
         let mut fadein_idx = (tick - self.base.start_tick) as usize;
 
         for i in ofset..ofset + ln {
-            buf[i] = buf[i] * fading::TAB[fadein_idx];
+            buf[i] = buf[i] * fadein::TAB[fadein_idx];
             fadein_idx += 1;
         }
     }
 
     pub fn fadeout_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
         let fadeout_tick = self.base.fadeout_tick;
+
         let (pos, ln, mut fadeout_idx) = if tick < fadeout_tick {
             let fo_ofset = (fadeout_tick - tick) as usize;
-            (ofset + fo_ofset, len - fo_ofset, fading::LEN)
+            (ofset + fo_ofset, len - fo_ofset, 0)
         } else {
-            (ofset, len, fading::LEN - (tick - fadeout_tick) as usize)
+            (ofset, len, (tick - fadeout_tick) as usize)
         };
 
         for i in pos..pos + ln {
-            fadeout_idx -= 1;
-            buf[i] = buf[i] * fading::TAB[fadeout_idx];
+            buf[i] = buf[i] * fadeout::TAB[fadeout_idx];
+            fadeout_idx += 1;
         }
     }
 }

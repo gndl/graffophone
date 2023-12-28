@@ -145,6 +145,7 @@ impl Mixer {
         channels: &mut Vec<Vector>,
         len: usize,
         extra_outputs: &Vec<ROutput>,
+        extra_outputs_gain_buf:Option<&[f32]>,
     ) -> Result<usize, failure::Error> {
         let mut ln = self.talker.listen(tick, len);
 
@@ -180,11 +181,20 @@ impl Mixer {
             }
         }
 
-        for o in extra_outputs {
+        for o in &self.outputs {
             o.borrow_mut().write(channels, ln)?;
         }
 
-        for o in &self.outputs {
+        if let Some(gain_buf) = extra_outputs_gain_buf {
+            for cn in 0..channels.len() {
+                let ch = &mut channels[cn];
+
+                for i in 0..ln {
+                    ch[i] = ch[i] * gain_buf[i];
+                }
+            }
+        }
+        for o in extra_outputs {
             o.borrow_mut().write(channels, ln)?;
         }
         Ok(ln)

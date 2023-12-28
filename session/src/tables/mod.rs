@@ -1,4 +1,5 @@
-pub mod fading;
+pub mod fadein;
+pub mod fadeout;
 pub mod parabolic;
 pub mod round;
 pub mod sinramp;
@@ -163,18 +164,21 @@ const RAMP_LEN : usize = 24000;
 
     #[test]
     fn create_fading() -> Result<(), failure::Error> {
-        let mut f = File::create("src/tables/fading.rs")?;
         let len = 1200;
+        let mut f_fadein = File::create("src/tables/fadein.rs")?;
+        let mut f_fadeout = File::create("src/tables/fadeout.rs")?;
 
-        writeln!(f, "pub const LEN:usize = {};", len)?;
-        writeln!(f, "pub const TAB: [f32; LEN] = [")?;
+        writeln!(f_fadein, "pub const LEN:usize = {};\npub const TAB: [f32; LEN] = [", len)?;
+        writeln!(f_fadeout, "pub const LEN:usize = {};\npub const TAB: [f32; LEN] = [", len)?;
 
         for i in 0..len {
             let a = ((i as f64 * PI) / (len as f64)) - (PI * 0.5);
             let v = (a.sin() + 1.) * 0.5;
-            writeln!(f, "{:.10},", v as f32)?;
+            writeln!(f_fadein, "{:.10},", v as f32)?;
+            writeln!(f_fadeout, "{:.10},", (1. - v) as f32)?;
         }
-        writeln!(f, "];")?;
+        writeln!(f_fadein, "];")?;
+        writeln!(f_fadeout, "];")?;
         Ok(())
     }
 }
