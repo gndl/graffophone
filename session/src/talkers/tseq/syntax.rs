@@ -18,6 +18,12 @@ macro_rules! DEF_KW {
     };
 }
 #[macro_export]
+macro_rules! ATTRIBUTE_KW {
+    () => {
+        '?'
+    };
+}
+#[macro_export]
 macro_rules! ASSIGNMENT_KW {
     () => {
         '='
@@ -75,6 +81,12 @@ macro_rules! CLOSE_PARENT_KW {
 macro_rules! BEAT_KW {
     () => {
         "beat"
+    };
+}
+#[macro_export]
+macro_rules! SCALE_KW {
+    () => {
+        "scale"
     };
 }
 #[macro_export]
@@ -271,6 +283,11 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     PITCHLINE_KW!(),
     " <pitchs_id> ",
     DEF_KW!(),
+    " [",
+    ATTRIBUTE_KW!(),
+    SCALE_KW!(),
+    ASSIGNMENT_KW!(),
+    " <scale_id>]",
     " <pitch> [",
     LINEAR_SHAPE_KW!(),
     "|",
@@ -318,9 +335,11 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     " <seq_id> ",
     DEF_KW!(),
     " [",
+    ATTRIBUTE_KW!(),
     BEAT_KW!(),
     ASSIGNMENT_KW!(),
     " <beat_id>|<bpm>] [",
+    ATTRIBUTE_KW!(),
     ENVELOP_KW!(),
     ASSIGNMENT_KW!(),
     " <envelop_id>] [",

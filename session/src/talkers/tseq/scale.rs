@@ -145,6 +145,18 @@ impl TemperedScale {
                 ("a0", 27.500),
                 ("A0", 29.135),
                 ("b0", 30.867),
+                ("cm1", 8.176),
+                ("Cm1", 8.662),
+                ("dm1", 9.177),
+                ("Dm1", 9.723),
+                ("em1", 10.301),
+                ("fm1", 10.913),
+                ("Fm1", 11.562),
+                ("gm1", 12.250),
+                ("Gm1", 12.978),
+                ("am1", 13.750),
+                ("Am1", 14.568),
+                ("bm1", 15.434),
             ]),
         }
     }
@@ -165,4 +177,11 @@ pub fn create(scale_name: &str) -> Result<RScale, failure::Error> {
     } else {
         Err(failure::err_msg(format!("Scale {} not found!", scale_name)))
     }
+}
+
+pub fn create_collection() -> Result<HashMap<&'static str, RScale>, failure::Error> {
+    let mut collection = HashMap::new();
+
+    collection.insert("tempered", create("tempered")?);
+    Ok(collection)
 }

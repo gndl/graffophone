@@ -6,10 +6,15 @@ use talker::audio_format::AudioFormat;
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
-    PSequence, PShape, PTime, PVelocity, PVelocityLine,
+    PRatio, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
 use talkers::tseq::scale;
 use talkers::tseq::scale::RScale;
+
+pub const DEFAULT_FREQUENCY: f32 = 0.;
+pub const DEFAULT_VELOCITY: f32 = 1.;
+pub const DEFAULT_BPM: f32 = 90.;
+pub const DEFAULT_SCALE: &str = "tempered";
 
 pub const UNDEFINED_TICKS: i64 = i64::MAX;
 
@@ -40,13 +45,14 @@ pub fn option_to_ticks(otime: &Option<Time>, ofset: i64, rate_uq: f32) -> i64 {
     }
 }
 
-pub struct Harmonic {
-    pub freq_ratio: f32,
+pub struct Harmonic<'a> {
+    pub pitch_gap: &'a PPitchGap,
     pub delay: Time,
     pub velocity: PVelocity,
 }
+const DEFAULT_PITCH_GAP: PPitchGap = PPitchGap::FreqRatio(1.);
 const DEFAULT_CHORD: Harmonic = Harmonic {
-    freq_ratio: 1.,
+    pitch_gap: &DEFAULT_PITCH_GAP,
     delay: Time::Ticks(0),
     velocity: PVelocity {
         level: 1.,
@@ -82,13 +88,6 @@ fn to_hitline(phitline: &PHitLine, ticks_per_second: f32) -> HitLine {
     }
 }
 
-fn to_freq_ratio(pitch_gap: &PPitchGap, scale: &RScale) -> f32 {
-    match pitch_gap {
-        PPitchGap::FreqRatio(r) => r.num / r.den,
-        PPitchGap::Interval(i) => scale.frequency_ratio(*i),
-    }
-}
-
 pub struct DurationLine {
     pub durations: Vec<Time>,
 }
@@ -105,14 +104,16 @@ fn to_durationline(pdurationline: &PDurationLine, ticks_per_second: f32) -> Dura
 pub struct Binder<'a> {
     pub ticks_per_second: f32,
     pub ticks_per_minute: f32,
+    pub default_bpm: f32,
+    pub default_scale: &'a str,
     pub parser_beats: HashMap<&'a str, &'a PBeat<'a>>,
+    pub parser_scales: HashMap<&'a str, &'a PScale<'a>>,
     pub envelops_indexes: HashMap<&'a str, usize>,
-    pub no_envelop: usize,
     pub parser_chords: HashMap<&'a str, &'a PChord<'a>>,
     pub parser_attacks: HashMap<&'a str, &'a PAttack<'a>>,
     pub parser_chordlines: Vec<&'a PChordLine<'a>>,
-    default_chordline: Vec<Vec<Harmonic>>,
-    chordlines: HashMap<&'a str, Vec<Vec<Harmonic>>>,
+    default_chordline: Vec<Vec<Harmonic<'a>>>,
+    chordlines: HashMap<&'a str, Vec<Vec<Harmonic<'a>>>>,
     pub parser_durationlines: Vec<&'a PDurationLine<'a>>,
     pub durationlines: HashMap<&'a str, DurationLine>,
     pub parser_velocitylines: HashMap<&'a str, &'a PVelocityLine<'a>>,
@@ -120,7 +121,7 @@ pub struct Binder<'a> {
     pub parser_hitlines: Vec<&'a PHitLine<'a>>,
     pub hitlines: HashMap<&'a str, HitLine>,
     pub parser_pitchlines: Vec<&'a PPitchLine<'a>>,
-    pitchlines: HashMap<&'a str, Vec<(f32, PShape)>>,
+    pitchlines: HashMap<&'a str, (&'a RScale, Vec<(f32, PShape)>)>,
     pub parser_sequences: HashMap<&'a str, &'a PSequence<'a>>,
 }
 
@@ -131,9 +132,11 @@ impl<'a> Binder<'a> {
         Self {
             ticks_per_second,
             ticks_per_minute,
+            default_bpm: DEFAULT_BPM,
+            default_scale: DEFAULT_SCALE,
             parser_beats: HashMap::new(),
+            parser_scales: HashMap::new(),
             envelops_indexes: HashMap::new(),
-            no_envelop: usize::MAX,
             parser_chords: HashMap::new(),
             parser_attacks: HashMap::new(),
             parser_chordlines: Vec::new(),
@@ -159,12 +162,35 @@ impl<'a> Binder<'a> {
         }
     }
 
-    pub fn deserialize(&mut self) -> Result<(), failure::Error> {
+    pub fn deserialize(&mut self, scales: &'a HashMap<&'static str, RScale>) -> Result<(), failure::Error> {
+        self.default_bpm = self.parser_beats
+                                   .iter()
+                                   .last()
+                                   .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
+
+        self.default_scale = self.parser_scales
+                                     .iter()
+                                     .last()
+                                     .map_or(DEFAULT_SCALE, |(_, s)| s.name);
+
         // Deserialize pitchlines
-        let scale = scale::create("tempered")?;
+        let default_scale = match scales.get(self.default_scale) {
+                        Some(scale) => scale,
+                        None => return Err(failure::err_msg(format!("Tseq scale {} not found!", self.default_scale))),
+                    };
 
         for ppitchline in &self.parser_pitchlines {
             let mut pitchs = Vec::new();
+            let scale = match ppitchline.scale {
+                Some(scale_name) => {
+                    match scales.get(scale_name) {
+                        Some(scale) => scale,
+                        None => return Err(failure::err_msg(format!("Tseq scale {} not found!", scale_name))),
+                    }
+                },
+                None => default_scale,
+            };
+
             for pitch in &ppitchline.pitchs {
                 let freq = match scale.fetch_frequency(pitch.id) {
                     Some(f) => *f,
@@ -180,7 +206,7 @@ impl<'a> Binder<'a> {
                 };
                 pitchs.push((freq, pitch.transition));
             }
-            self.pitchlines.insert(ppitchline.id, pitchs);
+            self.pitchlines.insert(ppitchline.id, (scale, pitchs));
         }
 
         // Deserialize chordlines
@@ -196,6 +222,7 @@ impl<'a> Binder<'a> {
                             .attack_id
                             .and_then(|id| self.parser_attacks.get(id))
                             .map_or(&no_accents, |a| &a.accents);
+
                         let mut chord = Vec::new();
 
                         for (harmonic_idx, pharmonic) in pchord.harmonics.iter().enumerate() {
@@ -203,26 +230,27 @@ impl<'a> Binder<'a> {
                                 .delay
                                 .as_ref()
                                 .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
+
                             let mut velocity = PVelocity {
-                                level: audio_event::DEFAULT_VELOCITY,
+                                level: DEFAULT_VELOCITY,
                                 fadein: false,
                                 fadeout: false,
                                 transition: PShape::None,
                             };
 
                             let ovelocity = if harmonic_idx < paccents.len() {
-                                delay =
-                                    to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
+                                delay = to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
                                 &paccents[harmonic_idx].velocity
                             } else {
                                 &pharmonic.velocity
                             };
+
                             if let Some(pvelocity) = ovelocity {
                                 velocity = *pvelocity;
                             }
 
                             let harmonic = Harmonic {
-                                freq_ratio: to_freq_ratio(&pharmonic.pitch_gap, &scale),
+                                pitch_gap: &pharmonic.pitch_gap,
                                 delay,
                                 velocity,
                             };
@@ -308,7 +336,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_chordline(
         &'a self,
         oid: &'a Option<&str>,
-    ) -> Result<&'a Vec<Vec<Harmonic>>, failure::Error> {
+    ) -> Result<&'a Vec<Vec<Harmonic<'a>>>, failure::Error> {
         match oid {
             Some(id) => match self.chordlines.get(id) {
                 Some(chordline) => Ok(chordline),
@@ -324,7 +352,7 @@ impl<'a> Binder<'a> {
             None => Err(failure::err_msg(format!("Tseq hits {} not found!", id))),
         }
     }
-    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&'a Vec<(f32, PShape)>, failure::Error> {
+    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&RScale, Vec<(f32, PShape)>), failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!("Tseq pitchs {} not found!", id))),

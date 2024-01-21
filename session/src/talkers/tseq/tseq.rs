@@ -39,6 +39,7 @@ impl EventReminder {
     }
 }
 pub struct Tseq {
+    scales: HashMap<&'static str, RScale>,
     envelops: Vec<Vec<f32>>,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
@@ -51,6 +52,7 @@ impl Tseq {
         Ok(ctalker!(
             base,
             Self {
+                scales: scale::create_collection()?,
                 envelops: Vec::new(),
                 sequences: Vec::new(),
                 events_reminder: Vec::new()
@@ -86,6 +88,9 @@ impl Talker for Tseq {
                             Expression::Beat(ref beat) => {
                                 binder.parser_beats.insert(beat.id, &beat);
                             }
+                            Expression::Scale(ref scale) => {
+                                binder.parser_scales.insert(scale.id, &scale);
+                            }
                             Expression::Chord(ref chord) => {
                                 binder.parser_chords.insert(chord.id, &chord);
                             }
@@ -120,13 +125,7 @@ impl Talker for Tseq {
                         }
                     }
 
-                    binder.deserialize()?;
-
-                    let default_bpm = binder
-                        .parser_beats
-                        .iter()
-                        .last()
-                        .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
+                    binder.deserialize(&self.scales)?;
 
                     for out in outs {
                         match out {
@@ -184,7 +183,6 @@ impl Talker for Tseq {
                                 sequences.push(Seq::Midi(MidiSeq::new(
                                     &binder,
                                     &seq,
-                                    default_bpm,
                                 )?));
                                 new_base.add_voice(voice::atom(Some(seq.id), None));
                             }

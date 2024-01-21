@@ -1,6 +1,8 @@
 use talkers::tseq::audio_event;
 use talkers::tseq::parser::PEnvelop;
 
+pub const UNDEFINED: usize = usize::MAX;
+
 pub fn create(penvelop: &PEnvelop, ticks_per_second: f32) -> Vec<f32> {
     let mut duration = 0.;
     let mut sections = Vec::with_capacity(penvelop.points.len());

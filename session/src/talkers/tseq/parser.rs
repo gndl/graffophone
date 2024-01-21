@@ -13,6 +13,8 @@ use std::str::FromStr;
 
 use ASSIGNMENT_KW;
 use BEAT_KW;
+use SCALE_KW;
+use ATTRIBUTE_KW;
 use COUPLING_KW;
 use DEF_KW;
 use DURATIONLINE_KW;
@@ -52,7 +54,7 @@ pub enum PTime {
     Second(PRatio),
 }
 #[derive(Debug, PartialEq)]
-pub struct PProperty<'a> {
+pub struct PAttribute<'a> {
     pub label: &'a str,
     pub value: &'a str,
 }
@@ -70,12 +72,18 @@ pub enum PShape {
 #[derive(Debug, PartialEq)]
 pub struct PBeat<'a> {
     pub id: &'a str,
-    pub bpm: usize,
+    pub bpm: f32,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PScale<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum PPitchGap {
-    FreqRatio(PRatio),
+    FreqRatio(f32),
     Interval(i32),
 }
 
@@ -125,6 +133,7 @@ pub struct PPitch<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PPitchLine<'a> {
     pub id: &'a str,
+    pub scale: Option<&'a str>,
     pub pitchs: Vec<PPitch<'a>>,
 }
 
@@ -208,6 +217,7 @@ pub struct PSequence<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Expression<'a> {
     Beat(PBeat<'a>),
+    Scale(PScale<'a>),
     Chord(PChord<'a>),
     Attack(PAttack<'a>),
     ChordLine(PChordLine<'a>),
@@ -266,15 +276,26 @@ fn beat(input: &str) -> IResult<&str, Expression> {
         input,
         Expression::Beat(PBeat {
             id,
-            bpm: usize::from_str(bpm).unwrap(),
+            bpm: f32::from_str(bpm).unwrap(),
         }),
     ))
 }
 
-fn property(input: &str) -> IResult<&str, PProperty> {
-    let (input, (label, _, _, _, value, _)) =
-        tuple((id, space0, char(ASSIGNMENT_KW!()), space0, id, space0))(input)?;
-    Ok((input, PProperty { label, value }))
+fn scale(input: &str) -> IResult<&str, Expression> {
+    let (input, (id, name, _)) = tuple((head(SCALE_KW!()), id, end))(input)?;
+    Ok((
+        input,
+        Expression::Scale(PScale {
+            id,
+            name,
+        }),
+    ))
+}
+
+fn attribute(input: &str) -> IResult<&str, PAttribute> {
+    let (input, (_, _, label, _, _, _, value, _)) =
+        tuple((char(ATTRIBUTE_KW!()), space0, id, space0, char(ASSIGNMENT_KW!()), space0, id, space0))(input)?;
+    Ok((input, PAttribute { label, value }))
 }
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
@@ -290,7 +311,7 @@ fn ratio(input: &str) -> IResult<&str, PRatio> {
 
 fn freq_ratio(input: &str) -> IResult<&str, PPitchGap> {
     let (input, freq_ratio) = ratio(input)?;
-    Ok((input, PPitchGap::FreqRatio(freq_ratio)))
+    Ok((input, PPitchGap::FreqRatio(freq_ratio.num / freq_ratio.den)))
 }
 
 fn interval(input: &str) -> IResult<&str, PPitchGap> {
@@ -469,10 +490,17 @@ fn pitch(input: &str) -> IResult<&str, PPitch> {
 }
 
 fn pitchs(input: &str) -> IResult<&str, Expression> {
-    let (input, (id, pitchs, _)) =
-        tuple((head(PITCHLINE_KW!()), many0(terminated(pitch, space0)), end))(input)?;
+    let (input, (id, attributes, pitchs, _)) =
+        tuple((head(PITCHLINE_KW!()), many0(attribute), many0(terminated(pitch, space0)), end))(input)?;
 
-    Ok((input, Expression::PitchLine(PPitchLine { id, pitchs })))
+    let mut scale = None;
+
+    for attribute in attributes {
+        if attribute.label == SCALE_KW!() {
+            scale = Some(attribute.value);
+        }
+    }
+    Ok((input, Expression::PitchLine(PPitchLine { id, scale, pitchs })))
 }
 
 fn part(input: &str) -> IResult<&str, PFragment> {
@@ -530,22 +558,22 @@ fn fragments(input: &str) -> IResult<&str, PFragment> {
 }
 
 fn sequence(input: &str) -> IResult<&str, PSequence> {
-    let (input, (_, id, _, properties, fragments, _)) = tuple((
+    let (input, (_, id, _, attributes, fragments, _)) = tuple((
         space1,
         id,
         delimited(space0, char(DEF_KW!()), space0),
-        many0(property),
+        many0(attribute),
         many0(alt((seq_ref, part, fragments))),
         end,
     ))(input)?;
     let mut beat = None;
     let mut envelop = None;
 
-    for property in properties {
-        if property.label == BEAT_KW!() {
-            beat = Some(property.value);
-        } else if property.label == ENVELOP_KW!() {
-            envelop = Some(property.value);
+    for attribute in attributes {
+        if attribute.label == BEAT_KW!() {
+            beat = Some(attribute.value);
+        } else if attribute.label == ENVELOP_KW!() {
+            envelop = Some(attribute.value);
         }
     }
     Ok((
@@ -577,6 +605,7 @@ fn midiout(input: &str) -> IResult<&str, Expression> {
 pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
     let (input, expressions) = many0(alt((
         beat,
+        scale,
         chord,
         attack,
         chords,
@@ -605,11 +634,11 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
 fn test_beat() {
     assert_eq!(
         beat(concat!(BEAT_KW!(), " Id06 ", DEF_KW!(), " 09\n")),
-        Ok(("", Expression::Beat(PBeat { id: "Id06", bpm: 9 }),))
+        Ok(("", Expression::Beat(PBeat { id: "Id06", bpm: 9. }),))
     );
     assert_eq!(
         beat(concat!(BEAT_KW!(), "  9zZ", DEF_KW!(), "9  \n")),
-        Ok(("", Expression::Beat(PBeat { id: "9zZ", bpm: 9 }),))
+        Ok(("", Expression::Beat(PBeat { id: "9zZ", bpm: 9. }),))
     );
     assert_eq!(
         beat(concat!(BEAT_KW!(), " titi   ", DEF_KW!(), " 90\n")),
@@ -617,7 +646,7 @@ fn test_beat() {
             "",
             Expression::Beat(PBeat {
                 id: "titi",
-                bpm: 90,
+                bpm: 90.,
             }),
         ))
     );
@@ -657,17 +686,17 @@ fn test_chord() {
                 id: "c",
                 harmonics: vec![
                     PHarmonic {
-                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 1., den: 1. }),
+                        pitch_gap: PPitchGap::FreqRatio(1.),
                         delay: None,
                         velocity: None,
                     },
                     PHarmonic {
-                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 1.5, den: 1. }),
+                        pitch_gap: PPitchGap::FreqRatio(1.5),
                         delay: Some(PTime::Second(PRatio { num: 2., den: 1. })),
                         velocity: None,
                     },
                     PHarmonic {
-                        pitch_gap: PPitchGap::FreqRatio(PRatio { num: 3., den: 2. }),
+                        pitch_gap: PPitchGap::FreqRatio(1.5),
                         delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
                             level: 0.4,
@@ -873,11 +902,12 @@ fn test_envelop() {
 #[test]
 fn test_pitchs() {
     assert_eq!(
-        pitchs(concat!(PITCHLINE_KW!(), " blank ", DEF_KW!(), "\n")),
+        pitchs(concat!(PITCHLINE_KW!(), " blank ", DEF_KW!(), ATTRIBUTE_KW!(), SCALE_KW!(), ASSIGNMENT_KW!(), "midi\n")),
         Ok((
             "",
             Expression::PitchLine(PPitchLine {
                 id: "blank",
+                scale: Some("midi"),
                 pitchs: vec![]
             }),
         ))
@@ -893,6 +923,7 @@ fn test_pitchs() {
             "",
             Expression::PitchLine(PPitchLine {
                 id: "intro",
+                scale: None,
                 pitchs: vec![
                     PPitch {
                         id: "G9",
@@ -1086,6 +1117,7 @@ fn test_sequence() {
         sequence(concat!(
             " seq_03",
             DEF_KW!(),
+            ATTRIBUTE_KW!(),
             BEAT_KW!(),
             ASSIGNMENT_KW!(),
             " _b_ ",
@@ -1241,7 +1273,7 @@ fn test_parse() {
         vec![
             Expression::None,
             Expression::None,
-            Expression::Beat(PBeat { id: "b", bpm: 90 }),
+            Expression::Beat(PBeat { id: "b", bpm: 90. }),
             Expression::VelocityLine(PVelocityLine {
                 id: "v",
                 velocities: vec![PVelocity {

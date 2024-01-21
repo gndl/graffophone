@@ -13,7 +13,7 @@ use talkers::tseq::parser::PFragment::SeqRef;
 use talkers::tseq::parser::PPart;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PShape;
-use talkers::tseq::parser::{PFragment, PVelocity};
+use talkers::tseq::parser::{PFragment, PPitchGap, PVelocity};
 
 pub type AudioEvents = Vec<AudioEvent>;
 
@@ -74,11 +74,11 @@ impl EventsBuilder {
         let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
         let mut hitline_start_tick = self.tick;
         let mut mul = part.mul.unwrap_or(1.);
-        let fadeout_pre_envelop = envelop_index != binder.no_envelop;
+        let fadeout_pre_envelop = envelop_index != envelop::UNDEFINED;
 
         if hitline_hits_count > 0 && mul > 0. {
             if let Some(pitchline_id) = part.pitchline_id {
-                let pitchline = binder.fetch_pitchline(pitchline_id)?;
+                let (scale, pitchline) = binder.fetch_pitchline(pitchline_id)?;
                 let pitchs_count = pitchline.len();
 
                 if pitchs_count > 0 {
@@ -143,11 +143,13 @@ impl EventsBuilder {
                                     usize::min(harmonic_idx, next_chord.len() - 1);
                                 let next_harmonic = &next_chord[next_harmonic_idx];
 
-                                let next_harmonic_frequency =
-                                    next_pitch_frequency * next_harmonic.freq_ratio;
+                                let freq_ratio = match &next_harmonic.pitch_gap {
+                                    PPitchGap::FreqRatio(r) => *r,
+                                    PPitchGap::Interval(i) => scale.frequency_ratio(*i),
+                                };
 
-                                let next_harmonic_velocity =
-                                    next_harmonic.velocity.level * next_velocity.level;
+                                let next_harmonic_frequency = next_pitch_frequency * freq_ratio;
+                                let next_harmonic_velocity = next_harmonic.velocity.level * next_velocity.level;
 
                                 if harmonic_idx < self.harmonic_count {
                                     let start_tick = self.hit_start_tick
