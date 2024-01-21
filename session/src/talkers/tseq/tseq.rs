@@ -1,4 +1,5 @@
 use std::f32;
+use std::collections::HashMap;
 
 use talker::ctalker;
 use talker::data::Data;
@@ -6,17 +7,19 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-use talkers::tseq::audio_seq::AudioEvents;
+use talkers::tseq::audio_event;
+use talkers::tseq::audio_event::AudioEvents;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::envelop;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
 use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
-use talkers::tseq::{audio_seq, parser};
+use talkers::tseq::{sequence, parser};
+use talkers::tseq::scale;
+use talkers::tseq::scale::RScale;
 
 pub const MODEL: &str = "Tseq";
 
-const DEFAULT_BPM: usize = 90;
 
 enum Seq {
     Freq(AudioEvents),
@@ -130,8 +133,10 @@ impl Talker for Tseq {
                     for out in outs {
                         match out {
                             Expression::SeqOut(seq) => {
+                                let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
+
                                 let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                                    audio_seq::create_events(&binder, &seq, default_bpm)?;
+                                    audio_event::create_from_sequences(&harmonics_sequence_events);
 
                                 let harmonics_count = harmonics_frequency_events.len();
                                 let display_harmonic_num = harmonics_count > 1;

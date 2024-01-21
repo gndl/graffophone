@@ -3,7 +3,6 @@ use std::f32;
 use std::str::FromStr;
 
 use talker::audio_format::AudioFormat;
-use talkers::tseq::audio_event;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
     PRatio, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,

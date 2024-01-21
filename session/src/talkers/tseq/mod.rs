@@ -1,5 +1,5 @@
 pub mod audio_event;
-pub mod audio_seq;
+pub mod sequence;
 pub mod binder;
 pub mod envelop;
 pub mod midi_seq;

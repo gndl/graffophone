@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::f32;
 
 use tables::fadein;
@@ -6,10 +7,9 @@ use tables::sinramp;
 use tables::roundramp;
 use tables::earlyramp;
 use tables::lateramp;
+use talkers::tseq::envelop;
 use talkers::tseq::parser::PShape;
-
-pub const DEFAULT_FREQUENCY: f32 = 0.;
-pub const DEFAULT_VELOCITY: f32 = 1.;
+use talkers::tseq::sequence::SequenceEvents;
 
 fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
     if fadein {
@@ -379,51 +379,42 @@ pub fn create(
     AudioEvent { base, core }
 }
 
-#[derive(Debug)]
-pub struct AudioEventParameter {
-    pub start_tick: i64,
-    pub end_tick: i64,
-    pub start_value: f32,
-    end_value: f32,
-    transition: PShape,
-    fadein: bool,
-    fadeout: bool,
-    envelop_index: usize,
-}
+pub type AudioEvents = Vec<AudioEvent>;
 
-impl AudioEventParameter {
-    pub fn new(
-        start_tick: i64,
-        end_tick: i64,
-        start_value: f32,
-        end_value: f32,
-        transition: PShape,
-        fadein: bool,
-        fadeout: bool,
-        envelop_index: usize,
-    ) -> AudioEventParameter {
-        Self {
-            start_tick,
-            end_tick,
-            start_value,
-            end_value,
-            transition,
-            fadein,
-            fadeout,
-            envelop_index,
+pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents>) -> (VecDeque<AudioEvents>, VecDeque<AudioEvents>) {
+    let mut harmonics_frequency_events = VecDeque::with_capacity(harmonics_sequence_events.len());
+    let mut harmonics_velocity_events = VecDeque::with_capacity(harmonics_sequence_events.len());
+
+    for harmonic_sequence_events in harmonics_sequence_events{
+        let mut frequency_events = Vec::with_capacity(harmonic_sequence_events.len());
+        let mut velocity_events = Vec::with_capacity(harmonic_sequence_events.len());
+
+        for event in harmonic_sequence_events {
+            frequency_events.push(create(
+                event.start_tick,
+                event.end_tick,
+                event.start_frequency,
+                event.end_frequency,
+                event.frequency_transition,
+                false,
+                false,
+                envelop::UNDEFINED,
+            ));
+
+            velocity_events.push(create(
+                event.start_tick,
+                event.end_tick,
+                event.start_velocity,
+                event.end_velocity,
+                event.velocity_transition,
+                event.fadein,
+                event.fadeout,
+                event.envelop_index,
+            ));
         }
+        harmonics_frequency_events.push_back(frequency_events);
+        harmonics_velocity_events.push_back(velocity_events);
     }
-}
 
-pub fn create_from_parameter(parameter: &AudioEventParameter) -> AudioEvent {
-    create(
-        parameter.start_tick,
-        parameter.end_tick,
-        parameter.start_value,
-        parameter.end_value,
-        parameter.transition,
-        parameter.fadein,
-        parameter.fadeout,
-        parameter.envelop_index,
-    )
+    (harmonics_frequency_events, harmonics_velocity_events)
 }
