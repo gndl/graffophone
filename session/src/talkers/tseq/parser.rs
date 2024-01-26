@@ -215,6 +215,19 @@ pub struct PSequence<'a> {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct PMidiChannel<'a> {
+    pub seq_id: &'a str,
+    pub program: u8,
+    pub attributes: Vec<PAttribute<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PMidiSequence<'a> {
+    pub id: &'a str,
+    pub channels: Vec<PMidiChannel<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression<'a> {
     Beat(PBeat<'a>),
     Scale(PScale<'a>),
@@ -228,7 +241,7 @@ pub enum Expression<'a> {
     PitchLine(PPitchLine<'a>),
     Seq(PSequence<'a>),
     SeqOut(PSequence<'a>),
-    MidiOut(PSequence<'a>),
+    MidiOut(PMidiSequence<'a>),
     None,
 }
 
@@ -597,9 +610,31 @@ fn seqout(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::SeqOut(sequence)))
 }
 
+fn midi_channel(input: &str) -> IResult<&str, PMidiChannel> {
+    let (input, (seq_id, program, attributes, _)) = tuple((
+        preceded(char(REF_KW!()), id),
+        preceded(char(JOIN_KW!()), digit1),
+        many0(attribute),
+        space0,
+    ))(input)?;
+    Ok((
+        input,
+        PMidiChannel {
+            seq_id,
+            program: u8::from_str(program).unwrap(),
+            attributes,
+        },
+    ))
+}
+
 fn midiout(input: &str) -> IResult<&str, Expression> {
-    let (input, sequence) = preceded(tag(MIDI_OUTPUT_KW!()), sequence)(input)?;
-    Ok((input, Expression::MidiOut(sequence)))
+    let (input, (id, _attributes, channels, _)) = tuple((
+        head(MIDI_OUTPUT_KW!()),
+        many0(attribute),
+        many0(midi_channel),
+        end,
+    ))(input)?;
+    Ok((input, Expression::MidiOut(PMidiSequence {id, channels})))
 }
 
 pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {

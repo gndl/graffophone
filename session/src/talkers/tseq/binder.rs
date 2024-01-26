@@ -5,9 +5,8 @@ use std::str::FromStr;
 use talker::audio_format::AudioFormat;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
-    PRatio, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
+    PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
-use talkers::tseq::scale;
 use talkers::tseq::scale::RScale;
 
 pub const DEFAULT_FREQUENCY: f32 = 0.;

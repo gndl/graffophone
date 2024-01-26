@@ -86,7 +86,7 @@ pub fn empty_audio_buf() -> HAudioBuf {
     Cell::new(Vec::new())
 }
 
-const ATOM_CAPACITY: usize = 64;
+const ATOM_CAPACITY: usize = 8192;
 
 pub struct Horn {
     port_type: PortType,

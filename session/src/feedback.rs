@@ -126,7 +126,7 @@ impl Output for Feedback {
                 for i in 0..nb_samples_per_channel {
                     for ch in channels {
                         let sample = ch[i];
-                        while output_fell_behind < 30 && audio_stream.producer.push(sample).is_err()
+                        while audio_stream.producer.push(sample).is_err() && output_fell_behind < 30
                         {
                             std::thread::sleep(std::time::Duration::from_millis(20));
                             output_fell_behind = output_fell_behind + 1;
