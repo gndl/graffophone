@@ -191,7 +191,7 @@ impl<'a> Binder<'a> {
 
             for pitch in &ppitchline.pitchs {
                 let freq = match scale.fetch_frequency(pitch.id) {
-                    Some(f) => *f,
+                    Some(f) => f,
                     None => match f32::from_str(pitch.id) {
                         Ok(f) => f,
                         Err(_) => {
