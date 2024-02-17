@@ -2,6 +2,7 @@ use std::cell::RefCell;
 
 use livi;
 use livi::PortIndex;
+use livi::Plugin;
 
 use talker::audio_format;
 use talker::audio_format::AudioFormat;
@@ -37,6 +38,7 @@ impl Lv2 {
     pub fn new(lv2_handler: &Lv2Handler, uri: &str) -> Result<CTalker, failure::Error> {
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
+                show_plugin(&plugin);
                 match unsafe {
                     plugin.instantiate(
                         lv2_handler.features.clone(),
@@ -220,34 +222,41 @@ impl Talker for Lv2 {
         ln
     }
 }
-/*
+
 fn show_plugin(plugin: &Plugin) {
-    println!("> {:?}", plugin);
-    for port in plugin.inputs() {
-        println!("> {:?}", port);
+    println!("plugin {} ({})", plugin.name(), plugin.uri());
+
+    for classe in plugin.classes() {
+        println!("\tclasse : {:?}", classe);
     }
-    for port in plugin.outputs() {
-        println!("< {:?}", port);
+
+   let lilv_plugin = plugin.raw();
+
+    println!("\tbundle_uri : {:?}", lilv_plugin.bundle_uri());
+    println!("\tlibrary_uri : {:?}", lilv_plugin.library_uri());
+
+    for node in lilv_plugin.data_uris() {
+       println!("\tdata_uri : {:?}", node.turtle_token());
     }
-    for port in plugin
-        .inputs()
-        .filter_map(UnknownInputPort::into_typed::<Audio>)
-    {
-        println!("\t{:?}", port)
+
+    for node in lilv_plugin.supported_features() {
+       println!("\tsupported_feature : {:?}", node.turtle_token());
     }
-    for port in plugin
-        .outputs()
-        .filter_map(UnknownOutputPort::into_typed::<Audio>)
-    {
-        println!("\t{:?}", port)
+
+    for node in lilv_plugin.required_features() {
+       println!("\trequired_feature : {:?}", node.turtle_token());
     }
-    for port in plugin
-        .inputs()
-        .filter_map(UnknownInputPort::into_typed::<Control>)
-    {
-        println!("\t{:?}", port)
+
+   if let Some(nodes) = lilv_plugin.extension_data() {
+       for node in nodes {
+           println!("\textension_data : {:?}", node.turtle_token());
+       }
+   }
+    for port in plugin.ports() {
+        println!("\tport : {:?}", port);
     }
 }
+/*
 */
 
 use crate::feedback::Feedback;
@@ -288,6 +297,29 @@ fn test_var_len_of() {
     assert_eq!(var_len_of(256), vec![0x82, 0]);
     assert_eq!(var_len_of(0x100000), vec![0xC0, 0x80, 0]);
 }
+
+#[test]
+fn test_fuildsynth_plugin() {
+    let world = livi::World::new();
+    let sample_rate = AudioFormat::sample_rate();
+
+    let features = world.build_features(livi::FeaturesBuilder {
+        min_block_length: 1,
+        max_block_length: sample_rate, //4096,
+    });
+
+    let plugin = world
+        .plugin_by_uri("urn:ardour:a-fluidsynth")
+        .expect("Plugin not found.");
+
+    show_plugin(&plugin);
+    let mut instance = unsafe {
+        plugin
+            .instantiate(features.clone(), sample_rate as f64)
+            .expect("Could not instantiate plugin.")
+    };
+}
+
 
 fn run_midi() -> Result<(), failure::Error> {
     let world = livi::World::new();
