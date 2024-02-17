@@ -11,7 +11,8 @@ const FREQ_0: f64 = 8.175799;
 const NOTE_OFF: u8 = 0x80;
 const NOTE_ON: u8 = 0x90;
 const CONTROLLER: u8 = 0xB0;
-const CTRL_BANK: u8 = 0x00;
+const CTRL_BANK_SELECT_MSB: u8 = 0x00;
+const CTRL_BANK_SELECT_LSB: u8 = 0x20;
 const CTRL_VOLUME: u8 = 0x07;
 const CTRL_BALANCE: u8 = 0x08;
 const CTRL_PAN: u8 = 0x0A;
@@ -75,11 +76,15 @@ impl MidiSeq {
 
         for channel in &sequence.channels {
             let seq = binder.fetch_sequence(&channel.seq_id)?;
+            let mut bank_select_msb = 0;
+            let mut bank_select_lsb = 0;
 
             // Channel configuration events
             for attribute in &channel.attributes {
-                let ctrl_type = if attribute.label == "bank" {
-                    CTRL_BANK
+                let ctrl_type = if attribute.label == "MSB" {
+                    CTRL_BANK_SELECT_MSB
+                } else if attribute.label == "LSB" {
+                    CTRL_BANK_SELECT_LSB
                 } else if attribute.label.starts_with("vol") {
                     CTRL_VOLUME
                 } else if attribute.label == "bal" {
@@ -100,11 +105,27 @@ impl MidiSeq {
                     Err(_) => return Err(failure::err_msg(format!("Midi controller value {} invalid!", attribute.value))),
                 };
 
-                controller_events.push(MidiEvent {
-                    tick: 0,
-                    data: vec![CONTROLLER | channel_number, ctrl_type, ctrl_value],
-                });
+                if ctrl_type == CTRL_BANK_SELECT_MSB {
+                    bank_select_msb = ctrl_value;
+                } else if ctrl_type == CTRL_BANK_SELECT_LSB {
+                    bank_select_lsb = ctrl_value;
+                } else {
+                    controller_events.push(MidiEvent {
+                        tick: 0,
+                        data: vec![CONTROLLER | channel_number, ctrl_type, ctrl_value],
+                    });
+                }
             }
+
+            controller_events.push(MidiEvent {
+                tick: 0,
+                data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_MSB, bank_select_msb],
+            });
+
+            controller_events.push(MidiEvent {
+                tick: 0,
+                data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_LSB, bank_select_lsb],
+            });
 
             program_change_events.push(MidiEvent {
                 tick: 0,
