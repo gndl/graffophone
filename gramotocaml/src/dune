@@ -27,6 +27,6 @@
  (public_name     lilv)
  (libraries threads.posix)
  (c_names         ocaml_lilv lv2_stub feature_stub node_stub ui_stub scalepoint_stub port_stub instance_stub plugin_stub pluginclass_stub world_stub)
- (c_flags         (-I/usr/include/lilv-0 -g -O2 -Wall -DCAML_NAME_SPACE))
+ (foreign_stubs (language c)        (-I/usr/include/lilv-0 -g -O2 -Wall -DCAML_NAME_SPACE))
  (c_library_flags (-llilv-0))
 )
