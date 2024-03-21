@@ -101,7 +101,20 @@ impl TalkerBase {
         self.voices.push(voice);
     }
 
-    pub fn sup_voice(&mut self, voice_idx: Index) {
+    pub fn sup_voice(&mut self, voice_idx: Index, shift_associated_set: bool) {
+
+        if shift_associated_set {
+            let (associated_ear, _) = self.voices[voice_idx].get_associated_ear_set();
+
+            for v_idx in voice_idx + 1..self.voices.len() {
+                let (a_ear, a_set) = self.voices[v_idx].get_associated_ear_set();
+
+                if a_ear != associated_ear {
+                    break;
+                }
+                self.voices[v_idx].set_associated_ear_set(a_ear, a_set - 1);
+            }
+        }
         self.voices.remove(voice_idx);
     }
 

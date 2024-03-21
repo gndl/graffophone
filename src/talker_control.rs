@@ -6,8 +6,7 @@ use std::rc::Rc;
 use cairo::Context;
 
 use talker::horn::PortType;
-use talker::identifier::Id;
-use talker::identifier::Identifiable;
+use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
 
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
@@ -441,7 +440,16 @@ impl TalkerControlBase {
 
             for (port, voice) in tkr.voices().iter().enumerate() {
                 let tag = format_tag(voice.tag());
-                let area = control_supply.area_of(&tag, voices_b_x, voices_e_y)?;
+
+                let mut b_y = voices_e_y;
+
+                let (associated_ear, associated_set) = voice.get_associated_ear_set();
+
+                if ears.len() > associated_ear && ears[associated_ear].sets.len() > associated_set {
+                    b_y = f64::max(b_y, ears[associated_ear].sets[associated_set].hums[0].area.b_y);
+                }
+
+                let area = control_supply.area_of(&tag, voices_b_x, b_y)?;
 
                 voices_e_x = f64::max(voices_e_x, area.e_x);
                 voices_e_y = area.e_y;

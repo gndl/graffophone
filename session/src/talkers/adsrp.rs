@@ -128,7 +128,9 @@ impl Talker for ADSRp {
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.push(PlayerState::new());
-            new_base.add_voice(voice::audio(None, 0.));
+            let mut voice = voice::audio(None, 0.);
+            voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
+            new_base.add_voice(voice);
         }
         Ok(Some(new_base))
     }
@@ -147,7 +149,9 @@ impl Talker for ADSRp {
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.push(PlayerState::new());
-            new_base.add_voice(voice::audio(None, 0.));
+            let mut voice = voice::audio(None, 0.);
+            voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
+            new_base.add_voice(voice);
         }
         Ok(Some(new_base))
     }
@@ -162,7 +166,7 @@ impl Talker for ADSRp {
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.remove(set_idx);
-            new_base.sup_voice(set_idx);
+            new_base.sup_voice(set_idx, true);
         }
 
         Ok(Some(new_base))

@@ -1,4 +1,5 @@
 use crate::audio_format::AudioFormat;
+use identifier::Index;
 use crate::horn::{
     AudioVal, ControlVal, CvVal, Horn, MAtomBuf, MAudioBuf, MControlBuf, MCvBuf, PortType,
 };
@@ -13,6 +14,7 @@ pub struct Voice {
     tick: Cell<i64>,
     len: Cell<usize>,
     horn: Horn,
+    associated_ear_set: (Index, Index),
 }
 
 impl Voice {
@@ -22,6 +24,7 @@ impl Voice {
             tick: Cell::new(-1),
             len: Cell::new(len),
             horn,
+            associated_ear_set: (0, 0),
         }
     }
 
@@ -46,6 +49,12 @@ impl Voice {
     pub fn set_tick_len(&self, tick: i64, len: usize) {
         self.tick.set(tick);
         self.len.set(len);
+    }
+    pub fn set_associated_ear_set(&mut self, ear_idx: Index, set_idx: Index,) {
+        self.associated_ear_set = (ear_idx, set_idx);
+    }
+    pub fn get_associated_ear_set(&self) ->  (Index, Index) {
+        self.associated_ear_set
     }
 
     pub fn horn<'a>(&'a self) -> &'a Horn {

@@ -100,7 +100,10 @@ impl Talker for EnvShaper {
         let mut new_base = base.clone();
 
         new_base.ear(ear_idx).add_set_with_value(hum_idx, value)?;
-        new_base.add_voice(voice::audio(None, 0.));
+
+        let mut voice = voice::audio(None, 0.);
+        voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
+        new_base.add_voice(voice);
 
         Ok(Some(new_base))
     }
@@ -119,8 +122,11 @@ impl Talker for EnvShaper {
         new_base
             .ear(ear_idx)
             .add_set_with_voice(hum_idx, voice_talker, port)?;
-        new_base.add_voice(voice::audio(None, 0.));
 
+        let mut voice = voice::audio(None, 0.);
+        voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
+        new_base.add_voice(voice);
+    
         Ok(Some(new_base))
     }
     fn sup_ear_set_update(
@@ -134,7 +140,7 @@ impl Talker for EnvShaper {
         let mut new_base = base.clone();
 
         new_base.ear(ear_idx).sup_set(set_idx)?;
-        new_base.sup_voice(set_idx);
+        new_base.sup_voice(set_idx, true);
 
         Ok(Some(new_base))
     }
