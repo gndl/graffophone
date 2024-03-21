@@ -1,3 +1,18 @@
+# cargo generated files
+target
+
+# emacs generated files
+*~
+
+# dune generated files
+_build
+.merlin
+*.install
+
+# IntelliJ generated files
+.idea
+
+# ocaml generated files
 *.annot
 *.cmo
 *.cma
@@ -8,11 +23,3 @@
 *.cmxs
 *.cmxa
 *.docdir
-
-# emacs generated files
-*~
-
-# dune generated files
-_build
-.merlin
-*.install
