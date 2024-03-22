@@ -90,6 +90,27 @@ impl TalkerBase {
     pub fn add_ear(&mut self, ear: Ear) {
         self.ears.push(ear);
     }
+    pub fn sup_ear_set_with_associated_voice(&mut self, ear_idx: Index, set_idx: Index)-> Result<(), failure::Error> {
+        let mut voice_idx = self.voices.len();
+
+        while voice_idx > 0 {
+            voice_idx -= 1;
+            
+            let (a_ear_idx, a_set_idx) = self.voices[voice_idx].get_associated_ear_set();
+
+            if a_ear_idx == ear_idx && a_set_idx == set_idx {
+                self.voices.remove(voice_idx);
+            }
+        }
+        for voice_idx in 0..self.voices.len() {
+            let (a_ear_idx, a_set_idx) = self.voices[voice_idx].get_associated_ear_set();
+
+            if a_ear_idx == ear_idx && a_set_idx > set_idx {
+                self.voices[voice_idx].set_associated_ear_set(ear_idx, a_set_idx - 1);
+            }
+        }
+        self.ears[ear_idx].sup_set(set_idx)
+    }
 
     pub fn voice(&self, voice_idx: Index) -> &Voice {
         &self.voices[voice_idx]
@@ -101,20 +122,7 @@ impl TalkerBase {
         self.voices.push(voice);
     }
 
-    pub fn sup_voice(&mut self, voice_idx: Index, shift_associated_set: bool) {
-
-        if shift_associated_set {
-            let (associated_ear, _) = self.voices[voice_idx].get_associated_ear_set();
-
-            for v_idx in voice_idx + 1..self.voices.len() {
-                let (a_ear, a_set) = self.voices[v_idx].get_associated_ear_set();
-
-                if a_ear != associated_ear {
-                    break;
-                }
-                self.voices[v_idx].set_associated_ear_set(a_ear, a_set - 1);
-            }
-        }
+    pub fn sup_voice(&mut self, voice_idx: Index) {
         self.voices.remove(voice_idx);
     }
 

@@ -24,7 +24,7 @@ impl Voice {
             tick: Cell::new(-1),
             len: Cell::new(len),
             horn,
-            associated_ear_set: (0, 0),
+            associated_ear_set: (Index::MAX, Index::MAX),
         }
     }
 

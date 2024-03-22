@@ -162,11 +162,10 @@ impl Talker for ADSRp {
         set_idx: usize,
     ) -> Result<Option<TalkerBase>, failure::Error> {
         let mut new_base = base.clone();
-        new_base.ear(ear_idx).sup_set(set_idx)?;
+        new_base.sup_ear_set_with_associated_voice(ear_idx, set_idx)?;
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.remove(set_idx);
-            new_base.sup_voice(set_idx, true);
         }
 
         Ok(Some(new_base))

@@ -440,19 +440,20 @@ impl TalkerControlBase {
 
             for (port, voice) in tkr.voices().iter().enumerate() {
                 let tag = format_tag(voice.tag());
-
-                let mut b_y = voices_e_y;
-
                 let (associated_ear, associated_set) = voice.get_associated_ear_set();
 
-                if ears.len() > associated_ear && ears[associated_ear].sets.len() > associated_set {
-                    b_y = f64::max(b_y, ears[associated_ear].sets[associated_set].hums[0].area.b_y);
+                let b_y = if ears.len() > associated_ear && ears[associated_ear].sets.len() > associated_set {
+                    voices_e_y.max(ears[associated_ear].sets[associated_set].hums[0].area.b_y)
                 }
+                else {
+                    voices_e_y
+                };
 
                 let area = control_supply.area_of(&tag, voices_b_x, b_y)?;
 
                 voices_e_x = f64::max(voices_e_x, area.e_x);
                 voices_e_y = area.e_y;
+                
                 let vc = VoiceControl {
                     tag,
                     area,

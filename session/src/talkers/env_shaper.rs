@@ -139,8 +139,7 @@ impl Talker for EnvShaper {
 
         let mut new_base = base.clone();
 
-        new_base.ear(ear_idx).sup_set(set_idx)?;
-        new_base.sup_voice(set_idx, true);
+        new_base.sup_ear_set_with_associated_voice(ear_idx, set_idx)?;
 
         Ok(Some(new_base))
     }
