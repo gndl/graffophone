@@ -7,7 +7,7 @@ use talker::ear::Init;
 use talker::ear::Set;
 use talker::horn::PortType;
 use talker::identifier::Index;
-use talker::talker::{CTalker, RTalker, Talker, TalkerBase};
+use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 

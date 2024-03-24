@@ -13,7 +13,6 @@ use talker::talker::{MuteTalker, RTalker, TalkerBase};
 
 use crate::audio_data::Vector;
 use crate::output::ROutput;
-use crate::track::RTrack;
 use crate::track::Track;
 
 pub const KIND: &str = "Mixer";
