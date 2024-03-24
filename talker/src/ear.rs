@@ -493,6 +493,11 @@ impl Set {
     }
 }
 
+pub enum Entree<'a> {
+    Value(f32),
+    Voice(&'a RTalker, Index),
+}
+
 pub struct Ear {
     tag: String,
     multi_hum: bool,
@@ -727,7 +732,7 @@ impl Ear {
         }
     }
 
-    fn add_set(&self) -> Result<Index, failure::Error> {
+    fn create_set(&self) -> Result<Index, failure::Error> {
         if let Some(stem_set) = &self.stem_set {
             let set_idx = self.sets().len();
             let mut sets: Vec<Set> = Vec::with_capacity(set_idx + 1);
@@ -983,20 +988,19 @@ impl Ear {
         Ok(())
     }
 
-    pub fn add_set_with_value(&self, hum_idx: Index, value: f32) -> Result<(), failure::Error> {
-        let set_idx = self.add_set()?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.set_value(value))
-    }
-
-    pub fn add_set_with_voice(
+    pub fn add_set(
         &self,
         hum_idx: Index,
-        voice_talker: &RTalker,
-        port: usize,
+        entree: Entree,
     ) -> Result<(), failure::Error> {
-        let set_idx = self.add_set()?;
-        self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(voice_talker, port))
+        let set_idx = self.create_set()?;
+
+        match entree {
+            Entree::Value(v) => self.set_hum(set_idx, hum_idx, |hum| hum.set_value(v)),
+            Entree::Voice(tkr, port) => self.set_hum(set_idx, hum_idx, |hum| hum.set_voice(tkr, port)),
+        }
     }
+
 }
 
 fn mono_hum(

@@ -5,10 +5,11 @@ extern crate failure;
 
 use crate::data::{Data, RData};
 use crate::ear;
-use crate::ear::Ear;
+use crate::ear::{Ear, Entree};
 use crate::horn::{AudioBuf, CvBuf, PortType};
 use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
 use crate::voice::Voice;
+
 
 pub struct TalkerBase {
     identifier: RIdentifier,
@@ -194,27 +195,17 @@ pub trait Talker {
         Ok(None)
     }
 
-    fn add_set_with_value_to_ear_update(
+    fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
         hum_idx: Index,
-        value: f32,
+        entree: Entree,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        base.ears[ear_idx].add_set_with_value(hum_idx, value)?;
+        base.ears[ear_idx].add_set(hum_idx, entree)?;
         Ok(None)
     }
-    fn add_set_with_voice_to_ear_update(
-        &mut self,
-        base: &TalkerBase,
-        ear_idx: Index,
-        hum_idx: Index,
-        voice_talker: &RTalker,
-        port: usize,
-    ) -> Result<Option<TalkerBase>, failure::Error> {
-        base.ears[ear_idx].add_set_with_voice(hum_idx, voice_talker, port)?;
-        Ok(None)
-    }
+
     fn sup_ear_set_update(
         &mut self,
         base: &TalkerBase,
@@ -485,7 +476,7 @@ impl TalkerCab {
         let obase = self
             .core
             .borrow_mut()
-            .add_set_with_value_to_ear_update(&self.base, ear_idx, hum_idx, value)?;
+            .add_set_to_ear_update(&self.base, ear_idx, hum_idx, Entree::Value(value))?;
         self.update(obase)
     }
     pub fn add_set_voice_to_ear_update(
@@ -495,12 +486,11 @@ impl TalkerCab {
         voice_talker: &RTalker,
         port: usize,
     ) -> Result<Option<RTalker>, failure::Error> {
-        let obase = self.core.borrow_mut().add_set_with_voice_to_ear_update(
+        let obase = self.core.borrow_mut().add_set_to_ear_update(
             &self.base,
             ear_idx,
             hum_idx,
-            voice_talker,
-            port,
+            Entree::Voice(voice_talker, port),
         )?;
         self.update(obase)
     }

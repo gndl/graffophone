@@ -116,36 +116,15 @@ impl ADSRp {
 }
 
 impl Talker for ADSRp {
-    fn add_set_with_value_to_ear_update(
+    fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
         hum_idx: Index,
-        value: f32,
+        entree: talker::ear::Entree,
     ) -> Result<Option<TalkerBase>, failure::Error> {
         let mut new_base = base.clone();
-        new_base.ear(ear_idx).add_set_with_value(hum_idx, value)?;
-
-        if ear_idx == PLAYERS_EAR_INDEX {
-            self.players_states.push(PlayerState::new());
-            let mut voice = voice::audio(None, 0.);
-            voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
-            new_base.add_voice(voice);
-        }
-        Ok(Some(new_base))
-    }
-    fn add_set_with_voice_to_ear_update(
-        &mut self,
-        base: &TalkerBase,
-        ear_idx: Index,
-        hum_idx: Index,
-        voice_talker: &RTalker,
-        port: usize,
-    ) -> Result<Option<TalkerBase>, failure::Error> {
-        let mut new_base = base.clone();
-        new_base
-            .ear(ear_idx)
-            .add_set_with_voice(hum_idx, voice_talker, port)?;
+        new_base.ear(ear_idx).add_set(hum_idx, entree)?;
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.push(PlayerState::new());

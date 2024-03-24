@@ -8,7 +8,7 @@ use talker::ear::Init;
 use talker::ear::Set;
 use talker::horn::PortType;
 use talker::identifier::Index;
-use talker::talker::{CTalker, RTalker, Talker, TalkerBase};
+use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
@@ -88,45 +88,22 @@ impl EnvShaper {
 }
 
 impl Talker for EnvShaper {
-    fn add_set_with_value_to_ear_update(
+    fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
         ear_idx: Index,
         hum_idx: Index,
-        value: f32,
+        entree: ear::Entree,
     ) -> Result<Option<TalkerBase>, failure::Error> {
-        self.players_states.push(PlayerState::new());
-
         let mut new_base = base.clone();
-
-        new_base.ear(ear_idx).add_set_with_value(hum_idx, value)?;
+        new_base.ear(ear_idx).add_set(hum_idx, entree)?;
 
         let mut voice = voice::audio(None, 0.);
         voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
         new_base.add_voice(voice);
 
-        Ok(Some(new_base))
-    }
-    fn add_set_with_voice_to_ear_update(
-        &mut self,
-        base: &TalkerBase,
-        ear_idx: Index,
-        hum_idx: Index,
-        voice_talker: &RTalker,
-        port: usize,
-    ) -> Result<Option<TalkerBase>, failure::Error> {
         self.players_states.push(PlayerState::new());
 
-        let mut new_base = base.clone();
-
-        new_base
-            .ear(ear_idx)
-            .add_set_with_voice(hum_idx, voice_talker, port)?;
-
-        let mut voice = voice::audio(None, 0.);
-        voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
-        new_base.add_voice(voice);
-    
         Ok(Some(new_base))
     }
     fn sup_ear_set_update(
