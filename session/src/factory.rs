@@ -70,10 +70,9 @@ impl Factory {
         &self,
         oid: Option<u32>,
         oname: Option<&str>,
-        tracks: Option<Vec<RTrack>>,
         outputs: Option<Vec<ROutput>>,
     ) -> Result<RMixer, failure::Error> {
-        let rmixer = Mixer::new_ref(tracks, outputs)?;
+        let rmixer = Mixer::new_ref(outputs)?;
         Factory::set_identity(rmixer.borrow().identifier(), oid, oname);
         Ok(rmixer)
     }

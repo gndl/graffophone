@@ -32,7 +32,6 @@ pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
     pub fn new(
-        otracks: Option<Vec<RTrack>>,
         ooutputs: Option<Vec<ROutput>>,
     ) -> Result<Mixer, failure::Error> {
         let mut base = TalkerBase::new("", KIND);
@@ -54,14 +53,7 @@ impl Mixer {
         ])?;
 
         let mut sets = Vec::new();
-
-        if let Some(tracks) = otracks {
-            for track in tracks {
-                sets.push(track.borrow().to_set()?);
-            }
-        } else {
-            sets.push(stem_set.clone());
-        }
+        sets.push(stem_set.clone());
 
         base.add_ear(Ear::new(Some("Tracks"), true, Some(stem_set), Some(sets)));
 
@@ -73,10 +65,9 @@ impl Mixer {
         })
     }
     pub fn new_ref(
-        tracks: Option<Vec<RTrack>>,
         outputs: Option<Vec<ROutput>>,
     ) -> Result<RMixer, failure::Error> {
-        Ok(Rc::new(RefCell::new(Mixer::new(tracks, outputs)?)))
+        Ok(Rc::new(RefCell::new(Mixer::new(outputs)?)))
     }
 
     pub fn kind() -> &'static str {

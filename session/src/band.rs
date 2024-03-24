@@ -167,7 +167,6 @@ impl Band {
         factory.make_mixer(
             Some(pmixer.talker.id),
             Some(pmixer.talker.name),
-            None,
             Some(outputs),
         )
     }
