@@ -7,9 +7,9 @@ use std::rc::Rc;
 use crate::gtk::prelude::PopoverExt;
 use gtk::prelude::*;
 use gtk::prelude::{DrawingAreaExtManual, IsA, WidgetExt};
+use gtk::gdk::Rectangle;
 
 use cairo::Context;
-use gtk::gdk::Rectangle;
 
 use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
@@ -18,13 +18,13 @@ use talker::talker::RTalker;
 use session::event_bus::{Notification, REventBus};
 use session::mixer::Mixer;
 
-use crate::bounded_float_entry;
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::mixer_control::MixerControl;
 use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::talker_control;
 use crate::talker_control::{ControlSupply, RTalkerControl};
+use crate::ui;
 use crate::util;
 
 const MARGE: f64 = 10.;
@@ -156,7 +156,7 @@ impl EventReceiver {
         let cancel_popover = popover.clone();
         let default_popover = popover.clone();
 
-        let dialog = bounded_float_entry::create(
+        let dialog = ui::bounded_float_entry::create(
             min.into(),
             max.into(),
             def.into(),

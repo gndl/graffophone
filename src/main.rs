@@ -10,9 +10,9 @@ use crate::gtk::prelude::ApplicationExt;
 use crate::gtk::prelude::ApplicationExtManual;
 use gtk::gdk::Display;
 use gtk::{CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
+use crate::gio::prelude::ActionMapExtManual;
 
 mod application_view;
-mod bounded_float_entry;
 mod graph_presenter;
 mod graph_view;
 mod mixer_control;
@@ -29,7 +29,7 @@ fn main() {
     let application =
         gtk::Application::new(Some("com.gitlab.gndl.graffophone"), Default::default());
 
-    application.connect_startup(|_| {
+    application.connect_startup(|app: &gtk::Application| {
         // The CSS "magic" happens here.
         let provider = CssProvider::new();
         provider.load_from_string(include_str!("css/style.css").as_ref());
@@ -46,6 +46,8 @@ fn main() {
         sourceview5::init();
 
         let session_presenter = SessionPresenter::new_ref();
+
+        app.add_action_entries(ui::settings::action_entries(app, &session_presenter));
 
         match ApplicationView::new_ref(app, &session_presenter) {
             Ok(_) => session_presenter.borrow_mut().init(),

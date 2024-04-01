@@ -15,6 +15,7 @@ use sourceview5::traits::BufferExt;
 
 use crate::graph_view::{GraphView, RGraphView};
 use crate::session_presenter::RSessionPresenter;
+use crate::ui;
 use crate::ui::talker_object::TalkerObject;
 
 pub struct ApplicationView {
@@ -22,6 +23,7 @@ pub struct ApplicationView {
     play_or_pause_button: gtk::Button,
     play_or_pause_icon: gtk::Image,
     stop_button: gtk::Button,
+    record_button: gtk::Button,
     talkers_box: gtk::Box,
     text_view: sourceview5::View,
     text_view_scrolledwindow: gtk::ScrolledWindow,
@@ -57,8 +59,8 @@ impl ApplicationView {
         let save_session_as_button = gtk::Button::from_icon_name("document-save-as");
         headerbar.pack_start(&save_session_as_button);
 
-        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
-        headerbar.pack_start(&separator);
+        let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&left_separator);
 
         let talkers_list_toggle = gtk::ToggleButton::builder()
             .icon_name("view-list-tree")
@@ -83,11 +85,20 @@ impl ApplicationView {
         headerbar.pack_start(&cancel_text_button);
 
         // header bar right controls
-        let stop_button = gtk::Button::from_icon_name("media-playback-stop");
+        let settings_menu = ui::settings::menu();
+        let menu_button = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&settings_menu).build();
+        headerbar.pack_end(&menu_button);
 
+        let right_separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_end(&right_separator);
+
+        let record_button = gtk::Button::from_icon_name("media-record-symbolic");
+        headerbar.pack_end(&record_button);
+
+        let stop_button = gtk::Button::from_icon_name("media-playback-stop-symbolic");
         headerbar.pack_end(&stop_button);
 
-        let play_or_pause_icon = gtk::Image::from_icon_name("media-playback-start");
+        let play_or_pause_icon = gtk::Image::from_icon_name("media-playback-start-symbolic");
         let play_or_pause_button = gtk::Button::builder().child(&play_or_pause_icon).build();
 
         headerbar.pack_end(&play_or_pause_button);
@@ -220,6 +231,12 @@ impl ApplicationView {
             stop_ctrl.borrow_mut().stop();
         });
 
+        // Record
+        let record_ctrl = session_presenter.clone();
+        record_button.connect_clicked(move |_| {
+            record_ctrl.borrow_mut().record(&record_ctrl);
+        });
+
         window.present();
 
         Ok(Self {
@@ -227,6 +244,7 @@ impl ApplicationView {
             play_or_pause_button,
             play_or_pause_icon,
             stop_button,
+            record_button,
             talkers_box,
             text_view,
             text_view_scrolledwindow,
@@ -414,6 +432,12 @@ impl ApplicationView {
                         obs.borrow()
                             .play_or_pause_icon
                             .set_from_icon_name(Some("media-playback-pause"));
+                        obs.borrow().record_button.set_sensitive(false);
+                        obs.borrow().stop_button.set_sensitive(true);
+                    }
+                    State::Recording => {
+                        obs.borrow().play_or_pause_button.set_sensitive(false);
+                        obs.borrow().record_button.set_sensitive(false);
                         obs.borrow().stop_button.set_sensitive(true);
                     }
                     State::Paused => {
@@ -427,13 +451,15 @@ impl ApplicationView {
                             .play_or_pause_icon
                             .set_from_icon_name(Some("media-playback-start"));
                         obs.borrow().play_or_pause_button.set_sensitive(true);
+                        obs.borrow().record_button.set_sensitive(true);
                         obs.borrow().stop_button.set_sensitive(false);
                     }
                     State::Exited => {
                         obs.borrow()
                             .play_or_pause_icon
                             .set_from_icon_name(Some("media-playback-start"));
-                        obs.borrow().play_or_pause_button.set_sensitive(false);
+                        obs.borrow().play_or_pause_button.set_sensitive(true);
+                        obs.borrow().record_button.set_sensitive(true);
                         obs.borrow().stop_button.set_sensitive(false);
                     }
                 },
