@@ -191,18 +191,17 @@ impl SessionPresenter {
             this.borrow().notify(Notification::State(state));
 
             match state {
-                State::Playing => glib::ControlFlow::Continue,
+                State::Playing | State::Recording => glib::ControlFlow::Continue,
                 _ => glib::ControlFlow::Break,
             }
         });
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {
+
         let (res, monitor_state) = match self.session.state() {
-            State::Stopped => (self.session.start(), true),
             State::Playing => (self.session.pause(), false),
-            State::Paused => (self.session.play(), true),
-            State::Exited => (Err(failure::err_msg("Player exited")), false),
+            _ => (self.session.play(), true),
         };
         self.manage_state_result(res);
 
@@ -214,6 +213,12 @@ impl SessionPresenter {
     pub fn stop(&mut self) {
         let res = self.session.stop();
         self.manage_state_result(res);
+    }
+
+    pub fn record(&mut self, monitor: &RSessionPresenter) {
+        let res = self.session.record();
+        self.manage_state_result(res);
+        SessionPresenter::monitor_state(monitor);
     }
 
     pub fn exit(&mut self) {

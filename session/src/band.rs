@@ -620,18 +620,39 @@ impl Band {
     }
 
     pub fn activate_talkers(&self) {
+
         for tkr in self.talkers.values() {
             tkr.activate();
         }
     }
     pub fn deactivate_talkers(&self) {
+
         for tkr in self.talkers.values() {
             tkr.deactivate();
         }
     }
 
+    pub fn set_mixer_feedback(&mut self, mixer_idx:usize, active:bool) -> Result<(), failure::Error> {
+
+        for (idx, rmixer) in self.mixers.values().enumerate() {
+            if idx == mixer_idx {
+                rmixer.borrow_mut().set_feedback(active)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn set_record(&mut self, active:bool) -> Result<(), failure::Error> {
+
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().set_record(active)?;
+        }
+        Ok(())
+    }
+
     pub fn open(&mut self) -> Result<(), failure::Error> {
         self.activate_talkers();
+
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().open()?;
         }
@@ -639,6 +660,7 @@ impl Band {
     }
 
     pub fn pause(&mut self) -> Result<(), failure::Error> {
+
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().pause()?;
         }
@@ -646,6 +668,7 @@ impl Band {
     }
 
     pub fn run(&mut self) -> Result<(), failure::Error> {
+
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().run()?;
         }
@@ -653,6 +676,7 @@ impl Band {
     }
 
     pub fn close(&mut self) -> Result<(), failure::Error> {
+        
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().close()?;
         }

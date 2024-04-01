@@ -17,6 +17,7 @@
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum State {
     Playing,
+    Recording,
     Paused,
     Stopped,
     Exited,
@@ -26,6 +27,7 @@ impl State {
     pub fn to_string(&self) -> String {
         (match self {
             State::Playing => "Playing",
+            State::Recording => "Recording",
             State::Paused => "Paused",
             State::Stopped => "Stopped",
             State::Exited => "Exited",

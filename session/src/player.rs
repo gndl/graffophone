@@ -23,16 +23,13 @@ use std::time::Duration;
 use talker::audio_format::AudioFormat;
 
 use crate::band::{Band, Operation};
-use crate::feedback::Feedback;
-use crate::output::ROutput;
 use crate::state::State;
-use tables::fadeout;
 
 #[derive(PartialEq, Debug, Clone)]
 enum Order {
     Nil,
-    Start,
     Play,
+    Record,
     Pause,
     Stop,
     SetTimeRange(i64, i64),
@@ -45,8 +42,8 @@ impl Order {
     pub fn to_string(&self) -> String {
         (match self {
             Order::Nil => "Nil",
-            Order::Start => "Start",
             Order::Play => "Play",
+            Order::Record => "Record",
             Order::Pause => "Pause",
             Order::Stop => "Stop",
             Order::SetTimeRange(_, _) => "SetTimeRange",
@@ -55,54 +52,6 @@ impl Order {
             Order::Exit => "Exit",
         })
         .to_string()
-    }
-}
-
-fn create_band(
-    band_description: &String,
-    channels: &mut Vec<Vec<f32>>,
-    min_channels: usize,
-    chunk_size: usize,
-) -> Result<Band, failure::Error> {
-    let band = Band::make(band_description)?;
-
-    let nb_channels = usize::max(min_channels, band.nb_channels());
-
-    if channels.len() < nb_channels {
-        for _ in channels.len()..nb_channels {
-            channels.push(vec![0.; chunk_size]);
-        }
-    } else if channels.len() > nb_channels {
-        let nb_over = channels.len() - nb_channels;
-
-        for _ in 0..nb_over {
-            let _ = channels.pop();
-        }
-    }
-    Ok(band)
-}
-
-fn fadeout_band(
-    band: &Band,
-    state: State,
-    tick: i64,
-    buf: &mut Vec<f32>,
-    channels: &mut Vec<Vec<f32>>,
-    extra_outputs: &Vec<ROutput>,
-    ) -> i64 {
-    if state == State::Playing {
-        let len = fadeout::LEN;
-        let fadeout_buf : &[f32] = &fadeout::TAB;
-
-        for rmixer in band.mixers().values() {
-            let _ = rmixer
-                .borrow_mut()
-                .come_out(tick, buf, channels, len, extra_outputs, Some(fadeout_buf));
-        }
-        tick + len as i64
-    }
-    else {
-        tick
     }
 }
 
@@ -119,6 +68,7 @@ fn run(
     state_sender: &Sender<State>,
     band_description: String,
 ) -> Result<(), failure::Error> {
+
     let send_state = |order: &String, prev_state: State, state: State| {
         match state_sender.send(state) {
             Err(e) => eprintln!("Player state sender error : {}", e),
@@ -141,15 +91,9 @@ fn run(
     let mut end_tick: i64 = i64::max_value();
     let chunk_size = AudioFormat::chunk_size();
 
-    let mut buf: Vec<f32> = vec![0.; chunk_size];
-    let mut channels: Vec<Vec<f32>> = Vec::new();
+    let feedback_mixer_idx = 0;
 
-    let feedback = Feedback::new_ref(chunk_size)?;
-    let min_channels = feedback.borrow().nb_channels();
-    let mut extra_outputs = Vec::new();
-    extra_outputs.push(feedback.clone());
-
-    let mut band = create_band(&band_description, &mut channels, min_channels, chunk_size)?;
+    let mut band = Band::make(&band_description)?;
 
     let mut state = State::Stopped;
     let mut oorder = order_receiver.recv();
@@ -157,38 +101,50 @@ fn run(
     loop {
         match oorder {
             Ok(order) => match order {
-                Order::Start => {
-                    state = send_state(&order.to_string(), state, State::Playing);
-                    band.open()?;
-                    feedback.borrow_mut().open()?;
-
-                    tick = start_tick;
-                }
                 Order::Pause => {
                     send_state(&order.to_string(), state, State::Paused);
 
                     if state != State::Paused {
                         band.pause()?;
-                        feedback.borrow_mut().pause()?;
-
                         state = State::Paused;
                     }
                     oorder = order_receiver.recv();
                     continue;
                 }
                 Order::Play => {
-                    state = send_state(&order.to_string(), state, State::Playing);
-                    band.run()?;
-                    feedback.borrow_mut().run()?;
+                    send_state(&order.to_string(), state, State::Playing);
+
+                    if state == State::Stopped {
+                        band.set_mixer_feedback(feedback_mixer_idx, true)?;
+                        band.open()?;
+                    }
+                    else if state == State::Paused {
+                        band.run()?;
+                    }
+                    
+                    state = State::Playing;
+                }
+                Order::Record => {
+                    send_state(&order.to_string(), state, State::Recording);
+
+                    if state == State::Stopped {
+                        band.set_mixer_feedback(feedback_mixer_idx, true)?;
+                        band.set_record(true)?;
+                        band.open()?;
+                    }
+                    else if state == State::Paused {
+                        band.run()?;
+                    }
+                    
+                    state = State::Recording;
                 }
                 Order::Stop => {
-                    fadeout_band(&band, state, tick, &mut buf, &mut channels, &extra_outputs);
-
                     send_state(&order.to_string(), state, State::Stopped);
 
                     if state != State::Stopped {
                         band.close()?;
-                        feedback.borrow_mut().close()?;
+                        band.set_mixer_feedback(feedback_mixer_idx, false)?;
+                        band.set_record(false)?;
                         tick = start_tick;
                         state = State::Stopped;
                     }
@@ -205,11 +161,11 @@ fn run(
                     }
                 }
                 Order::LoadBand(band_desc) => {
-                    //                                band.close()?;
-                    band = create_band(&band_desc, &mut channels, min_channels, chunk_size)?;
+                    band = Band::make(&band_desc)?;
 
                     match state {
                         State::Playing => band.open()?,
+                        State::Recording => band.open()?,
                         State::Paused => {
                             band.open()?;
                             oorder = Ok(Order::Pause);
@@ -238,8 +194,6 @@ fn run(
                     }
                 }
                 Order::Exit => {
-                    fadeout_band(&band, state, tick, &mut buf, &mut channels, &extra_outputs);
-
                     send_state(&order.to_string(), state, State::Exited);
                     break;
                 }
@@ -264,9 +218,7 @@ fn run(
         };
 
         for rmixer in band.mixers().values() {
-            match rmixer
-                .borrow_mut()
-                .come_out(tick, &mut buf, &mut channels, len, &extra_outputs, None)
+            match rmixer.borrow_mut().come_out(tick, len, None)
             {
                 Ok(ln) => {
                     len = ln;
@@ -294,7 +246,7 @@ fn run(
     }
 
     band.close()?;
-    feedback.borrow_mut().close()?;
+
     let _ = state_sender.send(State::Exited)?;
     res
 }
@@ -333,6 +285,7 @@ impl Player {
             State::Exited => {}
             _ => {
                 thread::sleep(Duration::from_millis(20));
+
                 match self.state_receiver.try_recv() {
                     Err(_) => {}
                     Ok(state) => {
@@ -349,6 +302,7 @@ impl Player {
             State::Exited => (),
             _ => {
                 thread::sleep(Duration::from_millis(20));
+
                 match self.state_receiver.recv() {
                     Err(e) => {
                         return Err(failure::err_msg(format!("Player::play error : {}", e)));
@@ -369,28 +323,14 @@ impl Player {
         }
     }
 
-    pub fn start(&mut self) -> Result<State, failure::Error> {
-        self.check_not_exited()?;
-
-        self.order_sender
-            .send(Order::Start)
-            .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?;
-
-        Ok(self.state())
-    }
-
     pub fn play(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
 
-        match self.state {
-            State::Playing => self
-                .order_sender
-                .send(Order::Pause)
-                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
-            _ => self
+        if self.state != State::Playing {
+            self
                 .order_sender
                 .send(Order::Play)
-                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?,
+                .map_err(|e| failure::err_msg(format!("Player::play error : {}", e)))?;
         }
         Ok(self.state())
     }
@@ -398,18 +338,11 @@ impl Player {
     pub fn pause(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
 
-        match self.state {
-            State::Playing => self
-                .order_sender
-                .send(Order::Pause)
-                .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
-
-            State::Paused => self
-                .order_sender
-                .send(Order::Play)
-                .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?,
-
-            _ => (),
+        if self.state != State::Paused {
+            self
+            .order_sender
+            .send(Order::Pause)
+            .map_err(|e| failure::err_msg(format!("Player::pause error : {}", e)))?;
         }
         Ok(self.state())
     }
@@ -417,12 +350,23 @@ impl Player {
     pub fn stop(&mut self) -> Result<State, failure::Error> {
         self.check_not_exited()?;
 
-        match self.state {
-            State::Stopped => (),
-            _ => self
+        if self.state != State::Stopped {
+            self
                 .order_sender
                 .send(Order::Stop)
-                .map_err(|e| failure::err_msg(format!("Player::stop error : {}", e)))?,
+                .map_err(|e| failure::err_msg(format!("Player::stop error : {}", e)))?;
+        }
+        Ok(self.state())
+    }
+
+    pub fn record(&mut self) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
+
+        if self.state != State::Recording {
+            self
+                .order_sender
+                .send(Order::Record)
+                .map_err(|e| failure::err_msg(format!("Player::record error : {}", e)))?;
         }
         Ok(self.state())
     }
@@ -458,12 +402,11 @@ impl Player {
     }
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {
-        match self.state {
-            State::Exited => (),
-            _ => self
+        if self.state != State::Exited {
+            self
                 .order_sender
                 .send(Order::Exit)
-                .map_err(|e| failure::err_msg(format!("Player::exit error : {}", e)))?,
+                .map_err(|e| failure::err_msg(format!("Player::exit error : {}", e)))?;
         }
         Ok(self.state())
     }

@@ -127,6 +127,14 @@ impl Session {
         Ok(())
     }
 
+    fn check_not_exited(&mut self) -> Result<(), failure::Error> {
+
+        if self.player.state() == State::Exited {
+            self.player = Player::new(self.band.serialize()?)?;
+        }
+        Ok(())
+    }
+
     pub fn load_band(&self) -> Result<State, failure::Error> {
         self.player.load_band(self.band.serialize()?)
     }
@@ -151,20 +159,23 @@ impl Session {
         self.save()
     }
 
-    pub fn start(&mut self) -> Result<State, failure::Error> {
-        self.player.start()
-    }
-
     pub fn play(&mut self) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
         self.player.play()
     }
 
     pub fn pause(&mut self) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
         self.player.pause()
     }
 
     pub fn stop(&mut self) -> Result<State, failure::Error> {
         self.player.stop()
+    }
+
+    pub fn record(&mut self) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
+        self.player.record()
     }
 
     pub fn exit(&mut self) -> Result<State, failure::Error> {
