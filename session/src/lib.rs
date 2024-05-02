@@ -1,4 +1,5 @@
 extern crate cpal;
+extern crate ffmpeg_next as ffmpeg;
 extern crate failure;
 extern crate livi;
 extern crate nom;
@@ -6,7 +7,9 @@ extern crate ringbuf;
 extern crate talker;
 
 pub mod audio_data;
+pub mod audiofile_output;
 pub mod band;
+pub mod channel;
 pub mod event_bus;
 pub mod factory;
 pub mod feedback;

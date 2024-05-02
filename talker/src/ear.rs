@@ -195,6 +195,17 @@ impl Hum {
         talks
     }
 
+    pub fn with_tag(&self, tag: &str) -> Hum {
+        Hum::new(
+            Some(tag),
+            self.port_type,
+            self.min_value,
+            self.max_value,
+            self.def_value,
+            self.talks.iter().map(|t| t.clone()).collect(),
+        )
+    }
+
     pub fn with_talks(&self, talks: Vec<Talk>) -> Hum {
         Hum::new(
             Some(&self.tag),

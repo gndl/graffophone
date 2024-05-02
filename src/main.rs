@@ -12,10 +12,13 @@ use gtk::gdk::Display;
 use gtk::{CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use crate::gio::prelude::ActionMapExtManual;
 
+
 mod application_view;
 mod graph_presenter;
 mod graph_view;
 mod mixer_control;
+mod mixer_presenter;
+mod output_presenter;
 mod session_presenter;
 mod style;
 mod talker_control;

@@ -10,7 +10,7 @@ use talker::audio_format::AudioFormat;
 use talker::identifier::RIdentifier;
 
 use crate::audio_data::Vector;
-use crate::output;
+use crate::{channel, output};
 use crate::output::{Output, ROutput};
 
 pub const MODEL: &str = "feedback";
@@ -23,8 +23,9 @@ pub struct AudioStream {
 }
 pub struct Feedback {
     identifier: RIdentifier,
-    nb_channels: usize,
+    sample_rate: usize,
     nb_samples: usize,
+    nb_channels: usize,
     audio_stream: Option<AudioStream>,
 }
 
@@ -39,11 +40,11 @@ impl Feedback {
 
         let config: cpal::StreamConfig = output_device.default_output_config()?.into();
 
-        let nb_channels = config.channels as usize;
         Ok(Self {
             identifier: output::new_identifier("", MODEL),
-            nb_channels,
+            sample_rate: AudioFormat::sample_rate(),
             nb_samples,
+            nb_channels: config.channels as usize,
             audio_stream: None,
         })
     }
@@ -63,7 +64,7 @@ impl Feedback {
         let mut config: cpal::StreamConfig = output_device.default_output_config()?.into();
         config.sample_rate = cpal::SampleRate(AudioFormat::sample_rate() as u32);
 
-        let latency_samples = nb_samples * nb_channels;
+        let latency_samples = nb_samples * nb_channels as usize;
 
         // The buffer to share samples
         let ring = RingBuffer::new(latency_samples * 5);
@@ -99,17 +100,30 @@ impl Output for Feedback {
         &self.identifier
     }
 
-    fn model(&self) -> &str {
-        MODEL
+    fn model(&self) -> String{
+        MODEL.to_string()
     }
 
-    fn nb_channels(&self) -> usize {
+    fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
+
+    fn channel_layout<'a>(&'a self) -> &'a str{
+        channel::Layout::from_channels(self.nb_channels)
+    }
+
+    fn channels(&self) -> usize {
         self.nb_channels
+    }
+
+    fn channels_names(&self) -> Vec<&'static str> {
+        channel::Layout::channels_names_from_channels(self.nb_channels)
     }
 
     fn open(&mut self) -> Result<(), failure::Error> {
         println!("Feedback::open");
         let audio_stream = Feedback::make_audio_stream(self.nb_channels, self.nb_samples)?;
+
         self.audio_stream = Some(audio_stream);
         Ok(())
     }
@@ -122,14 +136,22 @@ impl Output for Feedback {
         match self.audio_stream.iter_mut().next() {
             Some(audio_stream) => {
                 let mut output_fell_behind = 0;
+                let in_chan_end = channels.len() - 1;
 
                 for i in 0..nb_samples_per_channel {
-                    for ch in channels {
-                        let sample = ch[i];
+                    let mut in_chan_idx = 0;
+
+                    for _ in 0..self.nb_channels {
+                        let sample = channels[in_chan_idx][i];
+
                         while audio_stream.producer.push(sample).is_err() && output_fell_behind < 30
                         {
                             std::thread::sleep(std::time::Duration::from_millis(20));
                             output_fell_behind = output_fell_behind + 1;
+                        }
+
+                        if in_chan_idx < in_chan_end {
+                            in_chan_idx += 1;
                         }
                     }
                 }
@@ -173,7 +195,7 @@ impl Output for Feedback {
         Ok(())
     }
 
-    fn backup(&self) -> (&str, &str, &str) {
-        (output::KIND, MODEL, &"")
+    fn backup(&self) -> (&str, &str, String) {
+        (output::KIND, MODEL, String::new())
     }
 }

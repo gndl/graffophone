@@ -396,7 +396,7 @@ impl Player {
 
         self.order_sender
             .send(Order::ModifyBand(operation.clone()))
-            .map_err(|e| failure::err_msg(format!("Player::load_band error : {}", e)))?;
+            .map_err(|e| failure::err_msg(format!("Player::modify_band error : {}", e)))?;
 
         Ok(self.state())
     }

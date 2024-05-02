@@ -22,6 +22,11 @@ where
 }
 */
 
+pub fn filename_with_extention(filename: &str, extention: &str) -> String {
+    let ext_pos = filename.rfind(".").unwrap_or(filename.len());
+    format!("{}.{}", filename.get(..ext_pos).unwrap(), extention)
+}
+
 pub fn print_cairo_result(result: Result<(), cairo::Error>) {
     match result {
         Ok(()) => (),

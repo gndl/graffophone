@@ -8,6 +8,7 @@ failure = "0.1.8"
 ringbuf = "0.2.8"
 #cpal = {git = "https://github.com/RustAudio/cpal"}
 cpal = "0.15.2"
+ffmpeg-next = "6.1.1"
 # livi = { git = "https://github.com/wmedrano/livi-rs" }
 livi = "0.7.3"
 nom = "7.1"

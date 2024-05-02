@@ -19,8 +19,11 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
+use ffmpeg;
+
 use talker::identifier;
 use talker::talker::RTalker;
+use talker::audio_format::AudioFormat;
 
 use crate::band::{Band, Operation};
 use crate::mixer::RMixer;
@@ -29,6 +32,10 @@ use crate::state::State;
 
 pub const SESSION_FILE_EXT: &str = ".gsr";
 pub const NEW_SESSION_FILENAME: &str = "new_session.gsr";
+
+pub fn init() -> Result<(), failure::Error> {
+    ffmpeg::init().map_err(|e| failure::err_msg(format!("FFMPEG init error : {}", e)))
+}
 
 pub struct Session {
     filename: String,
@@ -133,6 +140,14 @@ impl Session {
             self.player = Player::new(self.band.serialize()?)?;
         }
         Ok(())
+    }
+
+    pub fn sample_rate(&self) -> usize {
+        AudioFormat::sample_rate()
+    }
+    pub fn set_sample_rate(&self, sample_rate: usize) -> Result<State, failure::Error> {
+        AudioFormat::set_sample_rate(sample_rate);
+        self.load_band()
     }
 
     pub fn load_band(&self) -> Result<State, failure::Error> {

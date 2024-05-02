@@ -24,7 +24,7 @@ use talker::ear::{Ear, Talk};
 use talker::identifier::{Id, Identifiable, Identifier, Index};
 use talker::talker::RTalker;
 
-use crate::factory::Factory;
+use crate::factory::{Factory, OutputParam};
 use crate::mixer;
 use crate::mixer::RMixer;
 use crate::parser;
@@ -45,6 +45,7 @@ pub enum Operation {
     AddSetValueToEar(Id, Index, Index, f32),
     AddSetVoiceToEar(Id, Index, Index, Id, Index),
     SupEarSet(Id, Index, Index),
+    SetMixerOutputs(Id, Vec<OutputParam>),
 }
 
 pub struct Band {
@@ -143,7 +144,6 @@ impl Band {
 
     fn make_mixer(
         &mut self,
-        factory: &Factory,
         poutputs: &HashMap<Id, POutput>,
         pmixer: &PMixer,
     ) -> Result<RMixer, failure::Error> {
@@ -152,7 +152,7 @@ impl Band {
         for output_id in &pmixer.outputs {
             match poutputs.get(output_id) {
                 Some(poutput) => {
-                    let output = factory.make_output(
+                    let output = Factory::make_output(
                         poutput.model,
                         Some(poutput.id),
                         Some(poutput.name),
@@ -164,11 +164,7 @@ impl Band {
             }
         }
 
-        factory.make_mixer(
-            Some(pmixer.talker.id),
-            Some(pmixer.talker.name),
-            Some(outputs),
-        )
+        Factory::make_mixer(pmixer.talker.id, pmixer.talker.name, None, outputs)
     }
 
     pub fn build(factory: &Factory, source: &String) -> Result<Band, failure::Error> {
@@ -205,7 +201,7 @@ impl Band {
         }
 
         for pmixer in pmixers.values() {
-            let rmixer = band.make_mixer(factory, &poutputs, &pmixer)?;
+            let rmixer = band.make_mixer(&poutputs, &pmixer)?;
 
             band.set_talker_ears(
                 &mut talkers_ptalkers,
@@ -310,16 +306,16 @@ impl Band {
     pub fn add_mixer(&mut self, rmixer: RMixer) {
         let id = rmixer.borrow().id();
         self.talkers.insert(id, rmixer.borrow().talker().clone());
-
+        
         self.mixers.insert(id, rmixer);
     }
 
-    pub fn nb_channels(&self) -> usize {
+    pub fn channels(&self) -> usize {
         let mut nb_channels = 0;
 
         for rmixer in self.mixers.values() {
             for routput in rmixer.borrow().outputs() {
-                let nc = routput.borrow().nb_channels();
+                let nc = routput.borrow().channels();
 
                 if nc > nb_channels {
                     nb_channels = nc
@@ -431,24 +427,6 @@ impl Band {
         Ok(())
     }
 
-    pub fn add_output(&mut self, model: &str) -> Result<(), failure::Error> {
-        Factory::visit(|factory| {
-            for rmixer in self.mixers.values() {
-                rmixer
-                    .borrow_mut()
-                    .add_output(factory.make_output(model, None, None, None)?);
-            }
-            Ok(())
-        })
-    }
-
-    pub fn sup_output(&mut self, model: &str) -> Result<(), failure::Error> {
-        for rmixer in self.mixers.values() {
-            rmixer.borrow_mut().remove_output(model);
-        }
-        Ok(())
-    }
-
     pub fn fetch_talker<'a>(&'a self, talker_id: &Id) -> Result<&'a RTalker, failure::Error> {
         match self.talkers.get(talker_id) {
             Some(tkr) => Ok(tkr),
@@ -460,6 +438,32 @@ impl Band {
             Some(tkr) => Ok(tkr),
             None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
         }
+    }
+
+    pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::Error> {
+        match self.mixers.get(mixer_id) {
+            Some(mxr) => Ok(mxr),
+            None => Err(failure::err_msg(format!("Mixer {} not found!", mixer_id))),
+        }
+    }
+    pub fn extract_mixer(&mut self, mixer_id: &Id) -> Result<RMixer, failure::Error> {
+        match self.mixers.remove(mixer_id) {
+            Some(mxr) => Ok(mxr),
+            None => Err(failure::err_msg(format!("Mixer {} not found!", mixer_id))),
+        }
+    }
+
+    pub fn set_mixer_outputs(&mut self, mixer_id: &Id, outputs_params: &Vec<OutputParam>) -> Result<(), failure::Error> {
+        let rmixer = self.extract_mixer(mixer_id)?;
+        let mixer = rmixer.borrow();
+
+        let outputs = Factory::make_outputs(outputs_params)?;
+
+        let updated_mixer = Factory::make_mixer(mixer.id(), &mixer.name(), Some(&mixer), outputs)?;
+
+        self.add_mixer(updated_mixer);
+
+        Ok(())
     }
 
     fn check_cyclic_dependency(
@@ -615,6 +619,9 @@ impl Band {
             Operation::SupEarSet(ear_tkr_id, ear_idx, set_idx) => {
                 self.update_talker(ear_tkr_id, |tkr| tkr.sup_ear_set_update(*ear_idx, *set_idx))?;
             }
+            Operation::SetMixerOutputs(mixer_idx, outputs_params) => {
+                self.set_mixer_outputs(mixer_idx, outputs_params)?;
+            }
         }
         result
     }
@@ -676,7 +683,7 @@ impl Band {
     }
 
     pub fn close(&mut self) -> Result<(), failure::Error> {
-        
+
         for rmixer in self.mixers.values() {
             rmixer.borrow_mut().close()?;
         }
