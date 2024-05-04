@@ -11,3 +11,10 @@ pub fn audioize_buffer_by_clipping(buffer: &mut [f32], start: usize, len: usize)
         }
     }
 }
+
+
+pub fn audioize_buffer_by_tanh(buffer: &mut [f32], start: usize, len: usize) {
+    for i in start..len {
+        buffer[i] = buffer[i].tanh();
+    }
+}

@@ -11,7 +11,6 @@ use crate::feedback::Feedback;
 use crate::mixer::{Mixer, RMixer};
 use crate::output::ROutput;
 use crate::plugins_manager::PluginsManager;
-use crate::track::{RTrack, Track};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum OutputParam {

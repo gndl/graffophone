@@ -4,44 +4,25 @@ use std::iter::Extend;
 use talker::identifier::Identifiable;
 use talker::lv2_handler;
 use talker::rtalker;
-use talker::talker::RTalker;
-use talker::talker::TalkerCab;
+use talker::talker::{RTalker, TalkerCab};
 use talker::talker_handler::TalkerHandlerBase;
-use talkers::abs_sine;
-use talkers::abs_sine::AbsSine;
-use talkers::accumulator;
-use talkers::accumulator::Accumulator;
-use talkers::adsrp;
-use talkers::adsrp::ADSRp;
-use talkers::bounded_sinusoidal;
-use talkers::bounded_sinusoidal::BoundedSinusoidal;
-use talkers::bounded_square;
-use talkers::bounded_square::BoundedSquare;
-use talkers::env_shaper;
-use talkers::env_shaper::EnvShaper;
-use talkers::fuzz;
-use talkers::fuzz::Fuzz;
-use talkers::hub;
-use talkers::hub::Hub;
+use talkers::abs_sine::{self, AbsSine};
+use talkers::accumulator::{self, Accumulator};
+use talkers::adsrp::{self, ADSRp};
+use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
+use talkers::bounded_square::{self, BoundedSquare};
+use talkers::env_shaper::{self, EnvShaper};
+use talkers::fuzz::{self, Fuzz};
+use talkers::hub::{self, Hub};
 use talkers::lv2::Lv2;
-use talkers::math;
-use talkers::math::Average;
-use talkers::math::Product;
-use talkers::math::Sum;
-use talkers::parabolic;
-use talkers::parabolic::Parabolic;
-use talkers::round;
-use talkers::round::Round;
-use talkers::second_degree_frequency_progression;
-use talkers::second_degree_frequency_progression::SecondDegreeFrequencyProgression;
-use talkers::sinusoidal;
-use talkers::sinusoidal::Sinusoidal;
-use talkers::sinusoidal_fptg;
-use talkers::sinusoidal_fptg::SinusoidalFPTG;
-use talkers::square;
-use talkers::square::Square;
-use talkers::tseq::tseq;
-use talkers::tseq::tseq::Tseq;
+use talkers::math::{self, Average, Product, Sum, TanhSum};
+use talkers::parabolic::{self, Parabolic};
+use talkers::round::{self, Round};
+use talkers::second_degree_frequency_progression::{self, SecondDegreeFrequencyProgression};
+use talkers::sinusoidal::{self, Sinusoidal};
+use talkers::sinusoidal_fptg::{self, SinusoidalFPTG};
+use talkers::square::{self, Square};
+use talkers::tseq::tseq::{self, Tseq};
 
 enum PluginType {
     Internal,
@@ -117,6 +98,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(SinusoidalFPTG::descriptor()),
             PluginsManager::tkr_hr_kv(Square::descriptor()),
             PluginsManager::tkr_hr_kv(Sum::descriptor()),
+            PluginsManager::tkr_hr_kv(TanhSum::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
         ]);
 
@@ -167,6 +149,8 @@ impl PluginsManager {
             Ok(rtalker!(Square::new()?))
         } else if model == math::SUM_MODEL {
             Ok(rtalker!(Sum::new()?))
+        } else if model == math::TANH_SUM_MODEL {
+            Ok(rtalker!(TanhSum::new()?))
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new()?))
         } else {
