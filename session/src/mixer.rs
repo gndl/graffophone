@@ -28,7 +28,7 @@ pub struct Mixer {
     talker: RTalker,
     outputs: Vec<ROutput>,
     tick: i64,
-    productive: bool,
+    is_open: bool,
     record: bool,
     feedback: Option<Feedback>,
     buf: Vector,
@@ -38,10 +38,10 @@ pub struct Mixer {
 pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
-    pub fn new(
-        source: Option<&Mixer>,
+    pub fn new_ref(
+        oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
-    ) -> Result<Mixer, failure::Error> {
+    ) -> Result<RMixer, failure::Error> {
         let mut channels = 0;
         let mut output_idx = usize::MAX;
 
@@ -75,12 +75,14 @@ impl Mixer {
 
         let mut base = TalkerBase::new("", KIND);
 
-        if let Some(src) = source {
-            base.add_ear(src.talker.ear(VOLUME_EAR_INDEX).clone());
+        if let Some(rparent) = oparent {
+            let parent = rparent.borrow();
 
-            let channels_hums_end = usize::min(channels, src.channels()) + CHANNELS_HUM_INDEX;
+            base.add_ear(parent.talker.ear(VOLUME_EAR_INDEX).clone());
 
-            for src_track in src.talker.ear(TRACKS_EAR_INDEX).sets() {
+            let channels_hums_end = usize::min(channels, parent.channels()) + CHANNELS_HUM_INDEX;
+
+            for src_track in parent.talker.ear(TRACKS_EAR_INDEX).sets() {
                 let track = stem_track.clone();
                 let track = track.with_hum(INPUT_HUM_INDEX, |_| Ok(src_track.hums()[INPUT_HUM_INDEX].clone()))?;
                 let mut track = track.with_hum(GAIN_HUM_INDEX, |_| Ok(src_track.hums()[GAIN_HUM_INDEX].clone()))?;
@@ -106,23 +108,16 @@ impl Mixer {
             channels_buffers.push(vec![0.; chunk_size]);
         }
 
-        Ok(Self {
+        Ok(Rc::new(RefCell::new(Self {
             talker: MuteTalker::new(base),
             outputs,
             tick: 0,
-            productive: false,
+            is_open: false,
             record: false,
             feedback: None,
             buf: vec![0.; AudioFormat::chunk_size()],
             channels_buffers,
-        })
-    }
-
-    pub fn new_ref(
-        source: Option<&Mixer>,
-        outputs: Vec<ROutput>,
-    ) -> Result<RMixer, failure::Error> {
-        Ok(Rc::new(RefCell::new(Mixer::new(source, outputs)?)))
+        })))
     }
 
     pub fn kind() -> &'static str {
@@ -138,16 +133,22 @@ impl Mixer {
         &self.outputs
     }
 
+    pub fn record(&self) -> bool {
+        self.record
+    }
     pub fn set_record(&mut self, active:bool) -> Result<(), failure::Error> {
         self.record = active;
         Ok(())
     }
 
+    pub fn feedback(&self) -> bool {
+        self.feedback.is_none()
+    }
     pub fn set_feedback(&mut self, active:bool) -> Result<(), failure::Error> {
         if active && self.feedback.is_none() {
             let mut feedback = Feedback::new(AudioFormat::chunk_size())?;
 
-            if self.productive {
+            if self.is_open {
                 feedback.open()?;
             }
 
@@ -166,6 +167,9 @@ impl Mixer {
         self.channels_buffers.len()
     }
 
+    pub fn is_open(&self) -> bool {
+        self.is_open
+    }
     pub fn open(&mut self) -> Result<(), failure::Error> {
 
         if self.record {
@@ -179,7 +183,7 @@ impl Mixer {
         }
 
         self.tick = 0;
-        self.productive = true;
+        self.is_open = true;
         Ok(())
     }
 
@@ -224,7 +228,7 @@ impl Mixer {
         if let Some(feedback) = &mut self.feedback {
             feedback.close()?;
         }
-        self.productive = false;
+        self.is_open = false;
         res
     }
 

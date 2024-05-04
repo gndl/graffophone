@@ -70,10 +70,10 @@ impl Factory {
     pub fn make_mixer(
         id: u32,
         name: &str,
-        source: Option<&Mixer>,
+        oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
     ) -> Result<RMixer, failure::Error> {
-        let rmixer = Mixer::new_ref(source, outputs)?;
+        let rmixer = Mixer::new_ref(oparent, outputs)?;
         Factory::set_identity(rmixer.borrow().identifier(), Some(id), Some(name));
         Ok(rmixer)
     }

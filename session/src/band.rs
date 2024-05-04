@@ -454,12 +454,24 @@ impl Band {
     }
 
     pub fn set_mixer_outputs(&mut self, mixer_id: &Id, outputs_params: &Vec<OutputParam>) -> Result<(), failure::Error> {
-        let rmixer = self.extract_mixer(mixer_id)?;
-        let mixer = rmixer.borrow();
+        let mixer = self.extract_mixer(mixer_id)?;
+        let id = mixer.borrow().id();
+        let name = mixer.borrow().name();
 
         let outputs = Factory::make_outputs(outputs_params)?;
 
-        let updated_mixer = Factory::make_mixer(mixer.id(), &mixer.name(), Some(&mixer), outputs)?;
+        let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs)?;
+
+        if mixer.borrow().feedback() {
+            mixer.borrow_mut().set_feedback(false)?;
+            updated_mixer.borrow_mut().set_feedback(true)?;
+        }
+        updated_mixer.borrow_mut().set_record(mixer.borrow().record())?;
+
+        if mixer.borrow().is_open() {
+            mixer.borrow_mut().close()?;
+            updated_mixer.borrow_mut().open()?;
+        }
 
         self.add_mixer(updated_mixer);
 
