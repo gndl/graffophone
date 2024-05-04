@@ -156,15 +156,7 @@ impl Dim {
     pub fn new(w: f64, h: f64) -> Dim {
         Self { w, h }
     }
-    pub fn of(cc: &Context, txt: &str) -> Result<Dim, failure::Error> {
-        match cc.text_extents(txt) {
-            Ok(te) => Ok(Dim::new(te.x_advance(), te.height())),
-            Err(e) => Err(failure::err_msg(format!(
-                "Dim::of {} text_extents :  {}",
-                txt, e
-            ))),
-        }
-    }
+
     pub fn of_symbol(_cc: &Context, _txt: &str) -> Result<Dim, failure::Error> {
         Ok(Dim::new(SYM_W, SYM_H))
     }
@@ -807,21 +799,23 @@ impl TalkerControlBase {
         let y1 = voice_tkrcb.y + (voice_area.b_y + voice_area.e_y) * 0.5;
         let x2 = self.x + talk_area.b_x;
         let y2 = self.y + (talk_area.b_y + talk_area.e_y) * 0.5;
-        let tab = 2.;
+        let tab = 4.;
+        let mdx = (x2 - x1) * 0.5;
 
         cc.move_to(x1, y1);
-        cc.line_to(x1 + tab, y1);
-
+        
         if x2 >= x1 {
-            let dx = (x2 - x1) * 0.5;
-            cc.curve_to(x1 + dx, y1, x2 - dx, y2, x2 - tab, y2);
+            cc.line_to(x1 + tab, y1);
+            cc.curve_to(x1 + mdx, y1, x2 - mdx, y2, x2 - tab, y2);
+            cc.line_to(x2, y2);
         } else {
-            let dx = 10. * tab;
-            let dy = (y2 - y1) * 0.5;
-            cc.curve_to(x1 + dx, y1 + dy, x2 - dx, y2 - dy, x2 - tab, y2);
+            let xray = 150.;
+            let mdy = (y2 - y1) * 0.5;
+            let qdy = mdy * 0.5;
+            cc.curve_to(x1 + tab, y1, x1 + xray, y1 + qdy, x1 + mdx, y1 + mdy);
+            cc.curve_to(x2 - xray, y2 - qdy, x2 - tab, y2, x2, y2);
         }
 
-        cc.line_to(x2, y2);
         cc.stroke()?;
         Ok(())
     }
