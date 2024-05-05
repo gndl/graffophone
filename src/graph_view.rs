@@ -469,14 +469,7 @@ impl GraphView {
                 mxrc.borrow_mut().set_row(collector.row);
                 mxrc.borrow_mut().set_column(0);
 
-                /* create GTalkers by covering talkers for each track */
-                /*
-                                for track in mixer.borrow().tracks() {
-                                    for ear in track.borrow().ears() {
-                                        ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
-                                    }
-                                }
-                */
+                /* create GTalkers by covering mixer ears talkers */
                 for ear in mixer.borrow().talker().ears() {
                     ear.iter_talkers(GraphView::make_talker_controls, &mut collector)?;
                 }
@@ -548,6 +541,16 @@ impl GraphView {
                 &mut sandbox_collector.talker_controls,
                 &mut sandbox_collector.columns_properties,
             );
+
+            // Center sandbox
+            if graph_e_x > sandbox_e_x {
+                let sandbox_center_dx = (graph_e_x - sandbox_e_x) * 0.5;
+
+                for tkrc in sandbox_collector.talker_controls.values() {
+                    let (x, y) = tkrc.borrow().position();
+                    tkrc.borrow_mut().move_to(x + sandbox_center_dx, y);
+                }
+            }
 
             let mut talker_controls: HashMap<Id, RTalkerControl> = HashMap::new();
             talker_controls.extend(collector.talker_controls);

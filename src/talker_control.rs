@@ -1038,6 +1038,10 @@ pub trait TalkerControl {
         util::print_cairo_result(base.draw_ears_and_voices(cc, graph_presenter));
     }
 
+    fn position(&self) -> (f64, f64) {
+        let base = self.base().borrow();
+        (base.x, base.y)
+    }
     fn move_to(&mut self, x: f64, y: f64) {
         self.base().borrow_mut().move_to(x, y);
     }
