@@ -17,7 +17,7 @@ use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
 use talkers::tseq::{sequence, parser};
 use talkers::tseq::sequence::EventReminder;
 use talkers::tseq::scale;
-use talkers::tseq::scale::RScale;
+use talkers::tseq::scale::Scale;
 
 pub const MODEL: &str = "Tseq";
 
@@ -30,7 +30,7 @@ enum Seq {
 }
 
 pub struct Tseq {
-    scales: HashMap<&'static str, RScale>,
+    scales: HashMap<&'static str, Scale>,
     envelops: Vec<Vec<f32>>,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,

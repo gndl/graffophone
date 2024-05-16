@@ -7,7 +7,7 @@ use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
     PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
-use talkers::tseq::scale::RScale;
+use talkers::tseq::scale::Scale;
 
 pub const DEFAULT_FREQUENCY: f32 = 0.;
 pub const DEFAULT_VELOCITY: f32 = 1.;
@@ -119,7 +119,7 @@ pub struct Binder<'a> {
     pub parser_hitlines: Vec<&'a PHitLine<'a>>,
     pub hitlines: HashMap<&'a str, HitLine>,
     pub parser_pitchlines: Vec<&'a PPitchLine<'a>>,
-    pitchlines: HashMap<&'a str, (&'a RScale, Vec<(f32, PShape)>)>,
+    pitchlines: HashMap<&'a str, (&'a Scale, Vec<(f32, PShape)>)>,
     pub parser_sequences: HashMap<&'a str, &'a PSequence<'a>>,
 }
 
@@ -160,7 +160,10 @@ impl<'a> Binder<'a> {
         }
     }
 
-    pub fn deserialize(&mut self, scales: &'a HashMap<&'static str, RScale>) -> Result<(), failure::Error> {
+    pub fn deserialize(&mut self, scales: &'a HashMap<&str, Scale>) -> Result<(), failure::Error> {
+
+        let mut scales_freqs =  HashMap::new();
+
         self.default_bpm = self.parser_beats
                                    .iter()
                                    .last()
@@ -179,6 +182,7 @@ impl<'a> Binder<'a> {
 
         for ppitchline in &self.parser_pitchlines {
             let mut pitchs = Vec::new();
+
             let scale = match ppitchline.scale {
                 Some(scale_name) => {
                     match scales.get(scale_name) {
@@ -189,18 +193,23 @@ impl<'a> Binder<'a> {
                 None => default_scale,
             };
 
+            let pitch_freq_map = match scales_freqs.get_mut(scale.name) {
+                Some(m) => m,
+                None => {
+                    let pitch_freq_map = HashMap::new();
+                    scales_freqs.insert(scale.name, pitch_freq_map);
+                    scales_freqs.get_mut(scale.name).unwrap()
+                }
+            };
+
             for pitch in &ppitchline.pitchs {
-                let freq = match scale.fetch_frequency(pitch.id) {
-                    Some(f) => f,
-                    None => match f32::from_str(pitch.id) {
-                        Ok(f) => f,
-                        Err(_) => {
-                            return Err(failure::err_msg(format!(
-                                "Tseq pitch {} not found!",
-                                pitch.id
-                            )))
-                        }
-                    },
+                let freq = match pitch_freq_map.get(&pitch.id) {
+                    Some(f) => *f,
+                    None => {
+                        let f = scale.fetch_frequency(pitch.id)?;
+                        pitch_freq_map.insert(pitch.id, f);
+                        f
+                    }
                 };
                 pitchs.push((freq, pitch.transition));
             }
@@ -350,7 +359,7 @@ impl<'a> Binder<'a> {
             None => Err(failure::err_msg(format!("Tseq hits {} not found!", id))),
         }
     }
-    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&RScale, Vec<(f32, PShape)>), failure::Error> {
+    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&Scale, Vec<(f32, PShape)>), failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!("Tseq pitchs {} not found!", id))),
