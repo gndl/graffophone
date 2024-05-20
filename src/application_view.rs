@@ -24,12 +24,14 @@ pub struct ApplicationView {
     play_or_pause_icon: gtk::Image,
     stop_button: gtk::Button,
     record_button: gtk::Button,
-    talkers_box: gtk::Box,
+    message_box_revealer: gtk::Revealer,
+    message_bar_label: gtk::Label,
     text_view: sourceview5::View,
     text_view_scrolledwindow: gtk::ScrolledWindow,
     apply_text_button: gtk::Button,
     validate_text_button: gtk::Button,
     cancel_text_button: gtk::Button,
+    talkers_box: gtk::Box,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
     selected_talker_id: Option<Id>,
@@ -103,30 +105,18 @@ impl ApplicationView {
 
         headerbar.pack_end(&play_or_pause_button);
 
-        // Split pane
-        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
 
-        // Talkers box
-        let talkers_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        // Message bar
+        let message_bar_label = gtk::Label::builder().hexpand(true).halign(gtk::Align::Center).build();
+        let message_bar_close_button = gtk::Button::from_icon_name("window-close-symbolic");
+        let message_bar_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+        
+        message_bar_box.append(&message_bar_label);
+        message_bar_box.append(&message_bar_close_button);
+        
+        let message_box_revealer = gtk::Revealer::builder().transition_type(gtk::RevealerTransitionType::SlideDown).transition_duration(500).build();
+        message_box_revealer.set_child(Some(&message_bar_box));
 
-        let talkers_box_scrolledwindow = gtk::ScrolledWindow::builder()
-            .min_content_width(256)
-            .vexpand(true)
-            .child(&talkers_box)
-            .visible(false)
-            .build();
-        split_pane.append(&talkers_box_scrolledwindow);
-        talkers_box_scrolledwindow.set_visible(true);
-
-        // Graph view
-        let graph_view = GraphView::new_ref(&session_presenter);
-
-        let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
-            .hexpand(true)
-            .vexpand(true)
-            .child(graph_view.borrow().area())
-            .build();
-        split_pane.append(&graph_view_scrolledwindow);
 
         // Text view
         let text_view = sourceview5::View::builder()
@@ -143,8 +133,36 @@ impl ApplicationView {
             .visible(false)
             .build();
 
+
+        // Split pane
+        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+
+        // Talkers box
+        let talkers_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+
+        let talkers_box_scrolledwindow = gtk::ScrolledWindow::builder()
+            .min_content_width(256)
+            .vexpand(true)
+            .child(&talkers_box)
+            .visible(false)
+            .build();
+        split_pane.append(&talkers_box_scrolledwindow);
+        talkers_box_scrolledwindow.set_visible(true);
+
+
+        // Graph view
+        let graph_view = GraphView::new_ref(&session_presenter);
+
+        let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
+            .hexpand(true)
+            .vexpand(true)
+            .child(graph_view.borrow().area())
+            .build();
+        split_pane.append(&graph_view_scrolledwindow);
+
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        v_box.append(&message_box_revealer);
         v_box.append(&text_view_scrolledwindow);
         v_box.append(&split_pane);
 
@@ -220,9 +238,7 @@ impl ApplicationView {
         // Play
         let play_or_pause_ctrl = session_presenter.clone();
         play_or_pause_button.connect_clicked(move |_| {
-            play_or_pause_ctrl
-                .borrow_mut()
-                .play_or_pause(&play_or_pause_ctrl);
+            play_or_pause_ctrl.borrow_mut().play_or_pause(&play_or_pause_ctrl);
         });
 
         // Stop
@@ -237,6 +253,12 @@ impl ApplicationView {
             record_ctrl.borrow_mut().record(&record_ctrl);
         });
 
+        // Message bar close
+        let message_box_revealer_ctrl = message_box_revealer.clone();
+        message_bar_close_button.connect_clicked(move |_| {
+            message_box_revealer_ctrl.set_reveal_child(false);
+        });
+
         window.present();
 
         Ok(Self {
@@ -245,12 +267,14 @@ impl ApplicationView {
             play_or_pause_icon,
             stop_button,
             record_button,
-            talkers_box,
+            message_box_revealer,
+            message_bar_label,
             text_view,
             text_view_scrolledwindow,
             apply_text_button,
             validate_text_button,
             cancel_text_button,
+            talkers_box,
             graph_view,
             session_presenter: session_presenter.clone(),
             selected_talker_id: None,
@@ -422,52 +446,82 @@ impl ApplicationView {
         self.selected_talker_id = None;
     }
 
+    fn display_message(&self, markup_message: &String) {
+        self.message_bar_label.set_markup(&markup_message);
+        self.message_box_revealer.set_reveal_child(true);
+    }
+
+    fn display_info_message(&self, message: &String) {
+        let markup_msg = format!("<span color=\"#8080FF\">{}</span>", message);
+        self.display_message(&markup_msg);
+    }
+
+    fn display_warning_message(&self, message: &String) {
+        let markup_msg = format!("<span color=\"#80FFFF\">{}</span>", message);
+        self.display_message(&markup_msg);
+    }
+
+    fn display_error_message(&self, message: &String) {
+        let markup_msg = format!("<span color=\"#FF8080\" weight=\"bold\">{}</span>", message);
+        self.display_message(&markup_msg);
+    }
+
+    fn hide_message(&self) {
+        self.message_box_revealer.set_reveal_child(false);
+    }
+
     fn observe(observer: &RApplicationView, bus: &REventBus) {
         let obs = observer.clone();
 
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
-                Notification::State(state) => match state {
-                    State::Playing => {
-                        obs.borrow()
-                            .play_or_pause_icon
-                            .set_from_icon_name(Some("media-playback-pause"));
-                        obs.borrow().record_button.set_sensitive(false);
-                        obs.borrow().stop_button.set_sensitive(true);
-                    }
-                    State::Recording => {
-                        obs.borrow().play_or_pause_button.set_sensitive(false);
-                        obs.borrow().record_button.set_sensitive(false);
-                        obs.borrow().stop_button.set_sensitive(true);
-                    }
-                    State::Paused => {
-                        obs.borrow()
-                            .play_or_pause_icon
-                            .set_from_icon_name(Some("media-playback-start"));
-                        obs.borrow().stop_button.set_sensitive(true);
-                    }
-                    State::Stopped => {
-                        obs.borrow()
-                            .play_or_pause_icon
-                            .set_from_icon_name(Some("media-playback-start"));
-                        obs.borrow().play_or_pause_button.set_sensitive(true);
-                        obs.borrow().record_button.set_sensitive(true);
-                        obs.borrow().stop_button.set_sensitive(false);
-                    }
-                    State::Exited => {
-                        obs.borrow()
-                            .play_or_pause_icon
-                            .set_from_icon_name(Some("media-playback-start"));
-                        obs.borrow().play_or_pause_button.set_sensitive(true);
-                        obs.borrow().record_button.set_sensitive(true);
-                        obs.borrow().stop_button.set_sensitive(false);
+                Notification::State(state) => {
+                    obs.borrow().hide_message();
+
+                    match state {
+                        State::Playing => {
+                            obs.borrow()
+                                .play_or_pause_icon
+                                .set_from_icon_name(Some("media-playback-pause"));
+                            obs.borrow().record_button.set_sensitive(false);
+                            obs.borrow().stop_button.set_sensitive(true);
+                        }
+                        State::Recording => {
+                            obs.borrow().play_or_pause_button.set_sensitive(false);
+                            obs.borrow().record_button.set_sensitive(false);
+                            obs.borrow().stop_button.set_sensitive(true);
+                        }
+                        State::Paused => {
+                            obs.borrow()
+                                .play_or_pause_icon
+                                .set_from_icon_name(Some("media-playback-start"));
+                            obs.borrow().stop_button.set_sensitive(true);
+                        }
+                        State::Stopped => {
+                            obs.borrow()
+                                .play_or_pause_icon
+                                .set_from_icon_name(Some("media-playback-start"));
+                            obs.borrow().play_or_pause_button.set_sensitive(true);
+                            obs.borrow().record_button.set_sensitive(true);
+                            obs.borrow().stop_button.set_sensitive(false);
+                        }
+                        State::Exited => {
+                            obs.borrow()
+                                .play_or_pause_icon
+                                .set_from_icon_name(Some("media-playback-start"));
+                            obs.borrow().play_or_pause_button.set_sensitive(true);
+                            obs.borrow().record_button.set_sensitive(true);
+                            obs.borrow().stop_button.set_sensitive(false);
+                        }
                     }
                 },
                 Notification::NewSession(name) => {
+                    obs.borrow().hide_message();
                     obs.borrow_mut().disable_text_editor();
                     obs.borrow().window.set_title(Some(&name));
                 }
                 Notification::NewSessionName(name) => {
+                    obs.borrow().hide_message();
                     obs.borrow().window.set_title(Some(&name));
                 }
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
@@ -480,13 +534,10 @@ impl ApplicationView {
                 }
                 Notification::CurveAdded => println!("Todo : Applicationview.CurveAdded"),
                 Notification::CurveRemoved => println!("Todo : Applicationview.CurveRemoved"),
-                Notification::Info(msg) => println!("Todo : Applicationview.display_info {}", msg),
-                Notification::Warning(msg) => {
-                    println!("Todo : Applicationview.display_warning {}", msg)
-                }
-                Notification::Error(msg) => {
-                    println!("Todo : Applicationview.display_error {}", msg)
-                }
+                Notification::Info(msg) => obs.borrow().display_info_message(msg),
+                Notification::Warning(msg) => obs.borrow().display_warning_message(msg),
+                Notification::Error(msg) => obs.borrow().display_error_message(msg),
+                Notification::TalkerChanged => obs.borrow().hide_message(),
                 _ => (),
             }))
     }
