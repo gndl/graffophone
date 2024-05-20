@@ -71,7 +71,7 @@ pub fn expose(app: &gtk::Application, session_presenter: &RSessionPresenter,) {
         let new_sample_rate = sample_rates[sample_rate_selector.selected() as usize];
 
         if new_sample_rate != sample_rate {
-            rssp.borrow().set_sample_rate(new_sample_rate);
+            rssp.borrow_mut().set_sample_rate(new_sample_rate);
         }
 
         window.destroy();
