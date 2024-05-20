@@ -35,6 +35,7 @@ Mixer 1#Mixer 1
 
 pub struct SessionPresenter {
     session: Session,
+    state: State,
     event_bus: REventBus,
     mixers_presenters: Vec<MixerPresenter>,
 }
@@ -42,8 +43,12 @@ pub type RSessionPresenter = Rc<RefCell<SessionPresenter>>;
 
 impl SessionPresenter {
     pub fn new() -> SessionPresenter {
+        let mut session = Session::new(GSR.to_string()).unwrap();
+        let state = session.state();
+
         Self {
-            session: Session::new(GSR.to_string()).unwrap(),
+            session,
+            state,
             event_bus: EventBus::new_ref(),
             mixers_presenters: Vec::new(),
         }
@@ -55,19 +60,12 @@ impl SessionPresenter {
 
     pub fn new_session(&mut self) {
         self.exit();
-        self.session = Session::new(GSR.to_string()).unwrap();
-        self.notify_new_session();
+        self.receive_new_session(Session::new(GSR.to_string()));
     }
 
     pub fn open_session(&mut self, filename: &str) {
         self.exit();
-        match Session::from_file(filename) {
-            Ok(session) => {
-                self.session = session;
-                self.notify_new_session();
-            }
-            Err(e) => self.notify_error(e),
-        }
+        self.receive_new_session(Session::from_file(filename));
     }
 
     pub fn save_session(&mut self) {
@@ -87,6 +85,17 @@ impl SessionPresenter {
 
     pub fn session(&self) -> &Session {
         &self.session
+    }
+
+    fn receive_new_session(&mut self, result: Result<Session, failure::Error>) {
+        match result {
+            Ok(session) => {
+                self.session = session;
+                self.notify_new_session();
+                self.check_state();
+            },
+            Err(e) => self.notify_error(e),
+        }
     }
 
     pub fn event_bus(&self) -> &REventBus {
@@ -111,30 +120,48 @@ impl SessionPresenter {
         }
     }
 
-    pub fn notify_new_session(&mut self) {
+    fn notify_new_session(&self) {
         self.notify(Notification::NewSession(
             self.session.filename().to_string(),
         ));
-        let state = self.session.state();
-        self.notify(Notification::State(state));
     }
 
     pub fn notify_error(&self, error: failure::Error) {
         self.notify(Notification::Error(format!("{}", error)));
     }
 
-    pub fn manage_result(&self, result: Result<(), failure::Error>) {
+    fn manage_result(&self, result: Result<(), failure::Error>) {
         match result {
             Ok(()) => {}
             Err(e) => self.notify_error(e),
         }
     }
 
-    pub fn manage_state_result(&self, result: Result<State, failure::Error>) {
-        match result {
-            Ok(state) => self.event_bus.borrow().notify(Notification::State(state)),
-            Err(e) => self.notify_error(e),
+    fn manage_state(&mut self, state: State) {
+
+        if state != self.state {
+            self.event_bus.borrow().notify(Notification::State(state));
+            self.state = state;
         }
+    }
+
+    fn manage_state_result(&mut self, result: Result<State, failure::Error>) -> bool {
+        match result {
+            Ok(state) => {
+                self.manage_state(state);
+                true
+            },
+            Err(e) => {
+                self.notify_error(e);
+                false
+            },
+        }
+    }
+
+    pub fn check_state(&mut self) -> State {
+        let state = self.session.state();
+        self.manage_state(state);
+        self.state
     }
 
     pub fn init(&mut self) {
@@ -153,7 +180,7 @@ impl SessionPresenter {
     pub fn sample_rate(&self) -> usize {
         self.session.sample_rate()
     }
-    pub fn set_sample_rate(&self, sample_rate: usize) {
+    pub fn set_sample_rate(&mut self, sample_rate: usize) {
         let res = self.session.set_sample_rate(sample_rate);
         self.manage_state_result(res);
     }
@@ -163,15 +190,18 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
-        println!("SessionPresenter add_talker {}", talker_model);
         let res = self.session.add_talker(talker_model);
-        self.manage_state_result(res);
-        self.notify(Notification::NewTalker);
+        
+        if self.manage_state_result(res) {
+            self.notify(Notification::NewTalker);
+        }
     }
 
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
-        self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string()));
-        self.notify(Notification::TalkerChanged);
+
+        if self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string())) {
+            self.notify(Notification::TalkerChanged);
+        }
     }
 
     pub fn find_compatible_hum_with_voice_in_ear(
@@ -185,9 +215,9 @@ impl SessionPresenter {
         Ok(0)
     }
 
-    pub fn modify_band(&mut self, operation: &Operation) {
+    pub fn modify_band(&mut self, operation: &Operation) -> bool {
         let res = self.session.modify_band(operation);
-        self.manage_state_result(res);
+        self.manage_state_result(res)
     }
 
     pub fn set_start_tick(&mut self, t: i64) {
@@ -204,10 +234,7 @@ impl SessionPresenter {
         let this = session_presenter_reference.clone();
 
         glib::timeout_add_seconds_local(1, move || {
-            let state = this.borrow_mut().session.state();
-            this.borrow().notify(Notification::State(state));
-
-            match state {
+            match this.borrow_mut().check_state() {
                 State::Playing | State::Recording => glib::ControlFlow::Continue,
                 _ => glib::ControlFlow::Break,
             }
@@ -354,10 +381,15 @@ impl SessionPresenter {
             operations.push(Operation::SetMixerOutputs(mixer_presenter.id(), outputs_params));
         }
 
+        let mut operations_ok = true;
+
         for operation in &operations {
-            self.modify_band(operation);
+            operations_ok &= self.modify_band(operation);
         }
-        self.notify(Notification::TalkerChanged);
+
+        if operations_ok {
+            self.notify(Notification::TalkerChanged);
+        }
     }
 
     pub fn cancel_mixers_presenters(&mut self) {
