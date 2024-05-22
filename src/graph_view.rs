@@ -110,6 +110,7 @@ pub struct EventReceiver {
     session_presenter: RSessionPresenter,
     graph_presenter: RGraphPresenter,
     talker_controls: Vec<RTalkerControl>,
+    event_bus: REventBus,
 }
 pub type REventReceiver = Rc<RefCell<EventReceiver>>;
 
@@ -117,11 +118,13 @@ impl EventReceiver {
     pub fn new_ref(
         session_presenter: &RSessionPresenter,
         graph_presenter: &RGraphPresenter,
+        event_bus: &REventBus,
     ) -> REventReceiver {
         Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
             graph_presenter: graph_presenter.clone(),
             talker_controls: Vec::new(),
+            event_bus: event_bus.clone(),
         }))
     }
     pub fn set_talker_controls(&mut self, talker_controls: &HashMap<Id, RTalkerControl>) {
@@ -142,8 +145,8 @@ impl EventReceiver {
         hum_idx: Index,
         popover: &gtk::Popover,
     ) {
-        let session = self.session_presenter.borrow();
-        let tkr = session.find_talker(talker_id).unwrap();
+        let session_presenter = self.session_presenter.borrow();
+        let tkr = session_presenter.find_talker(talker_id).unwrap();
 
         let (min, max, def) = tkr.ear(ear_idx).hum_range(hum_idx);
         let cur = tkr.ear(ear_idx).talk_value_or_default(set_idx, hum_idx);
@@ -185,6 +188,7 @@ impl EventReceiver {
         popover.set_pointing_to(Some(&Rectangle::new(x as i32, y as i32, 1, 1)));
         popover.popup();
     }
+
     pub fn on_button_release(&self, area_x: f64, area_y: f64, popover: &gtk::Popover) {
         let x = area_x - 5.;
         let y = area_y - 5.;
@@ -203,12 +207,12 @@ impl EventReceiver {
                             ) => self.on_ear_value_selected(
                                 x, y, talker_id, ear_idx, set_idx, hum_idx, popover,
                             ),
-                            _ => self.session_presenter.borrow().notify(notification),
+                            _ => self.event_bus.borrow().notify(notification),
                         }
                     }
                     return;
                 }
-                Err(e) => self.session_presenter.borrow().notify_error(e),
+                Err(e) => self.event_bus.borrow().notify_error(e),
             }
         }
     }
@@ -228,8 +232,8 @@ pub struct GraphView {
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphView {
-        let graph_presenter = GraphPresenter::new_ref(session_presenter);
+    pub fn new_ref(session_presenter: &RSessionPresenter, event_bus: &REventBus) -> RGraphView {
+        let graph_presenter = GraphPresenter::new_ref(session_presenter, event_bus);
 
         let drawing_area = gtk::DrawingArea::builder()
             .margin_bottom(0)
@@ -245,8 +249,8 @@ impl GraphView {
             .autohide(true)
             .build();
 
-        let gp_on_close = graph_presenter.clone();
-        popover.connect_closed(move |_| gp_on_close.borrow().notify_talker_changed());
+        let ev_on_close = event_bus.clone();
+        popover.connect_closed(move |_| ev_on_close.borrow().notify(Notification::TalkerChanged));
 
         let area = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
@@ -258,7 +262,7 @@ impl GraphView {
 
         let rgv = Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            event_receiver: EventReceiver::new_ref(session_presenter, &graph_presenter),
+            event_receiver: EventReceiver::new_ref(session_presenter, &graph_presenter, event_bus),
             graph_presenter,
             drawing_area,
             area,
@@ -268,7 +272,7 @@ impl GraphView {
             build_needed: true,
         }));
         GraphView::connect_area(&rgv, &rgv.borrow().drawing_area, popover);
-        GraphView::observe(&rgv, session_presenter.borrow().event_bus());
+        GraphView::observe(&rgv, event_bus);
 
         rgv
     }
@@ -293,6 +297,11 @@ impl GraphView {
         &self.area
     }
 
+    pub fn init(&mut self) {
+        self.graph_presenter.borrow_mut().init();
+        self.draw();
+    }
+
     pub fn draw(&mut self) {
         self.build_needed = true;
         self.drawing_area.queue_draw();
@@ -302,8 +311,12 @@ impl GraphView {
         self.drawing_area.queue_draw();
     }
 
-    pub fn unselect_talker(&self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
-        self.graph_presenter.borrow_mut().unselect_talker(talker_id)
+    pub fn selected_data_talker(&self) -> Option<Id> {
+        self.graph_presenter.borrow().selected_data_talker()
+    }
+
+    pub fn unselect_data_talker(&self) -> Result<Vec<Notification>, failure::Error> {
+        self.graph_presenter.borrow_mut().unselect_data_talker()
     }
 
     fn column_layout(
@@ -567,9 +580,7 @@ impl GraphView {
         match ControlSupply::new(cc) {
             Ok(control_supply) => match self.create_graph(drawing_area, &control_supply) {
                 Ok(talker_controls) => {
-                    self.event_receiver
-                        .borrow_mut()
-                        .set_talker_controls(&talker_controls);
+                    self.event_receiver.borrow_mut().set_talker_controls(&talker_controls);
 
                     self.talker_controls = talker_controls;
 
@@ -607,9 +618,8 @@ impl GraphView {
         bus.borrow_mut()
             .add_observer(Box::new(move |notification| match notification {
                 Notification::SelectionChanged => obs.borrow_mut().refresh(),
-                Notification::NewSession(_)
-                | Notification::TalkerChanged
-                | Notification::NewTalker => obs.borrow_mut().draw(),
+                Notification::NewSession(_) => obs.borrow_mut().init(),
+                Notification::TalkerChanged | Notification::NewTalker => obs.borrow_mut().draw(),
                 _ => (),
             }))
     }

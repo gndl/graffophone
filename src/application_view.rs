@@ -2,8 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
-use gtk::FileDialog;
-use gtk::{glib, Widget};
+use gtk::Widget;
 
 use talker::data::Data;
 use talker::identifier::Id;
@@ -14,8 +13,9 @@ use session::state::State;
 use sourceview5::traits::BufferExt;
 
 use crate::graph_view::{GraphView, RGraphView};
+use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
-use crate::ui;
+use crate::settings;
 use crate::ui::talker_object::TalkerObject;
 
 pub struct ApplicationView {
@@ -28,37 +28,38 @@ pub struct ApplicationView {
     message_bar_label: gtk::Label,
     text_view: sourceview5::View,
     text_view_scrolledwindow: gtk::ScrolledWindow,
-    apply_text_button: gtk::Button,
-    validate_text_button: gtk::Button,
-    cancel_text_button: gtk::Button,
+    push_talker_data_button: gtk::Button,
+    commit_talker_data_button: gtk::Button,
+    cancel_talker_data_button: gtk::Button,
     talkers_box: gtk::Box,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
-    selected_talker_id: Option<Id>,
+    event_bus: REventBus,
 }
 
 pub type RApplicationView = Rc<RefCell<ApplicationView>>;
 
 impl ApplicationView {
-    fn new(
+    pub fn new_ref(
         application: &gtk::Application,
         session_presenter: &RSessionPresenter,
-    ) -> Result<ApplicationView, failure::Error> {
+        event_bus: &REventBus,
+    ) -> Result<RApplicationView, failure::Error> {
         // header bar
         let headerbar = gtk::HeaderBar::new();
 
         // header bar left controls
 
-        let new_session_button = gtk::Button::from_icon_name("document-new");
+        let new_session_button = gtk::Button::builder().icon_name("document-new").action_name("session.new").build();
         headerbar.pack_start(&new_session_button);
 
-        let open_session_button = gtk::Button::from_icon_name("document-open");
+        let open_session_button = gtk::Button::builder().icon_name("document-open").action_name("session.open").build();
         headerbar.pack_start(&open_session_button);
 
-        let save_session_button = gtk::Button::from_icon_name("document-save");
+        let save_session_button = gtk::Button::builder().icon_name("document-save").action_name("session.save").build();
         headerbar.pack_start(&save_session_button);
 
-        let save_session_as_button = gtk::Button::from_icon_name("document-save-as");
+        let save_session_as_button = gtk::Button::builder().icon_name("document-save-as").action_name("session.save_as").build();
         headerbar.pack_start(&save_session_as_button);
 
         let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
@@ -74,34 +75,34 @@ impl ApplicationView {
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&separator);
 
-        // Apply text
-        let apply_text_button = gtk::Button::from_icon_name("go-up");
-        headerbar.pack_start(&apply_text_button);
+        // Push talker data
+        let push_talker_data_button = gtk::Button::builder().icon_name("go-up").action_name("session.push_talker_data").build();
+        headerbar.pack_start(&push_talker_data_button);
 
-        // Validate text
-        let validate_text_button = gtk::Button::from_icon_name("dialog-ok");
-        headerbar.pack_start(&validate_text_button);
+        // Commit talker data
+        let commit_talker_data_button = gtk::Button::builder().icon_name("dialog-ok").action_name("session.commit_talker_data").build();
+        headerbar.pack_start(&commit_talker_data_button);
 
-        // Cancel text
-        let cancel_text_button = gtk::Button::from_icon_name("dialog-cancel");
-        headerbar.pack_start(&cancel_text_button);
+        // Cancel talker data
+        let cancel_talker_data_button = gtk::Button::builder().icon_name("dialog-cancel").action_name("session.cancel_talker_data").build();
+        headerbar.pack_start(&cancel_talker_data_button);
 
         // header bar right controls
-        let settings_menu = ui::settings::menu();
+        let settings_menu = settings::menu();
         let menu_button = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&settings_menu).build();
         headerbar.pack_end(&menu_button);
 
         let right_separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_end(&right_separator);
 
-        let record_button = gtk::Button::from_icon_name("media-record-symbolic");
+        let record_button = gtk::Button::builder().icon_name("media-record-symbolic").action_name("session.record").build();
         headerbar.pack_end(&record_button);
 
-        let stop_button = gtk::Button::from_icon_name("media-playback-stop-symbolic");
+        let stop_button = gtk::Button::builder().icon_name("media-playback-stop-symbolic").action_name("session.stop").build();
         headerbar.pack_end(&stop_button);
 
         let play_or_pause_icon = gtk::Image::from_icon_name("media-playback-start-symbolic");
-        let play_or_pause_button = gtk::Button::builder().child(&play_or_pause_icon).build();
+        let play_or_pause_button = gtk::Button::builder().child(&play_or_pause_icon).action_name("session.play").build();
 
         headerbar.pack_end(&play_or_pause_button);
 
@@ -130,7 +131,6 @@ impl ApplicationView {
             .hadjustment(&text_view.hadjustment().unwrap())
             .vexpand(true)
             .max_content_height(256)
-            .visible(false)
             .build();
 
 
@@ -151,7 +151,7 @@ impl ApplicationView {
 
 
         // Graph view
-        let graph_view = GraphView::new_ref(&session_presenter);
+        let graph_view = GraphView::new_ref(&session_presenter, event_bus);
 
         let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
             .hexpand(true)
@@ -179,53 +179,6 @@ impl ApplicationView {
         /*
         Actions
         */
-        // New session
-        let new_ctrl = session_presenter.clone();
-        new_session_button.connect_clicked(move |_| {
-            new_ctrl.borrow_mut().new_session();
-        });
-
-        // Open session
-        let open_session_ctrl = session_presenter.clone();
-
-        open_session_button.connect_clicked(glib::clone!(@weak window, @weak open_session_ctrl => move |_| {
-            let dialog = FileDialog::builder()
-                .title("Choose a Graffophone session record file")
-                .accept_label("Open")
-                .build();
-
-            dialog.open(Some(&window), gio::Cancellable::NONE, move |file| {
-                if let Ok(file) = file {
-                    let path_buf = file.path().expect("Couldn't get file path");
-                            open_session_ctrl.borrow_mut().open_session(&path_buf.to_string_lossy());
-                }
-            });
-        }));
-
-        // Save session
-        let save_session_ctrl = session_presenter.clone();
-        save_session_button.connect_clicked(move |_| {
-            save_session_ctrl.borrow_mut().save_session();
-        });
-
-        // Save session as
-        let save_session_as_ctrl = session_presenter.clone();
-        save_session_as_button.connect_clicked(glib::clone!(@weak window =>move |_| {
-            let dialog = FileDialog::builder().title("Choose a Graffophone session record file")
-                .accept_label("Open").initial_name(session::session::NEW_SESSION_FILENAME)
-                .build();
-
-            let save_session_as_ctrl_ctrl = save_session_as_ctrl.clone();
-            dialog.save(Some(&window), gio::Cancellable::NONE, move |file| {
-                if let Ok(file) = file {
-                    let path_buf = file.path().expect("Couldn't get file path");
-                            save_session_as_ctrl_ctrl
-                                .borrow_mut()
-                                .save_session_as(&path_buf.to_string_lossy());
-                }
-            });
-        }));
-
         // talkers tree toggle
         talkers_list_toggle.connect_toggled(move |tb| {
             if tb.is_active() {
@@ -233,24 +186,6 @@ impl ApplicationView {
             } else {
                 talkers_box_scrolledwindow.set_visible(false);
             }
-        });
-
-        // Play
-        let play_or_pause_ctrl = session_presenter.clone();
-        play_or_pause_button.connect_clicked(move |_| {
-            play_or_pause_ctrl.borrow_mut().play_or_pause(&play_or_pause_ctrl);
-        });
-
-        // Stop
-        let stop_ctrl = session_presenter.clone();
-        stop_button.connect_clicked(move |_| {
-            stop_ctrl.borrow_mut().stop();
-        });
-
-        // Record
-        let record_ctrl = session_presenter.clone();
-        record_button.connect_clicked(move |_| {
-            record_ctrl.borrow_mut().record(&record_ctrl);
         });
 
         // Message bar close
@@ -261,7 +196,9 @@ impl ApplicationView {
 
         window.present();
 
-        Ok(Self {
+        let action_window = window.clone();
+
+        let av = Self {
             window,
             play_or_pause_button,
             play_or_pause_icon,
@@ -271,24 +208,22 @@ impl ApplicationView {
             message_bar_label,
             text_view,
             text_view_scrolledwindow,
-            apply_text_button,
-            validate_text_button,
-            cancel_text_button,
+            push_talker_data_button,
+            commit_talker_data_button,
+            cancel_talker_data_button,
             talkers_box,
             graph_view,
             session_presenter: session_presenter.clone(),
-            selected_talker_id: None,
-        })
-    }
+            event_bus: event_bus.clone(),
+        };
 
-    pub fn new_ref(
-        application: &gtk::Application,
-        session_presenter: &RSessionPresenter,
-    ) -> Result<RApplicationView, failure::Error> {
-        let av = ApplicationView::new(application, session_presenter)?;
+        av.hide_talker_data_editor();
+
         let rav = Rc::new(RefCell::new(av));
-        ApplicationView::create_text_editor(&rav);
-        ApplicationView::observe(&rav, session_presenter.borrow().event_bus());
+        
+        session_actions::create_actions_entries(application, &action_window, &rav, &session_presenter);
+        ApplicationView::observe(&rav, event_bus);
+        
         Ok(rav)
     }
 
@@ -353,48 +288,7 @@ impl ApplicationView {
         self.talkers_box.append(&gtk::Label::new(None));
     }
 
-    fn unselect_talker(&self) {
-        if let Some(talker_id) = self.selected_talker_id {
-            let res = self.graph_view.borrow().unselect_talker(talker_id);
-            self.session_presenter
-                .borrow()
-                .notify_notifications_result(res);
-        }
-    }
-    fn create_text_editor(application_view: &RApplicationView) {
-        // Apply text
-        let apply_text_view = application_view.clone();
-        application_view
-            .borrow()
-            .apply_text_button
-            .connect_clicked(move |_| {
-                apply_text_view.borrow().set_talker_data();
-            });
-
-        // Validate text
-        let validate_text_view = application_view.clone();
-        application_view
-            .borrow()
-            .validate_text_button
-            .connect_clicked(move |_| {
-                validate_text_view.borrow().set_talker_data();
-                validate_text_view.borrow().unselect_talker();
-                validate_text_view.borrow_mut().disable_text_editor();
-            });
-
-        // Cancel text
-        let cancel_text_view = application_view.clone();
-        application_view
-            .borrow()
-            .cancel_text_button
-            .connect_clicked(move |_| {
-                cancel_text_view.borrow().unselect_talker();
-                cancel_text_view.borrow_mut().disable_text_editor();
-            });
-        application_view.borrow_mut().disable_text_editor();
-    }
-
-    fn edit_talker_data(&mut self, talker_id: Id) {
+    fn edit_talker_data(&self, talker_id: Id) {
         if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
             match &*talker.data().borrow() {
                 Data::Int(_) => println!("Todo : Applicationview.edit_talker_data Data::Int"),
@@ -415,10 +309,9 @@ impl ApplicationView {
                     text_buffer.set_text(&data);
                     self.text_view.set_buffer(Some(&text_buffer));
                     self.text_view_scrolledwindow.set_visible(true);
-                    self.apply_text_button.set_visible(true);
-                    self.validate_text_button.set_visible(true);
-                    self.cancel_text_button.set_visible(true);
-                    self.selected_talker_id = Some(talker_id);
+                    self.push_talker_data_button.set_visible(true);
+                    self.commit_talker_data_button.set_visible(true);
+                    self.cancel_talker_data_button.set_visible(true);
                     self.text_view.grab_focus();
                 }
                 Data::File(_) => println!("Todo : Applicationview.edit_talker_data Data::File"),
@@ -427,9 +320,12 @@ impl ApplicationView {
         }
     }
 
-    fn set_talker_data(&self) {
-        if let Some(talker_id) = self.selected_talker_id {
+    pub fn push_talker_data(&self) {
+        let selected_data_talker = self.graph_view.borrow().selected_data_talker();
+
+        if let Some(talker_id) = selected_data_talker {
             let text_buffer = self.text_view.buffer();
+
             self.session_presenter.borrow_mut().set_talker_data(
                 talker_id,
                 &text_buffer.text(&text_buffer.start_iter(), &text_buffer.end_iter(), false),
@@ -437,13 +333,28 @@ impl ApplicationView {
         }
     }
 
-    fn disable_text_editor(&mut self) {
+    pub fn commit_talker_data(&self) {
+        self.push_talker_data();
+        self.close_talker_data_editor();
+    }
+
+    pub fn cancel_talker_data(&self) {
+        self.close_talker_data_editor();
+    }
+
+    fn close_talker_data_editor(&self) {
+        self.hide_talker_data_editor();
+
+        let res = self.graph_view.borrow().unselect_data_talker();
+        self.event_bus.borrow().notify_notifications_result(res);
+    }
+
+    fn hide_talker_data_editor(&self) {
         //        self.text_view.set_buffer(None::<&impl IsA<TextBuffer>>);
         self.text_view_scrolledwindow.set_visible(false);
-        self.apply_text_button.set_visible(false);
-        self.validate_text_button.set_visible(false);
-        self.cancel_text_button.set_visible(false);
-        self.selected_talker_id = None;
+        self.push_talker_data_button.set_visible(false);
+        self.commit_talker_data_button.set_visible(false);
+        self.cancel_talker_data_button.set_visible(false);
     }
 
     fn display_message(&self, markup_message: &String) {
@@ -517,7 +428,7 @@ impl ApplicationView {
                 },
                 Notification::NewSession(name) => {
                     obs.borrow().hide_message();
-                    obs.borrow_mut().disable_text_editor();
+                    obs.borrow().hide_talker_data_editor();
                     obs.borrow().window.set_title(Some(&name));
                 }
                 Notification::NewSessionName(name) => {
@@ -530,7 +441,7 @@ impl ApplicationView {
                 }
                 Notification::TalkersRange(talkers) => obs.borrow().fill_talkers_list(&talkers),
                 Notification::EditTalkerData(talker_id) => {
-                    obs.borrow_mut().edit_talker_data(*talker_id)
+                    obs.borrow().edit_talker_data(*talker_id)
                 }
                 Notification::CurveAdded => println!("Todo : Applicationview.CurveAdded"),
                 Notification::CurveRemoved => println!("Todo : Applicationview.CurveRemoved"),

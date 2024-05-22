@@ -972,7 +972,7 @@ impl TalkerControlBase {
 
             if let Some(data_area) = &self.data_area {
                 if data_area.is_under(rx, ry) {
-                    let notifications = graph_presenter.borrow_mut().select_talker_data(self.id)?;
+                    let notifications = graph_presenter.borrow_mut().select_data_talker(self.id)?;
                     return Ok(Some(notifications));
                 }
             }

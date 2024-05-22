@@ -9,9 +9,10 @@ extern crate session;
 use crate::gtk::prelude::ApplicationExt;
 use crate::gtk::prelude::ApplicationExtManual;
 use gtk::gdk::Display;
+use gtk::prelude::GtkApplicationExt;
 use gtk::{CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
-use crate::gio::prelude::ActionMapExtManual;
 
+use session::event_bus::EventBus;
 
 mod application_view;
 mod graph_presenter;
@@ -19,7 +20,9 @@ mod graph_view;
 mod mixer_control;
 mod mixer_presenter;
 mod output_presenter;
+mod session_actions;
 mod session_presenter;
+mod settings;
 mod style;
 mod talker_control;
 mod ui;
@@ -32,7 +35,7 @@ fn main() {
     let application =
         gtk::Application::new(Some("com.gitlab.gndl.graffophone"), Default::default());
 
-    application.connect_startup(|app: &gtk::Application| {
+    application.connect_startup(|_: &gtk::Application| {
         // The CSS "magic" happens here.
         let provider = CssProvider::new();
         provider.load_from_string(include_str!("css/style.css").as_ref());
@@ -47,13 +50,15 @@ fn main() {
 
     application.connect_activate(|app| {
         sourceview5::init();
+        let event_bus = EventBus::new_ref();
 
-        let session_presenter = SessionPresenter::new_ref();
+        let session_presenter = SessionPresenter::new_ref(&event_bus);
 
-        app.add_action_entries(ui::settings::action_entries(app, &session_presenter));
+        settings::create_actions_entries(app, &session_presenter);
+        app.set_accels_for_action("window.close", &["<Ctrl>Q"]);
 
-        match ApplicationView::new_ref(app, &session_presenter) {
-            Ok(_) => session_presenter.borrow_mut().init(),
+        match ApplicationView::new_ref(app, &session_presenter, &event_bus) {
+            Ok(_) => session_presenter.borrow().init(),
             Err(e) => eprintln!("{}", e),
         }
     });

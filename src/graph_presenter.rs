@@ -7,7 +7,7 @@ use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
 
 use session::band::Operation;
-use session::event_bus::Notification;
+use session::event_bus::{Notification, REventBus};
 
 use crate::session_presenter::RSessionPresenter;
 
@@ -17,37 +17,48 @@ pub struct GraphPresenter {
     selected_voice: Option<(Id, Index)>,
     new_talker: Option<Id>,
     selected_talkers: HashSet<Id>,
+    selected_data_talker: Option<Id>,
     minimized_talkers: HashSet<Id>,
-    control_key_pressed: bool,
-    shift_key_pressed: bool,
-    alt_key_pressed: bool,
+    multi_selection: bool,
     session_presenter: RSessionPresenter,
+    event_bus: REventBus,
 }
 
 pub type RGraphPresenter = Rc<RefCell<GraphPresenter>>;
 
 impl GraphPresenter {
-    pub fn new(session_presenter: &RSessionPresenter) -> GraphPresenter {
-        Self {
+    pub fn new_ref(session_presenter: &RSessionPresenter, event_bus: &REventBus) -> RGraphPresenter {
+        Rc::new(RefCell::new(Self {
             selected_hum: None,
             selected_hum_add_in: None,
             selected_voice: None,
             new_talker: None,
             selected_talkers: HashSet::new(),
+            selected_data_talker: None,
             minimized_talkers: HashSet::new(),
-            control_key_pressed: false,
-            shift_key_pressed: false,
-            alt_key_pressed: false,
+            multi_selection: false,
             session_presenter: session_presenter.clone(),
-        }
+            event_bus: event_bus.clone(),
+        }))
     }
 
-    pub fn new_ref(session_presenter: &RSessionPresenter) -> RGraphPresenter {
-        Rc::new(RefCell::new(GraphPresenter::new(session_presenter)))
+    pub fn init(&mut self) {
+        self.selected_hum = None;
+        self.selected_hum_add_in = None;
+        self.selected_voice = None;
+        self.new_talker = None;
+        self.selected_talkers.clear();
+        self.selected_data_talker = None;
+        self.minimized_talkers.clear();
+        self.multi_selection = false;
     }
 
     pub fn talker_selected(&self, talker_id: Id) -> bool {
         self.selected_talkers.contains(&talker_id)
+    }
+
+    pub fn selected_data_talker(&self) -> Option<Id> {
+        self.selected_data_talker
     }
 
     pub fn talker_minimized(&self, talker_id: Id) -> bool {
@@ -91,20 +102,10 @@ impl GraphPresenter {
         }
     }
 
-    pub fn set_control_key_pressed(&mut self, v: bool) {
-        self.control_key_pressed = v;
-    }
-    pub fn set_shift_key_pressed(&mut self, v: bool) {
-        self.shift_key_pressed = v;
-    }
-    pub fn set_alt_key_pressed(&mut self, v: bool) {
-        self.alt_key_pressed = v;
-    }
-
     pub fn select_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
         let mut notifications = Vec::new();
 
-        if self.control_key_pressed || self.selected_talkers.len() < 2 {
+        if self.multi_selection || self.selected_talkers.len() < 2 {
             if self.selected_talkers.contains(&talker_id) {
                 self.selected_talkers.remove(&talker_id);
                 notifications.push(Notification::TalkerUnselected(talker_id));
@@ -134,7 +135,8 @@ impl GraphPresenter {
         }
         Ok(notifications)
     }
-    pub fn select_talker_data(
+
+    pub fn select_data_talker(
         &mut self,
         talker_id: Id,
     ) -> Result<Vec<Notification>, failure::Error> {
@@ -143,12 +145,26 @@ impl GraphPresenter {
         for id in &self.selected_talkers {
             notifications.push(Notification::TalkerUnselected(*id));
         }
+
         self.selected_talkers.clear();
         self.selected_talkers.insert(talker_id);
+        self.selected_data_talker = Some(talker_id);
+
         notifications.push(Notification::TalkerSelected(talker_id));
         notifications.push(Notification::SelectionChanged);
         notifications.push(Notification::EditTalkerData(talker_id));
+
         Ok(notifications)
+    }
+
+    pub fn unselect_data_talker(&mut self) -> Result<Vec<Notification>, failure::Error> {
+        match self.selected_data_talker {
+            Some(talker_id) => {
+                self.selected_data_talker = None;
+                self.unselect_talker(talker_id)
+            },
+            None => Ok(Vec::new()),
+        }
     }
 
     pub fn minimize_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
@@ -171,23 +187,7 @@ impl GraphPresenter {
             Notification::TalkerChanged,
         ])
     }
-    /*
-        pub fn set_talker_data(
-            &mut self,
-            talker_id: Id,
-            data: &str,
-            fly: bool,
-        ) -> Result<Vec<Notification>, failure::Error> {
-            self.session_presenter
-                .borrow_mut()
-                .set_talker_data(talker_id, data);
 
-            if !fly {
-                return Ok(vec![Notification::TalkerChanged]);
-            }
-            Ok(vec![])
-        }
-    */
     pub fn set_talker_ear_talk_value(
         &mut self,
         talker_id: Id,
@@ -205,30 +205,10 @@ impl GraphPresenter {
             ));
 
         if notify {
-            self.session_presenter
-                .borrow()
-                .notify(Notification::TalkerChanged);
+            self.event_bus.borrow().notify(Notification::TalkerChanged);
         }
     }
 
-    pub fn notify_talker_changed(&self) {
-        self.session_presenter
-            .borrow()
-            .notify(Notification::TalkerChanged);
-    }
-    /*
-        pub fn add_talker_ear_set_value(
-            &mut self,
-            talker_id: Id,
-            ear_idx: Index,
-            value: f32,
-        ) -> Result<Vec<Notification>, failure::Error> {
-            self.session_presenter
-                .borrow_mut()
-                .modify_band(&Operation::AddSetValueToEar(talker_id, ear_idx, value));
-            Ok(vec![Notification::TalkerChanged])
-        }
-    */
     pub fn select_ear_hum(
         &mut self,
         talker_id: Id,
@@ -591,10 +571,6 @@ impl GraphPresenter {
         self.new_talker = Some(talker.id());
         notifications.push(Notification::TalkerChanged);
         Ok(notifications)
-    }
-
-    pub fn new_talker(&self) -> Option<Id> {
-        self.new_talker
     }
 
     pub fn sup_talker(&self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {

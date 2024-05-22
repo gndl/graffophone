@@ -36,14 +36,6 @@ pub enum Notification {
     Warning(String),
     Error(String),
 }
-
-// pub trait Observer {
-//     fn observe(&mut self, notification: &Notification);
-// }
-
-// pub type RObserver = Rc<RefCell<dyn Observer>>;
-// pub type Observer = dyn FnMut(&Notification);
-// pub type RObserver = RefCell<dyn Observer>;
 pub type RObserver = Box<dyn Fn(&Notification)>;
 
 pub struct EventBus {
@@ -69,12 +61,25 @@ impl EventBus {
 
     pub fn notify(&self, notification: Notification) {
         for obs in &self.observers {
-            //            obs.borrow_mut().observe(&notification);
             obs(&notification);
         }
     }
 
-    pub fn async_notify(&self, _notification: Notification) {
-        // GtkThread.async notify notif
+    pub fn notify_error(&self, error: failure::Error) {
+        self.notify(Notification::Error(format!("{}", error)));
+    }
+
+    pub fn notify_notifications_result(
+        &self,
+        notifications_result: Result<Vec<Notification>, failure::Error>,
+    ) {
+        match notifications_result {
+            Ok(notifications) => {
+                for notification in notifications {
+                    self.notify(notification);
+                }
+            }
+            Err(e) => self.notify_error(e),
+        }
     }
 }

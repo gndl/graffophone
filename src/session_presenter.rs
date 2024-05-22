@@ -10,7 +10,7 @@ use talker::talker::RTalker;
 use talker::Identifier;
 
 use crate::session::band::Operation;
-use crate::session::event_bus::{EventBus, Notification, REventBus};
+use crate::session::event_bus::{Notification, REventBus};
 use crate::session::factory::{Factory, OutputParam};
 use crate::session::session::{self, Session};
 use crate::session::state::State;
@@ -36,26 +36,22 @@ Mixer 1#Mixer 1
 pub struct SessionPresenter {
     session: Session,
     state: State,
-    event_bus: REventBus,
     mixers_presenters: Vec<MixerPresenter>,
+    event_bus: REventBus,
 }
 pub type RSessionPresenter = Rc<RefCell<SessionPresenter>>;
 
 impl SessionPresenter {
-    pub fn new() -> SessionPresenter {
+    pub fn new_ref(event_bus: &REventBus) -> RSessionPresenter {
         let mut session = Session::new(GSR.to_string()).unwrap();
         let state = session.state();
 
-        Self {
+        Rc::new(RefCell::new(Self {
             session,
             state,
-            event_bus: EventBus::new_ref(),
             mixers_presenters: Vec::new(),
-        }
-    }
-
-    pub fn new_ref() -> RSessionPresenter {
-        Rc::new(RefCell::new(SessionPresenter::new()))
+            event_bus: event_bus.clone(),
+        }))
     }
 
     pub fn new_session(&mut self) {
@@ -76,7 +72,7 @@ impl SessionPresenter {
         let res = self.session.save_as(filename);
 
         if res.is_ok() {
-            self.notify(Notification::NewSessionName(
+            self.event_bus.borrow().notify(Notification::NewSessionName(
                 self.session.filename().to_string(),
             ));
         }
@@ -94,46 +90,20 @@ impl SessionPresenter {
                 self.notify_new_session();
                 self.check_state();
             },
-            Err(e) => self.notify_error(e),
-        }
-    }
-
-    pub fn event_bus(&self) -> &REventBus {
-        &self.event_bus
-    }
-
-    pub fn notify(&self, notification: Notification) {
-        self.event_bus().borrow().notify(notification);
-    }
-
-    pub fn notify_notifications_result(
-        &self,
-        notifications_result: Result<Vec<Notification>, failure::Error>,
-    ) {
-        match notifications_result {
-            Ok(notifications) => {
-                for notification in notifications {
-                    self.notify(notification);
-                }
-            }
-            Err(e) => self.notify_error(e),
+            Err(e) => self.event_bus.borrow().notify_error(e),
         }
     }
 
     fn notify_new_session(&self) {
-        self.notify(Notification::NewSession(
+        self.event_bus.borrow().notify(Notification::NewSession(
             self.session.filename().to_string(),
         ));
-    }
-
-    pub fn notify_error(&self, error: failure::Error) {
-        self.notify(Notification::Error(format!("{}", error)));
     }
 
     fn manage_result(&self, result: Result<(), failure::Error>) {
         match result {
             Ok(()) => {}
-            Err(e) => self.notify_error(e),
+            Err(e) => self.event_bus.borrow().notify_error(e),
         }
     }
 
@@ -152,7 +122,7 @@ impl SessionPresenter {
                 true
             },
             Err(e) => {
-                self.notify_error(e);
+                self.event_bus.borrow().notify_error(e);
                 false
             },
         }
@@ -164,12 +134,12 @@ impl SessionPresenter {
         self.state
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&self) {
         let res = session::init();
         self.manage_result(res);
 
         let res = Factory::visit(|factory| {
-            Ok(self.event_bus().borrow().notify(Notification::TalkersRange(
+            Ok(self.event_bus.borrow().notify(Notification::TalkersRange(
                 factory.get_categorized_talkers_label_model(),
             )))
         });
@@ -193,14 +163,14 @@ impl SessionPresenter {
         let res = self.session.add_talker(talker_model);
         
         if self.manage_state_result(res) {
-            self.notify(Notification::NewTalker);
+            self.event_bus.borrow().notify(Notification::NewTalker);
         }
     }
 
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
 
         if self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string())) {
-            self.notify(Notification::TalkerChanged);
+            self.event_bus.borrow().notify(Notification::TalkerChanged);
         }
     }
 
@@ -388,7 +358,7 @@ impl SessionPresenter {
         }
 
         if operations_ok {
-            self.notify(Notification::TalkerChanged);
+            self.event_bus.borrow().notify(Notification::TalkerChanged);
         }
     }
 
