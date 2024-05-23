@@ -6,6 +6,18 @@ use gtk::gio::{ActionEntry, Cancellable, SimpleActionGroup};
 use crate::session_presenter::RSessionPresenter;
 use crate::application_view::RApplicationView;
 
+pub const NEW_SESSION_ACCEL: &str = "<Ctrl>N";
+pub const OPEN_SESSION_ACCEL: &str = "<Ctrl>O";
+pub const SAVE_SESSION_ACCEL: &str = "<Ctrl>S";
+pub const SAVE_SESSION_AS_ACCEL: &str = "<Ctrl><Shift>S";
+pub const PLAY_ACCEL: &str = "<Ctrl>P";
+pub const STOP_ACCEL: &str = "<Ctrl>T";
+pub const RESTART_ACCEL: &str = "<Ctrl>R";
+pub const RECORD_ACCEL: &str = "<Ctrl><Shift>R";
+pub const PUSH_TALKER_DATA_ACCEL: &str = "<Ctrl>U";
+pub const COMMIT_TALKER_DATA_ACCEL: &str = "<Ctrl>M";
+pub const CANCEL_TALKER_DATA_ACCEL: &str = "<Ctrl>W";
+
 pub fn create_actions_entries(application: &gtk::Application, window: &gtk::ApplicationWindow, view: &RApplicationView, session_presenter: &RSessionPresenter,) {
 
     // New session action
@@ -15,7 +27,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_, _, _| new_ctrl.borrow_mut().new_session())
     .build();
 
-    application.set_accels_for_action("session.new", &["<Ctrl>N"]);
+    application.set_accels_for_action("session.new", &[NEW_SESSION_ACCEL]);
 
 
     // Open session action
@@ -37,7 +49,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     }))
     .build();
 
-    application.set_accels_for_action("session.open", &["<Ctrl>O"]);
+    application.set_accels_for_action("session.open", &[OPEN_SESSION_ACCEL]);
 
 
     // Save session action
@@ -47,7 +59,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_, _, _| save_ctrl.borrow_mut().save_session())
     .build();
 
-    application.set_accels_for_action("session.save", &["<Ctrl>S"]);
+    application.set_accels_for_action("session.save", &[SAVE_SESSION_ACCEL]);
 
 
     // Save session as action
@@ -68,7 +80,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     }))
     .build();
 
-    application.set_accels_for_action("session.save_as", &["<Ctrl><Shift>S"]);
+    application.set_accels_for_action("session.save_as", &[SAVE_SESSION_AS_ACCEL]);
 
 
     // Toggle Play and pause action
@@ -78,7 +90,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| play_ctrl.borrow_mut().play_or_pause(&play_ctrl))
     .build();
 
-    application.set_accels_for_action("session.play", &["<Ctrl>P"]);
+    application.set_accels_for_action("session.play", &[PLAY_ACCEL]);
 
     // Stop action
     let stop_ctrl = session_presenter.clone();
@@ -87,7 +99,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| stop_ctrl.borrow_mut().stop())
     .build();
 
-    application.set_accels_for_action("session.stop", &["<Ctrl>T"]);
+    application.set_accels_for_action("session.stop", &[STOP_ACCEL]);
 
     // Restart action
     let restart_ctrl = session_presenter.clone();
@@ -99,7 +111,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     })
     .build();
 
-    application.set_accels_for_action("session.restart", &["<Ctrl>R"]);
+    application.set_accels_for_action("session.restart", &[RESTART_ACCEL]);
 
     // Record action
     let record_ctrl = session_presenter.clone();
@@ -108,7 +120,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| record_ctrl.borrow_mut().record(&record_ctrl))
     .build();
 
-    application.set_accels_for_action("session.record", &["<Ctrl><Shift>R"]);
+    application.set_accels_for_action("session.record", &[RECORD_ACCEL]);
 
 
     // Push talker data action
@@ -118,7 +130,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| push_talker_data_view.borrow().push_talker_data())
     .build();
 
-    application.set_accels_for_action("session.push_talker_data", &["<Ctrl>U"]);
+    application.set_accels_for_action("session.push_talker_data", &[PUSH_TALKER_DATA_ACCEL]);
 
     // Commit talker data action
     let commit_talker_data_view = view.clone();
@@ -126,7 +138,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| commit_talker_data_view.borrow().commit_talker_data())
     .build();
 
-    application.set_accels_for_action("session.commit_talker_data", &["<Ctrl>M"]);
+    application.set_accels_for_action("session.commit_talker_data", &[COMMIT_TALKER_DATA_ACCEL]);
 
     // Cancel talker data action
     let cancel_talker_data_view = view.clone();
@@ -134,7 +146,7 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| cancel_talker_data_view.borrow().cancel_talker_data())
     .build();
 
-    application.set_accels_for_action("session.cancel_talker_data", &["<Ctrl>W"]);
+    application.set_accels_for_action("session.cancel_talker_data", &[CANCEL_TALKER_DATA_ACCEL]);
 
 
     let actions = SimpleActionGroup::new();

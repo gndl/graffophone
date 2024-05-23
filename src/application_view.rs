@@ -50,16 +50,32 @@ impl ApplicationView {
 
         // header bar left controls
 
-        let new_session_button = gtk::Button::builder().icon_name("document-new").action_name("session.new").build();
+        let new_session_button = gtk::Button::builder()
+            .icon_name("document-new")
+            .action_name("session.new")
+            .tooltip_text(format!("New session ({})", session_actions::NEW_SESSION_ACCEL))
+            .build();
         headerbar.pack_start(&new_session_button);
 
-        let open_session_button = gtk::Button::builder().icon_name("document-open").action_name("session.open").build();
+        let open_session_button = gtk::Button::builder()
+            .icon_name("document-open")
+            .action_name("session.open")
+            .tooltip_text(format!("Open session ({})", session_actions::OPEN_SESSION_ACCEL))
+            .build();
         headerbar.pack_start(&open_session_button);
 
-        let save_session_button = gtk::Button::builder().icon_name("document-save").action_name("session.save").build();
+        let save_session_button = gtk::Button::builder()
+            .icon_name("document-save")
+            .action_name("session.save")
+            .tooltip_text(format!("Save session ({})", session_actions::SAVE_SESSION_ACCEL))
+            .build();
         headerbar.pack_start(&save_session_button);
 
-        let save_session_as_button = gtk::Button::builder().icon_name("document-save-as").action_name("session.save_as").build();
+        let save_session_as_button = gtk::Button::builder()
+            .icon_name("document-save-as")
+            .action_name("session.save_as")
+            .tooltip_text(format!("Save session as ({})", session_actions::SAVE_SESSION_AS_ACCEL))
+            .build();
         headerbar.pack_start(&save_session_as_button);
 
         let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
@@ -68,6 +84,7 @@ impl ApplicationView {
         let talkers_list_toggle = gtk::ToggleButton::builder()
             .icon_name("view-list-tree")
             .active(true)
+            .tooltip_text("Plugins list")
             .build();
 
         headerbar.pack_start(&talkers_list_toggle);
@@ -76,34 +93,60 @@ impl ApplicationView {
         headerbar.pack_start(&separator);
 
         // Push talker data
-        let push_talker_data_button = gtk::Button::builder().icon_name("go-up").action_name("session.push_talker_data").build();
+        let push_talker_data_button = gtk::Button::builder()
+            .icon_name("go-up")
+            .action_name("session.push_talker_data")
+            .tooltip_text(format!("Push talker data ({})", session_actions::PUSH_TALKER_DATA_ACCEL))
+            .build();
         headerbar.pack_start(&push_talker_data_button);
 
         // Commit talker data
-        let commit_talker_data_button = gtk::Button::builder().icon_name("dialog-ok").action_name("session.commit_talker_data").build();
+        let commit_talker_data_button = gtk::Button::builder()
+            .icon_name("dialog-ok")
+            .action_name("session.commit_talker_data")
+            .tooltip_text(format!("Commit talker data ({})", session_actions::COMMIT_TALKER_DATA_ACCEL))
+            .build();
         headerbar.pack_start(&commit_talker_data_button);
 
         // Cancel talker data
-        let cancel_talker_data_button = gtk::Button::builder().icon_name("dialog-cancel").action_name("session.cancel_talker_data").build();
+        let cancel_talker_data_button = gtk::Button::builder()
+            .icon_name("dialog-cancel")
+            .action_name("session.cancel_talker_data")
+            .tooltip_text(format!("Cancel talker data ({})", session_actions::CANCEL_TALKER_DATA_ACCEL))
+            .build();
         headerbar.pack_start(&cancel_talker_data_button);
 
         // header bar right controls
         let settings_menu = settings::menu();
-        let menu_button = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&settings_menu).build();
+        let menu_button = gtk::MenuButton::builder()
+            .icon_name("open-menu-symbolic")
+            .menu_model(&settings_menu)
+            .build();
         headerbar.pack_end(&menu_button);
 
         let right_separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_end(&right_separator);
 
-        let record_button = gtk::Button::builder().icon_name("media-record-symbolic").action_name("session.record").build();
+        let record_button = gtk::Button::builder()
+            .icon_name("media-record-symbolic")
+            .action_name("session.record")
+            .tooltip_text(format!("Record ({})", session_actions::RECORD_ACCEL))
+            .build();
         headerbar.pack_end(&record_button);
 
-        let stop_button = gtk::Button::builder().icon_name("media-playback-stop-symbolic").action_name("session.stop").build();
+        let stop_button = gtk::Button::builder()
+            .icon_name("media-playback-stop-symbolic")
+            .action_name("session.stop")
+            .tooltip_text(format!("Stop ({})", session_actions::STOP_ACCEL))
+            .build();
         headerbar.pack_end(&stop_button);
 
         let play_or_pause_icon = gtk::Image::from_icon_name("media-playback-start-symbolic");
-        let play_or_pause_button = gtk::Button::builder().child(&play_or_pause_icon).action_name("session.play").build();
-
+        let play_or_pause_button = gtk::Button::builder()
+            .child(&play_or_pause_icon)
+            .action_name("session.play")
+            .tooltip_text(format!("Play ({})", session_actions::PLAY_ACCEL))
+            .build();
         headerbar.pack_end(&play_or_pause_button);
 
 
