@@ -63,43 +63,68 @@ impl Scale {
 
 
 pub fn create_tempered_scale() -> Scale {
-    let freq_0 = 440. as f64 / (57. / 12. as f64).exp2();
+    let freq_0 = 440.0_f64 / (57. / 12.0_f64).exp2();
 
     Scale::new("tempered", freq_0,
         vec![
             ("C", 1.),
-            ("C#", (1. / 12. as f64).exp2()),
-            ("D", (2. / 12. as f64).exp2()),
-            ("D#", (3. / 12. as f64).exp2()),
-            ("E", (4. / 12. as f64).exp2()),
-            ("F", (5. / 12. as f64).exp2()),
-            ("F#", (6. / 12. as f64).exp2()),
-            ("G", (7. / 12. as f64).exp2()),
-            ("G#", (8. / 12. as f64).exp2()),
-            ("A", (9. / 12. as f64).exp2()),
-            ("A#", (10. / 12. as f64).exp2()),
-            ("B", (11. / 12. as f64).exp2()),
-            ])
+            ("C#", (1. / 12.0_f64).exp2()),
+            ("D", (2. / 12.0_f64).exp2()),
+            ("D#", (3. / 12.0_f64).exp2()),
+            ("E", (4. / 12.0_f64).exp2()),
+            ("F", (5. / 12.0_f64).exp2()),
+            ("F#", (6. / 12.0_f64).exp2()),
+            ("G", (7. / 12.0_f64).exp2()),
+            ("G#", (8. / 12.0_f64).exp2()),
+            ("A", (9. / 12.0_f64).exp2()),
+            ("A#", (10. / 12.0_f64).exp2()),
+            ("B", (11. / 12.0_f64).exp2()),
+        ])
 }
 
 pub fn create_natural_scale() -> Scale {
-    let freq_0 = (440. as f64 * 3.) / (5. as f64 * 16.);
+    let freq_0 = (440.0_f64 * 3.) / (5.0_f64 * 16.);
 
     Scale::new("natural", freq_0,
         vec![
             ("C", 1.),
-            ("C#", 25. / 24. as f64),
-            ("D", 9. / 8. as f64),
-            ("D#", 6. / 5. as f64),
-            ("E", 5. / 4. as f64),
-            ("F", 4. / 3. as f64),
-            ("F#", 25. / 18. as f64),
-            ("G", 3. / 2. as f64),
-            ("G#", 25. / 16. as f64),
-            ("A", 5. / 3. as f64),
-            ("A#", 16. / 9. as f64),
-            ("B", 15. / 8. as f64),
-            ])
+            ("C#", 25. / 24.0_f64),
+            ("D", 9. / 8.0_f64),
+            ("D#", 6. / 5.0_f64),
+            ("E", 5. / 4.0_f64),
+            ("F", 4. / 3.0_f64),
+            ("F#", 25. / 18.0_f64),
+            ("G", 3. / 2.0_f64),
+            ("G#", 25. / 16.0_f64),
+            ("A", 5. / 3.0_f64),
+            ("A#", 16. / 9.0_f64),
+            ("B", 15. / 8.0_f64),
+        ])
+}
+
+pub fn create_pythagorean_scale() -> Scale {
+    let freq_0 = 440. / 27.0_f64;
+
+    Scale::new("pythagorean", freq_0,
+        vec![
+            ("C", 1.),
+            ("Db", 2.0_f64.powi(8) / 3.0_f64.powi(5)),
+            ("C#", 3.0_f64.powi(7) / 2.0_f64.powi(11)),
+            ("D", 9. / 8.0_f64),
+            ("Eb", 2.0_f64.powi(5) / 3.0_f64.powi(3)),
+            ("D#", 3.0_f64.powi(9) / 2.0_f64.powi(14)),
+            ("E", 81. / 64.0_f64),
+            ("F", 4. / 3.0_f64),
+            ("Gb", 2.0_f64.powi(10) / 3.0_f64.powi(6)),
+            ("F#", 3.0_f64.powi(6) / 2.0_f64.powi(9)),
+            ("G", 3. / 2.0_f64),
+            ("Ab", 2.0_f64.powi(7) / 3.0_f64.powi(4)),
+            ("G#", 3.0_f64.powi(8) / 2.0_f64.powi(12)),
+            ("A", 27. / 16.0_f64),
+            ("Bb", 16. / 9.0_f64),
+            ("A#", 3.0_f64.powi(10) / 2.0_f64.powi(15)),
+            ("B", 3.0_f64.powi(5) / 2.0_f64.powi(7)),
+        ])
 }
 
 pub fn create_collection<'a>() -> Result<HashMap<&'static str, Scale>, failure::Error> {
@@ -107,6 +132,7 @@ pub fn create_collection<'a>() -> Result<HashMap<&'static str, Scale>, failure::
 
     collection.insert("tempered", create_tempered_scale());
     collection.insert("natural", create_natural_scale());
+    collection.insert("pythagorean", create_pythagorean_scale());
 
     Ok(collection)
 }
