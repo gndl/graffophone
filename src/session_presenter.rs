@@ -65,18 +65,12 @@ impl SessionPresenter {
     }
 
     pub fn save_session(&mut self) {
-        self.manage_result(self.session.save());
+        self.manage_result(self.session.save(), Some(Notification::SessionSaved));
     }
 
     pub fn save_session_as(&mut self, filename: &str) {
         let res = self.session.save_as(filename);
-
-        if res.is_ok() {
-            self.event_bus.borrow().notify(Notification::NewSessionName(
-                self.session.filename().to_string(),
-            ));
-        }
-        self.manage_result(res);
+        self.manage_result(res, Some(Notification::SessionSavedAs(self.session.filename().to_string())));
     }
 
     pub fn session(&self) -> &Session {
@@ -100,9 +94,13 @@ impl SessionPresenter {
         ));
     }
 
-    fn manage_result(&self, result: Result<(), failure::Error>) {
+    fn manage_result(&self, result: Result<(), failure::Error>, on_ok: Option<Notification>) {
         match result {
-            Ok(()) => {}
+            Ok(()) => {
+                if let Some(notification) = on_ok {
+                    self.event_bus.borrow().notify(notification)
+                }
+            }
             Err(e) => self.event_bus.borrow().notify_error(e),
         }
     }
@@ -136,14 +134,14 @@ impl SessionPresenter {
 
     pub fn init(&self) {
         let res = session::init();
-        self.manage_result(res);
+        self.manage_result(res, None);
 
         let res = Factory::visit(|factory| {
             Ok(self.event_bus.borrow().notify(Notification::TalkersRange(
                 factory.get_categorized_talkers_label_model(),
             )))
         });
-        self.manage_result(res);
+        self.manage_result(res, None);
         self.notify_new_session();
     }
 

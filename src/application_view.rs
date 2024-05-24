@@ -474,7 +474,8 @@ impl ApplicationView {
                     obs.borrow().hide_talker_data_editor();
                     obs.borrow().window.set_title(Some(&name));
                 }
-                Notification::NewSessionName(name) => {
+                Notification::SessionSaved => obs.borrow().display_info_message(&"Session saved.".to_string()),
+                Notification::SessionSavedAs(name) => {
                     obs.borrow().hide_message();
                     obs.borrow().window.set_title(Some(&name));
                 }
