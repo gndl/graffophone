@@ -406,17 +406,20 @@ impl ApplicationView {
     }
 
     fn display_info_message(&self, message: &String) {
-        let markup_msg = format!("<span color=\"#8080FF\">{}</span>", message);
+        let msg = gtk::glib::markup_escape_text(message);
+        let markup_msg = format!("<span color=\"#8080FF\">{}</span>", msg);
         self.display_message(&markup_msg);
     }
 
     fn display_warning_message(&self, message: &String) {
-        let markup_msg = format!("<span color=\"#80FFFF\">{}</span>", message);
+        let msg = gtk::glib::markup_escape_text(message);
+        let markup_msg = format!("<span color=\"#80FFFF\">{}</span>", msg);
         self.display_message(&markup_msg);
     }
 
     fn display_error_message(&self, message: &String) {
-        let markup_msg = format!("<span color=\"#FF8080\" weight=\"bold\">{}</span>", message);
+        let msg = gtk::glib::markup_escape_text(message);
+        let markup_msg = format!("<span color=\"#FF8080\" weight=\"bold\">{}</span>", msg);
         self.display_message(&markup_msg);
     }
 
