@@ -9,6 +9,8 @@ use talkers::tseq::parser::{
 };
 use talkers::tseq::scale::Scale;
 
+use super::envelope;
+
 pub const DEFAULT_FREQUENCY: f32 = 0.;
 pub const DEFAULT_VELOCITY: f32 = 1.;
 pub const DEFAULT_BPM: f32 = 90.;
@@ -43,22 +45,58 @@ pub fn option_to_ticks(otime: &Option<Time>, ofset: i64, rate_uq: f32) -> i64 {
     }
 }
 
-pub struct Harmonic<'a> {
-    pub pitch_gap: &'a PPitchGap,
-    pub delay: Time,
-    pub velocity: PVelocity,
+pub struct Velocity {
+    pub envelope_index: usize,
+    pub level: f32,
+    pub fadein: bool,
+    pub fadeout: bool,
+    pub transition: PShape,
 }
-const DEFAULT_PITCH_GAP: PPitchGap = PPitchGap::FreqRatio(1.);
-const DEFAULT_CHORD: Harmonic = Harmonic {
-    pitch_gap: &DEFAULT_PITCH_GAP,
-    delay: Time::Ticks(0),
-    velocity: PVelocity {
-        level: 1.,
-        fadein: false,
-        fadeout: false,
-        transition: PShape::None,
-    },
-};
+impl Velocity {
+    pub fn new() -> Velocity {
+        Self {
+            envelope_index: envelope::UNDEFINED,
+            level: DEFAULT_VELOCITY,
+            fadein: false,
+            fadeout: false,
+            transition: PShape::None,
+        }
+    }
+    pub fn from(pvelo: &PVelocity, env_idxs: &HashMap<&str, usize>) -> Result<Velocity, failure::Error> {
+        let envelop_index = match pvelo.envelope_id {
+            Some(id) => {
+                match env_idxs.get(id) {
+                    Some(idx) => *idx,
+                    None => return Err(failure::err_msg(format!("Tseq envelope {} not found!", id))),
+                }
+            }
+            None => envelope::UNDEFINED,
+        };
+
+        Ok(Self {
+            envelope_index: envelop_index,
+            level: pvelo.level,
+            fadein: pvelo.fadein,
+            fadeout: pvelo.fadeout || envelop_index != envelope::UNDEFINED,
+            transition: pvelo.transition,
+        })
+    }
+}
+
+pub struct Harmonic {
+    pub pitch_gap: PPitchGap,
+    pub delay: Time,
+    pub velocity: Velocity,
+}
+impl Harmonic {
+    pub fn new() -> Harmonic {
+        Self {
+            pitch_gap: PPitchGap::FreqRatio(1.),
+            delay: Time::Ticks(0),
+            velocity: Velocity::new(),
+        }
+    }
+}
 
 pub struct Hit {
     pub position: Time,
@@ -110,12 +148,13 @@ pub struct Binder<'a> {
     pub parser_chords: HashMap<&'a str, &'a PChord<'a>>,
     pub parser_attacks: HashMap<&'a str, &'a PAttack<'a>>,
     pub parser_chordlines: Vec<&'a PChordLine<'a>>,
-    default_chordline: Vec<Vec<Harmonic<'a>>>,
-    chordlines: HashMap<&'a str, Vec<Vec<Harmonic<'a>>>>,
+    default_chordline: Vec<Vec<Harmonic>>,
+    chordlines: HashMap<&'a str, Vec<Vec<Harmonic>>>,
     pub parser_durationlines: Vec<&'a PDurationLine<'a>>,
     pub durationlines: HashMap<&'a str, DurationLine>,
-    pub parser_velocitylines: HashMap<&'a str, &'a PVelocityLine<'a>>,
-    default_velocityline: PVelocityLine<'a>,
+    pub parser_velocitylines: Vec<&'a PVelocityLine<'a>>,
+    default_velocityline: Vec<Velocity>,
+    pub velocitylines: HashMap<&'a str, Vec<Velocity>>,
     pub parser_hitlines: Vec<&'a PHitLine<'a>>,
     pub hitlines: HashMap<&'a str, HitLine>,
     pub parser_pitchlines: Vec<&'a PPitchLine<'a>>,
@@ -138,20 +177,13 @@ impl<'a> Binder<'a> {
             parser_chords: HashMap::new(),
             parser_attacks: HashMap::new(),
             parser_chordlines: Vec::new(),
-            default_chordline: vec![vec![DEFAULT_CHORD]],
+            default_chordline: vec![vec![Harmonic::new()]],
             chordlines: HashMap::new(),
             parser_durationlines: Vec::new(),
             durationlines: HashMap::new(),
-            parser_velocitylines: HashMap::new(),
-            default_velocityline: PVelocityLine {
-                id: "",
-                velocities: vec![PVelocity {
-                    level: 1.,
-                    fadein: false,
-                    fadeout: false,
-                    transition: PShape::None,
-                }],
-            },
+            parser_velocitylines: Vec::new(),
+            default_velocityline: vec![Velocity::new()],
+            velocitylines: HashMap::new(),
             parser_hitlines: Vec::new(),
             hitlines: HashMap::new(),
             parser_pitchlines: Vec::new(),
@@ -238,26 +270,20 @@ impl<'a> Binder<'a> {
                                 .as_ref()
                                 .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
 
-                            let mut velocity = PVelocity {
-                                level: DEFAULT_VELOCITY,
-                                fadein: false,
-                                fadeout: false,
-                                transition: PShape::None,
-                            };
-
-                            let ovelocity = if harmonic_idx < paccents.len() {
+                            let opvelocity = if harmonic_idx < paccents.len() {
                                 delay = to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
                                 &paccents[harmonic_idx].velocity
                             } else {
                                 &pharmonic.velocity
                             };
 
-                            if let Some(pvelocity) = ovelocity {
-                                velocity = *pvelocity;
-                            }
+                            let velocity = match opvelocity {
+                                Some(pvelo) => Velocity::from(pvelo, &self.envelops_indexes)?,
+                                None => Velocity::new(),
+                            };
 
                             let harmonic = Harmonic {
-                                pitch_gap: &pharmonic.pitch_gap,
+                                pitch_gap: pharmonic.pitch_gap,
                                 delay,
                                 velocity,
                             };
@@ -290,6 +316,17 @@ impl<'a> Binder<'a> {
             );
         }
 
+        // Deserialize velocitylines
+        for pvelocityline in &self.parser_velocitylines {
+            let mut velocities = Vec::with_capacity(pvelocityline.velocities.len());
+
+            for pvelocity in &pvelocityline.velocities {
+                let velocity = Velocity::from(pvelocity, &self.envelops_indexes)?;
+                velocities.push(velocity);
+            }
+            self.velocitylines.insert(pvelocityline.id, velocities);
+        }
+
         Ok(())
     }
 
@@ -305,7 +342,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_envelop_index(&'a self, id: &str) -> Result<usize, failure::Error> {
         match self.envelops_indexes.get(id) {
             Some(ei) => Ok(*ei),
-            None => Err(failure::err_msg(format!("Tseq envelop {} not found!", id))),
+            None => Err(failure::err_msg(format!("Tseq envelope {} not found!", id))),
         }
     }
     pub fn fetch_durationline(&'a self, id: &str) -> Result<&'a DurationLine, failure::Error> {
@@ -320,9 +357,9 @@ impl<'a> Binder<'a> {
     pub fn fetch_velocityline(
         &'a self,
         oid: &'a Option<&str>,
-    ) -> Result<&'a PVelocityLine, failure::Error> {
+    ) -> Result<&Vec<Velocity>, failure::Error> {
         match oid {
-            Some(id) => match self.parser_velocitylines.get(id) {
+            Some(id) => match self.velocitylines.get(id) {
                 Some(e) => Ok(e),
                 None => Err(failure::err_msg(format!(
                     "Tseq velocityline {} not found!",
@@ -343,7 +380,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_chordline(
         &'a self,
         oid: &'a Option<&str>,
-    ) -> Result<&'a Vec<Vec<Harmonic<'a>>>, failure::Error> {
+    ) -> Result<&'a Vec<Vec<Harmonic>>, failure::Error> {
         match oid {
             Some(id) => match self.chordlines.get(id) {
                 Some(chordline) => Ok(chordline),

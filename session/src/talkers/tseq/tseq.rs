@@ -10,7 +10,7 @@ use talker::voice;
 use talkers::tseq::audio_event;
 use talkers::tseq::audio_event::AudioEvents;
 use talkers::tseq::binder::Binder;
-use talkers::tseq::envelop;
+use talkers::tseq::envelope;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
 use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
@@ -31,7 +31,7 @@ enum Seq {
 
 pub struct Tseq {
     scales: HashMap<&'static str, Scale>,
-    envelops: Vec<Vec<f32>>,
+    envelopes: Vec<Vec<f32>>,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
 }
@@ -44,7 +44,7 @@ impl Tseq {
             base,
             Self {
                 scales: scale::create_collection()?,
-                envelops: Vec::new(),
+                envelopes: Vec::new(),
                 sequences: Vec::new(),
                 events_reminder: Vec::new()
             }
@@ -93,11 +93,11 @@ impl Tseq {
                     binder.parser_durationlines.push(&line);
                 }
                 Expression::VelocityLine(ref line) => {
-                    binder.parser_velocitylines.insert(line.id, &line);
+                    binder.parser_velocitylines.push(&line);
                 }
-                Expression::Envelop(ref envelop) => {
-                    binder.envelops_indexes.insert(envelop.id, envelops.len());
-                    envelops.push(envelop::create(envelop, binder.ticks_per_second))
+                Expression::Envelope(ref envelope) => {
+                    binder.envelops_indexes.insert(envelope.id, envelops.len());
+                    envelops.push(envelope::create(envelope, binder.ticks_per_second))
                 }
                 Expression::Seq(ref sequence) => {
                     binder.parser_sequences.insert(sequence.id, &sequence);
@@ -208,7 +208,7 @@ impl Talker for Tseq {
                     self.events_reminder.push(EventReminder::new());
                 }
 
-                self.envelops = envelops;
+                self.envelopes = envelops;
                 self.sequences = sequences;
 
                 new_base.set_data(data);
@@ -229,7 +229,7 @@ impl Talker for Tseq {
             Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
                 audio_sequence_talk(
-                    &self.envelops,
+                    &self.envelopes,
                     tick,
                     ln,
                     &audio_events,
@@ -245,7 +245,7 @@ impl Talker for Tseq {
             Seq::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
                 audio_sequence_talk(
-                    &self.envelops,
+                    &self.envelopes,
                     tick,
                     ln,
                     &audio_events,

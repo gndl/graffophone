@@ -81,35 +81,35 @@ pub struct PScale<'a> {
     pub name: &'a str,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PPitchGap {
     FreqRatio(f32),
     Interval(i32),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PHarmonic {
+pub struct PHarmonic<'a> {
     pub pitch_gap: PPitchGap,
     pub delay: Option<PTime>,
-    pub velocity: Option<PVelocity>,
+    pub velocity: Option<PVelocity<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PChord<'a> {
     pub id: &'a str,
-    pub harmonics: Vec<PHarmonic>,
+    pub harmonics: Vec<PHarmonic<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PAccent {
+pub struct PAccent<'a> {
     pub delay: PTime,
-    pub velocity: Option<PVelocity>,
+    pub velocity: Option<PVelocity<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PAttack<'a> {
     pub id: &'a str,
-    pub accents: Vec<PAccent>,
+    pub accents: Vec<PAccent<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -157,7 +157,21 @@ pub struct PDurationLine<'a> {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub struct PVelocity {
+pub struct PEnvelopePoint {
+    pub duration: f32,
+    pub shape: PShape,
+    pub level: f32,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PEnvelope<'a> {
+    pub id: &'a str,
+    pub points: Vec<PEnvelopePoint>,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct PVelocity<'a> {
+    pub envelope_id: Option<&'a str>,
     pub level: f32,
     pub fadein: bool,
     pub fadeout: bool,
@@ -167,20 +181,7 @@ pub struct PVelocity {
 #[derive(Debug, PartialEq)]
 pub struct PVelocityLine<'a> {
     pub id: &'a str,
-    pub velocities: Vec<PVelocity>,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub struct PEnvelopPoint {
-    pub duration: f32,
-    pub shape: PShape,
-    pub level: f32,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PEnvelop<'a> {
-    pub id: &'a str,
-    pub points: Vec<PEnvelopPoint>,
+    pub velocities: Vec<PVelocity<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -210,7 +211,7 @@ pub enum PFragment<'a> {
 pub struct PSequence<'a> {
     pub id: &'a str,
     pub beat: Option<&'a str>,
-    pub envelop: Option<&'a str>,
+    pub envelope_id: Option<&'a str>,
     pub fragments: Vec<PFragment<'a>>,
 }
 
@@ -236,7 +237,7 @@ pub enum Expression<'a> {
     ChordLine(PChordLine<'a>),
     DurationLine(PDurationLine<'a>),
     VelocityLine(PVelocityLine<'a>),
-    Envelop(PEnvelop<'a>),
+    Envelope(PEnvelope<'a>),
     HitLine(PHitLine<'a>),
     PitchLine(PPitchLine<'a>),
     Seq(PSequence<'a>),
@@ -452,8 +453,9 @@ fn shape(input: &str) -> IResult<&str, PShape> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (fadein, level, fadeout, transition, _)) = tuple((
+    let (input, (fadein, envelop_id, level, fadeout, transition, _)) = tuple((
         opt(char(FADEIN_KW!())),
+        opt(terminated(id, char(MUL_KW!()))),
         float,
         opt(char(FADEOUT_KW!())),
         shape,
@@ -462,6 +464,7 @@ fn velocity(input: &str) -> IResult<&str, PVelocity> {
     Ok((
         input,
         PVelocity {
+            envelope_id: envelop_id,
             level,
             fadein: fadein.is_some(),
             fadeout: fadeout.is_some(),
@@ -479,11 +482,11 @@ fn velocities(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
-fn envelop_point(input: &str) -> IResult<&str, PEnvelopPoint> {
+fn envelop_point(input: &str) -> IResult<&str, PEnvelopePoint> {
     let (input, (duration, shape, level, _)) = tuple((ratio, shape, ratio, space0))(input)?;
     Ok((
         input,
-        PEnvelopPoint {
+        PEnvelopePoint {
             duration: duration.num / duration.den,
             shape,
             level: level.num / level.den,
@@ -491,9 +494,9 @@ fn envelop_point(input: &str) -> IResult<&str, PEnvelopPoint> {
     ))
 }
 
-fn envelop(input: &str) -> IResult<&str, Expression> {
+fn envelope(input: &str) -> IResult<&str, Expression> {
     let (input, (id, points, _)) = tuple((head(ENVELOP_KW!()), many0(envelop_point), end))(input)?;
-    Ok((input, Expression::Envelop(PEnvelop { id, points })))
+    Ok((input, Expression::Envelope(PEnvelope { id, points })))
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitch> {
@@ -579,13 +582,13 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
         end,
     ))(input)?;
     let mut beat = None;
-    let mut envelop = None;
+    let mut envelope = None;
 
     for attribute in attributes {
         if attribute.label == BEAT_KW!() {
             beat = Some(attribute.value);
         } else if attribute.label == ENVELOP_KW!() {
-            envelop = Some(attribute.value);
+            envelope = Some(attribute.value);
         }
     }
     Ok((
@@ -593,7 +596,7 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
         PSequence {
             id,
             beat,
-            envelop,
+            envelope_id: envelope,
             fragments,
         },
     ))
@@ -647,7 +650,7 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
         durations,
         pitchs,
         velocities,
-        envelop,
+        envelope,
         seq,
         seqout,
         midiout,
@@ -733,6 +736,7 @@ fn test_chord() {
                         pitch_gap: PPitchGap::FreqRatio(1.5),
                         delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
+                            envelope_id: None,
                             level: 0.4,
                             fadein: false,
                             fadeout: false,
@@ -864,24 +868,28 @@ fn test_velos() {
                 id: "v1",
                 velocities: vec![
                     PVelocity {
+                        envelope_id: None,
                         level: 0.5,
                         fadein: true,
                         fadeout: true,
                         transition: PShape::Sin
                     },
                     PVelocity {
+                        envelope_id: None,
                         level: 1.,
                         fadein: true,
                         fadeout: false,
                         transition: PShape::None
                     },
                     PVelocity {
+                        envelope_id: None,
                         level: 0.75,
                         fadein: false,
                         fadeout: true,
                         transition: PShape::Linear
                     },
                     PVelocity {
+                        envelope_id: None,
                         level: 0.9,
                         fadein: false,
                         fadeout: false,
@@ -896,7 +904,7 @@ fn test_velos() {
 #[test]
 fn test_envelop() {
     assert_eq!(
-        envelop(concat!(
+        envelope(concat!(
             ENVELOP_KW!(),
             " e",
             DEF_KW!(),
@@ -904,25 +912,25 @@ fn test_envelop() {
         )),
         Ok((
             "",
-            Expression::Envelop(PEnvelop {
+            Expression::Envelope(PEnvelope {
                 id: "e",
                 points: vec![
-                    PEnvelopPoint {
+                    PEnvelopePoint {
                         duration: 0.02,
                         shape: PShape::Early,
                         level: 1.
                     },
-                    PEnvelopPoint {
+                    PEnvelopePoint {
                         duration: 0.2,
                         shape: PShape::Sin,
                         level: 0.6666667
                     },
-                    PEnvelopPoint {
+                    PEnvelopePoint {
                         duration: 2.,
                         shape: PShape::Late,
                         level: 0.33333334
                     },
-                    PEnvelopPoint {
+                    PEnvelopePoint {
                         duration: 20.,
                         shape: PShape::Round,
                         level: 0.
@@ -1175,7 +1183,7 @@ fn test_sequence() {
             PSequence {
                 id: "seq_03",
                 beat: Some("_b_"),
-                envelop: None,
+                envelope_id: None,
                 fragments: vec![
                     PFragment::SeqRef(PSeqRef {
                         id: "s_1",
@@ -1231,7 +1239,7 @@ fn test_seq() {
             Expression::Seq(PSequence {
                 id: "s",
                 beat: None,
-                envelop: None,
+                envelope_id: None,
                 fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None
@@ -1257,7 +1265,7 @@ fn test_seqout() {
             Expression::SeqOut(PSequence {
                 id: "s",
                 beat: None,
-                envelop: None,
+                envelope_id: None,
                 fragments: vec![PFragment::SeqRef(PSeqRef {
                     id: "s_1",
                     mul: None
@@ -1311,6 +1319,7 @@ fn test_parse() {
             Expression::VelocityLine(PVelocityLine {
                 id: "v",
                 velocities: vec![PVelocity {
+                    envelope_id: None,
                     level: 1.,
                     transition: PShape::None,
                     fadein: false,

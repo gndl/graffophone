@@ -1,17 +1,15 @@
 use std::collections::VecDeque;
 use std::f32;
 
-use talkers::tseq::binder;
-use talkers::tseq::binder::Binder;
-use talkers::tseq::binder::Time;
-use talkers::tseq::envelop;
+use talkers::tseq::binder::{self, Binder, Time, Velocity};
+use talkers::tseq::envelope;
 use talkers::tseq::parser::PFragment::Fragments;
 use talkers::tseq::parser::PFragment::Part;
 use talkers::tseq::parser::PFragment::SeqRef;
 use talkers::tseq::parser::PPart;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PShape;
-use talkers::tseq::parser::{PFragment, PPitchGap, PVelocity};
+use talkers::tseq::parser::{PFragment, PPitchGap};
 
 #[derive(Debug)]
 pub struct SequenceEvent {
@@ -34,8 +32,7 @@ struct Event {
     delay: Time,
     frequency: f32,
     frequency_transition: PShape,
-    velocity: PVelocity,
-    envelop_index: usize,
+    velocity: Velocity,
 }
 impl Event {
     pub fn new() -> Event {
@@ -43,13 +40,7 @@ impl Event {
             delay: Time::Ticks(0),
             frequency: binder::DEFAULT_FREQUENCY,
             frequency_transition: PShape::None,
-            velocity: PVelocity {
-                level: binder::DEFAULT_VELOCITY,
-                fadein: false,
-                fadeout: false,
-                transition: PShape::None,
-            },
-            envelop_index: usize::MAX,
+            velocity: Velocity::new(),
         }
     }
 }
@@ -76,7 +67,7 @@ impl EventsBuilder {
         &mut self,
         binder: &Binder,
         ticks_per_beat: f32,
-        envelop_index: usize,
+        seq_envelop_index: usize,
         part: &PPart,
         harmonics_events: &mut VecDeque<Vec<SequenceEvent>>,
     ) -> Result<(), failure::Error> {
@@ -86,7 +77,7 @@ impl EventsBuilder {
         let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
         let mut hitline_start_tick = self.tick;
         let mut mul = part.mul.unwrap_or(1.);
-        let fadeout_pre_envelop = envelop_index != envelop::UNDEFINED;
+        let fadeout_pre_envelop = seq_envelop_index != envelope::UNDEFINED;
 
         if hitline_hits_count > 0 && mul > 0. {
             if let Some(pitchline_id) = part.pitchline_id {
@@ -99,8 +90,8 @@ impl EventsBuilder {
                     let chordline = binder.fetch_chordline(&part.chordline_id)?;
                     let chords_count = chordline.len();
 
-                    let velocityline = binder.fetch_velocityline(&part.velocityline_id)?;
-                    let velocities_count = velocityline.velocities.len();
+                    let velocities = binder.fetch_velocityline(&part.velocityline_id)?;
+                    let velocities_count = velocities.len();
 
                     let mut next_hit_idx = 0;
                     let mut next_pitch_idx = 0;
@@ -142,7 +133,7 @@ impl EventsBuilder {
                                 }
                             }
 
-                            let next_velocity = &velocityline.velocities[next_velocity_idx];
+                            let next_velocity = &velocities[next_velocity_idx];
 
                             let max_harmonic_count =
                                 usize::max(self.harmonic_count, next_chord.len());
@@ -177,7 +168,7 @@ impl EventsBuilder {
                                              velocity_transition: harmonic_event.velocity.transition,
                                              fadein: harmonic_event.velocity.fadein,
                                              fadeout: harmonic_event.velocity.fadeout || fadeout_pre_envelop,
-                                             envelop_index: harmonic_event.envelop_index,
+                                             envelop_index: harmonic_event.velocity.envelope_index,
                                          }
                                     );
                                 }
@@ -186,7 +177,18 @@ impl EventsBuilder {
                                     harmonic_event.delay = next_harmonic.delay;
                                     harmonic_event.frequency = next_harmonic_frequency;
                                     harmonic_event.frequency_transition = next_pitch_transition;
-                                    harmonic_event.velocity = PVelocity {
+                                    
+                                    let envelop_index= if next_harmonic.velocity.envelope_index != envelope::UNDEFINED {
+                                        // The envelope defined at the chord level has priority over the envelope defined at the velocityline level
+                                        next_harmonic.velocity.envelope_index
+                                    } else if next_velocity.envelope_index != envelope::UNDEFINED {
+                                        // The envelope defined at the velocityline level has priority over the envelope defined at the sequence level
+                                        next_velocity.envelope_index
+                                    } else {
+                                        seq_envelop_index
+                                    };
+                                    harmonic_event.velocity = Velocity {
+                                        envelope_index: envelop_index,
                                         level: next_harmonic_velocity,
                                         transition: if next_harmonic.velocity.transition
                                             == PShape::None
@@ -200,7 +202,6 @@ impl EventsBuilder {
                                         fadeout: next_harmonic.velocity.fadeout
                                             || next_velocity.fadeout,
                                     };
-                                    harmonic_event.envelop_index = envelop_index;
                                 }
                             }
                             self.hit_start_tick = next_hit_start_tick;
@@ -309,7 +310,7 @@ impl EventsBuilder {
             None => ticks_per_beat,
         };
 
-        let envelop_index = match sequence.envelop {
+        let envelop_index = match sequence.envelope_id {
             Some(id) => binder.fetch_envelop_index(id)?,
             None => envelop_index,
         };
@@ -357,7 +358,7 @@ impl EventsBuilder {
                         velocity_transition: PShape::None,
                         fadein: harmonic_event.velocity.fadein,
                         fadeout: true,
-                        envelop_index: harmonic_event.envelop_index,
+                        envelop_index: harmonic_event.velocity.envelope_index,
                     }
                 );
             }
@@ -389,7 +390,7 @@ pub fn create_events(
     builder.create_events(
         binder,
         ticks_per_beat,
-        envelop::UNDEFINED,
+        envelope::UNDEFINED,
         sequence,
         &mut harmonics_events,
     )?;

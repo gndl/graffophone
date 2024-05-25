@@ -92,7 +92,7 @@ macro_rules! SCALE_KW {
 #[macro_export]
 macro_rules! ENVELOP_KW {
     () => {
-        "envelop"
+        "envelope"
     };
 }
 #[macro_export]
@@ -226,6 +226,13 @@ macro_rules! TIME_DESC {
     };
 }
 
+#[macro_export]
+macro_rules! VELOCITY_DESC {
+    () => {
+        concat!("[", FADEIN_KW!(), "][<envelop_id>", MUL_KW!(), "]<velocity_value>[", FADEOUT_KW!(), "][", LINEAR_SHAPE_KW!(), "|", SIN_SHAPE_KW!(), "|", EARLY_SHAPE_KW!(), "|", LATE_SHAPE_KW!(), "|", ROUND_SHAPE_KW!(), "]",)
+    };
+}
+
 pub const SYNTAX_DESCRIPTION: &str = concat!(
     MULTILINE_COMMENT_KW!(),
     " Description\n",
@@ -241,23 +248,15 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     JOIN_KW!(),
     TIME_DESC!("delay", "hit"),
     "[",
-    JOIN_KW!(),
-    "[",
-    FADEIN_KW!(),
-    "]<velocity>[",
-    FADEOUT_KW!(),
-    "]]] [...]\n",
+    JOIN_KW!(), VELOCITY_DESC!(),
+    "]] [...]\n",
     ATTACK_KW!(),
     " <attack_id> ",
     DEF_KW!(),
     TIME_DESC!("delay", "hit"),
     "[",
-    JOIN_KW!(),
-    "[",
-    FADEIN_KW!(),
-    "]<velocity>[",
-    FADEOUT_KW!(),
-    "]] [...]\n",
+    JOIN_KW!(), VELOCITY_DESC!(),
+    "] [...]\n",
     CHORDLINE_KW!(),
     " <chords_id> ",
     DEF_KW!(),
@@ -299,24 +298,7 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     "|",
     ROUND_SHAPE_KW!(),
     "] [...]\n",
-    VELOCITYLINE_KW!(),
-    " <velocities_id> ",
-    DEF_KW!(),
-    " [",
-    FADEIN_KW!(),
-    "]<velocity_value>[",
-    FADEOUT_KW!(),
-    "][",
-    LINEAR_SHAPE_KW!(),
-    "|",
-    SIN_SHAPE_KW!(),
-    "|",
-    EARLY_SHAPE_KW!(),
-    "|",
-    LATE_SHAPE_KW!(),
-    "|",
-    ROUND_SHAPE_KW!(),
-    "] [...]\n",
+    VELOCITYLINE_KW!(), " <velocities_id> ", DEF_KW!(), " ", VELOCITY_DESC!(), "[...]\n",
     ENVELOP_KW!(),
     " <envelop_id> ",
     DEF_KW!(),

@@ -7,7 +7,7 @@ use tables::sinramp;
 use tables::roundramp;
 use tables::earlyramp;
 use tables::lateramp;
-use talkers::tseq::envelop;
+use talkers::tseq::envelope;
 use talkers::tseq::parser::PShape;
 use talkers::tseq::sequence::SequenceEvents;
 
@@ -32,7 +32,7 @@ pub struct AudioEventBase {
     pub fadein_tick: i64,
     pub fadeout_tick: i64,
     pub end_tick: i64,
-    pub envelop_index: usize,
+    pub envelope_index: usize,
 }
 impl AudioEventBase {
     pub fn new(
@@ -40,14 +40,14 @@ impl AudioEventBase {
         fadein_tick: i64,
         fadeout_tick: i64,
         end_tick: i64,
-        envelop_index: usize,
+        envelope_index: usize,
     ) -> Self {
         Self {
             start_tick,
             fadein_tick,
             fadeout_tick,
             end_tick,
-            envelop_index,
+            envelope_index,
         }
     }
 }
@@ -104,14 +104,14 @@ impl AudioEvent {
             self.fadeout_buffer(tick, buf, ofset, out_len);
         }
 
-        if self.base.envelop_index < envelops.len() {
-            let envelop = envelops[self.base.envelop_index].as_slice();
-            let mut envelop_idx = (tick - self.base.start_tick) as usize;
+        if self.base.envelope_index < envelops.len() {
+            let envelope = envelops[self.base.envelope_index].as_slice();
+            let mut envelope_idx = (tick - self.base.start_tick) as usize;
 
-            let env_remaining_len = if envelop.len() >= envelop_idx {
-                envelop.len() - envelop_idx
+            let env_remaining_len = if envelope.len() >= envelope_idx {
+                envelope.len() - envelope_idx
             } else {
-                for i in ofset + envelop_idx..ofset + out_len {
+                for i in ofset + envelope_idx..ofset + out_len {
                     buf[i] = 0.;
                 }
                 0
@@ -120,8 +120,8 @@ impl AudioEvent {
             let env_out_len = usize::min(out_len, env_remaining_len);
 
             for i in ofset..ofset + env_out_len {
-                buf[i] = buf[i] * envelop[envelop_idx];
-                envelop_idx += 1;
+                buf[i] = buf[i] * envelope[envelope_idx];
+                envelope_idx += 1;
             }
         }
         out_end_t
@@ -398,7 +398,7 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
                 event.frequency_transition,
                 false,
                 false,
-                envelop::UNDEFINED,
+                envelope::UNDEFINED,
             ));
 
             velocity_events.push(create(
