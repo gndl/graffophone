@@ -24,10 +24,10 @@ pub struct ApplicationView {
     play_or_pause_icon: gtk::Image,
     stop_button: gtk::Button,
     record_button: gtk::Button,
-    message_box_revealer: gtk::Revealer,
-    message_bar_label: gtk::Label,
-    text_view: sourceview5::View,
-    text_view_scrolledwindow: gtk::ScrolledWindow,
+    message_view_revealer: gtk::Revealer,
+    message_view_label: gtk::Label,
+    talker_data_view: sourceview5::View,
+    talker_data_view_scrolledwindow: gtk::ScrolledWindow,
     push_talker_data_button: gtk::Button,
     commit_talker_data_button: gtk::Button,
     cancel_talker_data_button: gtk::Button,
@@ -150,28 +150,32 @@ impl ApplicationView {
         headerbar.pack_end(&play_or_pause_button);
 
 
-        // Message bar
-        let message_bar_label = gtk::Label::builder().hexpand(true).halign(gtk::Align::Center).build();
-        let message_bar_close_button = gtk::Button::from_icon_name("window-close-symbolic");
-        let message_bar_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+        // Message view
+        let message_view_label = gtk::Label::builder().hexpand(true).lines(5).halign(gtk::Align::Center).build();
+        let message_view_scrolledwindow = gtk::ScrolledWindow::builder()
+            .child(&message_view_label)
+            .max_content_height(128)
+            .build();
+        let message_view_close_button = gtk::Button::from_icon_name("window-close-symbolic");
+        let message_view_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
         
-        message_bar_box.append(&message_bar_label);
-        message_bar_box.append(&message_bar_close_button);
+        message_view_box.append(&message_view_scrolledwindow);
+        message_view_box.append(&message_view_close_button);
         
-        let message_box_revealer = gtk::Revealer::builder().transition_type(gtk::RevealerTransitionType::SlideDown).transition_duration(500).build();
-        message_box_revealer.set_child(Some(&message_bar_box));
+        let message_view_revealer = gtk::Revealer::builder().transition_type(gtk::RevealerTransitionType::SlideDown).transition_duration(200).build();
+        message_view_revealer.set_child(Some(&message_view_box));
 
 
-        // Text view
-        let text_view = sourceview5::View::builder()
+        // Talker data view
+        let talker_data_view = sourceview5::View::builder()
             .wrap_mode(gtk::WrapMode::Word)
             .vscroll_policy(gtk::ScrollablePolicy::Natural)
             .highlight_current_line(true)
             .build();
 
-        let text_view_scrolledwindow = gtk::ScrolledWindow::builder()
-            .child(&text_view)
-            .hadjustment(&text_view.hadjustment().unwrap())
+        let talker_data_view_scrolledwindow = gtk::ScrolledWindow::builder()
+            .child(&talker_data_view)
+            .hadjustment(&talker_data_view.hadjustment().unwrap())
             .vexpand(true)
             .max_content_height(256)
             .build();
@@ -205,8 +209,8 @@ impl ApplicationView {
 
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        v_box.append(&message_box_revealer);
-        v_box.append(&text_view_scrolledwindow);
+        v_box.append(&message_view_revealer);
+        v_box.append(&talker_data_view_scrolledwindow);
         v_box.append(&split_pane);
 
         // ApplicationWindow
@@ -231,10 +235,10 @@ impl ApplicationView {
             }
         });
 
-        // Message bar close
-        let message_box_revealer_ctrl = message_box_revealer.clone();
-        message_bar_close_button.connect_clicked(move |_| {
-            message_box_revealer_ctrl.set_reveal_child(false);
+        // Message view close
+        let message_view_revealer_ctrl = message_view_revealer.clone();
+        message_view_close_button.connect_clicked(move |_| {
+            message_view_revealer_ctrl.set_reveal_child(false);
         });
 
         window.present();
@@ -247,10 +251,10 @@ impl ApplicationView {
             play_or_pause_icon,
             stop_button,
             record_button,
-            message_box_revealer,
-            message_bar_label,
-            text_view,
-            text_view_scrolledwindow,
+            message_view_revealer,
+            message_view_label,
+            talker_data_view,
+            talker_data_view_scrolledwindow,
             push_talker_data_button,
             commit_talker_data_button,
             cancel_talker_data_button,
@@ -270,6 +274,7 @@ impl ApplicationView {
         Ok(rav)
     }
 
+    // Plugins list
     fn fill_talkers_list(
         &self,
         categorized_talkers_label_model: &Vec<(String, Vec<(String, String)>)>,
@@ -331,6 +336,7 @@ impl ApplicationView {
         self.talkers_box.append(&gtk::Label::new(None));
     }
 
+    // Talker data editor
     fn edit_talker_data(&self, talker_id: Id) {
         if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
             match &*talker.data().borrow() {
@@ -350,12 +356,12 @@ impl ApplicationView {
                         text_buffer.set_style_scheme(Some(&scheme));
                     }
                     text_buffer.set_text(&data);
-                    self.text_view.set_buffer(Some(&text_buffer));
-                    self.text_view_scrolledwindow.set_visible(true);
+                    self.talker_data_view.set_buffer(Some(&text_buffer));
+                    self.talker_data_view_scrolledwindow.set_visible(true);
                     self.push_talker_data_button.set_visible(true);
                     self.commit_talker_data_button.set_visible(true);
                     self.cancel_talker_data_button.set_visible(true);
-                    self.text_view.grab_focus();
+                    self.talker_data_view.grab_focus();
                 }
                 Data::File(_) => println!("Todo : Applicationview.edit_talker_data Data::File"),
                 _ => (),
@@ -367,7 +373,7 @@ impl ApplicationView {
         let selected_data_talker = self.graph_view.borrow().selected_data_talker();
 
         if let Some(talker_id) = selected_data_talker {
-            let text_buffer = self.text_view.buffer();
+            let text_buffer = self.talker_data_view.buffer();
 
             self.session_presenter.borrow_mut().set_talker_data(
                 talker_id,
@@ -394,37 +400,34 @@ impl ApplicationView {
 
     fn hide_talker_data_editor(&self) {
         //        self.text_view.set_buffer(None::<&impl IsA<TextBuffer>>);
-        self.text_view_scrolledwindow.set_visible(false);
+        self.talker_data_view_scrolledwindow.set_visible(false);
         self.push_talker_data_button.set_visible(false);
         self.commit_talker_data_button.set_visible(false);
         self.cancel_talker_data_button.set_visible(false);
     }
 
-    fn display_message(&self, markup_message: &String) {
-        self.message_bar_label.set_markup(&markup_message);
-        self.message_box_revealer.set_reveal_child(true);
+    // Messages view
+    fn display_message(&self, message: &String, tags: &str) {
+        let msg = gtk::glib::markup_escape_text(&message.replace("\\n", "\n"));
+        let markup_msg = format!("<span {}>{}</span>", tags, msg);
+        self.message_view_label.set_markup(&markup_msg);
+        self.message_view_revealer.set_reveal_child(true);
     }
 
     fn display_info_message(&self, message: &String) {
-        let msg = gtk::glib::markup_escape_text(message);
-        let markup_msg = format!("<span color=\"#8080FF\">{}</span>", msg);
-        self.display_message(&markup_msg);
+        self.display_message(message, "color=\"#8080FF\"");
     }
 
     fn display_warning_message(&self, message: &String) {
-        let msg = gtk::glib::markup_escape_text(message);
-        let markup_msg = format!("<span color=\"#80FFFF\">{}</span>", msg);
-        self.display_message(&markup_msg);
+        self.display_message(message, "color=\"#80FFFF\"");
     }
 
     fn display_error_message(&self, message: &String) {
-        let msg = gtk::glib::markup_escape_text(message);
-        let markup_msg = format!("<span color=\"#FF8080\" weight=\"bold\">{}</span>", msg);
-        self.display_message(&markup_msg);
+        self.display_message(message, "color=\"#FF8080\" weight=\"bold\"");
     }
 
     fn hide_message(&self) {
-        self.message_box_revealer.set_reveal_child(false);
+        self.message_view_revealer.set_reveal_child(false);
     }
 
     fn observe(observer: &RApplicationView, bus: &REventBus) {
