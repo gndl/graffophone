@@ -500,7 +500,7 @@ fn envelope(input: &str) -> IResult<&str, Expression> {
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitch> {
-    let (input, (id, transition)) = tuple((recognize(many1_count(alt((alphanumeric1, tag("#"), tag("."))))), shape))(input)?;
+    let (input, (id, transition)) = tuple((recognize(many1_count(alt((alphanumeric1, tag("#"), tag("."), tag("^"))))), shape))(input)?;
     Ok((input, PPitch { id, transition }))
 }
 

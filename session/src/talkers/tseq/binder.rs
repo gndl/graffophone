@@ -7,14 +7,13 @@ use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
     PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
-use talkers::tseq::scale::Scale;
+use talkers::tseq::scale::{self, Scale};
 
 use super::envelope;
 
 pub const DEFAULT_FREQUENCY: f32 = 0.;
 pub const DEFAULT_VELOCITY: f32 = 1.;
 pub const DEFAULT_BPM: f32 = 90.;
-pub const DEFAULT_SCALE: &str = "tempered";
 
 pub const UNDEFINED_TICKS: i64 = i64::MAX;
 
@@ -170,7 +169,7 @@ impl<'a> Binder<'a> {
             ticks_per_second,
             ticks_per_minute,
             default_bpm: DEFAULT_BPM,
-            default_scale: DEFAULT_SCALE,
+            default_scale: scale::DEFAULT,
             parser_beats: HashMap::new(),
             parser_scales: HashMap::new(),
             envelops_indexes: HashMap::new(),
@@ -192,7 +191,7 @@ impl<'a> Binder<'a> {
         }
     }
 
-    pub fn deserialize(&mut self, scales: &'a HashMap<&str, Scale>) -> Result<(), failure::Error> {
+    pub fn deserialize(&mut self, scales: &'a scale::Collection) -> Result<(), failure::Error> {
 
         let mut scales_freqs =  HashMap::new();
 
@@ -204,24 +203,16 @@ impl<'a> Binder<'a> {
         self.default_scale = self.parser_scales
                                      .iter()
                                      .last()
-                                     .map_or(DEFAULT_SCALE, |(_, s)| s.name);
+                                     .map_or(scale::DEFAULT, |(_, s)| s.name);
 
         // Deserialize pitchlines
-        let default_scale = match scales.get(self.default_scale) {
-                        Some(scale) => scale,
-                        None => return Err(failure::err_msg(format!("Tseq scale {} not found!", self.default_scale))),
-                    };
+        let default_scale = scales.fetch(self.default_scale)?;
 
         for ppitchline in &self.parser_pitchlines {
             let mut pitchs = Vec::new();
 
             let scale = match ppitchline.scale {
-                Some(scale_name) => {
-                    match scales.get(scale_name) {
-                        Some(scale) => scale,
-                        None => return Err(failure::err_msg(format!("Tseq scale {} not found!", scale_name))),
-                    }
-                },
+                Some(scale_name) => scales.fetch(scale_name)?,
                 None => default_scale,
             };
 

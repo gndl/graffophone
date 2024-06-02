@@ -30,7 +30,7 @@ enum Seq {
 }
 
 pub struct Tseq {
-    scales: HashMap<&'static str, Scale>,
+    scales: scale::Collection,
     envelopes: Vec<Vec<f32>>,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
@@ -43,7 +43,7 @@ impl Tseq {
         Ok(ctalker!(
             base,
             Self {
-                scales: scale::create_collection()?,
+                scales: scale::Collection::new(),
                 envelopes: Vec::new(),
                 sequences: Vec::new(),
                 events_reminder: Vec::new()

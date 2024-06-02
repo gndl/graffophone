@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+pub const DEFAULT: &str = "12ET";
 
 pub struct Scale {
     pub name: &'static str,
@@ -62,46 +63,6 @@ impl Scale {
 }
 
 
-pub fn create_tempered_scale() -> Scale {
-    let freq_0 = 440.0_f64 / (57. / 12.0_f64).exp2();
-
-    Scale::new("tempered", freq_0,
-        vec![
-            ("C", 1.),
-            ("C#", (1. / 12.0_f64).exp2()),
-            ("D", (2. / 12.0_f64).exp2()),
-            ("D#", (3. / 12.0_f64).exp2()),
-            ("E", (4. / 12.0_f64).exp2()),
-            ("F", (5. / 12.0_f64).exp2()),
-            ("F#", (6. / 12.0_f64).exp2()),
-            ("G", (7. / 12.0_f64).exp2()),
-            ("G#", (8. / 12.0_f64).exp2()),
-            ("A", (9. / 12.0_f64).exp2()),
-            ("A#", (10. / 12.0_f64).exp2()),
-            ("B", (11. / 12.0_f64).exp2()),
-        ])
-}
-
-pub fn create_natural_scale() -> Scale {
-    let freq_0 = (440.0_f64 * 3.) / (5.0_f64 * 16.);
-
-    Scale::new("natural", freq_0,
-        vec![
-            ("C", 1.),
-            ("C#", 25. / 24.0_f64),
-            ("D", 9. / 8.0_f64),
-            ("D#", 6. / 5.0_f64),
-            ("E", 5. / 4.0_f64),
-            ("F", 4. / 3.0_f64),
-            ("F#", 25. / 18.0_f64),
-            ("G", 3. / 2.0_f64),
-            ("G#", 25. / 16.0_f64),
-            ("A", 5. / 3.0_f64),
-            ("A#", 16. / 9.0_f64),
-            ("B", 15. / 8.0_f64),
-        ])
-}
-
 pub fn create_pythagorean_scale() -> Scale {
     let freq_0 = 440. / 27.0_f64;
 
@@ -127,12 +88,214 @@ pub fn create_pythagorean_scale() -> Scale {
         ])
 }
 
-pub fn create_collection<'a>() -> Result<HashMap<&'static str, Scale>, failure::Error> {
-    let mut collection = HashMap::new();
+pub fn create_natural_scale() -> Scale {
+    let freq_0 = (440.0_f64 * 3.) / (5.0_f64 * 16.);
 
-    collection.insert("tempered", create_tempered_scale());
-    collection.insert("natural", create_natural_scale());
-    collection.insert("pythagorean", create_pythagorean_scale());
+    Scale::new("natural", freq_0,
+        vec![
+            ("C", 1.),
+            ("C#", 25. / 24.0_f64),
+            ("D", 9. / 8.0_f64),
+            ("D#", 6. / 5.0_f64),
+            ("E", 5. / 4.0_f64),
+            ("F", 4. / 3.0_f64),
+            ("F#", 25. / 18.0_f64),
+            ("G", 3. / 2.0_f64),
+            ("G#", 25. / 16.0_f64),
+            ("A", 5. / 3.0_f64),
+            ("A#", 16. / 9.0_f64),
+            ("B", 15. / 8.0_f64),
+        ])
+}
 
-    Ok(collection)
+pub fn create_12et_scale() -> Scale {
+    let freq_0 = 440.0_f64 / (57. / 12.0_f64).exp2();
+
+    Scale::new("12ET", freq_0,
+        vec![
+            ("C", 1.),
+            ("C#", (1. / 12.0_f64).exp2()),
+            ("D", (2. / 12.0_f64).exp2()),
+            ("D#", (3. / 12.0_f64).exp2()),
+            ("E", (4. / 12.0_f64).exp2()),
+            ("F", (5. / 12.0_f64).exp2()),
+            ("F#", (6. / 12.0_f64).exp2()),
+            ("G", (7. / 12.0_f64).exp2()),
+            ("G#", (8. / 12.0_f64).exp2()),
+            ("A", (9. / 12.0_f64).exp2()),
+            ("A#", (10. / 12.0_f64).exp2()),
+            ("B", (11. / 12.0_f64).exp2()),
+        ])
+}
+
+pub fn create_17et_scale() -> Scale {
+    let freq_0 = 440.0_f64 / (81. / 17.0_f64).exp2();
+
+    Scale::new("17ET", freq_0,
+        vec![
+            ("C", 1.),
+            ("Db", (1. / 17.0_f64).exp2()),
+            ("C#", (2. / 17.0_f64).exp2()),
+            ("D", (3. / 17.0_f64).exp2()),
+            ("Eb", (4. / 17.0_f64).exp2()),
+            ("D#", (5. / 17.0_f64).exp2()),
+            ("E", (6. / 17.0_f64).exp2()),
+            ("F", (7. / 17.0_f64).exp2()),
+            ("Gb", (8. / 17.0_f64).exp2()),
+            ("F#", (9. / 17.0_f64).exp2()),
+            ("G", (10. / 17.0_f64).exp2()),
+            ("Ab", (11. / 17.0_f64).exp2()),
+            ("G#", (12. / 17.0_f64).exp2()),
+            ("A", (13. / 17.0_f64).exp2()),
+            ("Bb", (14. / 17.0_f64).exp2()),
+            ("A#", (15. / 17.0_f64).exp2()),
+            ("B", (16. / 17.0_f64).exp2()),
+        ])
+}
+
+pub fn create_19et_scale() -> Scale {
+    let freq_0 = 440.0_f64 / (90. / 19.0_f64).exp2();
+
+    Scale::new("19ET", freq_0,
+        vec![
+            ("C", 1.),
+            ("C#", (1. / 19.0_f64).exp2()),
+            ("Db", (2. / 19.0_f64).exp2()),
+            ("D", (3. / 19.0_f64).exp2()),
+            ("D#", (4. / 19.0_f64).exp2()),
+            ("Eb", (5. / 19.0_f64).exp2()),
+            ("E", (6. / 19.0_f64).exp2()),
+            ("Fb", (7. / 19.0_f64).exp2()),
+            ("F", (8. / 19.0_f64).exp2()),
+            ("F#", (9. / 19.0_f64).exp2()),
+            ("Gb", (10. / 19.0_f64).exp2()),
+            ("G", (11. / 19.0_f64).exp2()),
+            ("G#", (12. / 19.0_f64).exp2()),
+            ("Ab", (13. / 19.0_f64).exp2()),
+            ("A", (14. / 19.0_f64).exp2()),
+            ("A#", (15. / 19.0_f64).exp2()),
+            ("Bb", (16. / 19.0_f64).exp2()),
+            ("B", (17. / 19.0_f64).exp2()),
+            ("Cb", (18. / 19.0_f64).exp2()),
+        ])
+}
+
+pub fn create_24et_scale() -> Scale {
+    let freq_0 = 440.0_f64 / (114. / 24.0_f64).exp2();
+
+    Scale::new("24ET", freq_0,
+        vec![
+            ("C", 1.),
+            ("Cd", (1. / 24.0_f64).exp2()),
+            ("C#", (2. / 24.0_f64).exp2()),
+            ("Db", (3. / 24.0_f64).exp2()),
+            ("D", (4. / 24.0_f64).exp2()),
+            ("Dd", (5. / 24.0_f64).exp2()),
+            ("D#", (6. / 24.0_f64).exp2()),
+            ("Eb", (7. / 24.0_f64).exp2()),
+            ("E", (8. / 24.0_f64).exp2()),
+            ("Fb", (9. / 24.0_f64).exp2()),
+            ("F", (10. / 24.0_f64).exp2()),
+            ("Fd", (11. / 24.0_f64).exp2()),
+            ("F#", (12. / 24.0_f64).exp2()),
+            ("Gb", (13. / 24.0_f64).exp2()),
+            ("G", (14. / 24.0_f64).exp2()),
+            ("Gd", (15. / 24.0_f64).exp2()),
+            ("G#", (16. / 24.0_f64).exp2()),
+            ("Ab", (17. / 24.0_f64).exp2()),
+            ("A", (18. / 24.0_f64).exp2()),
+            ("Ad", (19. / 24.0_f64).exp2()),
+            ("A#", (20. / 24.0_f64).exp2()),
+            ("Bb", (21. / 24.0_f64).exp2()),
+            ("B", (22. / 24.0_f64).exp2()),
+            ("Cb", (23. / 24.0_f64).exp2()),
+        ])
+}
+
+pub fn create_53et_scale() -> Scale {
+    let freq_0 = 440.0_f64 / (252. / 53.0_f64).exp2();
+
+    Scale::new("53ET", freq_0,
+        vec![
+            ("C", 1.),
+            ("^C", (1. / 53.0_f64).exp2()),
+            ("^^C", (2. / 53.0_f64).exp2()),
+            ("vvC#", (3. / 53.0_f64).exp2()),
+            ("vC#", (4. / 53.0_f64).exp2()),
+            ("C#", (5. / 53.0_f64).exp2()),
+            ("^C#", (6. / 53.0_f64).exp2()),
+            ("vvD", (7. / 53.0_f64).exp2()),
+            ("vD", (8. / 53.0_f64).exp2()),
+            ("D", (9. / 53.0_f64).exp2()),
+            ("^D", (10. / 53.0_f64).exp2()),
+            ("^^D", (11. / 53.0_f64).exp2()),
+            ("vvD#", (12. / 53.0_f64).exp2()),
+            ("vD#", (13. / 53.0_f64).exp2()),
+            ("D#", (14. / 53.0_f64).exp2()),
+            ("^D#", (15. / 53.0_f64).exp2()),
+            ("vvE", (16. / 53.0_f64).exp2()),
+            ("vE", (17. / 53.0_f64).exp2()),
+            ("E", (18. / 53.0_f64).exp2()),
+            ("^E", (19. / 53.0_f64).exp2()),
+            ("^^E", (20. / 53.0_f64).exp2()),
+            ("vF", (21. / 53.0_f64).exp2()),
+            ("F", (22. / 53.0_f64).exp2()),
+            ("^F", (23. / 53.0_f64).exp2()),
+            ("^^F", (24. / 53.0_f64).exp2()),
+            ("vvF#", (25. / 53.0_f64).exp2()),
+            ("vF#", (26. / 53.0_f64).exp2()),
+            ("F#", (27. / 53.0_f64).exp2()),
+            ("^F#", (28. / 53.0_f64).exp2()),
+            ("vvG", (29. / 53.0_f64).exp2()),
+            ("vG", (30. / 53.0_f64).exp2()),
+            ("G", (31. / 53.0_f64).exp2()),
+            ("^G", (32. / 53.0_f64).exp2()),
+            ("^^G", (33. / 53.0_f64).exp2()),
+            ("vvG#", (34. / 53.0_f64).exp2()),
+            ("vG#", (35. / 53.0_f64).exp2()),
+            ("G#", (36. / 53.0_f64).exp2()),
+            ("^G#", (37. / 53.0_f64).exp2()),
+            ("vvA", (38. / 53.0_f64).exp2()),
+            ("vA", (39. / 53.0_f64).exp2()),
+            ("A", (40. / 53.0_f64).exp2()),
+            ("^A", (41. / 53.0_f64).exp2()),
+            ("^^A", (42. / 53.0_f64).exp2()),
+            ("vvA#", (43. / 53.0_f64).exp2()),
+            ("vA#", (44. / 53.0_f64).exp2()),
+            ("A#", (45. / 53.0_f64).exp2()),
+            ("^A#", (46. / 53.0_f64).exp2()),
+            ("vvB", (47. / 53.0_f64).exp2()),
+            ("vB", (48. / 53.0_f64).exp2()),
+            ("B", (49. / 53.0_f64).exp2()),
+            ("^B", (50. / 53.0_f64).exp2()),
+            ("^^B", (51. / 53.0_f64).exp2()),
+            ("vC", (52. / 53.0_f64).exp2()),
+        ])
+}
+
+pub struct Collection {
+    map: HashMap<&'static str, Scale>,
+}
+impl Collection {
+    pub fn new() -> Self {
+        let mut map = HashMap::new();
+
+        map.insert("pythagorean", create_pythagorean_scale());
+        map.insert("natural", create_natural_scale());
+        map.insert("12ET", create_12et_scale());
+        map.insert("17ET", create_17et_scale());
+        map.insert("19ET", create_19et_scale());
+        map.insert("53ET", create_53et_scale());
+
+        Self {
+            map,
+        }
+    }
+
+    pub fn fetch<'a>(&'a self, scale_name: &str) -> Result<&'a Scale, failure::Error> {
+        match self.map.get(scale_name) {
+            Some(scale) => Ok(scale),
+            None => Err(failure::err_msg(format!("Tseq scale {} unknown!", scale_name))),
+        }
+    }
 }
