@@ -439,13 +439,14 @@ impl Band {
             None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
         }
     }
-
-    pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::Error> {
-        match self.mixers.get(mixer_id) {
-            Some(mxr) => Ok(mxr),
-            None => Err(failure::err_msg(format!("Mixer {} not found!", mixer_id))),
-        }
+/*
+pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::Error> {
+    match self.mixers.get(mixer_id) {
+        Some(mxr) => Ok(mxr),
+        None => Err(failure::err_msg(format!("Mixer {} not found!", mixer_id))),
     }
+}
+*/
     pub fn extract_mixer(&mut self, mixer_id: &Id) -> Result<RMixer, failure::Error> {
         match self.mixers.remove(mixer_id) {
             Some(mxr) => Ok(mxr),

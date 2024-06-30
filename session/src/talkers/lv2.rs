@@ -38,7 +38,6 @@ impl Lv2 {
     pub fn new(lv2_handler: &Lv2Handler, uri: &str) -> Result<CTalker, failure::Error> {
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
-                show_plugin(&plugin);
                 match unsafe {
                     plugin.instantiate(
                         lv2_handler.features.clone(),
