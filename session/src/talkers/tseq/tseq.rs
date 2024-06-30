@@ -1,5 +1,4 @@
 use std::f32;
-use std::collections::HashMap;
 
 use talker::ctalker;
 use talker::data::Data;
@@ -16,8 +15,7 @@ use talkers::tseq::parser::Expression;
 use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
 use talkers::tseq::{sequence, parser};
 use talkers::tseq::sequence::EventReminder;
-use talkers::tseq::scale;
-use talkers::tseq::scale::Scale;
+use scale::scale;
 
 pub const MODEL: &str = "Tseq";
 

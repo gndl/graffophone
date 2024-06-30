@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::f32;
 use std::str::FromStr;
 
+use scale::scale::{self, Scale};
 use talker::audio_format::AudioFormat;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
     PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
-use talkers::tseq::scale::{self, Scale};
 
 use super::envelope;
 

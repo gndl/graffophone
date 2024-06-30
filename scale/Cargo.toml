@@ -1,0 +1,7 @@
+[package]
+name = "scale"
+version = "0.1.0"
+authors = ["gndl"]
+
+[dependencies]
+failure = "0.1.8"

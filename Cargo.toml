@@ -8,6 +8,10 @@ edition = "2018"
 name = "playone"
 path = "playone/src/main.rs"
 
+[[bin]]
+name = "au2tseq"
+path = "au2tseq/src/main.rs"
+
 [dependencies]
 failure = "0.1.8"
 ringbuf = "0.2.8"
@@ -15,7 +19,9 @@ ringbuf = "0.2.8"
 cairo-rs = "0.18.2"
 sourceview5 = "0.7.1"
 talker = { path = "./talker" }
+scale = { path = "./scale" }
 session = { path = "./session" }
+rustfft = "6.2.0"
 
 [dependencies.gtk]
 package = "gtk4"

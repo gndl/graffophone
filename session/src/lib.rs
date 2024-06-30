@@ -4,6 +4,7 @@ extern crate failure;
 extern crate livi;
 extern crate nom;
 extern crate ringbuf;
+extern crate scale;
 extern crate talker;
 
 pub mod audio_data;

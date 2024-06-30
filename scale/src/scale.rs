@@ -17,6 +17,15 @@ impl Scale {
         }
     }
 
+    pub fn get_pitchs_names(&self) -> Vec<&'static str> {
+        let mut pitchs_names = Vec::with_capacity(self.pitchs_name_ratio.len());
+
+        for (name, _) in &self.pitchs_name_ratio {
+            pitchs_names.push(*name);
+        }
+        pitchs_names
+    }
+
     pub fn fetch_frequency(&self, pitch: &str) -> Result<f32, failure::Error> {
         match pitch.rfind(|c: char| !c.is_ascii_digit()) {
             Some(p) => {
@@ -290,6 +299,10 @@ impl Collection {
         Self {
             map,
         }
+    }
+
+    pub fn values<'a>(&'a self) -> std::collections::hash_map::Values<'_, &str, Scale> {
+        self.map.values().into_iter()
     }
 
     pub fn fetch<'a>(&'a self, scale_name: &str) -> Result<&'a Scale, failure::Error> {
