@@ -1,0 +1,10 @@
+[package]
+name = "au2tseq"
+version = "0.1.0"
+authors = ["gndl"]
+edition = "2024"
+
+[dependencies]
+ffmpeg-next = "6.1.1"
+rustfft = "6.2.0"
+scale = { path = "../scale" }
