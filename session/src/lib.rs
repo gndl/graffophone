@@ -1,9 +1,10 @@
 extern crate cpal;
-extern crate ffmpeg_next as ffmpeg;
 extern crate failure;
 extern crate livi;
 extern crate nom;
 extern crate ringbuf;
+
+extern crate audiofile;
 extern crate scale;
 extern crate talker;
 
