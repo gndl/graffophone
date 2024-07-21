@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use gtk::Widget;
+use gtk::gio::Cancellable;
 
 use talker::data::Data;
 use talker::identifier::Id;
@@ -363,7 +364,26 @@ impl ApplicationView {
                     self.cancel_talker_data_button.set_visible(true);
                     self.talker_data_view.grab_focus();
                 }
-                Data::File(_) => println!("Todo : Applicationview.edit_talker_data Data::File"),
+                Data::File(_) => {
+                    let selected_data_talker = self.graph_view.borrow().selected_data_talker();
+
+                    if let Some(talker_id) = selected_data_talker {
+                        let open_ctrl = self.session_presenter.clone();
+
+                        let dialog = gtk::FileDialog::builder()
+                        .title("Choose a file")
+                        .accept_label("Open")
+                        .build();
+
+                        dialog.open(Some(&self.window), Cancellable::NONE, move |file| {
+                            if let Ok(file) = file {
+                                let path_buf = file.path().expect("Couldn't get file path");
+
+                                open_ctrl.borrow_mut().set_talker_data(talker_id,&path_buf.to_string_lossy());
+                            }
+                        });
+                    }
+                },
                 _ => (),
             }
         }

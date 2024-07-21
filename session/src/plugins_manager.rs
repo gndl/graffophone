@@ -8,6 +8,7 @@ use talker::talker_handler::TalkerHandlerBase;
 use talkers::abs_sine::{self, AbsSine};
 use talkers::accumulator::{self, Accumulator};
 use talkers::adsrp::{self, ADSRp};
+use talkers::audiofile_input::{self, AudioFileInput};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
 use talkers::env_shaper::{self, EnvShaper};
@@ -83,6 +84,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(AbsSine::descriptor()),
             PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
             PluginsManager::tkr_hr_kv(ADSRp::descriptor()),
+            PluginsManager::tkr_hr_kv(AudioFileInput::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
@@ -117,7 +119,9 @@ impl PluginsManager {
         } else if model == accumulator::MODEL {
             Ok(rtalker!(Accumulator::new(base)?))
         } else if model == adsrp::MODEL {
-            Ok(rtalker!(ADSRp::new()?))
+            Ok(rtalker!(ADSRp::new(base)?))
+        } else if model == audiofile_input::MODEL {
+            Ok(rtalker!(AudioFileInput::new(base)?))
         } else if model == hub::MODEL {
             Ok(rtalker!(Hub::new(base)?))
         } else if model == bounded_sinusoidal::MODEL {
