@@ -51,30 +51,33 @@ pub enum Operation {
 pub struct Band {
     talkers: HashMap<Id, RTalker>,
     mixers: HashMap<Id, RMixer>,
+    effective: bool,
 }
 
 pub type RBand = Rc<RefCell<Band>>;
 
 impl Band {
-    pub fn new(talkers: Option<HashMap<Id, RTalker>>, mixers: Option<HashMap<Id, RMixer>>) -> Band {
+    pub fn new(talkers: Option<HashMap<Id, RTalker>>, mixers: Option<HashMap<Id, RMixer>>, effective: bool) -> Band {
         Self {
             talkers: talkers.unwrap_or(HashMap::new()),
             mixers: mixers.unwrap_or(HashMap::new()),
+            effective,
         }
     }
 
-    pub fn empty() -> Band {
+    pub fn empty(effective: bool) -> Band {
         Self {
             talkers: HashMap::new(),
             mixers: HashMap::new(),
+            effective,
         }
     }
 
     pub fn new_ref(
         talkers: Option<HashMap<Id, RTalker>>,
-        mixers: Option<HashMap<Id, RMixer>>,
+        mixers: Option<HashMap<Id, RMixer>>, effective: bool,
     ) -> RBand {
-        Rc::new(RefCell::new(Band::new(talkers, mixers)))
+        Rc::new(RefCell::new(Band::new(talkers, mixers, effective)))
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<Id, RTalker> {
@@ -167,9 +170,9 @@ impl Band {
         Factory::make_mixer(pmixer.talker.id, pmixer.talker.name, None, outputs)
     }
 
-    pub fn build(factory: &Factory, source: &String) -> Result<Band, failure::Error> {
+    pub fn build(factory: &Factory, source: &String, effective: bool) -> Result<Band, failure::Error> {
         Identifier::initialize_id_count();
-        let mut band = Band::empty();
+        let mut band = Band::empty(effective);
 
         let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
 
@@ -177,7 +180,7 @@ impl Band {
 
         for ptalker in ptalkers.values() {
             let mut talker =
-                factory.make_talker(ptalker.model, Some(ptalker.id), Some(ptalker.name))?;
+                factory.make_talker(ptalker.model, Some(ptalker.id), Some(ptalker.name), effective)?;
 
             if let Some(data) = ptalker.data {
                 if let Some(updated_talker) = talker.set_data_from_string_update(data)? {
@@ -213,8 +216,8 @@ impl Band {
 
         Ok(band)
     }
-    pub fn make(source_buffer: &String) -> Result<Band, failure::Error> {
-        Factory::visit(|factory| Band::build(factory, source_buffer))
+    pub fn make(source_buffer: &String, effective: bool) -> Result<Band, failure::Error> {
+        Factory::visit(|factory| Band::build(factory, source_buffer, effective))
     }
 
     pub fn to_ref(self) -> RBand {
@@ -332,7 +335,7 @@ impl Band {
         oid: Option<Id>,
         oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
-        let tkr = factory.make_talker(model, oid, oname)?;
+        let tkr = factory.make_talker(model, oid, oname, self.effective)?;
         self.talkers.insert(tkr.id(), tkr.clone());
         Ok(tkr)
     }

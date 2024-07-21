@@ -2,7 +2,6 @@ use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 pub const MODEL: &str = "SecondDegreeFrequencyProgression";
 
@@ -14,10 +13,8 @@ pub struct SecondDegreeFrequencyProgression {
 }
 
 impl SecondDegreeFrequencyProgression {
-    pub fn new(f: f64, a: f64, b: f64, c: f64) -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("", MODEL);
-
-        base.add_voice(voice::audio(None, 0.));
+    pub fn new(f: f64, a: f64, b: f64, c: f64, mut base: TalkerBase) -> Result<CTalker, failure::Error> {
+        base.add_audio_voice(None, 0.);
 
         Ok(ctalker!(base, Self { f, a, b, c }))
     }

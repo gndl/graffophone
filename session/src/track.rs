@@ -1,14 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-//use talker::audio_format::AudioFormat;
-//use talker::ear;
-//use talker::ear::Init;
 use talker::ear::Set;
-//use talker::horn::PortType;
 use talker::identifier::Index;
 use talker::talker::TalkerBase;
-//use talker::talker::Talker,
 use crate::audio_data::Vector;
 
 pub const KIND: &str = "track";
@@ -29,8 +24,7 @@ impl Track {
         "track"
     }
 
-    pub fn new() -> Result<Track, failure::Error> {
-        let base = TalkerBase::new("", KIND);
+    pub fn new(base: TalkerBase) -> Result<Track, failure::Error> {
         /*
                 base.add_ear(ear::audio(
                     None,
@@ -51,8 +45,8 @@ impl Track {
         */
         Ok(Self { base })
     }
-    pub fn new_ref() -> Result<RTrack, failure::Error> {
-        Ok(Rc::new(RefCell::new(Track::new()?)))
+    pub fn new_ref(base: TalkerBase) -> Result<RTrack, failure::Error> {
+        Ok(Rc::new(RefCell::new(Track::new(base)?)))
     }
 
     pub fn id() -> &'static str {

@@ -58,8 +58,7 @@ const TRIGGER_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
 impl ADSRp {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new(MODEL, MODEL);
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
 
         let env_stem_set = Set::from_attributs(&vec![
             ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
@@ -128,7 +127,7 @@ impl Talker for ADSRp {
 
         if ear_idx == PLAYERS_EAR_INDEX {
             self.players_states.push(PlayerState::new());
-            let mut voice = voice::audio(None, 0.);
+            let mut voice = voice::audio(None, 0., base.buffer_len());
             voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
             new_base.add_voice(voice);
         }

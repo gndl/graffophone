@@ -73,7 +73,7 @@ impl Mixer {
 
         let mut tracks = Vec::new();
 
-        let mut base = TalkerBase::new("", KIND);
+        let mut base = TalkerBase::new("", KIND, true);
 
         if let Some(rparent) = oparent {
             let parent = rparent.borrow();

@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::iter::Extend;
 
-use talker::identifier::Identifiable;
 use talker::lv2_handler;
 use talker::rtalker;
-use talker::talker::{RTalker, TalkerCab};
+use talker::talker::{RTalker, TalkerBase, TalkerCab};
 use talker::talker_handler::TalkerHandlerBase;
 use talkers::abs_sine::{self, AbsSine};
 use talkers::accumulator::{self, Accumulator};
@@ -112,64 +111,67 @@ impl PluginsManager {
         }
     }
 
-    pub fn make_internal_talker(&self, model: &String) -> Result<RTalker, failure::Error> {
+    pub fn make_internal_talker(&self, model: &String, base: TalkerBase) -> Result<RTalker, failure::Error> {
         if model == abs_sine::MODEL {
-            Ok(rtalker!(AbsSine::new()?))
+            Ok(rtalker!(AbsSine::new(base)?))
         } else if model == accumulator::MODEL {
-            Ok(rtalker!(Accumulator::new()?))
+            Ok(rtalker!(Accumulator::new(base)?))
         } else if model == adsrp::MODEL {
             Ok(rtalker!(ADSRp::new()?))
         } else if model == hub::MODEL {
-            Ok(rtalker!(Hub::new()?))
+            Ok(rtalker!(Hub::new(base)?))
         } else if model == bounded_sinusoidal::MODEL {
-            Ok(rtalker!(BoundedSinusoidal::new()?))
+            Ok(rtalker!(BoundedSinusoidal::new(base)?))
         } else if model == bounded_square::MODEL {
-            Ok(rtalker!(BoundedSquare::new()?))
+            Ok(rtalker!(BoundedSquare::new(base)?))
         } else if model == math::AVERAGE_MODEL {
-            Ok(rtalker!(Average::new()?))
+            Ok(rtalker!(Average::new(base)?))
         } else if model == env_shaper::MODEL {
-            Ok(rtalker!(EnvShaper::new()?))
+            Ok(rtalker!(EnvShaper::new(base)?))
         } else if model == fuzz::MODEL {
-            Ok(rtalker!(Fuzz::new()?))
+            Ok(rtalker!(Fuzz::new(base)?))
         } else if model == parabolic::MODEL {
-            Ok(rtalker!(Parabolic::new()?))
+            Ok(rtalker!(Parabolic::new(base)?))
         } else if model == math::PRODUCT_MODEL {
-            Ok(rtalker!(Product::new()?))
+            Ok(rtalker!(Product::new(base)?))
         } else if model == round::MODEL {
-            Ok(rtalker!(Round::new()?))
+            Ok(rtalker!(Round::new(base)?))
         } else if model == second_degree_frequency_progression::MODEL {
-            Ok(rtalker!(SecondDegreeFrequencyProgression::new(
-                110., 0., 1., 1.
-            )?))
+            Ok(rtalker!(SecondDegreeFrequencyProgression::new(110., 0., 1., 1., base)?))
         } else if model == sinusoidal::MODEL {
-            Ok(rtalker!(Sinusoidal::new()?))
+            Ok(rtalker!(Sinusoidal::new(base)?))
         } else if model == sinusoidal_fptg::MODEL {
-            Ok(rtalker!(SinusoidalFPTG::new()?))
+            Ok(rtalker!(SinusoidalFPTG::new(base)?))
         } else if model == square::MODEL {
-            Ok(rtalker!(Square::new()?))
+            Ok(rtalker!(Square::new(base)?))
         } else if model == math::SUM_MODEL {
-            Ok(rtalker!(Sum::new()?))
+            Ok(rtalker!(Sum::new(base)?))
         } else if model == math::TANH_SUM_MODEL {
-            Ok(rtalker!(TanhSum::new()?))
+            Ok(rtalker!(TanhSum::new(base)?))
         } else if model == tseq::MODEL {
-            Ok(rtalker!(Tseq::new()?))
+            Ok(rtalker!(Tseq::new(base)?))
         } else {
             Err(failure::err_msg("Unknown talker MODEL"))
         }
     }
 
-    pub fn mk_tkr(&self, ph: &PluginHandler) -> Result<RTalker, failure::Error> {
+    pub fn mk_tkr(&self, ph: &PluginHandler, effective: bool) -> Result<RTalker, failure::Error> {
+        
         match &ph.plugin_type {
             PluginType::Lv2 => lv2_handler::visit(|lv2_handler| {
-                Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model())?))
+                let base = TalkerBase::new(ph.base.label(), ph.base.model(), effective);
+                Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model(), base)?))
             }),
-            PluginType::Internal => self.make_internal_talker(ph.base.model()),
+            PluginType::Internal => {
+                let base = TalkerBase::new(ph.base.label(), ph.base.model(), effective);
+                self.make_internal_talker(ph.base.model(), base)
+            },
         }
     }
 
-    pub fn make_talker(&self, model: &str) -> Result<RTalker, failure::Error> {
+    pub fn make_talker(&self, model: &str, effective: bool) -> Result<RTalker, failure::Error> {
         match self.handlers.get(model) {
-            Some(ph) => self.mk_tkr(ph),
+            Some(ph) => self.mk_tkr(ph, effective),
             None => Err(failure::err_msg("Unknown talker URI")),
         }
     }
@@ -209,7 +211,7 @@ impl PluginsManager {
         categories_vec.sort();
         categories_vec
     }
-
+/*
     pub fn run(&self) {
         let mut talkers = Vec::new();
 
@@ -230,4 +232,5 @@ impl PluginsManager {
             println!("Plugin {} {}", tkr.model(), tkr.name());
         }
     }
+    */
 }

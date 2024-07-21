@@ -12,8 +12,7 @@ pub struct Parabolic {
 }
 
 impl Parabolic {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("Parabolic", MODEL);
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let table_talker = TableTalker::new(&mut base, parabolic::LEN)?;
 
         Ok(ctalker!(base, Self { table_talker }))

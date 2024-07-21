@@ -47,7 +47,7 @@ impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
         Ok(Self {
             filename: NEW_SESSION_FILENAME.to_string(),
-            band: Band::make(&band_description)?,
+            band: Band::make(&band_description, false)?,
             player: Player::new(band_description)?,
             start_tick: 0,
             end_tick: 0,
@@ -62,7 +62,7 @@ impl Session {
 
         Ok(Self {
             filename: filename.to_string(),
-            band: Band::make(&band_description)?,
+            band: Band::make(&band_description, false)?,
             player: Player::new(band_description)?,
             start_tick: 0,
             end_tick: 0,
@@ -121,13 +121,13 @@ impl Session {
         &self.player
     }
     pub fn new_band(&mut self) -> Result<(), failure::Error> {
-        self.band = Band::empty();
+        self.band = Band::empty(false);
         self.player = Player::new("".to_string())?;
         Ok(())
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
-        self.band = Band::make(&band_description)?;
+        self.band = Band::make(&band_description, false)?;
         self.player = Player::new(band_description)?;
         Ok(())
     }

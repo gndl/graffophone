@@ -7,7 +7,6 @@ use talker::ear::Set;
 use talker::horn::PortType;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 pub const SUM_MODEL: &str = "Sum";
 
@@ -15,16 +14,14 @@ const AUDIO_VOICE_PORT: usize = 1;
 
 pub struct Sum {}
 impl Sum {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new(SUM_MODEL, SUM_MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set =
             Set::from_attributs(&vec![("", PortType::Cv, -20000., 20000., 0., Init::Empty)])?;
 
         base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_voice(voice::cv(Some("cv"), 0.));
-        base.add_voice(voice::audio(Some("au"), 0.));
+        base.add_cv_voice(Some("cv"), 0.);
+        base.add_audio_voice(Some("au"), 0.);
 
         Ok(ctalker!(base, Self {}))
     }
@@ -70,16 +67,14 @@ pub const PRODUCT_MODEL: &str = "Product";
 
 pub struct Product {}
 impl Product {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new(PRODUCT_MODEL, PRODUCT_MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set =
             Set::from_attributs(&vec![("", PortType::Cv, -20000., 20000., 0., Init::Empty)])?;
 
         base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_voice(voice::cv(Some("cv"), 0.));
-        base.add_voice(voice::audio(Some("au"), 0.));
+        base.add_cv_voice(Some("cv"), 0.);
+        base.add_audio_voice(Some("au"), 0.);
 
         Ok(ctalker!(base, Self {}))
     }
@@ -125,13 +120,11 @@ pub const AVERAGE_MODEL: &str = "Average";
 
 pub struct Average {}
 impl Average {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new(AVERAGE_MODEL, AVERAGE_MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(None, -20000., 20000., 0., &Init::DefValue)?);
 
-        base.add_voice(voice::cv(Some("cv"), 0.));
-        base.add_voice(voice::audio(Some("au"), 0.));
+        base.add_cv_voice(Some("cv"), 0.);
+        base.add_audio_voice(Some("au"), 0.);
 
         Ok(ctalker!(base, Self {}))
     }
@@ -162,15 +155,13 @@ impl Talker for Average {
 pub const TANH_SUM_MODEL: &str = "tanhSum";
 pub struct TanhSum {}
 impl TanhSum {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new(TANH_SUM_MODEL, TANH_SUM_MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set =
             Set::from_attributs(&vec![("", PortType::Cv, -20000., 20000., 0., Init::Empty)])?;
 
         base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_voice(voice::audio(Some("au"), 0.));
+        base.add_audio_voice(Some("au"), 0.);
 
         Ok(ctalker!(base, Self {}))
     }

@@ -1,4 +1,3 @@
-use crate::audio_format::AudioFormat;
 use identifier::Index;
 use crate::horn::{
     AudioVal, ControlVal, CvVal, Horn, MAtomBuf, MAudioBuf, MControlBuf, MCvBuf, PortType,
@@ -93,21 +92,18 @@ impl Voice {
     }
 }
 
-pub fn audio(tag: Option<&str>, value: f32) -> Voice {
-    let len = AudioFormat::chunk_size();
-    Voice::new(tag, len, Horn::audio(value, None))
+pub fn audio(tag: Option<&str>, value: f32, len: usize) -> Voice {
+    Voice::new(tag, len, Horn::audio(value, Some(len)))
 }
 
 pub fn control(tag: Option<&str>, value: f32) -> Voice {
     Voice::new(tag, 1, Horn::control(value))
 }
 
-pub fn cv(tag: Option<&str>, value: f32) -> Voice {
-    let len = AudioFormat::chunk_size();
-    Voice::new(tag, len, Horn::cv(value, None))
+pub fn cv(tag: Option<&str>, value: f32, len: usize) -> Voice {
+    Voice::new(tag, len, Horn::cv(value, Some(len)))
 }
 
-pub fn atom(tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) -> Voice {
-    let len = AudioFormat::chunk_size();
+pub fn atom(tag: Option<&str>, olv2_handler: Option<&Lv2Handler>, len: usize) -> Voice {
     Voice::new(tag, len, Horn::atom(olv2_handler))
 }

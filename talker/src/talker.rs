@@ -3,13 +3,14 @@ use std::rc::Rc;
 
 extern crate failure;
 
+use crate::audio_format::AudioFormat;
 use crate::data::{Data, RData};
 use crate::ear;
 use crate::ear::{Ear, Entree};
 use crate::horn::{AudioBuf, CvBuf, PortType};
 use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
-use crate::voice::Voice;
-
+use crate::lv2_handler::Lv2Handler;
+use crate::voice::{self, Voice};
 
 pub struct TalkerBase {
     identifier: RIdentifier,
@@ -17,20 +18,22 @@ pub struct TalkerBase {
     ears: Vec<Ear>,
     voices: Vec<Voice>,
     hidden: bool,
+    effective: bool,
 }
 
 impl TalkerBase {
-    pub fn new_data(name: &str, model: &str, data: Data) -> Self {
+    pub fn new_data(name: &str, model: &str, data: Data, effective: bool) -> Self {
         Self {
             identifier: RefCell::new(Identifier::new(name, model)),
             data: RefCell::new(data),
             ears: Vec::new(),
             voices: Vec::new(),
             hidden: false,
+            effective,
         }
     }
-    pub fn new(name: &str, model: &str) -> Self {
-        TalkerBase::new_data(name, model, Data::Nil)
+    pub fn new(name: &str, model: &str, effective: bool) -> Self {
+        TalkerBase::new_data(name, model, Data::Nil, effective)
     }
     pub fn clone(&self) -> Self {
         Self {
@@ -39,6 +42,7 @@ impl TalkerBase {
             ears: self.ears.iter().map(|elt| elt.clone()).collect(),
             voices: self.voices.iter().map(|elt| elt.clone()).collect(),
             hidden: self.hidden,
+            effective: self.effective,
         }
     }
 
@@ -54,6 +58,7 @@ impl TalkerBase {
             ears: oears.unwrap_or(Vec::new()),
             voices: ovoices.unwrap_or(Vec::new()),
             hidden: self.hidden,
+            effective: self.effective,
         }
     }
 
@@ -113,6 +118,15 @@ impl TalkerBase {
         self.ears[ear_idx].sup_set(set_idx)
     }
 
+    pub fn buffer_len(&self) -> usize {
+        if self.effective {
+            AudioFormat::chunk_size()
+        }
+        else {
+            1
+        }
+    }
+
     pub fn voice(&self, voice_idx: Index) -> &Voice {
         &self.voices[voice_idx]
     }
@@ -121,6 +135,22 @@ impl TalkerBase {
     }
     pub fn add_voice(&mut self, voice: Voice) {
         self.voices.push(voice);
+    }
+
+    pub fn add_audio_voice(&mut self, tag: Option<&str>, value: f32) {
+        self.voices.push(voice::audio(tag, value, self.buffer_len()));
+    }
+
+    pub fn add_control_voice(&mut self, tag: Option<&str>, value: f32) {
+        self.voices.push(voice::control(tag, value));
+    }
+
+    pub fn add_cv_voice(&mut self, tag: Option<&str>, value: f32) {
+        self.voices.push(voice::cv(tag, value, self.buffer_len()));
+    }
+
+    pub fn add_atom_voice(&mut self, tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) {
+        self.voices.push(voice::atom(tag, olv2_handler, self.buffer_len()));
     }
 
     pub fn sup_voice(&mut self, voice_idx: Index) {
@@ -132,6 +162,14 @@ impl TalkerBase {
     }
     pub fn set_hidden(&mut self, hidden: bool) {
         self.hidden = hidden;
+    }
+
+    pub fn is_effective(&self) -> bool {
+        self.effective
+    }
+
+    pub fn set_effective(&mut self, effective: bool) {
+        self.effective = effective;
     }
 
     pub fn ear_set_hum_audio_buffer(
@@ -296,6 +334,10 @@ impl TalkerCab {
 
     pub fn is_hidden(&self) -> bool {
         self.base.is_hidden()
+    }
+
+    pub fn set_effective(&mut self, effective: bool) {
+        self.base.effective = effective;
     }
 
     pub fn data(&self) -> &RData {

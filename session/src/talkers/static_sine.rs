@@ -12,14 +12,10 @@ pub struct AbsSine {
 }
 
 impl AbsSine {
-    pub fn new() -> Result<AbsSine, failure::Error> {
-        let mut base = TalkerBase::new();
-
+    pub fn new(mut base: TalkerBase) -> Result<AbsSine, failure::Error> {
         let freq = ear::audio(Some("freq".to_string()), 0., 20000., 440., Init::DefValue)?;
         base.add_ear(freq);
-
-        let voice = voice::audio(None, None);
-        base.add_voice(voice);
+        base.add_audio_voice(None, 0.);
 
         Ok(Self { base })
     }

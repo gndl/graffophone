@@ -7,7 +7,6 @@ use talker::ear::Init;
 use talker::identifier::Index;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 pub const MODEL: &str = "Square";
 
@@ -22,14 +21,12 @@ const RATIO_EAR_INDEX: Index = 1;
 const GAIN_EAR_INDEX: Index = 2;
 
 impl Square {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("Square", MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("ratio"), -1., 1., 0., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
-        base.add_voice(voice::audio(None, 0.));
+        base.add_audio_voice(None, 0.);
 
         Ok(ctalker!(
             base,

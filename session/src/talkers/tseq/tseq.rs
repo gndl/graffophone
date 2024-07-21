@@ -4,7 +4,6 @@ use talker::ctalker;
 use talker::data::Data;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 use talkers::tseq::audio_event;
 use talkers::tseq::audio_event::AudioEvents;
@@ -35,8 +34,8 @@ pub struct Tseq {
 }
 
 impl Tseq {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let base = TalkerBase::new_data("", MODEL, Data::Text(SYNTAX_DESCRIPTION.to_string()));
+    pub fn new(base: TalkerBase) -> Result<CTalker, failure::Error> {
+        base.set_data(Data::Text(SYNTAX_DESCRIPTION.to_string()));
 
         Ok(ctalker!(
             base,
@@ -141,13 +140,13 @@ impl Tseq {
                             sequences.push(Seq::Freq(harmonic_frequency_events));
 
                             let freq_tag = format!("{}.freq", tag_base);
-                            base.add_voice(voice::cv(Some(&freq_tag), 0.));
+                            base.add_cv_voice(Some(&freq_tag), 0.);
 
                             // Add trigger sequence and output
                             sequences.push(Seq::Trig(events_start_ticks));
 
                             let trig_tag = format!("{}.trig", tag_base);
-                            base.add_voice(voice::cv(Some(&trig_tag), 0.));
+                            base.add_cv_voice(Some(&trig_tag), 0.);
                         }
                         if let Some(harmonic_velocity_events) =
                             harmonics_velocity_events.pop_front()
@@ -157,7 +156,7 @@ impl Tseq {
                                 sequences.push(Seq::Vel(harmonic_velocity_events));
 
                                 let tag = format!("{}.gain", tag_base);
-                                base.add_voice(voice::audio(Some(&tag), 0.));
+                                base.add_audio_voice(Some(&tag), 0.);
                             }
                         }
                     }
@@ -167,7 +166,7 @@ impl Tseq {
                         &binder,
                         &seq,
                     )?));
-                    base.add_voice(voice::atom(Some(seq.id), None));
+                    base.add_atom_voice(Some(seq.id), None);
                 }
                 _ => (),
             }

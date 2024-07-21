@@ -12,8 +12,7 @@ pub struct Round {
 }
 
 impl Round {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("Round", MODEL);
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let table_talker = TableTalker::new(&mut base, round::LEN)?;
 
         Ok(ctalker!(base, Self { table_talker }))

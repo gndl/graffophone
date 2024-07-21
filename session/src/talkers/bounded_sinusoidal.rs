@@ -6,10 +6,9 @@ use talker::ctalker;
 use talker::dsp;
 use talker::ear;
 use talker::ear::Init;
-use talker::identifier::Index;
+use talker::identifier::{Identifiable, Index};
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 pub const MODEL: &str = "BoundedSinusoidal";
 
@@ -27,16 +26,16 @@ const FLOOR_EAR_INDEX: Index = 3;
 const AUDIO_VOICE_PORT: usize = 1;
 
 impl BoundedSinusoidal {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("BSin", MODEL);
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
+        base.set_name("BSin");
 
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("phase"), 0., 1000., 0., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("roof"), -1000., 1000., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("floor"), -1000., 1000., 0., &Init::DefValue)?);
 
-        base.add_voice(voice::cv(Some("cv"), 0.));
-        base.add_voice(voice::audio(Some("au"), 0.));
+        base.add_cv_voice(Some("cv"), 0.);
+        base.add_audio_voice(Some("au"), 0.);
 
         Ok(ctalker!(
             base,

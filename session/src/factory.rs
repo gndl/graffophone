@@ -60,9 +60,9 @@ impl Factory {
         &self,
         model: &str,
         oid: Option<u32>,
-        oname: Option<&str>,
+        oname: Option<&str>, effective: bool,
     ) -> Result<RTalker, failure::Error> {
-        let tkr = self.plugins_manager.make_talker(model)?;
+        let tkr = self.plugins_manager.make_talker(model, effective)?;
         Factory::set_identity(tkr.identifier(), oid, oname);
         Ok(tkr)
     }

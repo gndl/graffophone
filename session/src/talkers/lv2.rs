@@ -10,9 +10,9 @@ use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
 use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
+use talker::identifier::Identifiable;
 use talker::lv2_handler::Lv2Handler;
 use talker::talker::{CTalker, Talker, TalkerBase};
-use talker::voice;
 
 fn an_or(v: f32, def: f32) -> f32 {
     if v.is_nan() {
@@ -35,7 +35,7 @@ pub struct Lv2 {
 }
 
 impl Lv2 {
-    pub fn new(lv2_handler: &Lv2Handler, uri: &str) -> Result<CTalker, failure::Error> {
+    pub fn new(lv2_handler: &Lv2Handler, uri: &str, mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
                 match unsafe {
@@ -45,7 +45,7 @@ impl Lv2 {
                     )
                 } {
                     Ok(instance) => {
-                        let mut base = TalkerBase::new(&plugin.name(), uri);
+                        base.set_name(&plugin.name());
                         let mut inputs_count = 0;
                         let mut outputs_count = 0;
                         let mut control_inputs_indexes = Vec::new();
@@ -71,11 +71,7 @@ impl Lv2 {
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::ControlOutput => {
-                                    let vc = voice::control(
-                                        Some(&port.name),
-                                        an_or(port.default_value, audio_format::DEF_CONTROL),
-                                    );
-                                    base.add_voice(vc);
+                                    base.add_control_voice(Some(&port.name), an_or(port.default_value, audio_format::DEF_CONTROL));
                                     control_outputs_indexes.push((port.index, outputs_count));
                                     outputs_count = outputs_count + 1;
                                 }
@@ -92,8 +88,7 @@ impl Lv2 {
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::AudioOutput => {
-                                    let vc = voice::audio(Some(&port.name), 0.);
-                                    base.add_voice(vc);
+                                    base.add_audio_voice(Some(&port.name), 0.);
                                     audio_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
                                 }
@@ -104,8 +99,7 @@ impl Lv2 {
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceOutput => {
-                                    let vc = voice::atom(Some(&port.name), Some(lv2_handler));
-                                    base.add_voice(vc);
+                                    base.add_atom_voice(Some(&port.name), Some(lv2_handler));
                                     atom_sequence_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
                                 }
@@ -122,8 +116,7 @@ impl Lv2 {
                                     inputs_count = inputs_count + 1;
                                 }
                                 livi::PortType::CVOutput => {
-                                    let vc = voice::cv(Some(&port.name), 0.);
-                                    base.add_voice(vc);
+                                    base.add_cv_voice(Some(&port.name), 0.);
                                     cv_outputs_indexes.push(outputs_count);
                                     outputs_count = outputs_count + 1;
                                 }

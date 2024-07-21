@@ -4,7 +4,6 @@ use talker::audio_format::AudioFormat;
 use talker::ear;
 use talker::ear::Init;
 use talker::talker::TalkerBase;
-use talker::voice;
 
 pub struct TableTalker {
     tab_len: f32,
@@ -20,7 +19,7 @@ impl TableTalker {
         base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
-        base.add_voice(voice::audio(None, 0.));
+        base.add_audio_voice(None, 0.);
 
         let tab_len_on_sr = (tab_len as f64 / AudioFormat::sample_rate() as f64) as f32;
 

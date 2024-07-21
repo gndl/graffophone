@@ -4,19 +4,16 @@ use talker::ear;
 use talker::ear::Init;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
-use talker::voice;
 
 pub const MODEL: &str = "AbsSine";
 
 pub struct AbsSine {}
 
 impl AbsSine {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("", MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let freq = ear::audio(Some("freq"), 0., 20000., 440., &Init::DefValue)?;
         base.add_ear(freq);
-        base.add_voice(voice::audio(None, 0.));
+        base.add_audio_voice(None, 0.);
 
         Ok(ctalker!(base, Self {}))
     }

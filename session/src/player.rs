@@ -93,7 +93,7 @@ fn run(
 
     let feedback_mixer_idx = 0;
 
-    let mut band = Band::make(&band_description)?;
+    let mut band = Band::make(&band_description, true)?;
 
     let mut state = State::Stopped;
     let mut oorder = order_receiver.recv();
@@ -161,7 +161,7 @@ fn run(
                     }
                 }
                 Order::LoadBand(band_desc) => {
-                    band = Band::make(&band_desc)?;
+                    band = Band::make(&band_desc, true)?;
 
                     match state {
                         State::Playing => band.open()?,

@@ -1,6 +1,5 @@
 use crate::data::Data;
 use crate::talker::{CTalker, Talker, TalkerBase};
-use crate::voice;
 use ctalker;
 
 pub const MODEL: &str = "CvTalker";
@@ -10,9 +9,9 @@ pub struct CvTalker {}
 impl CvTalker {
     pub fn new(def_value: f32, hidden: Option<bool>) -> CTalker {
         let value = if def_value.is_nan() { 0. } else { def_value };
-        let mut base = TalkerBase::new_data("", MODEL, Data::f(value));
+        let mut base = TalkerBase::new_data("", MODEL, Data::f(value), true);
 
-        base.add_voice(voice::cv(None, value));
+        base.add_cv_voice(None, value);
         base.set_hidden(hidden.unwrap_or(false));
 
         ctalker!(base, Self {})

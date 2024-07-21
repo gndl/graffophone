@@ -49,9 +49,7 @@ const TRIGGER_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
 impl EnvShaper {
-    pub fn new() -> Result<CTalker, failure::Error> {
-        let mut base = TalkerBase::new("EnvShaper", MODEL);
-
+    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::audio(None, -1., 1., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("time"), 0., 3600., 0., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("dur"), 0., 400., 1., &Init::DefValue)?);
@@ -98,7 +96,7 @@ impl Talker for EnvShaper {
         let mut new_base = base.clone();
         new_base.ear(ear_idx).add_set(hum_idx, entree)?;
 
-        let mut voice = voice::audio(None, 0.);
+        let mut voice = voice::audio(None, 0., base.buffer_len());
         voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
         new_base.add_voice(voice);
 
