@@ -1,0 +1,8 @@
+[package]
+name = "audiofile"
+version = "0.1.0"
+authors = ["gndl"]
+
+[dependencies]
+failure = "0.1.8"
+ffmpeg-next = "6.1.1"

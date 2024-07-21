@@ -18,6 +18,7 @@ ringbuf = "0.2.8"
 #glib = "0.18.2"
 cairo-rs = "0.18.2"
 sourceview5 = "0.7.1"
+audiofile = { path = "./audiofile" }
 talker = { path = "./talker" }
 scale = { path = "./scale" }
 session = { path = "./session" }
