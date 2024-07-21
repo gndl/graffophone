@@ -2,6 +2,7 @@
 extern crate failure;
 extern crate rustfft;
 
+extern crate audiofile;
 extern crate scale;
 
 use std::env;
@@ -15,35 +16,13 @@ use std::f64::consts::PI;
 
 use rustfft::{FftPlanner, num_complex::Complex};
 
+use audiofile::reader::Reader;
 use scale::pitch_fetcher;
 
 const SAMPLE_RATE: f64 = 44100.;
 const FREQUENCY_STEP: f64 = 6.;
 const CHUNK_SIZE: usize = (SAMPLE_RATE / FREQUENCY_STEP) as usize;
 const PEAK_THRESHOLD: f64 = 1200. * 1200.;
-/*
-fn chunk_positive_freq(chunk: &Vec<Complex<f64>>) -> f32 {
-    
-for i in 0..CHUNK_SIZE {
-    if chunk[CHUNK_SIZE - i - 1].im > PEAK_THRESHOLD {
-        return ((i + 1) as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32;
-    }
-}
-0.
-}
-
-fn chunk_negative_freq(chunk: &Vec<Complex<f64>>) -> f32 {
-    
-for i in 1..(CHUNK_SIZE / 10) {
-    println!("{} {}Hz : re = {}, im = {}", i, (i as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32, chunk[i].re, chunk[i].im);
-    
-    if chunk[i].im < (-1. * PEAK_THRESHOLD) {
-        return (i as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32;
-    }
-}
-0.
-}
-*/
 
 fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
 
@@ -76,7 +55,14 @@ fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
     0.
 }
 
-fn file_freqs(_: &str) -> Vec<f32> {
+fn file_freqs(filename: &str) -> Vec<f32> {
+    let mut file_reader = Reader::new(filename, SAMPLE_RATE as usize).expect("Invalid audio file");
+    let mut channels = Vec::new();
+
+    for _ in 0..file_reader.channels() {
+        channels.push(vec![0.; CHUNK_SIZE]);
+    }
+
     let mut freqs = Vec::new();
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(CHUNK_SIZE);
@@ -84,52 +70,14 @@ fn file_freqs(_: &str) -> Vec<f32> {
     let mut chunk = Vec::with_capacity(CHUNK_SIZE);
     let mut scratch = vec![Complex{ re: 0.0f64, im: 0.0f64 }; CHUNK_SIZE];
 
-    let basic_freq: f64 = 55.;
-    let rs = [1., 1.5, 2.5, 3.1, 3.5, 5.5, 12., 100., 2., 3., 4., 8., 16.];
-    // let rs = [2., 3.];
-
-    let fs = rs.map(|r| r * basic_freq);
     let pitch_fetchers = pitch_fetcher::Collection::new();
     let pitch_fetcher = pitch_fetchers.default();
 
-    print!("pitchs src :");
-    for f in fs {
-        let pitch = pitch_fetcher.fetch_pitch(f as f32).expect("No pitch for freq");
-        print!(" {}", pitch);
-    }
-    println!("");
+    while file_reader.read_samples(&mut channels, CHUNK_SIZE).expect("Invalid audio file") == CHUNK_SIZE {
 
-    let c = (PI * 2. * basic_freq) / SAMPLE_RATE as f64;
-
-    let cs = rs.map(|r| r * c);
-
-    for c in cs {
-        for _ in 0..6 {
-            for t in 0..CHUNK_SIZE {
-                chunk.push(Complex{ re: (t as f64 * c).sin(), im: 0.0f64 });
-            }
-            fft.process_with_scratch(&mut chunk, &mut scratch);
-            // freqs.push(chunk_positive_freq(&chunk));
-            // freqs.push(chunk_negative_freq(&chunk));
-            freqs.push(chunk_freq(&chunk));
-            chunk.clear();
-        }
-    }
-    /*
-    */
-    for _ in 0..6 {
         for t in 0..CHUNK_SIZE {
-            chunk.push(Complex{ re: 
-                (t as f64 * c).sin() + 
-                (t as f64 * c * 1.5).sin() + 
-                (t as f64 * c * 2.5).sin() + 
-                (t as f64 * c * 3.5).sin() + 
-                (t as f64 * c * 5.5).sin() +
-                (t as f64 * c * 12.).sin() +
-                (t as f64 * c * 100.).sin(), 
-                im: 0.0f64
-                }
-            )
+            let re = channels[0][t] as f64;
+            chunk.push(Complex{ re, im: 0.0f64});
         }
 
         fft.process_with_scratch(&mut chunk, &mut scratch);
@@ -139,6 +87,7 @@ fn file_freqs(_: &str) -> Vec<f32> {
     }
     freqs
 }
+
 
 pub struct Note {
     pub pitch: String,
@@ -221,10 +170,12 @@ fn notes_hits(notes: &Vec<Note>) -> (f64, Vec<Hit>, f64) {
 }
 
 fn main() {
+    let _ = audiofile::init();
     let args: Vec<String> = env::args().collect();
-//    let filename = &args[1];
-    let seqname = "riff";
-    let freqs = file_freqs("");
+   let filename = &args[1];
+   println!("filename {} :", filename);
+   let seqname = "riff";
+    let freqs = file_freqs(filename);
     let notes = freqs_notes(&freqs);
     let (bpm, hits, duration) = notes_hits(&notes);
 
@@ -257,3 +208,90 @@ fn main() {
     }
     */
 }
+
+fn test_file_freqs(_: &str) -> Vec<f32> {
+    let mut freqs = Vec::new();
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(CHUNK_SIZE);
+
+    let mut chunk = Vec::with_capacity(CHUNK_SIZE);
+    let mut scratch = vec![Complex{ re: 0.0f64, im: 0.0f64 }; CHUNK_SIZE];
+
+    let basic_freq: f64 = 55.;
+    let rs = [1., 1.5, 2.5, 3.1, 3.5, 5.5, 12., 100., 2., 3., 4., 8., 16.];
+    // let rs = [2., 3.];
+
+    let fs = rs.map(|r| r * basic_freq);
+    let pitch_fetchers = pitch_fetcher::Collection::new();
+    let pitch_fetcher = pitch_fetchers.default();
+
+    print!("pitchs src :");
+    for f in fs {
+        let pitch = pitch_fetcher.fetch_pitch(f as f32).expect("No pitch for freq");
+        print!(" {}", pitch);
+    }
+    println!("");
+
+    let c = (PI * 2. * basic_freq) / SAMPLE_RATE;
+
+    let cs = rs.map(|r| r * c);
+
+    for c in cs {
+        for _ in 0..6 {
+            for t in 0..CHUNK_SIZE {
+                chunk.push(Complex{ re: (t as f64 * c).sin(), im: 0.0f64 });
+            }
+            fft.process_with_scratch(&mut chunk, &mut scratch);
+            // freqs.push(chunk_positive_freq(&chunk));
+            // freqs.push(chunk_negative_freq(&chunk));
+            freqs.push(chunk_freq(&chunk));
+            chunk.clear();
+        }
+    }
+    /*
+    */
+    for _ in 0..6 {
+        for t in 0..CHUNK_SIZE {
+            chunk.push(Complex{ re: 
+                (t as f64 * c).sin() + 
+                (t as f64 * c * 1.5).sin() + 
+                (t as f64 * c * 2.5).sin() + 
+                (t as f64 * c * 3.5).sin() + 
+                (t as f64 * c * 5.5).sin() +
+                (t as f64 * c * 12.).sin() +
+                (t as f64 * c * 100.).sin(), 
+                im: 0.0f64
+                }
+            );
+        }
+
+        fft.process_with_scratch(&mut chunk, &mut scratch);
+        let freq = chunk_freq(&chunk);
+        freqs.push(freq);
+        chunk.clear();
+    }
+    freqs
+}
+/*
+fn chunk_positive_freq(chunk: &Vec<Complex<f64>>) -> f32 {
+    
+for i in 0..CHUNK_SIZE {
+    if chunk[CHUNK_SIZE - i - 1].im > PEAK_THRESHOLD {
+        return ((i + 1) as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32;
+    }
+}
+0.
+}
+
+fn chunk_negative_freq(chunk: &Vec<Complex<f64>>) -> f32 {
+    
+for i in 1..(CHUNK_SIZE / 10) {
+    println!("{} {}Hz : re = {}, im = {}", i, (i as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32, chunk[i].re, chunk[i].im);
+    
+    if chunk[i].im < (-1. * PEAK_THRESHOLD) {
+        return (i as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32;
+    }
+}
+0.
+}
+*/
