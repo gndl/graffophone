@@ -22,23 +22,43 @@ use scale::pitch_fetcher;
 const SAMPLE_RATE: f64 = 44100.;
 const FREQUENCY_STEP: f64 = 6.;
 const CHUNK_SIZE: usize = (SAMPLE_RATE / FREQUENCY_STEP) as usize;
-const PEAK_THRESHOLD: f64 = 1200. * 1200.;
+const PEAK_THRESHOLD: f64 = 24000.;// * 1200.;
 
 fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
+    let mut a_max = 0.0f64;
+    let half_chunk_size = CHUNK_SIZE / 2;
 
-    for i in 1..(CHUNK_SIZE / 2) {
+    let mut freqs = Vec::with_capacity(half_chunk_size);
+
+    for i in 0..(half_chunk_size) {
+        freqs.push(chunk[i].re * chunk[i].re + chunk[i].im * chunk[i].im);
+    }
+
+    let mut freqs_sum = 0.;
+
+    for i in 0..(half_chunk_size) {
+        freqs_sum += freqs[i];
+    }
+
+    let peak_threshold = 500. * freqs_sum / half_chunk_size as f64;
+
+
+    for i in 0..(half_chunk_size) {
         // let a = chunk[i].im * chunk[CHUNK_SIZE - i - 1].im;
-        let a_m = chunk[i].re * chunk[i].re + chunk[i].im * chunk[i].im;
+        // let a_m = chunk[i].re * chunk[i].re + chunk[i].im * chunk[i].im;
+        let a_m = freqs[i];
         // if a < (-1. * PEAK_THRESHOLD * PEAK_THRESHOLD) {
+        a_max = a_max.max(a_m);
 
-        // println!("{} {}Hz : re = {}, im = {} => {}", i, (i as f32 * SAMPLE_RATE) / CHUNK_SIZE as f32, chunk[i].re, chunk[i].im, a);
+        // println!("{} {}Hz : re = {}, im = {} => {}", i, (i as f64 * SAMPLE_RATE) / CHUNK_SIZE as f64, chunk[i].re, chunk[i].im, a_m);
 
-        if a_m > PEAK_THRESHOLD {
+        if a_m > peak_threshold {
             let f_m = (i as f64 * SAMPLE_RATE) / CHUNK_SIZE as f64;
-            let a_n = chunk[i + 1].re * chunk[i + 1].re + chunk[i + 1].im * chunk[i + 1].im;
+            // let a_n = chunk[i + 1].re * chunk[i + 1].re + chunk[i + 1].im * chunk[i + 1].im;
+            let a_n = freqs[i + 1];
             
-            if a_n < PEAK_THRESHOLD {
-                // println!("{} : re = {}, im = {}, a = {} => {}Hz\n", i, chunk[i].re, chunk[i].im, a_m, f_m);
+            if a_n < peak_threshold {
+                println!("{} : re = {}, im = {}, a = {} => {}Hz\n", i, chunk[i].re, chunk[i].im, a_m, f_m);
                 return f_m as f32;
             }
             else {
@@ -52,6 +72,7 @@ fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
             }
         }
     }
+    println!("a max : {}", a_max);
     0.
 }
 
