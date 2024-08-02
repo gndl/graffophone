@@ -55,6 +55,19 @@ impl Reader {
         let mut decoder = context.decoder().audio()?;
 
         decoder.set_parameters(input_stream.parameters())?;
+        println!("decoder.channels() : {:?}", decoder.channels());
+        
+        if decoder.channel_layout().bits() == 0 {
+            if decoder.channels() == 1 {
+                decoder.set_channel_layout(ChannelLayout::MONO);
+            }
+            else if decoder.channels() == 2 {
+                decoder.set_channel_layout(ChannelLayout::STEREO);
+            }
+            else {
+                decoder.set_channel_layout(ChannelLayout::default(0));
+            }
+        }
 
         let sample_format = format::Sample::F32(util::format::sample::Type::Planar);
         let filter = filter(&decoder, sample_format, sample_rate).map_err(|e| failure::err_msg(format!("Filter graph : {}", e)))?;
