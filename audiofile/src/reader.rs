@@ -49,8 +49,7 @@ impl Reader {
         let input_context = format::input(&file_path).unwrap();
         let input_stream = input_context
         .streams()
-        .best(media::Type::Audio)
-        .expect("could not find best audio stream");
+        .best(media::Type::Audio).ok_or(failure::err_msg("could not find best audio stream"))?;
     
         let context = ffmpeg::codec::context::Context::from_parameters(input_stream.parameters())?;
         let mut decoder = context.decoder().audio()?;
