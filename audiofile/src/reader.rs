@@ -136,4 +136,38 @@ impl Reader {
  
         Ok(sample_idx)
     }
+
+    pub fn read_all_samples(&mut self) -> Result<Vec<Vec<f32>>, failure::Error> {
+        let channels_count = self.channels();
+        let chunk_size = 1_000_000;
+        let mut chunks = Vec::with_capacity(channels_count);
+        let mut channels = Vec::with_capacity(channels_count);
+        
+        for _ in 0..channels_count {
+            chunks.push(vec![0.; chunk_size]);
+            channels.push(Vec::new());
+        }
+
+        loop {
+            let len =  self.read_samples(&mut chunks, chunk_size)?;
+            
+            if len == 0 {
+                break;
+            }
+
+            if len == chunk_size {
+                for c in 0..channels_count {
+                    channels[c].extend(chunks[c].iter());
+                }
+            }
+            else {
+                for c in 0..channels_count {
+                    for t in 0..len {
+                        channels[c].push(chunks[c][t]);
+                    }
+                }
+            }
+        }
+        Ok(channels)
+    }
 }

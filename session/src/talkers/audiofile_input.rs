@@ -59,29 +59,7 @@ impl Talker for AudioFileInput {
                 }
 
                 if base.is_effective() {
-                    let mut channels = Vec::new();
-                    let chunk_size = sample_rate / 4;
-                    
-                    self.channels.clear();
-                    
-                    for _ in 0..channels_count {
-                        channels.push(vec![0.; chunk_size]);
-                        self.channels.push(Vec::new());
-                    }
-                    
-                    loop {
-                        let len =  file_reader.read_samples(&mut channels, chunk_size)?;
-                        
-                        if len == 0 {
-                            break;
-                        }
-                        
-                        for c in 0..channels_count {
-                            for t in 0..len {
-                                self.channels[c].push(channels[c][t]);
-                            }
-                        }
-                    }
+                    self.channels =file_reader.read_all_samples()?;
                 }
                     
                 new_base.set_data(data);
