@@ -150,6 +150,7 @@ pub struct Binder<'a> {
     default_chordline: Vec<Vec<Harmonic>>,
     chordlines: HashMap<&'a str, Vec<Vec<Harmonic>>>,
     pub parser_durationlines: Vec<&'a PDurationLine<'a>>,
+    default_durationline: DurationLine,
     pub durationlines: HashMap<&'a str, DurationLine>,
     pub parser_velocitylines: Vec<&'a PVelocityLine<'a>>,
     default_velocityline: Vec<Velocity>,
@@ -179,6 +180,7 @@ impl<'a> Binder<'a> {
             default_chordline: vec![vec![Harmonic::new()]],
             chordlines: HashMap::new(),
             parser_durationlines: Vec::new(),
+            default_durationline: DurationLine{durations: Vec::new()},
             durationlines: HashMap::new(),
             parser_velocitylines: Vec::new(),
             default_velocityline: vec![Velocity::new()],
@@ -336,13 +338,13 @@ impl<'a> Binder<'a> {
             None => Err(failure::err_msg(format!("Tseq envelope {} not found!", id))),
         }
     }
-    pub fn fetch_durationline(&'a self, id: &str) -> Result<&'a DurationLine, failure::Error> {
-        match self.durationlines.get(id) {
-            Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!(
-                "Tseq durations {} not found!",
-                id
-            ))),
+    pub fn fetch_durationline(&'a self, oid: &'a Option<&str>,) -> Result<&'a DurationLine, failure::Error> {
+        match oid {
+            Some(id) => match self.durationlines.get(id) {
+                Some(e) => Ok(e),
+                None => Err(failure::err_msg(format!("Tseq durations {} not found!", id))),
+            },
+            None => Ok(&self.default_durationline),
         }
     }
     pub fn fetch_velocityline(
@@ -352,10 +354,7 @@ impl<'a> Binder<'a> {
         match oid {
             Some(id) => match self.velocitylines.get(id) {
                 Some(e) => Ok(e),
-                None => Err(failure::err_msg(format!(
-                    "Tseq velocityline {} not found!",
-                    id
-                ))),
+                None => Err(failure::err_msg(format!("Tseq velocityline {} not found!", id))),
             },
             None => Ok(&self.default_velocityline),
         }

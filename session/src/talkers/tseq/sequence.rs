@@ -75,17 +75,20 @@ impl EventsBuilder {
         let hitline = binder.fetch_hitline(part.hitline_id)?;
         let hitline_hits_count = hitline.hits.len();
         let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
-        let mut hitline_start_tick = self.tick;
         let mut mul = part.mul.unwrap_or(1.);
-        let fadeout_pre_envelop = seq_envelop_index != envelope::UNDEFINED;
-
+        
         if hitline_hits_count > 0 && mul > 0. {
             if let Some(pitchline_id) = part.pitchline_id {
                 let (scale, pitchline) = binder.fetch_pitchline(pitchline_id)?;
                 let pitchs_count = pitchline.len();
-
+                
                 if pitchs_count > 0 {
                     part_is_empty = false;
+                    let mut hitline_start_tick = self.tick;
+                    let fadeout_pre_envelop = seq_envelop_index != envelope::UNDEFINED;
+
+                    let durationline = binder.fetch_durationline(&part.durationline_id)?;
+                    let durations_count = durationline.durations.len();
 
                     let chordline = binder.fetch_chordline(&part.chordline_id)?;
                     let chords_count = chordline.len();
@@ -94,6 +97,7 @@ impl EventsBuilder {
                     let velocities_count = velocities.len();
 
                     let mut next_hit_idx = 0;
+                    let mut next_duration_idx = 0;
                     let mut next_pitch_idx = 0;
                     let mut next_chord_idx = 0;
                     let mut next_velocity_idx = 0;
@@ -109,13 +113,18 @@ impl EventsBuilder {
 
                         for _ in 0..n {
                             let next_hit = &hitline.hits[next_hit_idx];
-                            let next_hit_start_tick = hitline_start_tick
-                                + binder::to_ticks(&next_hit.position, ticks_per_beat);
-                            let next_hit_end_tick = binder::option_to_ticks(
-                                &next_hit.duration,
-                                next_hit_start_tick,
-                                ticks_per_beat,
-                            );
+                            let next_hit_start_tick = hitline_start_tick + binder::to_ticks(&next_hit.position, ticks_per_beat);
+
+                            let next_hit_end_tick = if durations_count > 0 {
+                                next_hit_start_tick + binder::to_ticks(&durationline.durations[next_duration_idx], ticks_per_beat)
+                            }
+                            else {
+                                binder::option_to_ticks(
+                                    &next_hit.duration,
+                                    next_hit_start_tick,
+                                    ticks_per_beat,
+                                )
+                            };
 
                             let hit_ticks_count = (i64::min(self.hit_end_tick, next_hit_start_tick)
                                 - self.hit_start_tick)
@@ -214,6 +223,14 @@ impl EventsBuilder {
                                 hitline_start_tick += hitline_ticks_count;
                                 0
                             };
+
+                            if durations_count > 0 {
+                                next_duration_idx = if next_duration_idx < durations_count - 1 {
+                                    next_duration_idx + 1
+                                } else {
+                                    0
+                                };
+                            }
 
                             next_pitch_idx = if next_pitch_idx < pitchs_count - 1 {
                                 next_pitch_idx + 1
