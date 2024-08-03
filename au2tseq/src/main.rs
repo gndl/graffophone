@@ -22,6 +22,7 @@ use scale::pitch_fetcher;
 const SAMPLE_RATE: f64 = 44100.;
 const FREQUENCY_STEP: f64 = 6.;
 const CHUNK_SIZE: usize = (SAMPLE_RATE / FREQUENCY_STEP) as usize;
+const CHUNK_DURATION: f64 = 1.0 / FREQUENCY_STEP;
 const PEAK_THRESHOLD: f64 = 24000.;// * 1200.;
 
 fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
@@ -40,7 +41,7 @@ fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
         freqs_sum += freqs[i];
     }
 
-    let peak_threshold = 500. * freqs_sum / half_chunk_size as f64;
+    let peak_threshold = 250. * freqs_sum / half_chunk_size as f64;
 
 
     for i in 0..(half_chunk_size) {
@@ -58,7 +59,7 @@ fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
             let a_n = freqs[i + 1];
             
             if a_n < peak_threshold {
-                println!("{} : re = {}, im = {}, a = {} => {}Hz\n", i, chunk[i].re, chunk[i].im, a_m, f_m);
+                // println!("{} : re = {}, im = {}, a = {} => {}Hz\n", i, chunk[i].re, chunk[i].im, a_m, f_m);
                 return f_m as f32;
             }
             else {
@@ -72,7 +73,7 @@ fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
             }
         }
     }
-    println!("a max : {}", a_max);
+    // println!("a max : {}", a_max);
     0.
 }
 
@@ -91,9 +92,6 @@ fn file_freqs(filename: &str) -> Vec<f32> {
     let mut chunk = Vec::with_capacity(CHUNK_SIZE);
     let mut scratch = vec![Complex{ re: 0.0f64, im: 0.0f64 }; CHUNK_SIZE];
 
-    let pitch_fetchers = pitch_fetcher::Collection::new();
-    let pitch_fetcher = pitch_fetchers.default();
-
     while file_reader.read_samples(&mut channels, CHUNK_SIZE).expect("Invalid audio file") == CHUNK_SIZE {
 
         for t in 0..CHUNK_SIZE {
@@ -109,11 +107,56 @@ fn file_freqs(filename: &str) -> Vec<f32> {
     freqs
 }
 
+fn file_freqs_and_durations(filename: &str) -> Vec<(f32, f64)> {
+    let mut freqs = Vec::new();
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(CHUNK_SIZE);
+
+    let mut chunk = vec![Complex{ re: 0.0f64, im: 0.0f64 }; CHUNK_SIZE];
+    let mut scratch = vec![Complex{ re: 0.0f64, im: 0.0f64 }; CHUNK_SIZE];
+
+    let buf;
+    {
+        let mut file_reader = Reader::new(filename, SAMPLE_RATE as usize).expect("Invalid audio file");
+        let mut channels = file_reader.read_all_samples().expect("Invalid audio file");
+        buf = channels.swap_remove(0);
+    }
+    let step = SAMPLE_RATE as usize / 100;
+    let mut prev_freq = 0.;
+    let mut freq_start = 0;
+    let mut pos = 0;
+    let mut first_freq_step = true;
+    
+    while pos < buf.len() - CHUNK_SIZE {
+        for t in 0..CHUNK_SIZE {
+            chunk[t].re = buf[pos + t] as f64;
+            chunk[t].im = 0.0f64;
+        }
+        fft.process_with_scratch(&mut chunk, &mut scratch);
+        let freq = chunk_freq(&chunk);
+
+        if freq != prev_freq && !first_freq_step {
+            let samples = pos - freq_start + CHUNK_SIZE - step;
+            freqs.push((prev_freq, samples as f64 / SAMPLE_RATE));
+            
+            freq_start += samples;
+            pos = freq_start;
+            first_freq_step = true;
+        }
+        else {
+            pos += step;
+            first_freq_step = false;
+        }
+        prev_freq = freq;
+    }
+    freqs
+}
+
 
 pub struct Note {
     pub pitch: String,
-    pub duration_count: f64,
-    pub duration_on_count: f64,
+    pub duration: f64,
+    pub duration_on: f64,
 }
 
 fn freqs_notes(freqs: &Vec<f32>) -> Vec<Note> {
@@ -134,7 +177,7 @@ fn freqs_notes(freqs: &Vec<f32>) -> Vec<Note> {
                     if freq > 8. {
                         let pitch = pitch_fetcher.fetch_pitch(freq).expect("No pitch for freq");
 
-                        notes.push(Note{pitch, duration_count, duration_on_count});
+                        notes.push(Note{pitch, duration: duration_count * CHUNK_DURATION, duration_on: duration_on_count * CHUNK_DURATION});
                     }
 
                     freq = *f;
@@ -153,7 +196,43 @@ fn freqs_notes(freqs: &Vec<f32>) -> Vec<Note> {
         if freq > 8. {
             let pitch = pitch_fetcher.fetch_pitch(freq).expect("No pitch for freq");
 
-            notes.push(Note{pitch, duration_count, duration_on_count});
+            notes.push(Note{pitch, duration: duration_count * CHUNK_DURATION, duration_on: duration_on_count * CHUNK_DURATION});
+        }
+    }
+    notes
+}
+
+
+fn freqs_and_durations_notes(freqs_and_durations: &Vec<(f32, f64)>) -> Vec<Note> {
+    let mut notes = Vec::new();
+
+    if !freqs_and_durations.is_empty() {
+        let (mut freq, mut duration_on)  = freqs_and_durations[0];
+        let mut duration_off = 0.;
+
+        let pitch_fetchers = pitch_fetcher::Collection::new();
+        let pitch_fetcher = pitch_fetchers.default();
+
+        for (f, dur) in freqs_and_durations {
+            if *f > 16. {
+                if freq > 16. {
+                    let pitch = pitch_fetcher.fetch_pitch(freq).expect("No pitch for freq");
+
+                    notes.push(Note{pitch, duration: duration_on + duration_off, duration_on});
+                }
+
+                freq = *f;
+                duration_on = *dur;
+                duration_off = 0.;
+            }
+            else {
+                duration_off += *dur;
+            }
+        }
+        if freq > 16. {
+            let pitch = pitch_fetcher.fetch_pitch(freq).expect("No pitch for freq");
+
+            notes.push(Note{pitch, duration: duration_on + duration_off, duration_on});
         }
     }
     notes
@@ -161,45 +240,36 @@ fn freqs_notes(freqs: &Vec<f32>) -> Vec<Note> {
 
 
 pub struct Hit {
-    pub position: f64,
-    pub duration: f64,
+    pub time: f64,
+    pub on_rate: f64,
 }
 
 fn notes_hits(notes: &Vec<Note>) -> (f64, Vec<Hit>, f64) {
-    let mut min_duration_count = f64::MAX;
+    let mut min_duration = f64::MAX;
 
     for note in notes {
-        if note.duration_count < min_duration_count {
-            min_duration_count = note.duration_count;
+        if note.duration < min_duration {
+            min_duration = note.duration;
         }
     }
 
-    let mut position = 0.;
+    let mut time = 0.;
     let mut hits = Vec::new();
 
     for note in notes {
-        let duration = note.duration_on_count / note.duration_count;
+        let on_rate = (((note.duration_on / note.duration) * 10.).round()) / 10.;
 
-        hits.push(Hit{position, duration});
+        hits.push(Hit{time, on_rate});
 
-        position += note.duration_count / min_duration_count;
+        time = (((time + note.duration / min_duration) * 10.).round()) / 10.;
     }
 
-    let bpm = 60. * FREQUENCY_STEP / min_duration_count;
+    let bpm = 60. / min_duration;
 
-    (bpm, hits, position)
+    (bpm, hits, time)
 }
 
-fn main() {
-    let _ = audiofile::init();
-    let args: Vec<String> = env::args().collect();
-   let filename = &args[1];
-   println!("filename {} :", filename);
-   let seqname = "riff";
-    let freqs = file_freqs(filename);
-    let notes = freqs_notes(&freqs);
-    let (bpm, hits, duration) = notes_hits(&notes);
-
+fn print_tseq(seqname: &str, bpm: f64, notes: &Vec<Note>, hits: &Vec<Hit>, times: f64) {
     print!("pitchs {} :", seqname);
     for note in notes {
         print!(" {}", note.pitch);
@@ -209,25 +279,37 @@ fn main() {
 
     print!("hits {} :", seqname);
     for hit in hits {
-        print!(" {}-{}", hit.position, hit.duration);
+        print!(" {}", hit.time);
     }
-    println!(" % {}", duration);
+    println!(" % {}", times);
 
-    println!("seq {} : ?beat={} {}-{}", seqname, bpm, seqname, seqname);
+    print!("durations {} :", seqname);
+    for hit in hits {
+        print!(" {}", hit.on_rate);
+    }
+    println!("");
+
+    println!("seq {} : ?beat={} {}&{}-{}", seqname, bpm, seqname, seqname, seqname);
     println!("seqout {} : @{}", seqname, seqname);
     println!("");
-    /*
-    let begin = CHUNK_SIZE - (CHUNK_SIZE as f64 * 12000. / SAMPLE_RATE) as usize;
+}
 
-    for t in 0..CHUNK_SIZE {
-        if buffer[t].im < -800. {
-            println!("{} : {} {}", t, (t * SAMPLE_RATE as usize) / CHUNK_SIZE, buffer[t].im);
-        }
-        else if buffer[t].im > 800.{
-            println!("{} : {} {}", t, ((CHUNK_SIZE - t) * SAMPLE_RATE as usize) / CHUNK_SIZE, buffer[t].im);
-        }
-    }
-    */
+fn main() {
+    let _ = audiofile::init();
+    let args: Vec<String> = env::args().collect();
+   let filename = &args[1];
+//    println!("filename {} :", filename);
+   let seqname = "riff";
+
+   let freqs = file_freqs(filename);
+    let notes = freqs_notes(&freqs);
+    let (bpm, hits, times) = notes_hits(&notes);
+    print_tseq("thick", bpm, &notes, &hits, times);
+
+    let freqs_and_durations = file_freqs_and_durations(filename);
+    let notes = freqs_and_durations_notes(&freqs_and_durations);
+    let (bpm, hits, times) = notes_hits(&notes);
+    print_tseq("thin", bpm, &notes, &hits, times);
 }
 
 fn test_file_freqs(_: &str) -> Vec<f32> {
