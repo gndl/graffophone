@@ -1,4 +1,4 @@
-use ffmpeg::{codec, filter, format, frame, media, util};
+use ffmpeg::{codec, filter, format, frame, media, util, ChannelLayout};
 
 fn filter(
     decoder: &codec::decoder::Audio,
@@ -28,8 +28,6 @@ fn filter(
     filter.output("in", 0)?.input("out", 0)?.parse("anull")?;
     filter.validate()?;
 
-    println!("{}", filter.dump());
-
     Ok(filter)
 }
 
@@ -50,12 +48,11 @@ impl Reader {
         let input_stream = input_context
         .streams()
         .best(media::Type::Audio).ok_or(failure::err_msg("could not find best audio stream"))?;
-    
+
         let context = ffmpeg::codec::context::Context::from_parameters(input_stream.parameters())?;
         let mut decoder = context.decoder().audio()?;
 
         decoder.set_parameters(input_stream.parameters())?;
-        println!("decoder.channels() : {:?}", decoder.channels());
         
         if decoder.channel_layout().bits() == 0 {
             if decoder.channels() == 1 {
