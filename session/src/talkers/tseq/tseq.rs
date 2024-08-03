@@ -49,7 +49,7 @@ impl Tseq {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Oscillator", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Sequencer", MODEL, MODEL)
     }
 
     fn build_sequences(
