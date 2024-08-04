@@ -311,12 +311,8 @@ impl GraphView {
         self.drawing_area.queue_draw();
     }
 
-    pub fn selected_data_talker(&self) -> Option<Id> {
-        self.graph_presenter.borrow().selected_data_talker()
-    }
-
-    pub fn unselect_data_talker(&self) -> Result<Vec<Notification>, failure::Error> {
-        self.graph_presenter.borrow_mut().unselect_data_talker()
+    pub fn graph_presenter(&self) -> RGraphPresenter {
+        self.graph_presenter.clone()
     }
 
     fn column_layout(

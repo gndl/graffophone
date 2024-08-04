@@ -13,6 +13,7 @@ use session::event_bus::{Notification, REventBus};
 use session::state::State;
 use sourceview5::traits::BufferExt;
 
+use crate::graph_presenter::RGraphPresenter;
 use crate::graph_view::{GraphView, RGraphView};
 use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
@@ -275,6 +276,10 @@ impl ApplicationView {
         Ok(rav)
     }
 
+    pub fn graph_presenter(&self) -> RGraphPresenter {
+        self.graph_view.borrow().graph_presenter()
+    }
+
     // Plugins list
     fn fill_talkers_list(
         &self,
@@ -365,7 +370,7 @@ impl ApplicationView {
                     self.talker_data_view.grab_focus();
                 }
                 Data::File(_) => {
-                    let selected_data_talker = self.graph_view.borrow().selected_data_talker();
+                    let selected_data_talker = self.graph_presenter().borrow().selected_data_talker();
 
                     if let Some(talker_id) = selected_data_talker {
                         let open_ctrl = self.session_presenter.clone();
@@ -390,7 +395,7 @@ impl ApplicationView {
     }
 
     pub fn push_talker_data(&self) {
-        let selected_data_talker = self.graph_view.borrow().selected_data_talker();
+        let selected_data_talker = self.graph_presenter().borrow().selected_data_talker();
 
         if let Some(talker_id) = selected_data_talker {
             let text_buffer = self.talker_data_view.buffer();
@@ -414,16 +419,19 @@ impl ApplicationView {
     fn close_talker_data_editor(&self) {
         self.hide_talker_data_editor();
 
-        let res = self.graph_view.borrow().unselect_data_talker();
+        let res = self.graph_presenter().borrow_mut().unselect_data_talker();
         self.event_bus.borrow().notify_notifications_result(res);
     }
 
     fn hide_talker_data_editor(&self) {
-        //        self.text_view.set_buffer(None::<&impl IsA<TextBuffer>>);
         self.talker_data_view_scrolledwindow.set_visible(false);
         self.push_talker_data_button.set_visible(false);
         self.commit_talker_data_button.set_visible(false);
         self.cancel_talker_data_button.set_visible(false);
+    }
+
+    pub fn duplicate_selected_talkers(&self) {
+        self.graph_presenter().borrow().duplicate_selected_talkers();
     }
 
     // Messages view

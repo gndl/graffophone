@@ -165,6 +165,14 @@ impl SessionPresenter {
         }
     }
 
+    pub fn duplicate_talker(&mut self, talker_id: Id) {
+        match self.find_talker(talker_id) {
+            Some(tkr) => self.add_talker(&tkr.model()),
+            None => ()
+        }
+    }
+
+    
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
 
         if self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string())) {

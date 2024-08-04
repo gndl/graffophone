@@ -17,6 +17,7 @@ pub const RECORD_ACCEL: &str = "<Ctrl><Shift>R";
 pub const PUSH_TALKER_DATA_ACCEL: &str = "<Ctrl>U";
 pub const COMMIT_TALKER_DATA_ACCEL: &str = "<Ctrl>M";
 pub const CANCEL_TALKER_DATA_ACCEL: &str = "<Ctrl>W";
+pub const DUPLIATE_SELECTED_TALKERS_ACCEL: &str = "<Ctrl>D";
 
 pub fn create_actions_entries(application: &gtk::Application, window: &gtk::ApplicationWindow, view: &RApplicationView, session_presenter: &RSessionPresenter,) {
 
@@ -148,8 +149,16 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
 
     application.set_accels_for_action("session.cancel_talker_data", &[CANCEL_TALKER_DATA_ACCEL]);
 
+    // Duplicate selected talkers action
+    let duplicate_selected_talkers_view = view.clone();
+    let duplicate_selected_talkers = ActionEntry::builder("duplicate_selected_talkers")
+    .activate(move |_: &SimpleActionGroup, _, _| duplicate_selected_talkers_view.borrow().duplicate_selected_talkers())
+    .build();
+
+    application.set_accels_for_action("session.duplicate_selected_talkers", &[DUPLIATE_SELECTED_TALKERS_ACCEL]);
+
 
     let actions = SimpleActionGroup::new();
-    actions.add_action_entries([new, open, save, save_as, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data]);
+    actions.add_action_entries([new, open, save, save_as, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data, duplicate_selected_talkers]);
     window.insert_action_group("session", Some(&actions));
 }

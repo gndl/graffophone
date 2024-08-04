@@ -580,4 +580,10 @@ impl GraphPresenter {
 
         Ok(vec![Notification::TalkerChanged])
     }
+
+    pub fn duplicate_selected_talkers(&self) {
+        for id in &self.selected_talkers {
+            self.session_presenter.borrow_mut().duplicate_talker(*id);
+        }
+    }
 }
