@@ -19,8 +19,6 @@ pub enum Notification {
     NewTalker,
     TalkerChanged,
     TalkerRenamed(Id),
-    TalkerSelected(Id),
-    TalkerUnselected(Id),
     EarSelected(Id, Index, Index, Index),
     EarUnselected(Id, Index, Index, Index),
     EarAddInSelected(Id, Index, Index, Index),

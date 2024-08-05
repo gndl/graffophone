@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+use gtk::gdk;
 use crate::gtk::prelude::PopoverExt;
 use gtk::prelude::*;
 use gtk::prelude::{DrawingAreaExtManual, IsA, WidgetExt};
-use gtk::gdk::Rectangle;
 
 use cairo::Context;
 
@@ -185,7 +185,7 @@ impl EventReceiver {
         );
 
         popover.set_child(Some(&dialog));
-        popover.set_pointing_to(Some(&Rectangle::new(x as i32, y as i32, 1, 1)));
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
         popover.popup();
     }
 
@@ -291,6 +291,18 @@ impl GraphView {
 
         let gv_drawer = rgraphview.clone();
         drawing_area.set_draw_func(move |w, cc, _, _| gv_drawer.borrow_mut().on_draw(w, cc));
+    }
+
+    pub fn on_key_pressed(&self, key: gdk::Key) {
+        if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
+            self.graph_presenter.borrow_mut().set_multi_selection(true);
+        }
+    }
+
+    pub fn on_key_released(&self, key: gdk::Key) {
+        if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
+            self.graph_presenter.borrow_mut().set_multi_selection(false);
+        }
     }
 
     pub fn area(&self) -> &impl IsA<gtk::Widget> {

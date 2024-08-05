@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gtk::glib;
 use gtk::prelude::*;
 use gtk::Widget;
 use gtk::gio::Cancellable;
@@ -242,6 +243,21 @@ impl ApplicationView {
         message_view_close_button.connect_clicked(move |_| {
             message_view_revealer_ctrl.set_reveal_child(false);
         });
+
+        // Key pressed event
+        let key_pressed_ctrl = graph_view.clone();
+        let key_pressed_event_controller = gtk::EventControllerKey::builder().build();
+        key_pressed_event_controller.connect_key_pressed(move |_, key, _, _| {
+            key_pressed_ctrl.borrow().on_key_pressed(key);
+            return glib::signal::Propagation::Proceed;
+        });
+        window.add_controller(key_pressed_event_controller);
+
+        // Key released event
+        let key_released_ctrl = graph_view.clone();
+        let key_released_event_controller = gtk::EventControllerKey::builder().build();
+        key_released_event_controller.connect_key_released(move |_, key, _, _| key_released_ctrl.borrow().on_key_released(key));
+        window.add_controller(key_released_event_controller);
 
         window.present();
 

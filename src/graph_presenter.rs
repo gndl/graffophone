@@ -102,24 +102,27 @@ impl GraphPresenter {
         }
     }
 
+    pub fn set_multi_selection(&mut self, multi_selection: bool) {
+        self.multi_selection = multi_selection;
+    }
+
     pub fn select_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
         let mut notifications = Vec::new();
 
-        if self.multi_selection || self.selected_talkers.len() < 2 {
+        if self.multi_selection {
             if self.selected_talkers.contains(&talker_id) {
                 self.selected_talkers.remove(&talker_id);
-                notifications.push(Notification::TalkerUnselected(talker_id));
             } else {
                 self.selected_talkers.insert(talker_id);
-                notifications.push(Notification::TalkerSelected(talker_id));
             }
         } else {
-            for id in &self.selected_talkers {
-                notifications.push(Notification::TalkerUnselected(*id));
+            if self.selected_talkers.len() == 1 && self.selected_talkers.contains(&talker_id) {
+                self.selected_talkers.clear();
             }
-            self.selected_talkers.clear();
-            self.selected_talkers.insert(talker_id);
-            notifications.push(Notification::TalkerSelected(talker_id));
+            else {
+                self.selected_talkers.clear();
+                self.selected_talkers.insert(talker_id);
+            }
         }
         notifications.push(Notification::SelectionChanged);
         Ok(notifications)
@@ -130,7 +133,6 @@ impl GraphPresenter {
 
         if self.selected_talkers.contains(&talker_id) {
             self.selected_talkers.remove(&talker_id);
-            notifications.push(Notification::TalkerUnselected(talker_id));
             notifications.push(Notification::SelectionChanged);
         }
         Ok(notifications)
@@ -142,15 +144,10 @@ impl GraphPresenter {
     ) -> Result<Vec<Notification>, failure::Error> {
         let mut notifications = Vec::new();
 
-        for id in &self.selected_talkers {
-            notifications.push(Notification::TalkerUnselected(*id));
-        }
-
         self.selected_talkers.clear();
         self.selected_talkers.insert(talker_id);
         self.selected_data_talker = Some(talker_id);
 
-        notifications.push(Notification::TalkerSelected(talker_id));
         notifications.push(Notification::SelectionChanged);
         notifications.push(Notification::EditTalkerData(talker_id));
 
