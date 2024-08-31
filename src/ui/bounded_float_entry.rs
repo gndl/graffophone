@@ -6,6 +6,10 @@ use gtk::prelude::EditableExt;
 use gtk::prelude::WidgetExt;
 use gtk::traits::{AdjustmentExt, BoxExt, ButtonExt};
 
+fn key_is_numeric(c: u32) -> bool {
+    (c >= 10 && c <= 19) || (c >= 79 && c <= 91) || c == 59
+}
+
 pub fn create<
     OnValueChanged: Fn(f64) + 'static,
     OnOk: Fn(f64) + 'static,
@@ -78,13 +82,14 @@ pub fn create<
     let key_pressed_ok_button = ok_button.clone();
 
     let key_pressed_event_controller = gtk::EventControllerKey::builder().build();
-    key_pressed_event_controller.connect_key_pressed(move |_, key, _, _| {
+    key_pressed_event_controller.connect_key_pressed(move |_, key, key_code, _| {
+
         let entry_value = key_pressed_entry.text();
 
         if key == gtk::gdk::Key::space || key == gtk::gdk::Key::Return {
             match f64::from_str(&entry_value) {
                 Ok(v) => key_pressed_adjustment.set_value(v),
-                Err(_) => (),
+                Err(_) => key_pressed_entry.set_text(&key_pressed_adjustment.value().to_string()),
             }
             if key == gtk::gdk::Key::Return {
                 key_pressed_ok_button.emit_clicked();
@@ -99,7 +104,7 @@ pub fn create<
         else if key == gtk::gdk::Key::Delete {
             key_pressed_entry.set_text("");
         }
-        else {
+        else if key_is_numeric(key_code) {
             if let Some(car) = key.to_unicode() {
 
                 let new_value = match key_pressed_entry.selection_bounds() {
