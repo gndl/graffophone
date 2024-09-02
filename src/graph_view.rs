@@ -160,13 +160,13 @@ impl EventReceiver {
         let default_popover = popover.clone();
 
         let dialog = ui::bounded_float_entry::create(
-            min.into(),
-            max.into(),
-            def.into(),
-            cur.into(),
+            min,
+            max,
+            def,
+            cur,
             move |v| {
                 gp_on_scale.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v as f32, false,
+                    talker_id, ear_idx, set_idx, hum_idx, 0, v, false,
                 )
             },
             move |_| ok_popover.popdown(),

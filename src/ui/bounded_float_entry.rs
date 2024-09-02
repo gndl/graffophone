@@ -11,22 +11,28 @@ fn key_is_numeric(c: u32) -> bool {
 }
 
 pub fn create<
-    OnValueChanged: Fn(f64) + 'static,
-    OnOk: Fn(f64) + 'static,
-    OnCancel: Fn(f64) + 'static,
-    OnDefault: Fn(f64) + 'static,
+    OnValueChanged: Fn(f32) + 'static,
+    OnOk: Fn(f32) + 'static,
+    OnCancel: Fn(f32) + 'static,
+    OnDefault: Fn(f32) + 'static,
 >(
-    min: f64,
-    max: f64,
-    def: f64,
-    current: f64,
+    min: f32,
+    max: f32,
+    def: f32,
+    current: f32,
     on_value_changed: OnValueChanged,
     on_ok: OnOk,
     on_cancel: OnCancel,
     on_default: OnDefault,
 ) -> impl IsA<gtk::Widget> {
-    let step = f64::min((max - min) / 40000., 1.);
-    let adjustment = Adjustment::new(current, min, max, step, step * 100., 0.);
+    let step = f32::min((max - min) / 40000., 1.);
+    let adjustment = Adjustment::new(
+        current as f64,
+        min as f64,
+        max as f64,
+        step as f64,
+        step as f64 * 100.,
+        0.);
 
     let scale = gtk::Scale::builder()
         .adjustment(&adjustment)
@@ -36,7 +42,7 @@ pub fn create<
         .inverted(true)
         .draw_value(false)
         .build();
-
+    
     let entry = gtk::Entry::builder().can_focus(false)
         .input_purpose(gtk::InputPurpose::Number)
         .css_classes(["bounded_float_entry"]).build();
@@ -87,9 +93,9 @@ pub fn create<
         let entry_value = key_pressed_entry.text();
 
         if key == gtk::gdk::Key::space || key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter {
-            match f64::from_str(&entry_value) {
-                Ok(v) => key_pressed_adjustment.set_value(v),
-                Err(_) => key_pressed_entry.set_text(&key_pressed_adjustment.value().to_string()),
+            match f32::from_str(&entry_value) {
+                Ok(v) => key_pressed_adjustment.set_value(v as f64),
+                Err(_) => key_pressed_entry.set_text(&(key_pressed_adjustment.value() as f32).to_string()),
             }
             if key == gtk::gdk::Key::space {
                 key_pressed_entry.select_region(0, -1);
@@ -128,15 +134,16 @@ pub fn create<
     let adjustment_entry = entry.clone();
 
     adjustment.connect_value_changed(move |adj| {
-        adjustment_entry.set_text(&adj.value().to_string());
-        on_value_changed(adj.value());
+        let v = adj.value() as f32;
+        adjustment_entry.set_text(&v.to_string());
+        on_value_changed(v);
     });
 
     cancel_button.connect_clicked(move |_| on_cancel(current));
 
     default_button.connect_clicked(move |_| on_default(def));
 
-    ok_button.connect_clicked(move |_| on_ok(adjustment.value()));
+    ok_button.connect_clicked(move |_| on_ok(adjustment.value() as f32));
 
     return widget;
 }
