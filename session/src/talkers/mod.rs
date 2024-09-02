@@ -1,4 +1,3 @@
-pub mod abs_sine;
 pub mod accumulator;
 pub mod adsrp;
 pub mod audiofile_input;
