@@ -620,23 +620,25 @@ impl Ear {
     }
 
     pub fn talk_def_value(&self, hum_idx: Index) -> f32 {
-        if let Some(stem_set) = &self.stem_set {
+        if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
+            return self.sets()[0].hums[hum_idx].def_value();
+        }
+        else if let Some(stem_set) = &self.stem_set {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].def_value();
             }
-        } else if self.sets().len() > 0 && self.sets()[0].hums.len() > hum_idx {
-            return self.sets()[0].hums[hum_idx].def_value();
         }
         0.
     }
 
     pub fn talk_value_or_default(&self, set_idx: Index, hum_idx: Index) -> f32 {
-        if let Some(stem_set) = &self.stem_set {
+        if self.sets().len() > set_idx && self.sets()[set_idx].hums.len() > hum_idx {
+            return self.sets()[set_idx].hums[hum_idx].value_or_default();
+        }
+        else if let Some(stem_set) = &self.stem_set {
             if stem_set.hums.len() > hum_idx {
                 return stem_set.hums[hum_idx].value_or_default();
             }
-        } else if self.sets().len() > 0 && self.sets()[set_idx].hums.len() > hum_idx {
-            return self.sets()[set_idx].hums[hum_idx].value_or_default();
         }
         0.
     }
