@@ -5,7 +5,7 @@ use talker::ear::Init;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
-pub const MODEL: &str = "AbsSine";
+pub const MODEL: &str = "AbsoluteSinusoidal";
 
 pub struct AbsSine {}
 
@@ -18,7 +18,7 @@ impl AbsSine {
         Ok(ctalker!(base, Self {}))
     }
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Oscillator", MODEL, "Absolute sinusoidal")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Absolute Sinusoidal")
     }
 }
 

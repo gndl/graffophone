@@ -20,7 +20,7 @@ impl SecondDegreeFrequencyProgression {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Oscillator", MODEL, "Second degree frequency progression")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, "Second Degree Frequency Progression")
     }
 }
 

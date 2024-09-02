@@ -19,7 +19,7 @@ impl Round {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Oscillator", MODEL, "Round")
+        TalkerHandlerBase::builtin("Oscillator", MODEL, MODEL)
     }
 }
 

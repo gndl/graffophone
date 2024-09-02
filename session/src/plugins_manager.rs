@@ -11,7 +11,7 @@ use talkers::adsrp::{self, ADSRp};
 use talkers::audiofile_input::{self, AudioFileInput};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
-use talkers::env_shaper::{self, EnvShaper};
+use talkers::envelope_shaper::{self, EnvelopeShaper};
 use talkers::fuzz::{self, Fuzz};
 use talkers::hub::{self, Hub};
 use talkers::lv2::Lv2;
@@ -88,7 +88,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
-            PluginsManager::tkr_hr_kv(EnvShaper::descriptor()),
+            PluginsManager::tkr_hr_kv(EnvelopeShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
             PluginsManager::tkr_hr_kv(Hub::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
@@ -130,8 +130,8 @@ impl PluginsManager {
             Ok(rtalker!(BoundedSquare::new(base)?))
         } else if model == math::AVERAGE_MODEL {
             Ok(rtalker!(Average::new(base)?))
-        } else if model == env_shaper::MODEL {
-            Ok(rtalker!(EnvShaper::new(base)?))
+        } else if model == envelope_shaper::MODEL {
+            Ok(rtalker!(EnvelopeShaper::new(base)?))
         } else if model == fuzz::MODEL {
             Ok(rtalker!(Fuzz::new(base)?))
         } else if model == parabolic::MODEL {

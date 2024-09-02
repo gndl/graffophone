@@ -15,7 +15,7 @@ impl TalkerHandlerBase {
         }
     }
     pub fn builtin(category: &str, model: &str, label: &str) -> Self {
-        let builtin_label = format!("Builtin {}", label);
+        let builtin_label = format!("G {}", label);
         TalkerHandlerBase::with_multi_categories(vec![category.to_string()], &model, &builtin_label)
     }
 

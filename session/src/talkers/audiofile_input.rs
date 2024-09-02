@@ -28,7 +28,7 @@ impl AudioFileInput {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Generator", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Generator", MODEL, "Audio File")
     }
 }
 

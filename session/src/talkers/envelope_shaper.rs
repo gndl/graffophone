@@ -12,7 +12,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "EnvShaper";
+pub const MODEL: &str = "EnvelopeShaper";
 
 struct PlayerState {
     last_trigger: f32,
@@ -29,7 +29,7 @@ impl PlayerState {
     }
 }
 
-pub struct EnvShaper {
+pub struct EnvelopeShaper {
     start_tick: i64,
     duration: usize,
     a: f32,
@@ -48,7 +48,7 @@ const PLAYERS_EAR_INDEX: Index = 5;
 const TRIGGER_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
-impl EnvShaper {
+impl EnvelopeShaper {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::audio(None, -1., 1., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("time"), 0., 3600., 0., &Init::DefValue)?);
@@ -81,11 +81,11 @@ impl EnvShaper {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Envelope", MODEL, "EnvShaper")
+        TalkerHandlerBase::builtin("Envelope", MODEL, "Envelope Shaper")
     }
 }
 
-impl Talker for EnvShaper {
+impl Talker for EnvelopeShaper {
     fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,

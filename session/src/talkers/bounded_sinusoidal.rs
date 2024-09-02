@@ -27,8 +27,6 @@ const AUDIO_VOICE_PORT: usize = 1;
 
 impl BoundedSinusoidal {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
-        base.set_name("BSin");
-
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("phase"), 0., 1000., 0., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("roof"), -1000., 1000., 1., &Init::DefValue)?);
