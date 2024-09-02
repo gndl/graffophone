@@ -86,15 +86,17 @@ pub fn create<
 
         let entry_value = key_pressed_entry.text();
 
-        if key == gtk::gdk::Key::space || key == gtk::gdk::Key::Return {
+        if key == gtk::gdk::Key::space || key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter {
             match f64::from_str(&entry_value) {
                 Ok(v) => key_pressed_adjustment.set_value(v),
                 Err(_) => key_pressed_entry.set_text(&key_pressed_adjustment.value().to_string()),
             }
-            if key == gtk::gdk::Key::Return {
+            if key == gtk::gdk::Key::space {
+                key_pressed_entry.select_region(0, -1);
+            }
+            else {
                 key_pressed_ok_button.emit_clicked();
             }
-            key_pressed_entry.select_region(0, -1);
         }
         else if key == gtk::gdk::Key::BackSpace {
             if entry_value.len() > 0 {
