@@ -97,10 +97,7 @@ pub fn create<
                 Ok(v) => key_pressed_adjustment.set_value(v as f64),
                 Err(_) => key_pressed_entry.set_text(&(key_pressed_adjustment.value() as f32).to_string()),
             }
-            if key == gtk::gdk::Key::space {
-                key_pressed_entry.select_region(0, -1);
-            }
-            else {
+            if key != gtk::gdk::Key::space {
                 key_pressed_ok_button.emit_clicked();
             }
         }
@@ -122,7 +119,9 @@ pub fn create<
                         entry_value.get(sel_end as usize..).unwrap()),
                     None => format!("{}{}", entry_value, car),
                 };
-                key_pressed_entry.set_text(&new_value);
+                if new_value.matches(".").count() < 2 {
+                    key_pressed_entry.set_text(&new_value);
+                }
             }
         }
 
@@ -135,8 +134,9 @@ pub fn create<
 
     adjustment.connect_value_changed(move |adj| {
         let v = adj.value() as f32;
-        adjustment_entry.set_text(&v.to_string());
         on_value_changed(v);
+        adjustment_entry.set_text(&v.to_string());
+        adjustment_entry.select_region(0, -1);
     });
 
     cancel_button.connect_clicked(move |_| on_cancel(current));
