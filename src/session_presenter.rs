@@ -20,12 +20,12 @@ use crate::output_presenter::{self, OutputPresenter};
 use crate::util;
 
 const GSR: &str = "
-Sinusoidal 2#Sin 1
+Sinusoidal 2#G Sinusoidal
 >0<440
 >1<0
 >2<1
 
-Mixer 1#Mixer 1
+Mixer 1#Mixer
 >0<0.1
 >1.0.0.0<2:0
 >1.0.1.0<1
