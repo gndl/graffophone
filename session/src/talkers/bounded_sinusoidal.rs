@@ -6,7 +6,7 @@ use talker::ctalker;
 use talker::dsp;
 use talker::ear;
 use talker::ear::Init;
-use talker::identifier::{Identifiable, Index};
+use talker::identifier::Index;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 

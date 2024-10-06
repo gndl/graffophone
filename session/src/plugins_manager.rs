@@ -211,26 +211,4 @@ impl PluginsManager {
         categories_vec.sort();
         categories_vec
     }
-/*
-    pub fn run(&self) {
-        let mut talkers = Vec::new();
-
-        for (_model, ph) in self.handlers.iter() {
-            println!("Plugin {}", ph.base.model());
-
-            match self.mk_tkr(ph) {
-                Ok(tkr) => {
-                    talkers.push(tkr);
-                }
-                Err(e) => {
-                    eprintln!("Make talker failed: {:?}", e);
-                }
-            }
-        }
-
-        for tkr in &talkers {
-            println!("Plugin {} {}", tkr.model(), tkr.name());
-        }
-    }
-    */
 }
