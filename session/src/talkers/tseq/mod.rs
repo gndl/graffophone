@@ -4,5 +4,6 @@ pub mod binder;
 pub mod envelope;
 pub mod midi_seq;
 pub mod parser;
+pub mod pitch;
 pub mod syntax;
 pub mod tseq;

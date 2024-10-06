@@ -1,13 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32;
 use std::str::FromStr;
 
 use scale::scale::{self, Scale};
 use talker::audio_format::AudioFormat;
 use talkers::tseq::parser::{
-    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine, PPitchGap, PPitchLine,
+    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine,
+    PPitch, PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
     PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
+use talkers::tseq::pitch::{self, Pitch};
 
 use super::envelope;
 
@@ -192,31 +194,169 @@ impl<'a> Binder<'a> {
             parser_sequences: HashMap::new(),
         }
     }
-
+    
     pub fn deserialize(&mut self, scales: &'a scale::Collection) -> Result<(), failure::Error> {
-
-        let mut scales_freqs =  HashMap::new();
 
         self.default_bpm = self.parser_beats
                                    .iter()
                                    .last()
                                    .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
 
+        // Deserialize pitchlines
+        let pitchlines_count = self.parser_pitchlines.len();
+
+        // pitchlines dependencies indexes
+        let mut pitchlines_deps = Vec::with_capacity(pitchlines_count);
+
+        for _ in 0..pitchlines_count {
+            pitchlines_deps.push(HashSet::new());
+        }
+
+        for (pitchline_idx, pitchline) in self.parser_pitchlines.iter().enumerate() {
+            for fragment in &pitchline.fragments {
+                match fragment {
+                    PPitchLineFragment::PitchLineRef(pl_ref) => {
+                        let mut dep_idx = 0;
+
+                        while dep_idx < pitchlines_count {
+                            if pl_ref.id == self.parser_pitchlines[dep_idx].id {
+                                pitchlines_deps[pitchline_idx].insert(dep_idx);
+                                break;
+                            }
+                            dep_idx += 1;
+                        }
+                        if dep_idx == pitchlines_count {
+                            return Err(failure::err_msg(format!("Tseq pitchline {} unknown!", pl_ref.id)));
+                        }
+                    },
+                    PPitchLineFragment::Pitch(_) => (),
+                }
+            }
+        }
+
+        // pitchlines scheduling
+        let mut pitchlines_to_schedule_indexes = Vec::with_capacity(pitchlines_count);
+
+        for i in 0..pitchlines_count {
+            pitchlines_to_schedule_indexes.push(i);
+        }
+
+        let mut scheduled_pitchlines_indexes = Vec::with_capacity(pitchlines_count);
+
+        let mut iterations_count = 0;
+
+        while iterations_count < pitchlines_count {
+            for i in 0..pitchlines_count {
+                let pitchline_idx = pitchlines_to_schedule_indexes[i];
+
+                if pitchline_idx < pitchlines_count {
+                    let mut deps_found_count = 0;
+                    
+                    for dep_idx in &pitchlines_deps[pitchline_idx] {
+                        for j in 0..scheduled_pitchlines_indexes.len() {
+                            if *dep_idx == scheduled_pitchlines_indexes[j] {
+                                deps_found_count += 1;
+                                break;
+                            }
+                        }
+                    }
+
+                    if deps_found_count == pitchlines_deps[pitchline_idx].len() {
+                        scheduled_pitchlines_indexes.push(pitchline_idx);
+                        pitchlines_to_schedule_indexes[i] = usize::MAX;
+                    }
+                }
+            }
+            if scheduled_pitchlines_indexes.len() == pitchlines_count {
+                break;
+            }
+            iterations_count += 1;
+        }
+
+        // Mutually dependent pitchlines checking
+        if scheduled_pitchlines_indexes.len() < pitchlines_count {
+            let mut mutually_dependent_pitchlines = String::new();
+
+            for i in pitchlines_to_schedule_indexes {
+                if i < pitchlines_count {
+                    mutually_dependent_pitchlines.push_str(self.parser_pitchlines[i].id);
+                    mutually_dependent_pitchlines.push(' ');
+                }
+            }
+            return Err(failure::err_msg(format!("Tseq mutually dependent pitchlines ( {}) forbidden!", mutually_dependent_pitchlines)));
+        }
+
+        // pitchlines pitchs development, transformation and frequencies
+        let mut pitchs_map: HashMap<&'a str, Vec<Pitch>> = HashMap::new();
+
         self.default_scale = self.parser_scales
                                      .iter()
                                      .last()
                                      .map_or(scale::DEFAULT, |(_, s)| s.name);
 
-        // Deserialize pitchlines
         let default_scale = scales.fetch(self.default_scale)?;
+        let mut scales_freqs =  HashMap::new();
 
-        for ppitchline in &self.parser_pitchlines {
+        for i in scheduled_pitchlines_indexes {
+            let pitchline = self.parser_pitchlines[i];
+            
             let mut pitchs = Vec::new();
 
-            let scale = match ppitchline.scale {
+            let scale = match pitchline.scale {
                 Some(scale_name) => scales.fetch(scale_name)?,
                 None => default_scale,
             };
+
+            // pitch development and transformation
+            for fragment in &pitchline.fragments {
+                match fragment {
+                    PPitchLineFragment::Pitch(p) => {
+                        for _ in 0..p.mul {
+                            pitchs.push(Pitch::from_parser_pitch(p));
+                        }
+                    },
+                    PPitchLineFragment::PitchLineRef(pl_ref) => {
+
+                        let ref_pitchs = match pitchs_map.get(pl_ref.id) {
+                            Some(ps) => ps,
+                            None => return Err(failure::err_msg(format!("Tseq pitchline {} not found!", pl_ref.id))),
+                        };
+
+                        pitchs.reserve(ref_pitchs.len() * pl_ref.mul);
+
+                        // dependence pitchs transformation
+                        if let Some(transformations) = &pl_ref.transformations {
+
+                            let mut work_pitchs = ref_pitchs.clone();
+
+                            for transfo in transformations {
+                                match transfo {
+                                    PPitchLineTransformation::NoteShift(n) => pitch::notes_shift(&mut work_pitchs, *n)?,
+                                    PPitchLineTransformation::BackwardNoteShift(n) => pitch::backward_notes_shift(&mut work_pitchs, *n)?,
+                                    PPitchLineTransformation::PitchTranspo(ip, fp) => pitch::pitchs_transposition(&mut work_pitchs, scale, ip, fp)?,
+                                    PPitchLineTransformation::PitchInv => pitch::pitchs_inversion(&mut work_pitchs, scale)?,
+                                }
+                            }
+
+                            for _ in 0..pl_ref.mul {
+                                for p in &work_pitchs {
+                                    pitchs.push(Pitch::new(p));
+                                }
+                            }
+                        }
+                        else {
+                            for _ in 0..pl_ref.mul {
+                                for p in ref_pitchs {
+                                    pitchs.push(Pitch::new(p));
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+
+            // pitchs to frequencies
+            let mut frequencies = Vec::new();
 
             let pitch_freq_map = match scales_freqs.get_mut(scale.name) {
                 Some(m) => m,
@@ -227,26 +367,28 @@ impl<'a> Binder<'a> {
                 }
             };
 
-            for pitch in &ppitchline.pitchs {
+            for pitch in &pitchs {
                 let freq = match pitch_freq_map.get(&pitch.id) {
                     Some(f) => *f,
                     None => {
-                        let f = scale.fetch_frequency(pitch.id)?;
-                        pitch_freq_map.insert(pitch.id, f);
+                        let f = scale.pitch_name_to_frequency(&pitch.id)?;
+                        pitch_freq_map.insert(pitch.id.clone(), f);
                         f
                     }
                 };
-                pitchs.push((freq, pitch.transition));
+                frequencies.push((freq, pitch.transition));
             }
-            self.pitchlines.insert(ppitchline.id, (scale, pitchs));
+            self.pitchlines.insert(pitchline.id, (scale, frequencies));
+                
+            pitchs_map.insert(pitchline.id, pitchs);
         }
-
+    
         // Deserialize chordlines
         let no_accents = Vec::new();
-
+        
         for pchordline in &self.parser_chordlines {
             let mut chordline = Vec::new();
-
+            
             for pchord_and_attack in &pchordline.chords {
                 match self.parser_chords.get(pchord_and_attack.chord_id) {
                     Some(pchord) => {
@@ -254,16 +396,16 @@ impl<'a> Binder<'a> {
                             .attack_id
                             .and_then(|id| self.parser_attacks.get(id))
                             .map_or(&no_accents, |a| &a.accents);
-
+                        
                         let mut chord = Vec::new();
-
+                        
                         for (harmonic_idx, pharmonic) in pchord.harmonics.iter().enumerate() {
                             let mut delay = pharmonic
-                                .delay
-                                .as_ref()
-                                .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
-
-                            let opvelocity = if harmonic_idx < paccents.len() {
+                            .delay
+                            .as_ref()
+                            .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
+                        
+                        let opvelocity = if harmonic_idx < paccents.len() {
                                 delay = to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
                                 &paccents[harmonic_idx].velocity
                             } else {
@@ -274,7 +416,7 @@ impl<'a> Binder<'a> {
                                 Some(pvelo) => Velocity::from(pvelo, &self.envelops_indexes)?,
                                 None => Velocity::new(),
                             };
-
+                            
                             let harmonic = Harmonic {
                                 pitch_gap: pharmonic.pitch_gap,
                                 delay,

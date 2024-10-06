@@ -21,7 +21,7 @@ impl PitchFetcher {
         for octave in 0..11 {
             for name in &pitchs_names {
                 let pitch = format!("{}{}", name, octave);
-                let freq = scale.fetch_frequency(&pitch).expect("Pitch error");
+                let freq = scale.pitch_name_to_frequency(&pitch).expect("Pitch error");
 
                 freqs_pitch.push(FreqPitch{freq, pitch});
             }

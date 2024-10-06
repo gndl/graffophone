@@ -3,13 +3,13 @@ use std::f32;
 
 use talkers::tseq::binder::{self, Binder, Time, Velocity};
 use talkers::tseq::envelope;
-use talkers::tseq::parser::PFragment::Fragments;
-use talkers::tseq::parser::PFragment::Part;
-use talkers::tseq::parser::PFragment::SeqRef;
-use talkers::tseq::parser::PPart;
+use talkers::tseq::parser::PSeqFragment::Fragments;
+use talkers::tseq::parser::PSeqFragment::Part;
+use talkers::tseq::parser::PSeqFragment::SeqRef;
+use talkers::tseq::parser::PSeqPart;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PShape;
-use talkers::tseq::parser::{PFragment, PPitchGap};
+use talkers::tseq::parser::{PSeqFragment, PPitchGap};
 
 #[derive(Debug)]
 pub struct SequenceEvent {
@@ -68,7 +68,7 @@ impl EventsBuilder {
         binder: &Binder,
         ticks_per_beat: f32,
         seq_envelop_index: usize,
-        part: &PPart,
+        part: &PSeqPart,
         harmonics_events: &mut VecDeque<Vec<SequenceEvent>>,
     ) -> Result<(), failure::Error> {
         let mut part_is_empty = true;
@@ -270,7 +270,7 @@ impl EventsBuilder {
         binder: &Binder,
         ticks_per_beat: f32,
         envelop_index: usize,
-        fragment: &PFragment,
+        fragment: &PSeqFragment,
         harmonics_events: &mut VecDeque<Vec<SequenceEvent>>,
     ) -> Result<(), failure::Error> {
         match fragment {

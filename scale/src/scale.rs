@@ -26,7 +26,61 @@ impl Scale {
         pitchs_names
     }
 
-    pub fn fetch_frequency(&self, pitch: &str) -> Result<f32, failure::Error> {
+    pub fn pitch_name_to_number(&self, pitch: &str) -> Result<usize, failure::Error> {
+        match pitch.rfind(|c: char| !c.is_ascii_digit()) {
+            Some(p) => {
+                match f32::from_str(pitch) {
+                    Ok(_) => Err(failure::err_msg(format!("Tseq pitch frequency {} has not number!", pitch))),
+                    Err(_) => {
+                        // pitch is alphanumeric, this is the pitch id (name + octave)
+                        let octave_pos = p + 1;
+                        let pitch_name = &pitch[..octave_pos];
+
+                        if let Some(octave_str) = pitch.get(octave_pos..) {
+                            match usize::from_str(octave_str) {
+                                Ok(octave) => {
+                                    for (idx, (name, _)) in self.pitchs_name_ratio.iter().enumerate() {
+                                        if *name == pitch_name {
+                                            // octave is increased by 1 to match MIDI numbers
+                                            let num = self.pitchs_name_ratio.len() * (octave + 1) + idx;
+                                            return Ok(num);
+                                        }
+                                    }
+                                }
+                                Err(_) => (),
+                            }
+                        }
+                        Err(failure::err_msg(format!("Tseq pitch {} not found!", pitch)))
+                    }
+                }
+            },
+            None => {
+                // pitch is purely digital, this is the midi pitch number
+                Ok(usize::from_str(pitch).unwrap())
+            }
+        }
+    }
+
+    pub fn pitch_number_to_name(&self, number: usize) -> String {
+        let pitchs_per_octave = self.pitchs_name_ratio.len();
+        let octave = (number / pitchs_per_octave) - 1;
+        let idx = number % pitchs_per_octave;
+
+        let (name, _) = &self.pitchs_name_ratio[idx];
+        format!("{}{}", name, octave)
+    }
+
+    pub fn pitch_number_to_frequency(&self, number: usize) -> f32 {
+        let pitchs_per_octave = self.pitchs_name_ratio.len();
+        let octave = ((number / pitchs_per_octave) - 1) as f64;
+        let idx = number % pitchs_per_octave;
+
+        let (_, ratio) = &self.pitchs_name_ratio[idx];
+        let f = self.freq_0 * octave.exp2() * *ratio;
+        f as f32
+    }
+    
+    pub fn pitch_name_to_frequency(&self, pitch: &str) -> Result<f32, failure::Error> {
         match pitch.rfind(|c: char| !c.is_ascii_digit()) {
             Some(p) => {
                 match f32::from_str(pitch) {
@@ -56,13 +110,7 @@ impl Scale {
             None => {
                 // pitch is purely digital, this is the midi pitch number
                 let num = usize::from_str(pitch).unwrap();
-                let pitchs_per_octave = self.pitchs_name_ratio.len();
-                let octave = (num / pitchs_per_octave) as f64 - 1.;
-                let idx = num % pitchs_per_octave;
-
-                let (_, ratio) = &self.pitchs_name_ratio[idx];
-                let f = self.freq_0 * octave.exp2() * *ratio;
-                Ok(f as f32)
+                Ok(self.pitch_number_to_frequency(num))
             }
         }
     }
@@ -311,4 +359,17 @@ impl Collection {
             None => Err(failure::err_msg(format!("Tseq scale {} unknown!", scale_name))),
         }
     }
+}
+
+#[test]
+fn test_pitch_name_to_number() {
+    let scale = create_53et_scale();
+    assert!(scale.pitch_name_to_number("vC0").unwrap() == 105);
+}
+
+#[test]
+fn test_pitch_number_to_name() {
+    let scale = create_53et_scale();
+    let name = scale.pitch_number_to_name(105);
+    assert_eq!(&name, "vC0");
 }
