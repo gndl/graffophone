@@ -196,25 +196,25 @@ macro_rules! PARAM_SEP_KW {
 #[macro_export]
 macro_rules! NOTE_SHIFT_KW {
     () => {
-        '>'
+        ">>"
     };
 }
 #[macro_export]
 macro_rules! BACK_NOTE_SHIFT_KW {
     () => {
-        '<'
+        "<<"
     };
 }
 #[macro_export]
 macro_rules! PITCH_TRANSPO_KW {
     () => {
-        '^'
+        "=>"
     };
 }
 #[macro_export]
 macro_rules! PITCH_INV_KW {
     () => {
-        'x'
+        "x"
     };
 }
 

@@ -541,24 +541,24 @@ fn pitch(input: &str) -> IResult<&str, PPitchLineFragment> {
 }
 
 fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
-    let (input, (_, _, oshift_count)) = tuple((char(NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
+    let (input, (_, _, oshift_count)) = tuple((tag(NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::NoteShift(shift_count ) ) )
 }
 
 fn backward_note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
-    let (input, (_, _, oshift_count)) = tuple((char(BACK_NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
+    let (input, (_, _, oshift_count)) = tuple((tag(BACK_NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::BackwardNoteShift(shift_count) ) )
 }
 
 fn pitch_transpo_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
-    let (input, (pa, _, _, _, pb)) = tuple((pitch_id, space1, char(PITCH_TRANSPO_KW!()), space1, pitch_id))(input)?;
+    let (input, (pa, _, _, _, pb)) = tuple((pitch_id, space1, tag(PITCH_TRANSPO_KW!()), space1, pitch_id))(input)?;
     Ok((input, PPitchLineTransformation::PitchTranspo(pa, pb) ) )
 }
 
 fn pitch_inv_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
-    let (input, _) = char(PITCH_INV_KW!()) (input)?;
+    let (input, _) = tag(PITCH_INV_KW!()) (input)?;
     Ok((input, PPitchLineTransformation::PitchInv))
 }
 
