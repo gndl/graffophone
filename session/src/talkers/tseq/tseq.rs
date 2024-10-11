@@ -97,7 +97,7 @@ impl Tseq {
                     envelops.push(envelope::create(envelope, binder.ticks_per_second))
                 }
                 Expression::Seq(ref sequence) => {
-                    binder.parser_sequences.insert(sequence.id, &sequence);
+                    binder.parser_sequences.push(&sequence);
                 }
                 Expression::SeqOut(_) => outs.push(exp),
                 Expression::MidiOut(_) => outs.push(exp),
@@ -105,6 +105,7 @@ impl Tseq {
             }
         }
 
+        binder.check_sequences()?;
         binder.deserialize(&self.scales)?;
 
         for out in outs {

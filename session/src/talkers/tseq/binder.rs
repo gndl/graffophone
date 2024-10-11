@@ -138,6 +138,64 @@ fn to_durationline(pdurationline: &PDurationLine, ticks_per_second: f32) -> Dura
     }
 }
 
+fn elements_scheduling<F>(elements_deps: &Vec<HashSet<usize>>, elements_type: &str, element_id: F) -> Result<Vec<usize>, failure::Error>
+where F: Fn(usize) -> String,
+{
+    let elements_count = elements_deps.len();
+    let mut elements_to_schedule_indexes = Vec::with_capacity(elements_count);
+
+    for i in 0..elements_count {
+        elements_to_schedule_indexes.push(i);
+    }
+
+    let mut scheduled_elements_indexes = Vec::with_capacity(elements_count);
+
+    let mut iterations_count = 0;
+
+    while iterations_count < elements_count {
+        for i in 0..elements_count {
+            let element_idx = elements_to_schedule_indexes[i];
+
+            if element_idx < elements_count {
+                let mut deps_found_count = 0;
+                
+                for dep_idx in &elements_deps[element_idx] {
+                    for j in 0..scheduled_elements_indexes.len() {
+                        if *dep_idx == scheduled_elements_indexes[j] {
+                            deps_found_count += 1;
+                            break;
+                        }
+                    }
+                }
+
+                if deps_found_count == elements_deps[element_idx].len() {
+                    scheduled_elements_indexes.push(element_idx);
+                    elements_to_schedule_indexes[i] = usize::MAX;
+                }
+            }
+        }
+        if scheduled_elements_indexes.len() == elements_count {
+            break;
+        }
+        iterations_count += 1;
+    }
+
+    // Mutually dependent elements checking
+    if scheduled_elements_indexes.len() < elements_count {
+        let mut mutually_dependent_elements = String::new();
+
+        for i in elements_to_schedule_indexes {
+            if i < elements_count {
+                mutually_dependent_elements.push_str(&element_id(i));
+                mutually_dependent_elements.push(' ');
+            }
+        }
+        return Err(failure::err_msg(format!("Mutually dependent {}s is forbidden! Concerned {}s : {}.", elements_type, elements_type, mutually_dependent_elements)));
+    }
+    Ok(scheduled_elements_indexes)
+}
+
+
 pub struct Binder<'a> {
     pub ticks_per_second: f32,
     pub ticks_per_minute: f32,
@@ -161,7 +219,7 @@ pub struct Binder<'a> {
     pub hitlines: HashMap<&'a str, HitLine>,
     pub parser_pitchlines: Vec<&'a PPitchLine<'a>>,
     pitchlines: HashMap<&'a str, (&'a Scale, Vec<(f32, PShape)>)>,
-    pub parser_sequences: HashMap<&'a str, &'a PSequence<'a>>,
+    pub parser_sequences: Vec<&'a PSequence<'a>>,
 }
 
 impl<'a> Binder<'a> {
@@ -191,26 +249,56 @@ impl<'a> Binder<'a> {
             hitlines: HashMap::new(),
             parser_pitchlines: Vec::new(),
             pitchlines: HashMap::new(),
-            parser_sequences: HashMap::new(),
+            parser_sequences: Vec::new(),
         }
     }
     
-    pub fn deserialize(&mut self, scales: &'a scale::Collection) -> Result<(), failure::Error> {
+    fn sequence_dependencies(&self, fragments: &Vec<PSeqFragment>, sequence_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let sequences_count = self.parser_sequences.len();
 
-        self.default_bpm = self.parser_beats
-                                   .iter()
-                                   .last()
-                                   .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
+        for fragment in fragments {
+            match fragment {
+                PSeqFragment::SeqRef(pl_ref) => {
+                    let mut dep_idx = 0;
 
-        // Deserialize pitchlines
+                    while dep_idx < sequences_count {
+                        if pl_ref.id == self.parser_sequences[dep_idx].id {
+                            sequence_deps.insert(dep_idx);
+                            break;
+                        }
+                        dep_idx += 1;
+                    }
+                    if dep_idx == sequences_count {
+                        return Err(failure::err_msg(format!("Sequence {} unknown!", pl_ref.id)));
+                    }
+                },
+                PSeqFragment::Fragments((frags, _)) => self.sequence_dependencies(frags, sequence_deps)?,
+                PSeqFragment::Part(_) => (),
+            }
+        }
+        Ok(())
+    }
+
+    pub fn check_sequences(&self) -> Result<(), failure::Error> {
+        let sequences_count = self.parser_sequences.len();
+
+        // sequences dependencies indexes
+        let mut sequences_deps = vec![HashSet::new(); sequences_count];
+
+        for (seq_idx, seq) in self.parser_sequences.iter().enumerate() {
+            self.sequence_dependencies(&seq.fragments, &mut sequences_deps[seq_idx])?;
+        }
+
+        // sequences scheduling
+        let _ = elements_scheduling(&sequences_deps, "sequence", |i| self.parser_sequences[i].id.to_string())?;
+        Ok(())
+    }
+
+    fn pitchlines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
         let pitchlines_count = self.parser_pitchlines.len();
 
         // pitchlines dependencies indexes
-        let mut pitchlines_deps = Vec::with_capacity(pitchlines_count);
-
-        for _ in 0..pitchlines_count {
-            pitchlines_deps.push(HashSet::new());
-        }
+        let mut pitchlines_deps = vec![HashSet::new(); pitchlines_count];
 
         for (pitchline_idx, pitchline) in self.parser_pitchlines.iter().enumerate() {
             for fragment in &pitchline.fragments {
@@ -235,56 +323,18 @@ impl<'a> Binder<'a> {
         }
 
         // pitchlines scheduling
-        let mut pitchlines_to_schedule_indexes = Vec::with_capacity(pitchlines_count);
+        elements_scheduling(&pitchlines_deps, "pitchline", |i| self.parser_pitchlines[i].id.to_string())
+    }
 
-        for i in 0..pitchlines_count {
-            pitchlines_to_schedule_indexes.push(i);
-        }
+    pub fn deserialize(&mut self, scales: &'a scale::Collection) -> Result<(), failure::Error> {
 
-        let mut scheduled_pitchlines_indexes = Vec::with_capacity(pitchlines_count);
+        self.default_bpm = self.parser_beats
+                                   .iter()
+                                   .last()
+                                   .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
 
-        let mut iterations_count = 0;
-
-        while iterations_count < pitchlines_count {
-            for i in 0..pitchlines_count {
-                let pitchline_idx = pitchlines_to_schedule_indexes[i];
-
-                if pitchline_idx < pitchlines_count {
-                    let mut deps_found_count = 0;
-                    
-                    for dep_idx in &pitchlines_deps[pitchline_idx] {
-                        for j in 0..scheduled_pitchlines_indexes.len() {
-                            if *dep_idx == scheduled_pitchlines_indexes[j] {
-                                deps_found_count += 1;
-                                break;
-                            }
-                        }
-                    }
-
-                    if deps_found_count == pitchlines_deps[pitchline_idx].len() {
-                        scheduled_pitchlines_indexes.push(pitchline_idx);
-                        pitchlines_to_schedule_indexes[i] = usize::MAX;
-                    }
-                }
-            }
-            if scheduled_pitchlines_indexes.len() == pitchlines_count {
-                break;
-            }
-            iterations_count += 1;
-        }
-
-        // Mutually dependent pitchlines checking
-        if scheduled_pitchlines_indexes.len() < pitchlines_count {
-            let mut mutually_dependent_pitchlines = String::new();
-
-            for i in pitchlines_to_schedule_indexes {
-                if i < pitchlines_count {
-                    mutually_dependent_pitchlines.push_str(self.parser_pitchlines[i].id);
-                    mutually_dependent_pitchlines.push(' ');
-                }
-            }
-            return Err(failure::err_msg(format!("Tseq mutually dependent pitchlines ( {}) forbidden!", mutually_dependent_pitchlines)));
-        }
+        // Deserialize pitchlines
+        let scheduled_pitchlines_indexes = self.pitchlines_scheduling()?;
 
         // pitchlines pitchs development, transformation and frequencies
         let mut pitchs_map: HashMap<&'a str, Vec<Pitch>> = HashMap::new();
@@ -535,9 +585,11 @@ impl<'a> Binder<'a> {
         }
     }
     pub fn fetch_sequence(&'a self, id: &str) -> Result<&'a PSequence, failure::Error> {
-        match self.parser_sequences.get(id) {
-            Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Tseq seq {} not found!", id))),
+        for seq in &self.parser_sequences {
+            if seq.id == id {
+                return Ok(seq);
+            }
         }
+        Err(failure::err_msg(format!("Sequence {} not found!", id)))
     }
 }
