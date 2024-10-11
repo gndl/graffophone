@@ -6,8 +6,8 @@ use scale::scale::{self, Scale};
 use talker::audio_format::AudioFormat;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine,
-    PPitch, PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
-    PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
+    PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
+    PSeqFragment, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
 use talkers::tseq::pitch::{self, Pitch};
 
@@ -68,7 +68,7 @@ impl Velocity {
             Some(id) => {
                 match env_idxs.get(id) {
                     Some(idx) => *idx,
-                    None => return Err(failure::err_msg(format!("Tseq envelope {} not found!", id))),
+                    None => return Err(failure::err_msg(format!("Envelope {} not found!", id))),
                 }
             }
             None => envelope::UNDEFINED,
@@ -252,7 +252,7 @@ impl<'a> Binder<'a> {
             parser_sequences: Vec::new(),
         }
     }
-    
+
     fn sequence_dependencies(&self, fragments: &Vec<PSeqFragment>, sequence_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
         let sequences_count = self.parser_sequences.len();
 
@@ -314,7 +314,7 @@ impl<'a> Binder<'a> {
                             dep_idx += 1;
                         }
                         if dep_idx == pitchlines_count {
-                            return Err(failure::err_msg(format!("Tseq pitchline {} unknown!", pl_ref.id)));
+                            return Err(failure::err_msg(format!("Pitchline {} unknown!", pl_ref.id)));
                         }
                     },
                     PPitchLineFragment::Pitch(_) => (),
@@ -369,7 +369,7 @@ impl<'a> Binder<'a> {
 
                         let ref_pitchs = match pitchs_map.get(pl_ref.id) {
                             Some(ps) => ps,
-                            None => return Err(failure::err_msg(format!("Tseq pitchline {} not found!", pl_ref.id))),
+                            None => return Err(failure::err_msg(format!("Pitchline {} not found!", pl_ref.id))),
                         };
 
                         pitchs.reserve(ref_pitchs.len() * pl_ref.mul);
@@ -478,7 +478,7 @@ impl<'a> Binder<'a> {
                     }
                     None => {
                         return Err(failure::err_msg(format!(
-                            "Tseq chord {} not found!",
+                            "Chord {} not found!",
                             pchord_and_attack.chord_id
                         )))
                     }
@@ -520,21 +520,21 @@ impl<'a> Binder<'a> {
             Some(e) => Ok(e.bpm as f32),
             None => match f32::from_str(id) {
                 Ok(f) => Ok(f),
-                Err(_) => Err(failure::err_msg(format!("Tseq beat {} not found!", id))),
+                Err(_) => Err(failure::err_msg(format!("Beat {} not found!", id))),
             },
         }
     }
     pub fn fetch_envelop_index(&'a self, id: &str) -> Result<usize, failure::Error> {
         match self.envelops_indexes.get(id) {
             Some(ei) => Ok(*ei),
-            None => Err(failure::err_msg(format!("Tseq envelope {} not found!", id))),
+            None => Err(failure::err_msg(format!("Envelope {} not found!", id))),
         }
     }
     pub fn fetch_durationline(&'a self, oid: &'a Option<&str>,) -> Result<&'a DurationLine, failure::Error> {
         match oid {
             Some(id) => match self.durationlines.get(id) {
                 Some(e) => Ok(e),
-                None => Err(failure::err_msg(format!("Tseq durations {} not found!", id))),
+                None => Err(failure::err_msg(format!("Durations {} not found!", id))),
             },
             None => Ok(&self.default_durationline),
         }
@@ -546,7 +546,7 @@ impl<'a> Binder<'a> {
         match oid {
             Some(id) => match self.velocitylines.get(id) {
                 Some(e) => Ok(e),
-                None => Err(failure::err_msg(format!("Tseq velocityline {} not found!", id))),
+                None => Err(failure::err_msg(format!("Velocityline {} not found!", id))),
             },
             None => Ok(&self.default_velocityline),
         }
@@ -555,7 +555,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_chord(&'a self, id: &str) -> Result<&'a PChord, failure::Error> {
         match self.parser_chords.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Tseq chord {} not found!", id))),
+            None => Err(failure::err_msg(format!("Chord {} not found!", id))),
         }
     }
 
@@ -566,7 +566,7 @@ impl<'a> Binder<'a> {
         match oid {
             Some(id) => match self.chordlines.get(id) {
                 Some(chordline) => Ok(chordline),
-                None => Err(failure::err_msg(format!("Tseq chords {} not found!", id))),
+                None => Err(failure::err_msg(format!("Chords {} not found!", id))),
             },
             None => Ok(&self.default_chordline),
         }
@@ -575,13 +575,13 @@ impl<'a> Binder<'a> {
     pub fn fetch_hitline(&'a self, id: &str) -> Result<&'a HitLine, failure::Error> {
         match self.hitlines.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Tseq hits {} not found!", id))),
+            None => Err(failure::err_msg(format!("Hits {} not found!", id))),
         }
     }
     pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&Scale, Vec<(f32, PShape)>), failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Tseq pitchs {} not found!", id))),
+            None => Err(failure::err_msg(format!("Pitchs {} not found!", id))),
         }
     }
     pub fn fetch_sequence(&'a self, id: &str) -> Result<&'a PSequence, failure::Error> {

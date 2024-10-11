@@ -1,8 +1,8 @@
-use std::{collections::{HashMap, HashSet}, usize};
+use std::usize;
 
-use scale::scale::{self, Scale};
+use scale::scale::Scale;
 
-use talkers::tseq::parser::{PPitchLineFragment, PPitchLine, PPitch, PPitchLineTransformation, PShape};
+use talkers::tseq::parser::{PPitch, PShape};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Pitch {
@@ -28,7 +28,7 @@ impl Pitch {
 pub fn notes_shift(pitchs: &mut Vec<Pitch>, shift_count: usize) -> Result<(), failure::Error> {
 
     if shift_count >= pitchs.len() {
-        return Err(failure::err_msg(format!("Tseq pitchline notes shift count {} invalide!", shift_count)));
+        return Err(failure::err_msg(format!("Pitchline notes shift count {} invalide!", shift_count)));
     }
     pitchs.rotate_left(shift_count);
     Ok(())
@@ -37,7 +37,7 @@ pub fn notes_shift(pitchs: &mut Vec<Pitch>, shift_count: usize) -> Result<(), fa
 pub fn backward_notes_shift(pitchs: &mut Vec<Pitch>, shift_count: usize) -> Result<(), failure::Error> {
 
     if shift_count >= pitchs.len() {
-        return Err(failure::err_msg(format!("Tseq pitchline notes shift count {} invalide!", shift_count)));
+        return Err(failure::err_msg(format!("Pitchline notes shift count {} invalide!", shift_count)));
     }
     pitchs.rotate_left(shift_count);
     pitchs.reverse();

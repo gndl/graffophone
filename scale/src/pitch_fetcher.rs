@@ -85,7 +85,7 @@ impl Collection {
     pub fn fetch<'a>(&'a self, scale_name: &str) -> Result<&'a PitchFetcher, failure::Error> {
         match self.map.get(scale_name) {
             Some(pf) => Ok(pf),
-            None => Err(failure::err_msg(format!("Tseq scale {} unknown!", scale_name))),
+            None => Err(failure::err_msg(format!("Scale {} unknown!", scale_name))),
         }
     }
 

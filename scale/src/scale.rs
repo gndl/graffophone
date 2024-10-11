@@ -30,7 +30,7 @@ impl Scale {
         match pitch.rfind(|c: char| !c.is_ascii_digit()) {
             Some(p) => {
                 match f32::from_str(pitch) {
-                    Ok(_) => Err(failure::err_msg(format!("Tseq pitch frequency {} has not number!", pitch))),
+                    Ok(_) => Err(failure::err_msg(format!("Pitch frequency {} has not number!", pitch))),
                     Err(_) => {
                         // pitch is alphanumeric, this is the pitch id (name + octave)
                         let octave_pos = p + 1;
@@ -50,7 +50,7 @@ impl Scale {
                                 Err(_) => (),
                             }
                         }
-                        Err(failure::err_msg(format!("Tseq pitch {} not found!", pitch)))
+                        Err(failure::err_msg(format!("Pitch {} not found!", pitch)))
                     }
                 }
             },
@@ -103,7 +103,7 @@ impl Scale {
                                 Err(_) => (),
                             }
                         }
-                        Err(failure::err_msg(format!("Tseq pitch {} not found!", pitch)))
+                        Err(failure::err_msg(format!("Pitch {} not found!", pitch)))
                     }
                 }
             },
@@ -356,7 +356,7 @@ impl Collection {
     pub fn fetch<'a>(&'a self, scale_name: &str) -> Result<&'a Scale, failure::Error> {
         match self.map.get(scale_name) {
             Some(scale) => Ok(scale),
-            None => Err(failure::err_msg(format!("Tseq scale {} unknown!", scale_name))),
+            None => Err(failure::err_msg(format!("Scale {} unknown!", scale_name))),
         }
     }
 }
