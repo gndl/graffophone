@@ -14,7 +14,7 @@ use crate::audio_data::Vector;
 use crate::feedback::Feedback;
 use crate::output::{Output, ROutput};
 use tables::fadeout;
-use crate::track::Track;
+use crate::track;
 
 pub const KIND: &str = "Mixer";
 
@@ -253,14 +253,14 @@ impl Mixer {
 
         ln = tracks_ear.visit_set(
             0,
-            |set, ln| Ok(Track::set(set, tick, buf, ln, channels)),
+            |set, ln| Ok(track::set(set, tick, buf, ln, channels)),
             ln,
         )?;
 
         for i in 1..tracks_count {
             ln = tracks_ear.visit_set(
                 i,
-                |set, ln| Ok(Track::add(set, tick, buf, ln, channels)),
+                |set, ln| Ok(track::add(set, tick, buf, ln, channels)),
                 ln,
             )?;
         }
