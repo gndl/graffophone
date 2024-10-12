@@ -238,15 +238,15 @@ impl Mixer {
         len: usize,
         outputs_gain_buf: Option<&[f32]>,
     ) -> Result<usize, failure::Error> {
+        let mut ln = self.talker.listen(tick, len);
+
+        let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
+
         let tracks_count = tracks_ear.sets_len();
 
         if tracks_count == 0 {
             return Ok(0);
         }
-
-        let mut ln = self.talker.listen(tick, len);
-
-        let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
 
         let buf = &mut self.buf;
         let channels = &mut self.channels_buffers;
