@@ -238,6 +238,12 @@ impl Mixer {
         len: usize,
         outputs_gain_buf: Option<&[f32]>,
     ) -> Result<usize, failure::Error> {
+        let tracks_count = tracks_ear.sets_len();
+
+        if tracks_count == 0 {
+            return Ok(0);
+        }
+
         let mut ln = self.talker.listen(tick, len);
 
         let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
@@ -251,7 +257,7 @@ impl Mixer {
             ln,
         )?;
 
-        for i in 1..tracks_ear.sets_len() {
+        for i in 1..tracks_count {
             ln = tracks_ear.visit_set(
                 i,
                 |set, ln| Ok(Track::add(set, tick, buf, ln, channels)),
@@ -260,26 +266,16 @@ impl Mixer {
         }
 
         let master_volume_buf = self.talker.ear_cv_buffer(VOLUME_EAR_INDEX);
+        let average_coef = 1. / tracks_count as f32;
 
-        for cn in 0..channels.len() {
-            let ch = &mut channels[cn];
-
+        for ch in &mut *channels {
             for i in 0..ln {
-                let mut sample = ch[i] * master_volume_buf[i];
-
-                if sample < AudioFormat::MIN_AUDIO {
-                    sample = AudioFormat::MIN_AUDIO;
-                } else if sample > AudioFormat::MAX_AUDIO {
-                    sample = AudioFormat::MAX_AUDIO;
-                }
-                ch[i] = sample;
+                ch[i] = ch[i] * master_volume_buf[i] * average_coef;
             }
         }
 
         if let Some(gain_buf) = outputs_gain_buf {
-            for cn in 0..channels.len() {
-                let ch = &mut channels[cn];
-
+            for ch in &mut *channels {
                 for i in 0..ln {
                     ch[i] = ch[i] * gain_buf[i];
                 }
