@@ -353,7 +353,10 @@ impl<'a> Binder<'a> {
             let mut pitchs = Vec::new();
 
             let scale = match pitchline.scale {
-                Some(scale_name) => scales.fetch(scale_name)?,
+                Some(scale_id) => match self.parser_scales.get(scale_id) {
+                        Some(pscale) => scales.fetch(&pscale.name)?,
+                        None => scales.fetch(scale_id)?,
+                    },
                 None => default_scale,
             };
 
