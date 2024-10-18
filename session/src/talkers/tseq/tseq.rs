@@ -20,8 +20,8 @@ pub const MODEL: &str = "Tseq";
 
 
 enum Seq {
-    Freq(AudioEvents),
     Trig(Vec<i64>),
+    Freq(AudioEvents),
     Vel(AudioEvents),
     Midi(MidiSeq),
 }
@@ -137,17 +137,17 @@ impl Tseq {
                                 events_start_ticks.push(ev.start_tick());
                             }
 
-                            // Add frequency sequence and output
-                            sequences.push(Seq::Freq(harmonic_frequency_events));
-
-                            let freq_tag = format!("{}.freq", tag_base);
-                            base.add_cv_voice(Some(&freq_tag), 0.);
-
                             // Add trigger sequence and output
                             sequences.push(Seq::Trig(events_start_ticks));
 
                             let trig_tag = format!("{}.trig", tag_base);
                             base.add_cv_voice(Some(&trig_tag), 0.);
+
+                            // Add frequency sequence and output
+                            sequences.push(Seq::Freq(harmonic_frequency_events));
+
+                            let freq_tag = format!("{}.freq", tag_base);
+                            base.add_cv_voice(Some(&freq_tag), 0.);
                         }
                         if let Some(harmonic_velocity_events) =
                             harmonics_velocity_events.pop_front()
@@ -224,6 +224,10 @@ impl Talker for Tseq {
         let ev_rmd = &mut self.events_reminder[port];
 
         match &self.sequences[port] {
+            Seq::Trig(events_start_ticks) => {
+                let voice_buf = base.voice(port).cv_buffer();
+                trigger_sequence_talk(tick, ln, events_start_ticks, ev_rmd, voice_buf);
+            }
             Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
                 audio_sequence_talk(
@@ -235,10 +239,6 @@ impl Talker for Tseq {
                     false,
                     voice_buf,
                 );
-            }
-            Seq::Trig(events_start_ticks) => {
-                let voice_buf = base.voice(port).cv_buffer();
-                trigger_sequence_talk(tick, ln, events_start_ticks, ev_rmd, voice_buf);
             }
             Seq::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
