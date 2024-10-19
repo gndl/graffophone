@@ -1,5 +1,5 @@
 # Graffophone
-Modular audio processing system in OCaml
+Modular audio processing system
 ![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone.png)
 
 Building and installing Graffophone
@@ -9,7 +9,7 @@ Building and installing Graffophone
 Configuration
 -------------
 
-Prerequisites: ocaml >= 4.05.0, opam, dune
+Prerequisites: rust >= 1.73.0, ffmpeg 7, liblilv-dev >= 0.24
 
 Dependencies:
 
@@ -19,17 +19,12 @@ Dependencies:
 Compilation
 -----------
 
-    $ make
+    $ cargo build --bin graffophone --release
 
 
 Execution
 ---------
 
-    $ make exec
+    $ cargo run --bin graffophone --release
 
-
-Installation
-------------
-
-    $ make install 
 
