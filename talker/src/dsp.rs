@@ -18,3 +18,9 @@ pub fn audioize_buffer_by_tanh(buffer: &mut [f32], start: usize, len: usize) {
         buffer[i] = buffer[i].tanh();
     }
 }
+
+pub fn audioize_buffer_by_atan(buffer: &mut [f32], start: usize, len: usize) {
+    for i in start..len {
+        buffer[i] = buffer[i].atan();
+    }
+}

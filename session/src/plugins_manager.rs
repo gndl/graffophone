@@ -14,7 +14,7 @@ use talkers::envelope_shaper::{self, EnvelopeShaper};
 use talkers::fuzz::{self, Fuzz};
 use talkers::hub::{self, Hub};
 use talkers::lv2::Lv2;
-use talkers::math::{self, Average, Product, Sum, TanhSum};
+use talkers::math::{self, Average, Product, Sum, AtanSum, TanhSum};
 use talkers::parabolic::{self, Parabolic};
 use talkers::round::{self, Round};
 use talkers::second_degree_frequency_progression::{self, SecondDegreeFrequencyProgression};
@@ -82,6 +82,7 @@ impl PluginsManager {
         handlers.extend(vec![
             PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
             PluginsManager::tkr_hr_kv(ADSRp::descriptor()),
+            PluginsManager::tkr_hr_kv(AtanSum::descriptor()),
             PluginsManager::tkr_hr_kv(AudioFileInput::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
@@ -116,6 +117,8 @@ impl PluginsManager {
             Ok(rtalker!(Accumulator::new(base)?))
         } else if model == adsrp::MODEL {
             Ok(rtalker!(ADSRp::new(base)?))
+        } else if model == math::ATAN_SUM_MODEL {
+            Ok(rtalker!(AtanSum::new(base)?))
         } else if model == audiofile_input::MODEL {
             Ok(rtalker!(AudioFileInput::new(base)?))
         } else if model == hub::MODEL {
