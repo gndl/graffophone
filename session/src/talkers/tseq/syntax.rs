@@ -227,13 +227,13 @@ macro_rules! VELOCITYLINE_KW {
 #[macro_export]
 macro_rules! FADEIN_KW {
     () => {
-        '/'
+        "_/"
     };
 }
 #[macro_export]
 macro_rules! FADEOUT_KW {
     () => {
-        '\\'
+        "\\_"
     };
 }
 #[macro_export]

@@ -479,10 +479,10 @@ fn shape(input: &str) -> IResult<&str, PShape> {
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
     let (input, (fadein, envelop_id, level, fadeout, transition, _)) = tuple((
-        opt(char(FADEIN_KW!())),
+        opt(tag(FADEIN_KW!())),
         opt(terminated(id, char(MUL_KW!()))),
-        float,
-        opt(char(FADEOUT_KW!())),
+        ratio,
+        opt(tag(FADEOUT_KW!())),
         shape,
         space0,
     ))(input)?;
@@ -490,7 +490,7 @@ fn velocity(input: &str) -> IResult<&str, PVelocity> {
         input,
         PVelocity {
             envelope_id: envelop_id,
-            level,
+            level: level.num / level.den,
             fadein: fadein.is_some(),
             fadeout: fadeout.is_some(),
             transition,
