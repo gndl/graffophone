@@ -13,6 +13,7 @@ use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
 use talker::identifier::Identifiable;
 use talker::lv2_handler::Lv2Handler;
 use talker::talker::{CTalker, Talker, TalkerBase};
+use talker::data::Data;
 
 fn an_or(v: f32, def: f32) -> f32 {
     if v.is_nan() {
@@ -38,6 +39,11 @@ impl Lv2 {
     pub fn new(lv2_handler: &Lv2Handler, uri: &str, mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
+                
+                if plugin.raw().uis().is_some() {
+                    base.set_data(Data::UI);
+                }
+
                 match unsafe {
                     plugin.instantiate(
                         lv2_handler.features.clone(),

@@ -10,6 +10,7 @@ pub enum Data {
     String(String),
     Text(String),
     File(String),
+    UI,
 }
 pub type RData = RefCell<Data>;
 
@@ -21,6 +22,7 @@ impl Data {
             Data::String(_) => "String",
             Data::Text(_) => "Text",
             Data::File(_) => "File",
+            Data::UI => "UI",
             Data::Nil => "Nil",
         }
     }
@@ -87,6 +89,7 @@ impl Data {
             Data::String(s) => s.to_string(),
             Data::Text(s) => s.to_string(),
             Data::File(s) => s.to_string(),
+            Data::UI => "[-O-]".to_string(),
             Data::Nil => "".to_string(),
         }
     }
@@ -115,6 +118,7 @@ impl Data {
             Data::String(_) => Ok(Data::String(s.to_string())),
             Data::Text(_) => Ok(Data::Text(s.to_string())),
             Data::File(_) => Ok(Data::File(s.to_string())),
+            Data::UI => Ok(Data::UI),
             Data::Nil => Ok(Data::Nil),
         }
     }
