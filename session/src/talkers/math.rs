@@ -206,7 +206,7 @@ impl SumAudioizer {
     }
 }
 
-pub const ATAN_SUM_MODEL: &str = "atanSum";
+pub const ATAN_SUM_MODEL: &str = "AtanSum";
 pub struct AtanSum {
     sum_audioizer: SumAudioizer,
 }
@@ -228,7 +228,7 @@ impl Talker for AtanSum {
     }
 }
 
-pub const TANH_SUM_MODEL: &str = "tanhSum";
+pub const TANH_SUM_MODEL: &str = "TanhSum";
 pub struct TanhSum {
     sum_audioizer: SumAudioizer,
 }
