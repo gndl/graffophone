@@ -82,7 +82,6 @@ impl Writer {
 
         encoder.set_rate(out_sample_rate as i32);
         encoder.set_channel_layout(codec_channel_layout);
-        #[cfg(not(feature = "ffmpeg_7_0"))]
         {
             encoder.set_channels(codec_channel_layout.channels());
         }

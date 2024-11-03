@@ -154,7 +154,7 @@ impl PluginsManager {
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new(base)?))
         } else {
-            Err(failure::err_msg("Unknown talker MODEL"))
+            Err(failure::err_msg(format!("Unknown talker model {}.", model)))
         }
     }
 
@@ -175,7 +175,7 @@ impl PluginsManager {
     pub fn make_talker(&self, model: &str, effective: bool) -> Result<RTalker, failure::Error> {
         match self.handlers.get(model) {
             Some(ph) => self.mk_tkr(ph, effective),
-            None => Err(failure::err_msg("Unknown talker URI")),
+            None => Err(failure::err_msg(format!("Unknown talker URI {}.", model))),
         }
     }
 

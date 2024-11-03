@@ -11,11 +11,6 @@ Configuration
 
 Prerequisites: rust >= 1.73.0, ffmpeg 7, liblilv-dev >= 0.24
 
-Dependencies:
-
-    $ make dep
-
-
 Compilation
 -----------
 

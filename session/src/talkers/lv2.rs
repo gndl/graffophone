@@ -311,7 +311,7 @@ fn test_fuildsynth_plugin() {
         .expect("Plugin not found.");
 
     show_plugin(&plugin);
-    let mut instance = unsafe {
+    let _instance = unsafe {
         plugin
             .instantiate(features.clone(), sample_rate as f64)
             .expect("Could not instantiate plugin.")
