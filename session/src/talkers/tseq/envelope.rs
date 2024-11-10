@@ -19,7 +19,7 @@ pub fn create(penvelope: &PEnvelope, ticks_per_second: f32) -> Vec<f32> {
             point.shape,
             false,
             false,
-            usize::MAX,
+            UNDEFINED,
         ));
 
         start_level = point.level;

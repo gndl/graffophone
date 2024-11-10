@@ -114,7 +114,7 @@ impl Tseq {
                     let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
 
                     let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                        audio_event::create_from_sequences(&harmonics_sequence_events);
+                        audio_event::create_from_sequences(&harmonics_sequence_events, &envelops);
 
                     let harmonics_count = harmonics_frequency_events.len();
                     let display_harmonic_num = harmonics_count > 1;

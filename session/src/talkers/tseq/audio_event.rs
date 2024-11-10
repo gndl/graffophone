@@ -108,18 +108,7 @@ impl AudioEvent {
             let envelope = envelops[self.base.envelope_index].as_slice();
             let mut envelope_idx = (tick - self.base.start_tick) as usize;
 
-            let env_remaining_len = if envelope.len() >= envelope_idx {
-                envelope.len() - envelope_idx
-            } else {
-                for i in ofset + envelope_idx..ofset + out_len {
-                    buf[i] = 0.;
-                }
-                0
-            };
-
-            let env_out_len = usize::min(out_len, env_remaining_len);
-
-            for i in ofset..ofset + env_out_len {
+            for i in ofset..ofset + out_len {
                 buf[i] = buf[i] * envelope[envelope_idx];
                 envelope_idx += 1;
             }
@@ -381,7 +370,7 @@ pub fn create(
 
 pub type AudioEvents = Vec<AudioEvent>;
 
-pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents>) -> (VecDeque<AudioEvents>, VecDeque<AudioEvents>) {
+pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents>, envelops: &Vec<Vec<f32>>) -> (VecDeque<AudioEvents>, VecDeque<AudioEvents>) {
     let mut harmonics_frequency_events = VecDeque::with_capacity(harmonics_sequence_events.len());
     let mut harmonics_velocity_events = VecDeque::with_capacity(harmonics_sequence_events.len());
 
@@ -401,14 +390,27 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
                 envelope::UNDEFINED,
             ));
 
+            let mut velocity_end_tick = event.end_tick;
+            let mut velocity_fadeout = event.fadeout;
+            
+            if event.envelop_index < envelops.len() {
+                let env_len = envelops[event.envelop_index].len() as i64;
+                let env_end_tick = event.start_tick + env_len;
+                
+                if env_end_tick < event.end_tick {
+                    velocity_end_tick = env_end_tick;
+                    velocity_fadeout = true;
+                }
+            }
+
             velocity_events.push(create(
                 event.start_tick,
-                event.end_tick,
+                velocity_end_tick,
                 event.start_velocity,
                 event.end_velocity,
                 event.velocity_transition,
                 event.fadein,
-                event.fadeout,
+                velocity_fadeout,
                 event.envelop_index,
             ));
         }
