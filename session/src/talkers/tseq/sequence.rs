@@ -3,9 +3,6 @@ use std::f32;
 
 use talkers::tseq::binder::{self, Binder, Time, Velocity};
 use talkers::tseq::envelope;
-use talkers::tseq::parser::PSeqFragment::Fragments;
-use talkers::tseq::parser::PSeqFragment::Part;
-use talkers::tseq::parser::PSeqFragment::SeqRef;
 use talkers::tseq::parser::PSeqPart;
 use talkers::tseq::parser::PSequence;
 use talkers::tseq::parser::PShape;
@@ -75,7 +72,7 @@ impl EventsBuilder {
         let hitline = binder.fetch_hitline(part.hitline_id)?;
         let hitline_hits_count = hitline.hits.len();
         let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
-        let mut mul = part.mul.unwrap_or(1.);
+        let mut mul = part.mul;
         
         if hitline_hits_count > 0 && mul > 0. {
             if let Some(pitchline_id) = part.pitchline_id {
@@ -274,7 +271,7 @@ impl EventsBuilder {
         harmonics_events: &mut VecDeque<Vec<SequenceEvent>>,
     ) -> Result<(), failure::Error> {
         match fragment {
-            Part(part) => {
+            PSeqFragment::Part(part) => {
                 self.create_part_events(
                     binder,
                     ticks_per_beat,
@@ -283,11 +280,10 @@ impl EventsBuilder {
                     harmonics_events,
                 )?;
             }
-            SeqRef(seqref) => {
+            PSeqFragment::Ref(seqref) => {
                 let seq = binder.fetch_sequence(&seqref.id)?;
-                let mul = seqref.mul.unwrap_or(1);
 
-                for _ in 0..mul {
+                for _ in 0..seqref.mul {
                     self.create_events(
                         binder,
                         ticks_per_beat,
@@ -297,7 +293,7 @@ impl EventsBuilder {
                     )?;
                 }
             }
-            Fragments((fragments, mul)) => {
+            PSeqFragment::Fragments((fragments, mul)) => {
                 for _ in 0..*mul {
                     for fragment in fragments {
                         self.create_fragment_events(

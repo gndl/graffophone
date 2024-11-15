@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::{alphanumeric1, char, digit1, newline, one_of, space0, space1},
-    combinator::{opt, recognize},
+    combinator::{map_res, opt, recognize},
     multi::{many0, many1_count},
     number::complete::float,
     sequence::{delimited, preceded, terminated, tuple},
@@ -43,6 +43,7 @@ use {CLOSE_PARENT_KW, OPEN_PARENT_KW};
 use {OPEN_BRACKET_KW, CLOSE_BRACKET_KW, PARAM_SEP_KW, NOTE_SHIFT_KW, BACK_NOTE_SHIFT_KW, PITCH_TRANSPO_KW, PITCH_INV_KW};
 use {FADEIN_KW, FADEOUT_KW};
 
+
 #[derive(Debug, PartialEq)]
 pub struct PRatio {
     pub num: f32,
@@ -58,6 +59,12 @@ pub enum PTime {
 pub struct PAttribute<'a> {
     pub label: &'a str,
     pub value: &'a str,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PRef<'a> {
+    pub id: &'a str,
+    pub mul: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -114,15 +121,23 @@ pub struct PAttack<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PChordAndAttack<'a> {
+pub struct PChordLinePart<'a> {
     pub chord_id: &'a str,
     pub attack_id: Option<&'a str>,
+    pub mul: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PChordLineFragment<'a> {
+    Part(PChordLinePart<'a>),
+    Ref(PRef<'a>),
+    Fragments((Vec<PChordLineFragment<'a>>, usize)),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct PChordLine<'a> {
     pub id: &'a str,
-    pub chords: Vec<PChordAndAttack<'a>>,
+    pub fragments: Vec<PChordLineFragment<'a>>,
 }
 
 
@@ -142,16 +157,10 @@ pub enum PPitchLineTransformation<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct PPitchLineRef<'a> {
-    pub id: &'a str,
-    pub transformations: Option<Vec<PPitchLineTransformation<'a>>>,
-    pub mul: usize,
-}
-
-#[derive(Debug, PartialEq)]
 pub enum PPitchLineFragment<'a> {
-    Pitch(PPitch<'a>),
-    PitchLineRef(PPitchLineRef<'a>),
+    Part(PPitch<'a>),
+    Ref((PRef<'a>, Option<Vec<PPitchLineTransformation<'a>>>)),
+    Fragments((Vec<PPitchLineFragment<'a>>, usize)),
 }
 
 #[derive(Debug, PartialEq)]
@@ -216,19 +225,13 @@ pub struct PSeqPart<'a> {
     pub pitchline_id: Option<&'a str>,
     pub chordline_id: Option<&'a str>,
     pub velocityline_id: Option<&'a str>,
-    pub mul: Option<f32>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PSeqRef<'a> {
-    pub id: &'a str,
-    pub mul: Option<usize>,
+    pub mul: f32,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum PSeqFragment<'a> {
     Part(PSeqPart<'a>),
-    SeqRef(PSeqRef<'a>),
+    Ref(PRef<'a>),
     Fragments((Vec<PSeqFragment<'a>>, usize)),
 }
 
@@ -271,15 +274,19 @@ pub enum Expression<'a> {
     None,
 }
 
+fn uint(input: &str) -> IResult<&str, usize> {
+    map_res(terminated(digit1, space0), str::parse)(input)
+}
+
 pub fn id(input: &str) -> IResult<&str, &str> {
-    recognize(many1_count(alt((alphanumeric1, tag("_")))))(input)
+    terminated( recognize(many1_count(alt((alphanumeric1, tag("_"))))), space0)(input)
 }
 
 fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> {
     delimited(
         preceded(tag(inst), space1),
         id,
-        delimited(space0, char(DEF_KW!()), space0),
+        terminated(char(DEF_KW!()), space0),
     )
 }
 
@@ -288,7 +295,7 @@ fn on(input: &str) -> IResult<&str, char> {
 }
 
 fn per(input: &str) -> IResult<&str, char> {
-    delimited(space0, char(PER_KW!()), space0)(input)
+    terminated(char(PER_KW!()), space0)(input)
 }
 
 fn end(input: &str) -> IResult<&str, Expression> {
@@ -332,8 +339,8 @@ fn scale(input: &str) -> IResult<&str, Expression> {
 }
 
 fn attribute(input: &str) -> IResult<&str, PAttribute> {
-    let (input, (_, _, label, _, _, _, value, _)) =
-        tuple((char(ATTRIBUTE_KW!()), space0, id, space0, char(ASSIGNMENT_KW!()), space0, id, space0))(input)?;
+    let (input, (_, _, label, _, _, value)) =
+        tuple((char(ATTRIBUTE_KW!()), space0, id, char(ASSIGNMENT_KW!()), space0, id))(input)?;
     Ok((input, PAttribute { label, value }))
 }
 
@@ -411,25 +418,54 @@ fn attack(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::Attack(PAttack { id, accents })))
 }
 
-fn accentuated_chord(input: &str) -> IResult<&str, PChordAndAttack> {
-    let (input, (chord_id, attack_id)) = tuple((id, opt(preceded(char(JOIN_KW!()), id))))(input)?;
+fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment> {
+    let (input, (chord_id, attack_id, omul)) = tuple((
+        id,
+        opt(preceded(char(JOIN_KW!()), id)),
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
+     ))(input)?;
     Ok((
         input,
-        PChordAndAttack {
+        PChordLineFragment::Part(PChordLinePart {
             chord_id,
             attack_id,
-        },
+            mul: omul.unwrap_or(1),
+        }),
     ))
 }
 
-fn chords(input: &str) -> IResult<&str, Expression> {
-    let (input, (id, chords, _)) = tuple((
+fn chordline_ref(input: &str) -> IResult<&str, PChordLineFragment> {
+    let (input, (id, omul)) = tuple((
+        preceded(char(REF_KW!()), id),
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
+    ))(input)?;
+
+    Ok((input, PChordLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
+}
+
+fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment> {
+    let (input, (fragments, mul)) = tuple((
+        delimited(
+            terminated(char(OPEN_PARENT_KW!()), space0),
+            many0(alt((chordline_part, chordline_ref, chordline_fragments))),
+            terminated(char(CLOSE_PARENT_KW!()), space0),
+        ),
+        preceded(terminated(char(MUL_KW!()), space0), uint),
+    ))(input)?;
+    Ok((
+        input,
+        PChordLineFragment::Fragments((fragments, mul)),
+    ))
+}
+
+fn chordline(input: &str) -> IResult<&str, Expression> {
+    let (input, (id, fragments, _)) = tuple((
         head(CHORDLINE_KW!()),
-        many0(terminated(accentuated_chord, space0)),
+        many0(alt((chordline_part, chordline_ref, chordline_fragments))),
         end,
     ))(input)?;
 
-    Ok((input, Expression::ChordLine(PChordLine { id, chords })))
+    Ok((input, Expression::ChordLine(PChordLine {id, fragments})))
 }
 
 fn hit(input: &str) -> IResult<&str, PHit> {
@@ -478,13 +514,12 @@ fn shape(input: &str) -> IResult<&str, PShape> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (fadein, envelop_id, level, fadeout, transition, _)) = tuple((
+    let (input, (fadein, envelop_id, level, fadeout, transition)) = tuple((
         opt(tag(FADEIN_KW!())),
         opt(terminated(id, char(MUL_KW!()))),
         ratio,
         opt(tag(FADEOUT_KW!())),
         shape,
-        space0,
     ))(input)?;
     Ok((
         input,
@@ -530,14 +565,12 @@ pub fn pitch_id(input: &str) -> IResult<&str, &str> {
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitchLineFragment> {
-    let (input, (id, transition, omul, _)) = tuple((
+    let (input, (id, transition, omul)) = tuple((
         recognize(pitch_id),
         shape,
-        opt(preceded(terminated(char(MUL_KW!()), space0), digit1)),
-        space0,
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
     ))(input)?;
-    let mul = omul.map_or(1, |s| usize::from_str(s).unwrap());
-    Ok((input, PPitchLineFragment::Pitch(PPitch {id, transition, mul})))
+    Ok((input, PPitchLineFragment::Part(PPitch {id, transition, mul: omul.unwrap_or(1)})))
 }
 
 fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
@@ -573,17 +606,31 @@ fn pitchline_transformation(input: &str) -> IResult<&str, PPitchLineTransformati
 }
 
 fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment> {
-    let (input, (id, transformations, _, omul, _)) = tuple((
-        delimited(char(REF_KW!()), id, space0),
+    let (input, (id, transformations, _, omul)) = tuple((
+        preceded(char(REF_KW!()), id),
         opt(delimited(char(OPEN_BRACKET_KW!()), many0(pitchline_transformation), char(CLOSE_BRACKET_KW!()))),
         space0,
-        opt(preceded(terminated(char(MUL_KW!()), space0), digit1)),
-        space0,
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
     ))(input)?;
-    let mul = omul.map_or(1, |s| usize::from_str(s).unwrap());
+    let mul = omul.unwrap_or(1);
     Ok((
         input,
-        PPitchLineFragment::PitchLineRef(PPitchLineRef {id, transformations, mul}),
+        PPitchLineFragment::Ref((PRef {id, mul}, transformations)),
+    ))
+}
+
+fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment> {
+    let (input, (fragments, mul)) = tuple((
+        delimited(
+            terminated(char(OPEN_PARENT_KW!()), space0),
+            many0(alt((pitch, pitchline_ref, pitchline_fragments))),
+            terminated(char(CLOSE_PARENT_KW!()), space0),
+        ),
+        preceded(terminated(char(MUL_KW!()), space0), uint),
+    ))(input)?;
+    Ok((
+        input,
+        PPitchLineFragment::Fragments((fragments, mul)),
     ))
 }
 
@@ -591,7 +638,7 @@ fn pitchline(input: &str) -> IResult<&str, Expression> {
     let (input, (id, attributes, fragments, _, _)) =
         tuple((head(PITCHLINE_KW!()),
         many0(attribute),
-        many0(alt((pitch, pitchline_ref))),
+        many0(alt((pitch, pitchline_ref, pitchline_fragments))),
         space0,
         end,
     ))(input)?;
@@ -608,14 +655,14 @@ fn pitchline(input: &str) -> IResult<&str, Expression> {
 
 
 fn seq_part(input: &str) -> IResult<&str, PSeqFragment> {
-    let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, mul, _)) =
+    let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, omul, _)) =
         tuple((
             id,
             opt(preceded(char(COUPLING_KW!()), id)),
             opt(preceded(char(JOIN_KW!()), id)),
             opt(preceded(char(COUPLING_KW!()), id)),
             opt(preceded(char(JOIN_KW!()), id)),
-            opt(preceded(delimited(space0, char(MUL_KW!()), space0), float)),
+            opt(preceded(terminated(char(MUL_KW!()), space0), float)),
             space0,
         ))(input)?;
     Ok((
@@ -626,38 +673,32 @@ fn seq_part(input: &str) -> IResult<&str, PSeqFragment> {
             pitchline_id,
             chordline_id,
             velocityline_id,
-            mul,
+            mul: omul.unwrap_or(1.),
         }),
     ))
 }
 
 fn seq_ref(input: &str) -> IResult<&str, PSeqFragment> {
-    let (input, (id, mul, _)) = tuple((
-        delimited(char(REF_KW!()), id, space0),
-        opt(preceded(terminated(char(MUL_KW!()), space0), digit1)),
-        space0,
+    let (input, (id, omul)) = tuple((
+        preceded(char(REF_KW!()), id),
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
     ))(input)?;
-    Ok((
-        input,
-        PSeqFragment::SeqRef(PSeqRef {
-            id,
-            mul: mul.map(|s| usize::from_str(s).unwrap()),
-        }),
-    ))
+    
+    Ok((input, PSeqFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
 fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment> {
     let (input, (fragments, mul)) = tuple((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
-            many0(alt((seq_ref, seq_part, seq_fragments))),
+            many0(alt((seq_part, seq_ref, seq_fragments))),
             terminated(char(CLOSE_PARENT_KW!()), space0),
         ),
-        delimited(terminated(char(MUL_KW!()), space0), digit1, space0),
+        preceded(terminated(char(MUL_KW!()), space0), uint),
     ))(input)?;
     Ok((
         input,
-        PSeqFragment::Fragments((fragments, usize::from_str(mul).unwrap())),
+        PSeqFragment::Fragments((fragments, mul)),
     ))
 }
 
@@ -665,19 +706,19 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
     let (input, (_, id, _, attributes, fragments, _)) = tuple((
         space1,
         id,
-        delimited(space0, char(DEF_KW!()), space0),
+        terminated(char(DEF_KW!()), space0),
         many0(attribute),
-        many0(alt((seq_ref, seq_part, seq_fragments))),
+        many0(alt((seq_part, seq_ref, seq_fragments))),
         end,
     ))(input)?;
     let mut beat = None;
-    let mut envelope = None;
+    let mut envelope_id = None;
 
     for attribute in attributes {
         if attribute.label == BEAT_KW!() {
             beat = Some(attribute.value);
         } else if attribute.label == ENVELOP_KW!() {
-            envelope = Some(attribute.value);
+            envelope_id = Some(attribute.value);
         }
     }
     Ok((
@@ -685,7 +726,7 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
         PSequence {
             id,
             beat,
-            envelope_id: envelope,
+            envelope_id,
             fragments,
         },
     ))
@@ -734,7 +775,7 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
         scale,
         chord,
         attack,
-        chords,
+        chordline,
         hits,
         durations,
         pitchline,
@@ -849,31 +890,80 @@ fn test_chord() {
 }
 
 #[test]
-fn test_chords() {
+fn test_chordline() {
     assert_eq!(
-        chords(concat!(
+        chordline(concat!(
             CHORDLINE_KW!(),
             " cs ",
             DEF_KW!(),
-            " c1 c2-a c3 \n"
+            " c1 c2-a c3 c1 * 2 c2-a * 2 @id ( c1*2 c2-a ( @id c1 c2-a * 2)*3) *4 @id * 5 \n"
         )),
         Ok((
             "",
             Expression::ChordLine(PChordLine {
                 id: "cs",
-                chords: vec![
-                    PChordAndAttack {
+                fragments: vec![
+                    PChordLineFragment::Part(PChordLinePart {
                         chord_id: "c1",
-                        attack_id: None
-                    },
-                    PChordAndAttack {
+                        attack_id: None,
+                        mul: 1,
+                    }),
+                    PChordLineFragment::Part(PChordLinePart {
                         chord_id: "c2",
-                        attack_id: Some("a")
-                    },
-                    PChordAndAttack {
+                        attack_id: Some("a"),
+                        mul: 1,
+                    }),
+                    PChordLineFragment::Part(PChordLinePart {
                         chord_id: "c3",
-                        attack_id: None
-                    }
+                        attack_id: None,
+                        mul: 1,
+                    }),
+                    PChordLineFragment::Part(PChordLinePart {
+                        chord_id: "c1",
+                        attack_id: None,
+                        mul: 2,
+                    }),
+                    PChordLineFragment::Part(PChordLinePart {
+                        chord_id: "c2",
+                        attack_id: Some("a"),
+                        mul: 2,
+                    }),
+                    PChordLineFragment::Ref(PRef {
+                        id: "id",
+                        mul: 1,
+                    }),
+                    PChordLineFragment::Fragments((vec![
+                        PChordLineFragment::Part(PChordLinePart {
+                            chord_id: "c1",
+                            attack_id: None,
+                            mul: 2,
+                        }),
+                        PChordLineFragment::Part(PChordLinePart {
+                            chord_id: "c2",
+                            attack_id: Some("a"),
+                            mul: 1,
+                        }),
+                        PChordLineFragment::Fragments((vec![
+                            PChordLineFragment::Ref(PRef {
+                                id: "id",
+                                mul: 1,
+                            }),
+                            PChordLineFragment::Part(PChordLinePart {
+                                chord_id: "c1",
+                                attack_id: None,
+                                mul: 1,
+                            }),
+                            PChordLineFragment::Part(PChordLinePart {
+                                chord_id: "c2",
+                                attack_id: Some("a"),
+                                mul: 2,
+                            }),
+                        ], 3)),
+                    ], 4)),
+                    PChordLineFragment::Ref(PRef {
+                        id: "id",
+                        mul: 5,
+                    }),
                 ]
             }),
         ))
@@ -1056,27 +1146,27 @@ fn test_pitchs() {
                 id: "intro",
                 scale: None,
                 fragments: vec![
-                    PPitchLineFragment::Pitch(PPitch {
+                    PPitchLineFragment::Part(PPitch {
                         id: "G9",
                         transition: PShape::Linear,
                         mul: 1,
                     }),
-                    PPitchLineFragment::Pitch(PPitch {
+                    PPitchLineFragment::Part(PPitch {
                         id: "B7",
                         transition: PShape::Sin,
                         mul: 1,
                     }),
-                    PPitchLineFragment::Pitch(PPitch {
+                    PPitchLineFragment::Part(PPitch {
                         id: "e5",
                         transition: PShape::Late,
                         mul: 1,
                     }),
-                    PPitchLineFragment::Pitch(PPitch {
+                    PPitchLineFragment::Part(PPitch {
                         id: "f2",
                         transition: PShape::Early,
                         mul: 1,
                     }),
-                    PPitchLineFragment::Pitch(PPitch {
+                    PPitchLineFragment::Part(PPitch {
                         id: "a0",
                         transition: PShape::None,
                         mul: 1,
@@ -1107,7 +1197,7 @@ fn test_part() {
                 pitchline_id: Some("n"),
                 chordline_id: None,
                 velocityline_id: Some("v"),
-                mul: Some(3.),
+                mul: 3.,
             }),
         ))
     );
@@ -1121,7 +1211,7 @@ fn test_part() {
                 pitchline_id: Some("n"),
                 chordline_id: None,
                 velocityline_id: None,
-                mul: Some(3.),
+                mul: 3.,
             }),
         ))
     );
@@ -1135,7 +1225,7 @@ fn test_part() {
                 pitchline_id: Some("n"),
                 chordline_id: None,
                 velocityline_id: Some("v0"),
-                mul: None,
+                mul: 1.,
             }),
         ))
     );
@@ -1149,7 +1239,7 @@ fn test_part() {
                 pitchline_id: None,
                 chordline_id: None,
                 velocityline_id: None,
-                mul: Some(3.),
+                mul: 3.,
             }),
         ))
     );
@@ -1171,7 +1261,7 @@ fn test_part() {
                 pitchline_id: Some("n"),
                 chordline_id: None,
                 velocityline_id: Some("v"),
-                mul: Some(3.),
+                mul: 3.,
             }),
         ))
     );
@@ -1185,7 +1275,7 @@ fn test_part() {
                 pitchline_id: None,
                 chordline_id: None,
                 velocityline_id: None,
-                mul: None,
+                mul: 1.,
             }),
         ))
     );
@@ -1197,9 +1287,9 @@ fn test_seq_ref() {
         seq_ref(concat!(REF_KW!(), "s_01")),
         Ok((
             "",
-            PSeqFragment::SeqRef(PSeqRef {
+            PSeqFragment::Ref(PRef {
                 id: "s_01",
-                mul: None
+                mul: 1
             }),
         ))
     );
@@ -1207,9 +1297,9 @@ fn test_seq_ref() {
         seq_ref(concat!(REF_KW!(), "1sr_ ", MUL_KW!(), "2")),
         Ok((
             "",
-            PSeqFragment::SeqRef(PSeqRef {
+            PSeqFragment::Ref(PRef {
                 id: "1sr_",
-                mul: Some(2)
+                mul: 2
             }),
         ))
     );
@@ -1237,9 +1327,9 @@ fn test_fragments() {
                         pitchline_id: None,
                         chordline_id: None,
                         velocityline_id: None,
-                        mul: None,
+                        mul: 1.,
                     }),
-                    PSeqFragment::SeqRef(PSeqRef { id: "s", mul: None })
+                    PSeqFragment::Ref(PRef { id: "s", mul: 1 })
                 ],
                 3
             ))
@@ -1279,9 +1369,9 @@ fn test_sequence() {
                 beat: Some("_b_"),
                 envelope_id: None,
                 fragments: vec![
-                    PSeqFragment::SeqRef(PSeqRef {
+                    PSeqFragment::Ref(PRef {
                         id: "s_1",
-                        mul: None
+                        mul: 1
                     }),
                     PSeqFragment::Part(PSeqPart {
                         hitline_id: "p1",
@@ -1289,7 +1379,7 @@ fn test_sequence() {
                         pitchline_id: None,
                         chordline_id: None,
                         velocityline_id: None,
-                        mul: None,
+                        mul: 1.,
                     }),
                     PSeqFragment::Part(PSeqPart {
                         hitline_id: "p1",
@@ -1297,11 +1387,11 @@ fn test_sequence() {
                         pitchline_id: Some("n2"),
                         chordline_id: None,
                         velocityline_id: None,
-                        mul: None,
+                        mul: 1.,
                     }),
-                    PSeqFragment::SeqRef(PSeqRef {
+                    PSeqFragment::Ref(PRef {
                         id: "s_2",
-                        mul: Some(3)
+                        mul: 3
                     }),
                     PSeqFragment::Part(PSeqPart {
                         hitline_id: "p2",
@@ -1309,7 +1399,7 @@ fn test_sequence() {
                         pitchline_id: Some("n1"),
                         chordline_id: None,
                         velocityline_id: Some("v1"),
-                        mul: Some(2.),
+                        mul: 2.,
                     })
                 ],
             }
@@ -1334,9 +1424,9 @@ fn test_seq() {
                 id: "s",
                 beat: None,
                 envelope_id: None,
-                fragments: vec![PSeqFragment::SeqRef(PSeqRef {
+                fragments: vec![PSeqFragment::Ref(PRef {
                     id: "s_1",
-                    mul: None
+                    mul: 1
                 })]
             })
         ))
@@ -1360,9 +1450,9 @@ fn test_seqout() {
                 id: "s",
                 beat: None,
                 envelope_id: None,
-                fragments: vec![PSeqFragment::SeqRef(PSeqRef {
+                fragments: vec![PSeqFragment::Ref(PRef {
                     id: "s_1",
-                    mul: None
+                    mul: 1
                 })]
             })
         ))

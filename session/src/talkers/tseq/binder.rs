@@ -5,7 +5,7 @@ use std::str::FromStr;
 use scale::scale::{self, Scale};
 use talker::audio_format::AudioFormat;
 use talkers::tseq::parser::{
-    PAttack, PBeat, PChord, PChordLine, PDurationLine, PHit, PHitLine,
+    PAttack, PBeat, PChord, PChordLineFragment, PChordLine, PDurationLine, PHit, PHitLine,
     PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
     PSeqFragment, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
@@ -46,6 +46,7 @@ pub fn option_to_ticks(otime: &Option<Time>, ofset: i64, rate_uq: f32) -> i64 {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Velocity {
     pub envelope_index: usize,
     pub level: f32,
@@ -84,6 +85,7 @@ impl Velocity {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Harmonic {
     pub pitch_gap: PPitchGap,
     pub delay: Time,
@@ -253,12 +255,243 @@ impl<'a> Binder<'a> {
         }
     }
 
+    fn chordline_dependencies(&self, fragments: &Vec<PChordLineFragment>, chordline_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let chordlines_count = self.parser_chordlines.len();
+
+        for fragment in fragments {
+            match fragment {
+                PChordLineFragment::Part(_) => (),
+                PChordLineFragment::Ref(cl_ref) => {
+                    let mut dep_idx = 0;
+
+                    while dep_idx < chordlines_count {
+                        if cl_ref.id == self.parser_chordlines[dep_idx].id {
+                            chordline_deps.insert(dep_idx);
+                            break;
+                        }
+                        dep_idx += 1;
+                    }
+                    if dep_idx == chordlines_count {
+                        return Err(failure::err_msg(format!("Chordline {} unknown!", cl_ref.id)));
+                    }
+                },
+                PChordLineFragment::Fragments((frags, _)) => {
+                    self.chordline_dependencies(frags, chordline_deps)?;
+                },
+            }
+        }
+        Ok(())
+    }
+
+    fn chordlines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
+        let chordlines_count = self.parser_chordlines.len();
+
+        // chordlines dependencies indexes
+        let mut chordlines_deps = vec![HashSet::new(); chordlines_count];
+
+        for (chordline_idx, chordline) in self.parser_chordlines.iter().enumerate() {
+            self.chordline_dependencies(&chordline.fragments, &mut chordlines_deps[chordline_idx])?;
+        }
+
+        // chordlines scheduling
+        elements_scheduling(&chordlines_deps, "chordline", |i| self.parser_chordlines[i].id.to_string())
+    }
+
+    fn chordline_deserialize(&self, fragments: &Vec<PChordLineFragment>) -> Result<Vec<Vec<Harmonic>>, failure::Error> {
+        let mut chordline = Vec::new();
+        let no_accents = Vec::with_capacity(0);
+
+        for fragment in fragments {
+            match fragment {
+                PChordLineFragment::Part(part) => {
+                    match self.parser_chords.get(part.chord_id) {
+                        Some(pchord) => {
+                            let paccents = part
+                                .attack_id
+                                .and_then(|id| self.parser_attacks.get(id))
+                                .map_or(&no_accents, |a| &a.accents);
+
+                            let mut chord = Vec::new();
+
+                            for (harmonic_idx, pharmonic) in pchord.harmonics.iter().enumerate() {
+                                let mut delay = pharmonic
+                                .delay
+                                .as_ref()
+                                .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
+
+                                let opvelocity = if harmonic_idx < paccents.len() {
+                                    delay = to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
+                                    &paccents[harmonic_idx].velocity
+                                } else {
+                                    &pharmonic.velocity
+                                };
+
+                                let velocity = match opvelocity {
+                                    Some(pvelo) => Velocity::from(pvelo, &self.envelops_indexes)?,
+                                    None => Velocity::new(),
+                                };
+                                
+                                let harmonic = Harmonic {
+                                    pitch_gap: pharmonic.pitch_gap,
+                                    delay,
+                                    velocity,
+                                };
+                                chord.push(harmonic);
+                            }
+                            for _ in 0..(part.mul - 1) {
+                                chordline.push(chord.clone());
+                            }
+                            chordline.push(chord);
+                        }
+                        None => {
+                            return Err(failure::err_msg(format!(
+                                "Chord {} not found!",
+                                part.chord_id
+                            )))
+                        }
+                    }
+                },
+                PChordLineFragment::Ref(cl_ref) => {
+                    let ref_chordline = match self.chordlines.get(cl_ref.id) {
+                        Some(cs) => cs,
+                        None => return Err(failure::err_msg(format!("Chordline {} not found!", cl_ref.id))),
+                    };
+
+                    chordline.reserve(ref_chordline.len() * cl_ref.mul);
+                    
+                    for _ in 0..cl_ref.mul {
+                        for chd in ref_chordline {
+                            chordline.push(chd.clone());
+                        }
+                    }
+                },
+                PChordLineFragment::Fragments((frags, mul)) => {
+                    let frags_chordline = self.chordline_deserialize(frags)?;
+
+                    chordline.reserve(frags_chordline.len() * mul);
+
+                    for _ in 0..(*mul - 1) {
+                        for chd in &frags_chordline {
+                            chordline.push(chd.clone());
+                        }
+                    }
+                    chordline.extend(frags_chordline);
+                }
+            }
+        }
+        Ok(chordline)
+    }
+
+    fn pitchline_dependencies(&self, fragments: &Vec<PPitchLineFragment>, pitchline_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let pitchlines_count = self.parser_pitchlines.len();
+
+        for fragment in fragments {
+            match fragment {
+                PPitchLineFragment::Part(_) => (),
+                PPitchLineFragment::Ref((pl_ref, _)) => {
+                    let mut dep_idx = 0;
+
+                    while dep_idx < pitchlines_count {
+                        if pl_ref.id == self.parser_pitchlines[dep_idx].id {
+                            pitchline_deps.insert(dep_idx);
+                            break;
+                        }
+                        dep_idx += 1;
+                    }
+                    if dep_idx == pitchlines_count {
+                        return Err(failure::err_msg(format!("Pitchline {} unknown!", pl_ref.id)));
+                    }
+                },
+                PPitchLineFragment::Fragments((frags, _)) => {
+                    self.pitchline_dependencies(frags, pitchline_deps)?;
+                },
+            }
+        }
+        Ok(())
+    }
+
+    fn pitchlines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
+        let pitchlines_count = self.parser_pitchlines.len();
+
+        // pitchlines dependencies indexes
+        let mut pitchlines_deps = vec![HashSet::new(); pitchlines_count];
+
+        for (pitchline_idx, pitchline) in self.parser_pitchlines.iter().enumerate() {
+            self.pitchline_dependencies(&pitchline.fragments, &mut pitchlines_deps[pitchline_idx])?;
+        }
+
+        // pitchlines scheduling
+        elements_scheduling(&pitchlines_deps, "pitchline", |i| self.parser_pitchlines[i].id.to_string())
+    }
+
+    fn pitchline_development(&self, fragments: &Vec<PPitchLineFragment>, pitchs_map: &HashMap<&'a str, Vec<Pitch>>, scale: &Scale) -> Result<Vec<Pitch>, failure::Error> {
+        let mut pitchs = Vec::new();
+
+        for fragment in fragments {
+            match fragment {
+                PPitchLineFragment::Part(p) => {
+                    for _ in 0..p.mul {
+                        pitchs.push(Pitch::from_parser_pitch(p));
+                    }
+                },
+                PPitchLineFragment::Ref((pl_ref, transformations)) => {
+
+                    let ref_pitchs = match pitchs_map.get(pl_ref.id) {
+                        Some(ps) => ps,
+                        None => return Err(failure::err_msg(format!("Pitchline {} not found!", pl_ref.id))),
+                    };
+
+                    pitchs.reserve(ref_pitchs.len() * pl_ref.mul);
+
+                    // dependence pitchs transformation
+                    if let Some(transformations) = &transformations {
+
+                        let mut work_pitchs = ref_pitchs.clone();
+
+                        for transfo in transformations {
+                            match transfo {
+                                PPitchLineTransformation::NoteShift(n) => pitch::notes_shift(&mut work_pitchs, *n)?,
+                                PPitchLineTransformation::BackwardNoteShift(n) => pitch::backward_notes_shift(&mut work_pitchs, *n)?,
+                                PPitchLineTransformation::PitchTranspo(ip, fp) => pitch::pitchs_transposition(&mut work_pitchs, scale, ip, fp)?,
+                                PPitchLineTransformation::PitchInv => pitch::pitchs_inversion(&mut work_pitchs, scale)?,
+                            }
+                        }
+
+                        for _ in 0..pl_ref.mul {
+                            for p in &work_pitchs {
+                                pitchs.push(Pitch::new(p));
+                            }
+                        }
+                    }
+                    else {
+                        for _ in 0..pl_ref.mul {
+                            for p in ref_pitchs {
+                                pitchs.push(Pitch::new(p));
+                            }
+                        }
+                    }
+                },
+                PPitchLineFragment::Fragments((frags, mul)) => {
+                    let frags_pitchs = self.pitchline_development(frags, pitchs_map, scale)?;
+
+                    for _ in 0..*mul {
+                        for p in &frags_pitchs {
+                            pitchs.push(Pitch::new(p));
+                        }
+                    }
+                },
+            }
+        }
+        Ok(pitchs)
+    }
+
     fn sequence_dependencies(&self, fragments: &Vec<PSeqFragment>, sequence_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
         let sequences_count = self.parser_sequences.len();
 
         for fragment in fragments {
             match fragment {
-                PSeqFragment::SeqRef(pl_ref) => {
+                PSeqFragment::Part(_) => (),
+                PSeqFragment::Ref(pl_ref) => {
                     let mut dep_idx = 0;
 
                     while dep_idx < sequences_count {
@@ -273,7 +506,6 @@ impl<'a> Binder<'a> {
                     }
                 },
                 PSeqFragment::Fragments((frags, _)) => self.sequence_dependencies(frags, sequence_deps)?,
-                PSeqFragment::Part(_) => (),
             }
         }
         Ok(())
@@ -294,44 +526,25 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    fn pitchlines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
-        let pitchlines_count = self.parser_pitchlines.len();
-
-        // pitchlines dependencies indexes
-        let mut pitchlines_deps = vec![HashSet::new(); pitchlines_count];
-
-        for (pitchline_idx, pitchline) in self.parser_pitchlines.iter().enumerate() {
-            for fragment in &pitchline.fragments {
-                match fragment {
-                    PPitchLineFragment::PitchLineRef(pl_ref) => {
-                        let mut dep_idx = 0;
-
-                        while dep_idx < pitchlines_count {
-                            if pl_ref.id == self.parser_pitchlines[dep_idx].id {
-                                pitchlines_deps[pitchline_idx].insert(dep_idx);
-                                break;
-                            }
-                            dep_idx += 1;
-                        }
-                        if dep_idx == pitchlines_count {
-                            return Err(failure::err_msg(format!("Pitchline {} unknown!", pl_ref.id)));
-                        }
-                    },
-                    PPitchLineFragment::Pitch(_) => (),
-                }
-            }
-        }
-
-        // pitchlines scheduling
-        elements_scheduling(&pitchlines_deps, "pitchline", |i| self.parser_pitchlines[i].id.to_string())
-    }
-
     pub fn deserialize(&mut self, scales: &'a scale::Collection) -> Result<(), failure::Error> {
 
         self.default_bpm = self.parser_beats
                                    .iter()
                                    .last()
                                    .map_or(DEFAULT_BPM, |(_, b)| b.bpm);
+
+
+        // Deserialize chordlines
+        let scheduled_chordlines_indexes = self.chordlines_scheduling()?;
+
+        // chordlines harmonics development and deserialization
+        for i in scheduled_chordlines_indexes {
+            let pchordline = self.parser_chordlines[i];
+
+            let chordline = self.chordline_deserialize(&pchordline.fragments)?;
+
+            self.chordlines.insert(pchordline.id, chordline);
+        }
 
         // Deserialize pitchlines
         let scheduled_pitchlines_indexes = self.pitchlines_scheduling()?;
@@ -350,8 +563,6 @@ impl<'a> Binder<'a> {
         for i in scheduled_pitchlines_indexes {
             let pitchline = self.parser_pitchlines[i];
             
-            let mut pitchs = Vec::new();
-
             let scale = match pitchline.scale {
                 Some(scale_id) => match self.parser_scales.get(scale_id) {
                         Some(pscale) => scales.fetch(&pscale.name)?,
@@ -361,52 +572,7 @@ impl<'a> Binder<'a> {
             };
 
             // pitch development and transformation
-            for fragment in &pitchline.fragments {
-                match fragment {
-                    PPitchLineFragment::Pitch(p) => {
-                        for _ in 0..p.mul {
-                            pitchs.push(Pitch::from_parser_pitch(p));
-                        }
-                    },
-                    PPitchLineFragment::PitchLineRef(pl_ref) => {
-
-                        let ref_pitchs = match pitchs_map.get(pl_ref.id) {
-                            Some(ps) => ps,
-                            None => return Err(failure::err_msg(format!("Pitchline {} not found!", pl_ref.id))),
-                        };
-
-                        pitchs.reserve(ref_pitchs.len() * pl_ref.mul);
-
-                        // dependence pitchs transformation
-                        if let Some(transformations) = &pl_ref.transformations {
-
-                            let mut work_pitchs = ref_pitchs.clone();
-
-                            for transfo in transformations {
-                                match transfo {
-                                    PPitchLineTransformation::NoteShift(n) => pitch::notes_shift(&mut work_pitchs, *n)?,
-                                    PPitchLineTransformation::BackwardNoteShift(n) => pitch::backward_notes_shift(&mut work_pitchs, *n)?,
-                                    PPitchLineTransformation::PitchTranspo(ip, fp) => pitch::pitchs_transposition(&mut work_pitchs, scale, ip, fp)?,
-                                    PPitchLineTransformation::PitchInv => pitch::pitchs_inversion(&mut work_pitchs, scale)?,
-                                }
-                            }
-
-                            for _ in 0..pl_ref.mul {
-                                for p in &work_pitchs {
-                                    pitchs.push(Pitch::new(p));
-                                }
-                            }
-                        }
-                        else {
-                            for _ in 0..pl_ref.mul {
-                                for p in ref_pitchs {
-                                    pitchs.push(Pitch::new(p));
-                                }
-                            }
-                        }
-                    },
-                }
-            }
+            let pitchs = self.pitchline_development(&pitchline.fragments, &pitchs_map, &scale)?;
 
             // pitchs to frequencies
             let mut frequencies = Vec::new();
@@ -434,60 +600,6 @@ impl<'a> Binder<'a> {
             self.pitchlines.insert(pitchline.id, (scale, frequencies));
                 
             pitchs_map.insert(pitchline.id, pitchs);
-        }
-    
-        // Deserialize chordlines
-        let no_accents = Vec::new();
-        
-        for pchordline in &self.parser_chordlines {
-            let mut chordline = Vec::new();
-            
-            for pchord_and_attack in &pchordline.chords {
-                match self.parser_chords.get(pchord_and_attack.chord_id) {
-                    Some(pchord) => {
-                        let paccents = pchord_and_attack
-                            .attack_id
-                            .and_then(|id| self.parser_attacks.get(id))
-                            .map_or(&no_accents, |a| &a.accents);
-                        
-                        let mut chord = Vec::new();
-                        
-                        for (harmonic_idx, pharmonic) in pchord.harmonics.iter().enumerate() {
-                            let mut delay = pharmonic
-                            .delay
-                            .as_ref()
-                            .map_or(Time::Ticks(0), |d| to_time(&d, self.ticks_per_second));
-                        
-                        let opvelocity = if harmonic_idx < paccents.len() {
-                                delay = to_time(&paccents[harmonic_idx].delay, self.ticks_per_second);
-                                &paccents[harmonic_idx].velocity
-                            } else {
-                                &pharmonic.velocity
-                            };
-
-                            let velocity = match opvelocity {
-                                Some(pvelo) => Velocity::from(pvelo, &self.envelops_indexes)?,
-                                None => Velocity::new(),
-                            };
-                            
-                            let harmonic = Harmonic {
-                                pitch_gap: pharmonic.pitch_gap,
-                                delay,
-                                velocity,
-                            };
-                            chord.push(harmonic);
-                        }
-                        chordline.push(chord);
-                    }
-                    None => {
-                        return Err(failure::err_msg(format!(
-                            "Chord {} not found!",
-                            pchord_and_attack.chord_id
-                        )))
-                    }
-                }
-            }
-            self.chordlines.insert(pchordline.id, chordline);
         }
 
         // Deserialize hitlines
