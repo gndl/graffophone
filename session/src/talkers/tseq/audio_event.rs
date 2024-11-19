@@ -379,9 +379,22 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
         let mut velocity_events = Vec::with_capacity(harmonic_sequence_events.len());
 
         for event in harmonic_sequence_events {
+            let mut event_end_tick = event.end_tick;
+            let mut event_fadeout = event.fadeout;
+            
+            if event.envelop_index < envelops.len() {
+                let env_len = envelops[event.envelop_index].len() as i64;
+                let env_end_tick = event.start_tick + env_len;
+                
+                if env_end_tick < event.end_tick {
+                    event_end_tick = env_end_tick;
+                    event_fadeout = true;
+                }
+            }
+
             frequency_events.push(create(
                 event.start_tick,
-                event.end_tick,
+                event_end_tick,
                 event.start_frequency,
                 event.end_frequency,
                 event.frequency_transition,
@@ -390,27 +403,14 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
                 envelope::UNDEFINED,
             ));
 
-            let mut velocity_end_tick = event.end_tick;
-            let mut velocity_fadeout = event.fadeout;
-            
-            if event.envelop_index < envelops.len() {
-                let env_len = envelops[event.envelop_index].len() as i64;
-                let env_end_tick = event.start_tick + env_len;
-                
-                if env_end_tick < event.end_tick {
-                    velocity_end_tick = env_end_tick;
-                    velocity_fadeout = true;
-                }
-            }
-
             velocity_events.push(create(
                 event.start_tick,
-                velocity_end_tick,
+                event_end_tick,
                 event.start_velocity,
                 event.end_velocity,
                 event.velocity_transition,
                 event.fadein,
-                velocity_fadeout,
+                event_fadeout,
                 event.envelop_index,
             ));
         }
