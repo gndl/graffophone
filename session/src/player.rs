@@ -21,6 +21,7 @@ use std::thread;
 use std::time::Duration;
 
 use talker::audio_format::AudioFormat;
+use talker::lv2_handler;
 
 use crate::band::{Band, Operation};
 use crate::state::State;
@@ -206,6 +207,17 @@ fn run(
                 break;
             }
         }
+
+        // Run LV2 workers
+        let _ = match lv2_handler::run_workers() {
+            Ok(()) => (),
+            Err(e) => {
+                let msg = format!("Player::run error : {}", e);
+                println!("{}", msg);
+                res = Err(failure::err_msg(msg));
+                break;
+            }
+        };
 
         if tick > end_tick {
             tick = start_tick;
