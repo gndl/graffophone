@@ -7,7 +7,7 @@ authors = ["gndl"]
 failure = "0.1.8"
 ringbuf = "0.2.8"
 cpal = "0.15.2"
-livi = "0.7.4"
+livi = "0.7.5"
 nom = "7.1"
 audiofile = { path = "../audiofile" }
 scale = { path = "../scale" }
