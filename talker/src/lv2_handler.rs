@@ -2,12 +2,18 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
 
-use audio_format;
 use livi;
 
+extern crate suil_sys;
+
+use audio_format;
 
 const MIN_BLOCK_SIZE: usize = 1;
 const MAX_BLOCK_SIZE: usize = audio_format::DEFAULT_CHUNK_SIZE;
+
+// pub const LV2_UI_HOST_TYPE_URI: &'static [u8; 42] = lv2_sys::LV2_UI__Gtk4UI;
+pub const LV2_UI_HOST_TYPE_URI: &'static [u8; 42] = b"http://lv2plug.in/ns/extensions/ui#Gtk4UI\0";
+
 
 enum WorkerOrder {
     Run,
@@ -44,7 +50,25 @@ impl Lv2Handler {
 
         Lv2Handler { world, features, workers_sender}
     }
-}
+
+    pub fn plugin_ui_supported(&self, plugin: &livi::Plugin) -> bool {
+
+        if let Some(uis) = plugin.raw().uis() {
+            if let Some(ui) = uis.iter().next() {
+                if let Some(ui_type_uri_node) = ui.classes().iter().next() {
+                    if let Some(ui_type_uri) = ui_type_uri_node.as_uri() {
+    
+                        let host_type_uri = LV2_UI_HOST_TYPE_URI.as_ptr() as *const i8;
+                        let ui_type_uri = ui_type_uri.as_ptr() as *const i8;
+                        
+                        return unsafe{suil_sys::suil_ui_supported(host_type_uri, ui_type_uri)} > 0
+                    }
+                }
+            }
+        }
+        false
+    }
+    }
 
 static INSTANCE: LazyLock<Mutex<Lv2Handler>> = LazyLock::new(|| Mutex::new(Lv2Handler::new()));
 

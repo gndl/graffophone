@@ -40,7 +40,8 @@ impl Lv2 {
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
                 
-                if plugin.raw().uis().is_some() {
+                if lv2_handler.plugin_ui_supported(&plugin) {
+                    show_plugin(&plugin);
                     base.set_data(Data::UI);
                 }
 
@@ -245,13 +246,26 @@ fn show_plugin(plugin: &Plugin) {
        println!("\trequired_feature : {:?}", node.turtle_token());
     }
 
-   if let Some(nodes) = lilv_plugin.extension_data() {
-       for node in nodes {
-           println!("\textension_data : {:?}", node.turtle_token());
-       }
-   }
+    if let Some(nodes) = lilv_plugin.extension_data() {
+        for node in nodes {
+            println!("\textension_data : {:?}", node.turtle_token());
+        }
+    }
     for port in plugin.ports() {
         println!("\tport : {:?}", port);
+    }
+
+    if let Some(uis) = lilv_plugin.uis() {
+        for ui in uis {
+            println!("\tUI plugin {:?} :", ui.uri().turtle_token());
+            println!("\t\tbinary_uri : {:?}", ui.binary_uri().map_or("None".to_string(), |n| n.turtle_token()));
+            println!("\t\tbundle_uri : {:?}", ui.bundle_uri().map_or("None".to_string(), |n| n.turtle_token()));
+
+            println!("\t\tclasses :");
+            for classe in ui.classes() {
+                println!("\t\t\t{:?}", classe.turtle_token());
+            }
+        }
     }
 }
 /*
@@ -311,6 +325,7 @@ fn test_fuildsynth_plugin() {
         .expect("Plugin not found.");
 
     show_plugin(&plugin);
+
     let _instance = unsafe {
         plugin
             .instantiate(features.clone(), sample_rate as f64)

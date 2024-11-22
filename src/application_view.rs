@@ -19,6 +19,7 @@ use crate::graph_view::{GraphView, RGraphView};
 use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
 use crate::settings;
+use crate::ui::plugin_ui;
 use crate::ui::talker_object::TalkerObject;
 
 pub struct ApplicationView {
@@ -35,6 +36,7 @@ pub struct ApplicationView {
     commit_talker_data_button: gtk::Button,
     cancel_talker_data_button: gtk::Button,
     talkers_box: gtk::Box,
+    plugin_ui_manager: RefCell<plugin_ui::Manager>,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
     event_bus: REventBus,
@@ -277,6 +279,7 @@ impl ApplicationView {
             commit_talker_data_button,
             cancel_talker_data_button,
             talkers_box,
+            plugin_ui_manager: RefCell::new(plugin_ui::Manager::new()),
             graph_view,
             session_presenter: session_presenter.clone(),
             event_bus: event_bus.clone(),
@@ -386,26 +389,28 @@ impl ApplicationView {
                     self.talker_data_view.grab_focus();
                 }
                 Data::File(_) => {
-                    let selected_data_talker = self.graph_presenter().borrow().selected_data_talker();
+                    let open_ctrl = self.session_presenter.clone();
 
-                    if let Some(talker_id) = selected_data_talker {
-                        let open_ctrl = self.session_presenter.clone();
+                    let dialog = gtk::FileDialog::builder()
+                    .title("Choose a file")
+                    .accept_label("Open")
+                    .build();
 
-                        let dialog = gtk::FileDialog::builder()
-                        .title("Choose a file")
-                        .accept_label("Open")
-                        .build();
+                    dialog.open(Some(&self.window), Cancellable::NONE, move |file| {
+                        if let Ok(file) = file {
+                            let path_buf = file.path().expect("Couldn't get file path");
 
-                        dialog.open(Some(&self.window), Cancellable::NONE, move |file| {
-                            if let Ok(file) = file {
-                                let path_buf = file.path().expect("Couldn't get file path");
-
-                                open_ctrl.borrow_mut().set_talker_data(talker_id,&path_buf.to_string_lossy());
-                            }
-                        });
+                            open_ctrl.borrow_mut().set_talker_data(talker_id,&path_buf.to_string_lossy());
+                        }
+                    });
+                },
+                Data::UI => {
+                    match self.plugin_ui_manager.borrow_mut().show(talker, &self.session_presenter) {
+                        Ok(()) => (),
+                        Err(e) => self.display_error_message(&format!("{}", e)),
                     }
                 },
-                _ => (),
+                Data::Nil => (),
             }
         }
     }
