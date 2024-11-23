@@ -273,7 +273,7 @@ macro_rules! TIME_DESC {
 #[macro_export]
 macro_rules! VELOCITY_DESC {
     () => {
-        concat!("[", FADEIN_KW!(), "][<envelop_id>", MUL_KW!(), "]<velocity_value>[", FADEOUT_KW!(), "][", LINEAR_SHAPE_KW!(), "|", SIN_SHAPE_KW!(), "|", EARLY_SHAPE_KW!(), "|", LATE_SHAPE_KW!(), "|", ROUND_SHAPE_KW!(), "]",)
+        concat!("[", FADEIN_KW!(), "]<velocity_value>[", COUPLING_KW!(), "<envelop_id>][", FADEOUT_KW!(), "][", LINEAR_SHAPE_KW!(), "|", SIN_SHAPE_KW!(), "|", EARLY_SHAPE_KW!(), "|", LATE_SHAPE_KW!(), "|", ROUND_SHAPE_KW!(), "]",)
     };
 }
 
@@ -305,7 +305,12 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     "][", MUL_KW!(), "<num>][...][",
     CLOSE_PARENT_KW!(),
     MUL_KW!(), "<num>][...]\n",
-    VELOCITYLINE_KW!(), " <velocities_id> ", DEF_KW!(), " ", VELOCITY_DESC!(), "[...]\n",
+    VELOCITYLINE_KW!(), " <velocities_id> ", DEF_KW!(),
+    "[", OPEN_PARENT_KW!(), "]",
+    VELOCITY_DESC!(),
+    "[", MUL_KW!(), "<num>][...][",
+    CLOSE_PARENT_KW!(),
+    MUL_KW!(), "<num>][...]\n",
     ENVELOP_KW!(),
     " <envelop_id> ",
     DEF_KW!(),

@@ -124,12 +124,11 @@ pub struct PAttack<'a> {
 pub struct PChordLinePart<'a> {
     pub chord_id: &'a str,
     pub attack_id: Option<&'a str>,
-    pub mul: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum PChordLineFragment<'a> {
-    Part(PChordLinePart<'a>),
+    Part((PChordLinePart<'a>, usize)),
     Ref(PRef<'a>),
     Fragments((Vec<PChordLineFragment<'a>>, usize)),
 }
@@ -145,7 +144,6 @@ pub struct PChordLine<'a> {
 pub struct PPitch<'a> {
     pub id: &'a str,
     pub transition: PShape,
-    pub mul: usize,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -158,7 +156,7 @@ pub enum PPitchLineTransformation<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum PPitchLineFragment<'a> {
-    Part(PPitch<'a>),
+    Part((PPitch<'a>, usize)),
     Ref((PRef<'a>, Option<Vec<PPitchLineTransformation<'a>>>)),
     Fragments((Vec<PPitchLineFragment<'a>>, usize)),
 }
@@ -205,17 +203,24 @@ pub struct PEnvelope<'a> {
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct PVelocity<'a> {
-    pub envelope_id: Option<&'a str>,
     pub level: f32,
+    pub envelope_id: Option<&'a str>,
     pub fadein: bool,
     pub fadeout: bool,
     pub transition: PShape,
 }
 
 #[derive(Debug, PartialEq)]
+pub enum PVelocityLineFragment<'a> {
+    Part((PVelocity<'a>, usize)),
+    Ref(PRef<'a>),
+    Fragments((Vec<PVelocityLineFragment<'a>>, usize)),
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PVelocityLine<'a> {
     pub id: &'a str,
-    pub velocities: Vec<PVelocity<'a>>,
+    pub fragments: Vec<PVelocityLineFragment<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -346,13 +351,7 @@ fn attribute(input: &str) -> IResult<&str, PAttribute> {
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
     let (input, (num, den, _)) = tuple((float, opt(preceded(on, float)), space0))(input)?;
-    Ok((
-        input,
-        PRatio {
-            num,
-            den: den.unwrap_or(1.),
-        },
-    ))
+    Ok((input, PRatio {num, den: den.unwrap_or(1.)}))
 }
 
 fn freq_ratio(input: &str) -> IResult<&str, PPitchGap> {
@@ -426,11 +425,11 @@ fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment> {
      ))(input)?;
     Ok((
         input,
-        PChordLineFragment::Part(PChordLinePart {
+        PChordLineFragment::Part((PChordLinePart {
             chord_id,
             attack_id,
-            mul: omul.unwrap_or(1),
-        }),
+        },
+        omul.unwrap_or(1))),
     ))
 }
 
@@ -514,31 +513,66 @@ fn shape(input: &str) -> IResult<&str, PShape> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity> {
-    let (input, (fadein, envelop_id, level, fadeout, transition)) = tuple((
+    let (input, (ofadein, level, envelope_id, ofadeout, transition)) = tuple((
         opt(tag(FADEIN_KW!())),
-        opt(terminated(id, char(MUL_KW!()))),
         ratio,
+        opt(preceded(char(COUPLING_KW!()), id)),
         opt(tag(FADEOUT_KW!())),
         shape,
     ))(input)?;
     Ok((
         input,
         PVelocity {
-            envelope_id: envelop_id,
             level: level.num / level.den,
-            fadein: fadein.is_some(),
-            fadeout: fadeout.is_some(),
+            envelope_id,
+            fadein: ofadein.is_some(),
+            fadeout: ofadeout.is_some(),
             transition,
         },
     ))
 }
 
-fn velocities(input: &str) -> IResult<&str, Expression> {
-    let (input, (id, velocities, _)) =
-        tuple((head(VELOCITYLINE_KW!()), many0(velocity), end))(input)?;
+fn velocityline_part(input: &str) -> IResult<&str, PVelocityLineFragment> {
+    let (input, (velocity, omul)) = tuple((
+        velocity,
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
+    ))(input)?;
+    Ok((input, PVelocityLineFragment::Part((velocity, omul.unwrap_or(1)))))
+}
+
+fn velocityline_ref(input: &str) -> IResult<&str, PVelocityLineFragment> {
+    let (input, (id, omul)) = tuple((
+        preceded(char(REF_KW!()), id),
+        opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
+    ))(input)?;
+
+    Ok((input, PVelocityLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
+}
+
+fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment> {
+    let (input, (fragments, mul)) = tuple((
+        delimited(
+            terminated(char(OPEN_PARENT_KW!()), space0),
+            many0(alt((velocityline_part, velocityline_ref, velocityline_fragments))),
+            terminated(char(CLOSE_PARENT_KW!()), space0),
+        ),
+        preceded(terminated(char(MUL_KW!()), space0), uint),
+    ))(input)?;
     Ok((
         input,
-        Expression::VelocityLine(PVelocityLine { id, velocities }),
+        PVelocityLineFragment::Fragments((fragments, mul)),
+    ))
+}
+
+fn velocityline(input: &str) -> IResult<&str, Expression> {
+    let (input, (id, fragments, _)) = tuple((
+        head(VELOCITYLINE_KW!()),
+        many0(alt((velocityline_part, velocityline_ref, velocityline_fragments))),
+        end,
+    ))(input)?;
+    Ok((
+        input,
+        Expression::VelocityLine(PVelocityLine { id, fragments }),
     ))
 }
 
@@ -570,7 +604,7 @@ fn pitch(input: &str) -> IResult<&str, PPitchLineFragment> {
         shape,
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
     ))(input)?;
-    Ok((input, PPitchLineFragment::Part(PPitch {id, transition, mul: omul.unwrap_or(1)})))
+    Ok((input, PPitchLineFragment::Part((PPitch {id, transition}, omul.unwrap_or(1)))))
 }
 
 fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
@@ -779,7 +813,7 @@ pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
         hits,
         durations,
         pitchline,
-        velocities,
+        velocityline,
         envelope,
         seq,
         seqout,
@@ -866,8 +900,8 @@ fn test_chord() {
                         pitch_gap: PPitchGap::FreqRatio(1.5),
                         delay: Some(PTime::Rate(PRatio { num: 1., den: 2. })),
                         velocity: Some(PVelocity {
-                            envelope_id: None,
                             level: 0.4,
+                            envelope_id: None,
                             fadein: false,
                             fadeout: false,
                             transition: PShape::None
@@ -903,61 +937,52 @@ fn test_chordline() {
             Expression::ChordLine(PChordLine {
                 id: "cs",
                 fragments: vec![
-                    PChordLineFragment::Part(PChordLinePart {
+                    PChordLineFragment::Part((PChordLinePart {
                         chord_id: "c1",
                         attack_id: None,
-                        mul: 1,
-                    }),
-                    PChordLineFragment::Part(PChordLinePart {
+                    }, 1)),
+                    PChordLineFragment::Part((PChordLinePart {
                         chord_id: "c2",
                         attack_id: Some("a"),
-                        mul: 1,
-                    }),
-                    PChordLineFragment::Part(PChordLinePart {
+                    }, 1)),
+                    PChordLineFragment::Part((PChordLinePart {
                         chord_id: "c3",
                         attack_id: None,
-                        mul: 1,
-                    }),
-                    PChordLineFragment::Part(PChordLinePart {
+                    }, 1)),
+                    PChordLineFragment::Part((PChordLinePart {
                         chord_id: "c1",
                         attack_id: None,
-                        mul: 2,
-                    }),
-                    PChordLineFragment::Part(PChordLinePart {
+                    }, 2)),
+                    PChordLineFragment::Part((PChordLinePart {
                         chord_id: "c2",
                         attack_id: Some("a"),
-                        mul: 2,
-                    }),
+                    }, 2)),
                     PChordLineFragment::Ref(PRef {
                         id: "id",
                         mul: 1,
                     }),
                     PChordLineFragment::Fragments((vec![
-                        PChordLineFragment::Part(PChordLinePart {
+                        PChordLineFragment::Part((PChordLinePart {
                             chord_id: "c1",
                             attack_id: None,
-                            mul: 2,
-                        }),
-                        PChordLineFragment::Part(PChordLinePart {
+                        }, 2)),
+                        PChordLineFragment::Part((PChordLinePart {
                             chord_id: "c2",
                             attack_id: Some("a"),
-                            mul: 1,
-                        }),
+                        }, 1)),
                         PChordLineFragment::Fragments((vec![
                             PChordLineFragment::Ref(PRef {
                                 id: "id",
                                 mul: 1,
                             }),
-                            PChordLineFragment::Part(PChordLinePart {
+                            PChordLineFragment::Part((PChordLinePart {
                                 chord_id: "c1",
                                 attack_id: None,
-                                mul: 1,
-                            }),
-                            PChordLineFragment::Part(PChordLinePart {
+                            }, 1)),
+                            PChordLineFragment::Part((PChordLinePart {
                                 chord_id: "c2",
                                 attack_id: Some("a"),
-                                mul: 2,
-                            }),
+                            }, 2)),
                         ], 3)),
                     ], 4)),
                     PChordLineFragment::Ref(PRef {
@@ -1035,45 +1060,59 @@ fn test_hits() {
 #[test]
 fn test_velos() {
     assert_eq!(
-        velocities(concat!(
+        velocityline(concat!(
             VELOCITYLINE_KW!(),
             " v1",
             DEF_KW!(),
-            " _/1/2\\_ ~ _/1 .75\\_=0.9\n"
+            " _/1/2\\_ ~ * 7 _/1 .75\\_=0.9 1&env * 9 .6&e \n"
         )),
         Ok((
             "",
             Expression::VelocityLine(PVelocityLine {
                 id: "v1",
-                velocities: vec![
-                    PVelocity {
-                        envelope_id: None,
+                fragments: vec![
+                    PVelocityLineFragment::Part((PVelocity {
                         level: 0.5,
+                        envelope_id: None,
                         fadein: true,
                         fadeout: true,
                         transition: PShape::Sin
-                    },
-                    PVelocity {
-                        envelope_id: None,
+                    }, 7)),
+                    PVelocityLineFragment::Part((PVelocity {
                         level: 1.,
+                        envelope_id: None,
                         fadein: true,
                         fadeout: false,
                         transition: PShape::None
-                    },
-                    PVelocity {
-                        envelope_id: None,
+                    }, 1)),
+                    PVelocityLineFragment::Part((PVelocity {
                         level: 0.75,
+                        envelope_id: None,
                         fadein: false,
                         fadeout: true,
                         transition: PShape::Linear
-                    },
-                    PVelocity {
-                        envelope_id: None,
+                    }, 1)),
+                    PVelocityLineFragment::Part((PVelocity {
                         level: 0.9,
+                        envelope_id: None,
                         fadein: false,
                         fadeout: false,
                         transition: PShape::None
-                    },
+                    }, 1)),
+                    PVelocityLineFragment::Part((PVelocity {
+                        level: 1.,
+                        envelope_id: Some("env"),
+                        fadein: false,
+                        fadeout: false,
+                        transition: PShape::None
+                    }, 9)),
+                    PVelocityLineFragment::Part((PVelocity {
+                        level: 0.6,
+                        envelope_id: Some("e"),
+                        fadein: false,
+                        fadeout: false,
+                        transition: PShape::None
+                    }, 1)),
                 ],
             }),
         ))
@@ -1146,31 +1185,26 @@ fn test_pitchs() {
                 id: "intro",
                 scale: None,
                 fragments: vec![
-                    PPitchLineFragment::Part(PPitch {
+                    PPitchLineFragment::Part((PPitch {
                         id: "G9",
                         transition: PShape::Linear,
-                        mul: 1,
-                    }),
-                    PPitchLineFragment::Part(PPitch {
+                    }, 1)),
+                    PPitchLineFragment::Part((PPitch {
                         id: "B7",
                         transition: PShape::Sin,
-                        mul: 1,
-                    }),
-                    PPitchLineFragment::Part(PPitch {
+                    }, 1)),
+                    PPitchLineFragment::Part((PPitch {
                         id: "e5",
                         transition: PShape::Late,
-                        mul: 1,
-                    }),
-                    PPitchLineFragment::Part(PPitch {
+                    }, 1)),
+                    PPitchLineFragment::Part((PPitch {
                         id: "f2",
                         transition: PShape::Early,
-                        mul: 1,
-                    }),
-                    PPitchLineFragment::Part(PPitch {
+                    }, 1)),
+                    PPitchLineFragment::Part((PPitch {
                         id: "a0",
                         transition: PShape::None,
-                        mul: 1,
-                    }),
+                    }, 1)),
                 ]
             }),
         ))
@@ -1502,13 +1536,13 @@ fn test_parse() {
             Expression::Beat(PBeat { id: "b", bpm: 90. }),
             Expression::VelocityLine(PVelocityLine {
                 id: "v",
-                velocities: vec![PVelocity {
+                fragments: vec![PVelocityLineFragment::Part((PVelocity {
                     envelope_id: None,
                     level: 1.,
                     transition: PShape::None,
                     fadein: false,
                     fadeout: false
-                }],
+                }, 1))],
             })
         ]
     );

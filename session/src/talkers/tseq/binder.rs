@@ -12,6 +12,7 @@ use talkers::tseq::parser::{
 use talkers::tseq::pitch::{self, Pitch};
 
 use super::envelope;
+use super::parser::PVelocityLineFragment;
 
 pub const DEFAULT_FREQUENCY: f32 = 0.;
 pub const DEFAULT_VELOCITY: f32 = 1.;
@@ -255,28 +256,28 @@ impl<'a> Binder<'a> {
         }
     }
 
-    fn chordline_dependencies(&self, fragments: &Vec<PChordLineFragment>, chordline_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
-        let chordlines_count = self.parser_chordlines.len();
+    fn chordline_dependencies(&self, fragments: &Vec<PChordLineFragment>, line_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let lines_count = self.parser_chordlines.len();
 
         for fragment in fragments {
             match fragment {
                 PChordLineFragment::Part(_) => (),
-                PChordLineFragment::Ref(cl_ref) => {
+                PChordLineFragment::Ref(line_ref) => {
                     let mut dep_idx = 0;
 
-                    while dep_idx < chordlines_count {
-                        if cl_ref.id == self.parser_chordlines[dep_idx].id {
-                            chordline_deps.insert(dep_idx);
+                    while dep_idx < lines_count {
+                        if line_ref.id == self.parser_chordlines[dep_idx].id {
+                            line_deps.insert(dep_idx);
                             break;
                         }
                         dep_idx += 1;
                     }
-                    if dep_idx == chordlines_count {
-                        return Err(failure::err_msg(format!("Chordline {} unknown!", cl_ref.id)));
+                    if dep_idx == lines_count {
+                        return Err(failure::err_msg(format!("Chordline {} unknown!", line_ref.id)));
                     }
                 },
                 PChordLineFragment::Fragments((frags, _)) => {
-                    self.chordline_dependencies(frags, chordline_deps)?;
+                    self.chordline_dependencies(frags, line_deps)?;
                 },
             }
         }
@@ -284,26 +285,26 @@ impl<'a> Binder<'a> {
     }
 
     fn chordlines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
-        let chordlines_count = self.parser_chordlines.len();
+        let lines_count = self.parser_chordlines.len();
 
         // chordlines dependencies indexes
-        let mut chordlines_deps = vec![HashSet::new(); chordlines_count];
+        let mut lines_deps = vec![HashSet::new(); lines_count];
 
-        for (chordline_idx, chordline) in self.parser_chordlines.iter().enumerate() {
-            self.chordline_dependencies(&chordline.fragments, &mut chordlines_deps[chordline_idx])?;
+        for (line_idx, line) in self.parser_chordlines.iter().enumerate() {
+            self.chordline_dependencies(&line.fragments, &mut lines_deps[line_idx])?;
         }
 
         // chordlines scheduling
-        elements_scheduling(&chordlines_deps, "chordline", |i| self.parser_chordlines[i].id.to_string())
+        elements_scheduling(&lines_deps, "chordline", |i| self.parser_chordlines[i].id.to_string())
     }
 
     fn chordline_deserialize(&self, fragments: &Vec<PChordLineFragment>) -> Result<Vec<Vec<Harmonic>>, failure::Error> {
-        let mut chordline = Vec::new();
+        let mut line = Vec::new();
         let no_accents = Vec::with_capacity(0);
 
         for fragment in fragments {
             match fragment {
-                PChordLineFragment::Part(part) => {
+                PChordLineFragment::Part((part, mul)) => {
                     match self.parser_chords.get(part.chord_id) {
                         Some(pchord) => {
                             let paccents = part
@@ -338,10 +339,13 @@ impl<'a> Binder<'a> {
                                 };
                                 chord.push(harmonic);
                             }
-                            for _ in 0..(part.mul - 1) {
-                                chordline.push(chord.clone());
+
+                            line.reserve(*mul);
+
+                            for _ in 0..(mul - 1) {
+                                line.push(chord.clone());
                             }
-                            chordline.push(chord);
+                            line.push(chord);
                         }
                         None => {
                             return Err(failure::err_msg(format!(
@@ -351,59 +355,59 @@ impl<'a> Binder<'a> {
                         }
                     }
                 },
-                PChordLineFragment::Ref(cl_ref) => {
-                    let ref_chordline = match self.chordlines.get(cl_ref.id) {
-                        Some(cs) => cs,
-                        None => return Err(failure::err_msg(format!("Chordline {} not found!", cl_ref.id))),
+                PChordLineFragment::Ref(line_ref) => {
+                    let ref_line = match self.chordlines.get(line_ref.id) {
+                        Some(ref_line) => ref_line,
+                        None => return Err(failure::err_msg(format!("Chordline {} not found!", line_ref.id))),
                     };
 
-                    chordline.reserve(ref_chordline.len() * cl_ref.mul);
+                    line.reserve(ref_line.len() * line_ref.mul);
                     
-                    for _ in 0..cl_ref.mul {
-                        for chd in ref_chordline {
-                            chordline.push(chd.clone());
+                    for _ in 0..line_ref.mul {
+                        for elem in ref_line {
+                            line.push(elem.clone());
                         }
                     }
                 },
                 PChordLineFragment::Fragments((frags, mul)) => {
-                    let frags_chordline = self.chordline_deserialize(frags)?;
+                    let frags_line = self.chordline_deserialize(frags)?;
 
-                    chordline.reserve(frags_chordline.len() * mul);
+                    line.reserve(frags_line.len() * mul);
 
                     for _ in 0..(*mul - 1) {
-                        for chd in &frags_chordline {
-                            chordline.push(chd.clone());
+                        for elem in &frags_line {
+                            line.push(elem.clone());
                         }
                     }
-                    chordline.extend(frags_chordline);
+                    line.extend(frags_line);
                 }
             }
         }
-        Ok(chordline)
+        Ok(line)
     }
 
-    fn pitchline_dependencies(&self, fragments: &Vec<PPitchLineFragment>, pitchline_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
-        let pitchlines_count = self.parser_pitchlines.len();
+    fn pitchline_dependencies(&self, fragments: &Vec<PPitchLineFragment>, line_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let lines_count = self.parser_pitchlines.len();
 
         for fragment in fragments {
             match fragment {
                 PPitchLineFragment::Part(_) => (),
-                PPitchLineFragment::Ref((pl_ref, _)) => {
+                PPitchLineFragment::Ref((line_ref, _)) => {
                     let mut dep_idx = 0;
 
-                    while dep_idx < pitchlines_count {
-                        if pl_ref.id == self.parser_pitchlines[dep_idx].id {
-                            pitchline_deps.insert(dep_idx);
+                    while dep_idx < lines_count {
+                        if line_ref.id == self.parser_pitchlines[dep_idx].id {
+                            line_deps.insert(dep_idx);
                             break;
                         }
                         dep_idx += 1;
                     }
-                    if dep_idx == pitchlines_count {
-                        return Err(failure::err_msg(format!("Pitchline {} unknown!", pl_ref.id)));
+                    if dep_idx == lines_count {
+                        return Err(failure::err_msg(format!("Pitchline {} unknown!", line_ref.id)));
                     }
                 },
                 PPitchLineFragment::Fragments((frags, _)) => {
-                    self.pitchline_dependencies(frags, pitchline_deps)?;
+                    self.pitchline_dependencies(frags, line_deps)?;
                 },
             }
         }
@@ -425,28 +429,33 @@ impl<'a> Binder<'a> {
     }
 
     fn pitchline_development(&self, fragments: &Vec<PPitchLineFragment>, pitchs_map: &HashMap<&'a str, Vec<Pitch>>, scale: &Scale) -> Result<Vec<Pitch>, failure::Error> {
-        let mut pitchs = Vec::new();
+        let mut line = Vec::new();
 
         for fragment in fragments {
             match fragment {
-                PPitchLineFragment::Part(p) => {
-                    for _ in 0..p.mul {
-                        pitchs.push(Pitch::from_parser_pitch(p));
-                    }
-                },
-                PPitchLineFragment::Ref((pl_ref, transformations)) => {
+                PPitchLineFragment::Part((part, mul)) => {
+                    let elem = Pitch::from_parser_pitch(part);
 
-                    let ref_pitchs = match pitchs_map.get(pl_ref.id) {
-                        Some(ps) => ps,
-                        None => return Err(failure::err_msg(format!("Pitchline {} not found!", pl_ref.id))),
+                    line.reserve(*mul);
+
+                    for _ in 0..(mul - 1) {
+                        line.push(elem.clone());
+                    }
+                    line.push(elem);
+                },
+                PPitchLineFragment::Ref((line_ref, transformations)) => {
+
+                    let ref_line = match pitchs_map.get(line_ref.id) {
+                        Some(ref_line) => ref_line,
+                        None => return Err(failure::err_msg(format!("Pitchline {} not found!", line_ref.id))),
                     };
 
-                    pitchs.reserve(ref_pitchs.len() * pl_ref.mul);
+                    line.reserve(ref_line.len() * line_ref.mul);
 
                     // dependence pitchs transformation
                     if let Some(transformations) = &transformations {
 
-                        let mut work_pitchs = ref_pitchs.clone();
+                        let mut work_pitchs = ref_line.clone();
 
                         for transfo in transformations {
                             match transfo {
@@ -457,32 +466,123 @@ impl<'a> Binder<'a> {
                             }
                         }
 
-                        for _ in 0..pl_ref.mul {
-                            for p in &work_pitchs {
-                                pitchs.push(Pitch::new(p));
+                        for _ in 0..line_ref.mul {
+                            for elem in &work_pitchs {
+                                line.push(elem.clone());
                             }
                         }
                     }
                     else {
-                        for _ in 0..pl_ref.mul {
-                            for p in ref_pitchs {
-                                pitchs.push(Pitch::new(p));
+                        for _ in 0..line_ref.mul {
+                            for elem in ref_line {
+                                line.push(elem.clone());
                             }
                         }
                     }
                 },
                 PPitchLineFragment::Fragments((frags, mul)) => {
-                    let frags_pitchs = self.pitchline_development(frags, pitchs_map, scale)?;
+                    let frags_line = self.pitchline_development(frags, pitchs_map, scale)?;
 
-                    for _ in 0..*mul {
-                        for p in &frags_pitchs {
-                            pitchs.push(Pitch::new(p));
+                    line.reserve(frags_line.len() * mul);
+
+                    for _ in 0..(*mul - 1) {
+                        for elem in &frags_line {
+                            line.push(elem.clone());
                         }
                     }
+                    line.extend(frags_line);
                 },
             }
         }
-        Ok(pitchs)
+        Ok(line)
+    }
+
+    fn velocityline_dependencies(&self, fragments: &Vec<PVelocityLineFragment>, line_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
+        let lines_count = self.parser_velocitylines.len();
+
+        for fragment in fragments {
+            match fragment {
+                PVelocityLineFragment::Part(_) => (),
+                PVelocityLineFragment::Ref(line_ref) => {
+                    let mut dep_idx = 0;
+
+                    while dep_idx < lines_count {
+                        if line_ref.id == self.parser_velocitylines[dep_idx].id {
+                            line_deps.insert(dep_idx);
+                            break;
+                        }
+                        dep_idx += 1;
+                    }
+                    if dep_idx == lines_count {
+                        return Err(failure::err_msg(format!("Velocityline {} unknown!", line_ref.id)));
+                    }
+                },
+                PVelocityLineFragment::Fragments((frags, _)) => {
+                    self.velocityline_dependencies(frags, line_deps)?;
+                },
+            }
+        }
+        Ok(())
+    }
+
+    fn velocitylines_scheduling(&self) -> Result<Vec<usize>, failure::Error> {
+        let lines_count = self.parser_velocitylines.len();
+
+        // velocitylines dependencies indexes
+        let mut lines_deps = vec![HashSet::new(); lines_count];
+
+        for (line_idx, line) in self.parser_velocitylines.iter().enumerate() {
+            self.velocityline_dependencies(&line.fragments, &mut lines_deps[line_idx])?;
+        }
+
+        // velocitylines scheduling
+        elements_scheduling(&lines_deps, "velocityline", |i| self.parser_velocitylines[i].id.to_string())
+    }
+
+    fn velocityline_deserialize(&self, fragments: &Vec<PVelocityLineFragment>) -> Result<Vec<Velocity>, failure::Error> {
+        let mut line = Vec::new();
+
+        for fragment in fragments {
+            match fragment {
+                PVelocityLineFragment::Part((part, mul)) => {
+                    let elem = Velocity::from(part, &self.envelops_indexes)?;
+                    
+                    line.reserve(*mul);
+
+                    for _ in 0..(mul - 1) {
+                        line.push(elem.clone());
+                    }
+                    line.push(elem);
+                },
+                PVelocityLineFragment::Ref(line_ref) => {
+                    let ref_line = match self.velocitylines.get(line_ref.id) {
+                        Some(ref_line) => ref_line,
+                        None => return Err(failure::err_msg(format!("Velocityline {} not found!", line_ref.id))),
+                    };
+
+                    line.reserve(ref_line.len() * line_ref.mul);
+                    
+                    for _ in 0..line_ref.mul {
+                        for elem in ref_line {
+                            line.push(elem.clone());
+                        }
+                    }
+                },
+                PVelocityLineFragment::Fragments((frags, mul)) => {
+                    let frags_line = self.velocityline_deserialize(frags)?;
+
+                    line.reserve(frags_line.len() * mul);
+
+                    for _ in 0..(*mul - 1) {
+                        for elem in &frags_line {
+                            line.push(elem.clone());
+                        }
+                    }
+                    line.extend(frags_line);
+                }
+            }
+        }
+        Ok(line)
     }
 
     fn sequence_dependencies(&self, fragments: &Vec<PSeqFragment>, sequence_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {
@@ -491,18 +591,18 @@ impl<'a> Binder<'a> {
         for fragment in fragments {
             match fragment {
                 PSeqFragment::Part(_) => (),
-                PSeqFragment::Ref(pl_ref) => {
+                PSeqFragment::Ref(line_ref) => {
                     let mut dep_idx = 0;
 
                     while dep_idx < sequences_count {
-                        if pl_ref.id == self.parser_sequences[dep_idx].id {
+                        if line_ref.id == self.parser_sequences[dep_idx].id {
                             sequence_deps.insert(dep_idx);
                             break;
                         }
                         dep_idx += 1;
                     }
                     if dep_idx == sequences_count {
-                        return Err(failure::err_msg(format!("Sequence {} unknown!", pl_ref.id)));
+                        return Err(failure::err_msg(format!("Sequence {} unknown!", line_ref.id)));
                     }
                 },
                 PSeqFragment::Fragments((frags, _)) => self.sequence_dependencies(frags, sequence_deps)?,
@@ -617,14 +717,15 @@ impl<'a> Binder<'a> {
         }
 
         // Deserialize velocitylines
-        for pvelocityline in &self.parser_velocitylines {
-            let mut velocities = Vec::with_capacity(pvelocityline.velocities.len());
+        let scheduled_velocitylines_indexes = self.velocitylines_scheduling()?;
 
-            for pvelocity in &pvelocityline.velocities {
-                let velocity = Velocity::from(pvelocity, &self.envelops_indexes)?;
-                velocities.push(velocity);
-            }
-            self.velocitylines.insert(pvelocityline.id, velocities);
+        // velocitylines deserialization
+        for i in scheduled_velocitylines_indexes {
+            let pvelocityline = self.parser_velocitylines[i];
+
+            let velocityline = self.velocityline_deserialize(&pvelocityline.fragments)?;
+
+            self.velocitylines.insert(pvelocityline.id, velocityline);
         }
 
         Ok(())
