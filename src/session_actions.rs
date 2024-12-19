@@ -36,9 +36,20 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
 
     let open = ActionEntry::builder("open")
     .activate(glib::clone!(@weak window, @weak open_ctrl => move |_, _, _| {
+        let filters = gio::ListStore::new::<gtk::FileFilter>();
+
+        let gsr_filter = gtk::FileFilter::new();
+        gsr_filter.add_pattern("*.gsr");
+        filters.append(&gsr_filter);
+
+        let no_filter = gtk::FileFilter::new();
+        no_filter.add_pattern("*");
+        filters.append(&no_filter);
+
         let dialog = FileDialog::builder()
             .title("Choose a Graffophone session record file")
             .accept_label("Open")
+            .filters(&filters)
             .build();
 
         dialog.open(Some(&window), Cancellable::NONE, move |file| {
