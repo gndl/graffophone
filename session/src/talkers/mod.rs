@@ -3,6 +3,7 @@ pub mod adsrp;
 pub mod audiofile_input;
 pub mod bounded_sinusoidal;
 pub mod bounded_square;
+pub mod dynamic_modulator;
 pub mod envelope_shaper;
 pub mod fuzz;
 pub mod hub;
