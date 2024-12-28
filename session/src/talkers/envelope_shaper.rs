@@ -30,6 +30,7 @@ impl PlayerState {
 }
 
 pub struct EnvelopeShaper {
+    chunk_size: usize,
     start_tick: i64,
     duration: usize,
     a: f32,
@@ -70,6 +71,7 @@ impl EnvelopeShaper {
         Ok(ctalker!(
             base,
             Self {
+                chunk_size: AudioFormat::chunk_size(),
                 start_tick: 0,
                 duration: 1,
                 a: 0.,
@@ -135,7 +137,6 @@ impl Talker for EnvelopeShaper {
             let trigger = trigger_buf[i];
 
             if trigger != 0. && last_trigger == 0. {
-                //                println!("{} trigger at {}", MODEL, tick + i as i64);
                 let t = tick + i as i64;
                 let sr = AudioFormat::sample_rate() as f64;
 
@@ -165,18 +166,17 @@ impl Talker for EnvelopeShaper {
                                         self.env.resize(duration, 0.);
                                     }
 
-                                    let chunk_size = AudioFormat::chunk_size();
-                                    let nb_chunk = duration / chunk_size;
-                                    let reminder = duration % chunk_size;
+                                    let nb_chunk = duration / self.chunk_size;
+                                    let reminder = duration % self.chunk_size;
 
                                     let mut e_i = 0;
                                     let mut src_t = start_tick;
 
                                     for _ in 0..nb_chunk {
-                                        base.ear(SRC_EAR_INDEX).listen(src_t, chunk_size);
+                                        base.ear(SRC_EAR_INDEX).listen(src_t, self.chunk_size);
                                         let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
 
-                                        for src_idx in 0..chunk_size {
+                                        for src_idx in 0..self.chunk_size {
                                             self.env[e_i] = a * src_buf[src_idx] + b;
                                             e_i += 1;
                                         }
