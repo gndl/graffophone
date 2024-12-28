@@ -5,6 +5,7 @@ pub mod bounded_sinusoidal;
 pub mod bounded_square;
 pub mod dynamic_modulator;
 pub mod envelope_shaper;
+pub mod speed_modulator;
 pub mod fuzz;
 pub mod hub;
 pub mod lv2;

@@ -700,6 +700,10 @@ impl Ear {
         ln
     }
 
+    pub fn listen_set_hum(&self, tick: i64, len: usize, set_idx: Index, hum_idx: Index) -> usize {
+        self.sets()[set_idx].hums[hum_idx].listen(tick, len)
+    }
+
     pub fn iter_talks<F, P>(&self, mut f: F, p: &mut P) -> Result<(), failure::Error>
     where
         F: FnMut(&Talk, &mut P) -> Result<(), failure::Error>,
