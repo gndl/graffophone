@@ -17,7 +17,7 @@ impl Hub {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Modulator", MODEL, MODEL)
+        TalkerHandlerBase::builtin("Mixer", MODEL, MODEL)
     }
 }
 

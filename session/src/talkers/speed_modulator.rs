@@ -11,7 +11,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "SpeedModulator";
+pub const MODEL: &str = "SpeedModulators";
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 struct Point {
@@ -38,16 +38,16 @@ impl State {
     }
 }
 
-const INPUT_EAR_INDEX: Index = 0;
+const INPUTS_EAR_INDEX: Index = 0;
 const IN_HUM_INDEX: Index = 0;
 const SPEED_HUM_INDEX: Index = 1;
 const NEUTRAL_HUM_INDEX: Index = 2;
 
-pub struct SpeedModulator {
+pub struct SpeedModulators {
     chunk_size: usize,
     states: Vec<State>,
 }
-impl SpeedModulator {
+impl SpeedModulators {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
@@ -64,11 +64,11 @@ impl SpeedModulator {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Modulator", MODEL, "Speed Modulator")
+        TalkerHandlerBase::builtin("Modulator", MODEL, "Speed Modulators")
     }
 }
 
-impl Talker for SpeedModulator {
+impl Talker for SpeedModulators {
     fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
@@ -79,7 +79,7 @@ impl Talker for SpeedModulator {
         let mut new_base = base.clone();
         new_base.ear(ear_idx).add_set(hum_idx, entree)?;
 
-        if ear_idx == INPUT_EAR_INDEX {
+        if ear_idx == INPUTS_EAR_INDEX {
             self.states.push(State::new());
             let mut voice = voice::audio(None, 0., base.buffer_len());
             voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
@@ -96,7 +96,7 @@ impl Talker for SpeedModulator {
         let mut new_base = base.clone();
         new_base.sup_ear_set_with_associated_voice(ear_idx, set_idx)?;
 
-        if ear_idx == INPUT_EAR_INDEX {
+        if ear_idx == INPUTS_EAR_INDEX {
             self.states.remove(set_idx);
         }
 
@@ -125,7 +125,7 @@ impl Talker for SpeedModulator {
             }
         }
 
-        let ear = base.ear(INPUT_EAR_INDEX);
+        let ear = base.ear(INPUTS_EAR_INDEX);
         let speed_buf = ear.get_set_hum_cv_buffer(port, SPEED_HUM_INDEX);
 
         ear.listen_set_hum(tick, 1, port, NEUTRAL_HUM_INDEX);

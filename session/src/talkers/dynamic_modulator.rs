@@ -10,7 +10,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "DynamicModulator";
+pub const MODEL: &str = "DynamicModulators";
 
 struct State {
     prev_output: f32,
@@ -23,14 +23,14 @@ impl State {
     }
 }
 
-const INPUT_EAR_INDEX: Index = 0;
+const INPUTS_EAR_INDEX: Index = 0;
 const IN_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
-pub struct DynamicModulator {
+pub struct DynamicModulators {
     states: Vec<State>,
 }
-impl DynamicModulator {
+impl DynamicModulators {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
@@ -45,11 +45,11 @@ impl DynamicModulator {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Modulator", MODEL, "Dynamic Modulator")
+        TalkerHandlerBase::builtin("Modulator", MODEL, "Dynamic Modulators")
     }
 }
 
-impl Talker for DynamicModulator {
+impl Talker for DynamicModulators {
     fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
@@ -60,7 +60,7 @@ impl Talker for DynamicModulator {
         let mut new_base = base.clone();
         new_base.ear(ear_idx).add_set(hum_idx, entree)?;
 
-        if ear_idx == INPUT_EAR_INDEX {
+        if ear_idx == INPUTS_EAR_INDEX {
             self.states.push(State::new());
             let mut voice = voice::audio(None, 0., base.buffer_len());
             voice.set_associated_ear_set(ear_idx, new_base.ear(ear_idx).sets_len() - 1);
@@ -77,7 +77,7 @@ impl Talker for DynamicModulator {
         let mut new_base = base.clone();
         new_base.sup_ear_set_with_associated_voice(ear_idx, set_idx)?;
 
-        if ear_idx == INPUT_EAR_INDEX {
+        if ear_idx == INPUTS_EAR_INDEX {
             self.states.remove(set_idx);
         }
 
@@ -85,7 +85,7 @@ impl Talker for DynamicModulator {
     }
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
-        let ear = base.ear(INPUT_EAR_INDEX);
+        let ear = base.ear(INPUTS_EAR_INDEX);
         let ln = ear.listen_set(tick, len, port);
 
         let input_buf = ear.get_set_hum_audio_buffer(port, IN_HUM_INDEX);
@@ -93,19 +93,16 @@ impl Talker for DynamicModulator {
 
         let state = &mut self.states[port];
 
-        let mut output = state.prev_output;
-
         let voice_buf = base.voice(port).audio_buffer();
 
         for i in 0..ln {
             let input = input_buf[i];
             let gain = gain_buf[i];
 
-            output = output + ((input - output) * (gain + 1.));
+            state.prev_output += (input - state.prev_output) * (gain + 1.);
 
-            voice_buf[i] = output;
+            voice_buf[i] = state.prev_output;
         }
-        state.prev_output = output;
 
         ln
     }

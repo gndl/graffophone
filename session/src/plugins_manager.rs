@@ -5,25 +5,25 @@ use talker::lv2_handler;
 use talker::rtalker;
 use talker::talker::{RTalker, TalkerBase, TalkerCab};
 use talker::talker_handler::TalkerHandlerBase;
-use talkers::accumulator::{self, Accumulator};
+use talkers::accumulator::{self, Accumulators};
 use talkers::adsrp::{self, ADSRp};
 use talkers::audiofile_input::{self, AudioFileInput};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
-use talkers::damper::{self, Damper};
-use talkers::dynamic_modulator::{self, DynamicModulator};
+use talkers::damper::{self, Dampers};
+use talkers::dynamic_modulator::{self, DynamicModulators};
 use talkers::envelope_shaper::{self, EnvelopeShaper};
 use talkers::fuzz::{self, Fuzz};
 use talkers::hub::{self, Hub};
 use talkers::lv2::Lv2;
 use talkers::math::{self, Average, Product, Sum, AtanSum, TanhSum};
 use talkers::parabolic::{self, Parabolic};
-use talkers::regulator::{self, Regulator};
+use talkers::regulator::{self, Regulators};
 use talkers::round::{self, Round};
 use talkers::second_degree_frequency_progression::{self, SecondDegreeFrequencyProgression};
 use talkers::sinusoidal::{self, Sinusoidal};
 use talkers::sinusoidal_fptg::{self, SinusoidalFPTG};
-use talkers::speed_modulator::{self, SpeedModulator};
+use talkers::speed_modulator::{self, SpeedModulators};
 use talkers::square::{self, Square};
 use talkers::tseq::tseq::{self, Tseq};
 
@@ -84,26 +84,26 @@ impl PluginsManager {
         .unwrap_or_else(|e| eprintln!("PluginsManager::make_plugins_handlers failed : {:?}", e));
 
         handlers.extend(vec![
-            PluginsManager::tkr_hr_kv(Accumulator::descriptor()),
+            PluginsManager::tkr_hr_kv(Accumulators::descriptor()),
             PluginsManager::tkr_hr_kv(ADSRp::descriptor()),
             PluginsManager::tkr_hr_kv(AtanSum::descriptor()),
             PluginsManager::tkr_hr_kv(AudioFileInput::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
-            PluginsManager::tkr_hr_kv(Damper::descriptor()),
-            PluginsManager::tkr_hr_kv(DynamicModulator::descriptor()),
+            PluginsManager::tkr_hr_kv(Dampers::descriptor()),
+            PluginsManager::tkr_hr_kv(DynamicModulators::descriptor()),
             PluginsManager::tkr_hr_kv(EnvelopeShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
             PluginsManager::tkr_hr_kv(Hub::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
             PluginsManager::tkr_hr_kv(Product::descriptor()),
-            PluginsManager::tkr_hr_kv(Regulator::descriptor()),
+            PluginsManager::tkr_hr_kv(Regulators::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(SinusoidalFPTG::descriptor()),
-            PluginsManager::tkr_hr_kv(SpeedModulator::descriptor()),
+            PluginsManager::tkr_hr_kv(SpeedModulators::descriptor()),
             PluginsManager::tkr_hr_kv(Square::descriptor()),
             PluginsManager::tkr_hr_kv(Sum::descriptor()),
             PluginsManager::tkr_hr_kv(TanhSum::descriptor()),
@@ -122,7 +122,7 @@ impl PluginsManager {
 
     pub fn make_internal_talker(&self, model: &String, base: TalkerBase) -> Result<RTalker, failure::Error> {
         if model == accumulator::MODEL {
-            Ok(rtalker!(Accumulator::new(base)?))
+            Ok(rtalker!(Accumulators::new(base)?))
         } else if model == adsrp::MODEL {
             Ok(rtalker!(ADSRp::new(base)?))
         } else if model == math::ATAN_SUM_MODEL {
@@ -136,9 +136,9 @@ impl PluginsManager {
         } else if model == bounded_square::MODEL {
             Ok(rtalker!(BoundedSquare::new(base)?))
         } else if model == damper::MODEL {
-            Ok(rtalker!(Damper::new(base)?))
+            Ok(rtalker!(Dampers::new(base)?))
         } else if model == dynamic_modulator::MODEL {
-            Ok(rtalker!(DynamicModulator::new(base)?))
+            Ok(rtalker!(DynamicModulators::new(base)?))
         } else if model == math::AVERAGE_MODEL {
             Ok(rtalker!(Average::new(base)?))
         } else if model == envelope_shaper::MODEL {
@@ -150,7 +150,7 @@ impl PluginsManager {
         } else if model == math::PRODUCT_MODEL {
             Ok(rtalker!(Product::new(base)?))
         } else if model == regulator::MODEL {
-            Ok(rtalker!(Regulator::new(base)?))
+            Ok(rtalker!(Regulators::new(base)?))
         } else if model == round::MODEL {
             Ok(rtalker!(Round::new(base)?))
         } else if model == second_degree_frequency_progression::MODEL {
@@ -160,7 +160,7 @@ impl PluginsManager {
         } else if model == sinusoidal_fptg::MODEL {
             Ok(rtalker!(SinusoidalFPTG::new(base)?))
         } else if model == speed_modulator::MODEL {
-            Ok(rtalker!(SpeedModulator::new(base)?))
+            Ok(rtalker!(SpeedModulators::new(base)?))
         } else if model == square::MODEL {
             Ok(rtalker!(Square::new(base)?))
         } else if model == math::SUM_MODEL {

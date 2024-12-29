@@ -10,7 +10,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "Regulator";
+pub const MODEL: &str = "Regulators";
 
 struct State {
     prev_error: f32,
@@ -33,10 +33,10 @@ const PRO_HUM_INDEX: Index = 1;
 const INT_HUM_INDEX: Index = 2;
 const DER_HUM_INDEX: Index = 3;
 
-pub struct Regulator {
+pub struct Regulators {
     states: Vec<State>,
 }
-impl Regulator {
+impl Regulators {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
@@ -57,7 +57,7 @@ impl Regulator {
     }
 }
 
-impl Talker for Regulator {
+impl Talker for Regulators {
     fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
@@ -97,15 +97,11 @@ impl Talker for Regulator {
         let ln = ear.listen_set(tick, len, port);
 
         let input_buf = ear.get_set_hum_audio_buffer(port, IN_HUM_INDEX);
-        let pro_buf = ear.get_set_hum_audio_buffer(port, PRO_HUM_INDEX);
-        let int_buf = ear.get_set_hum_audio_buffer(port, INT_HUM_INDEX);
-        let der_buf = ear.get_set_hum_audio_buffer(port, DER_HUM_INDEX);
+        let pro_buf = ear.get_set_hum_cv_buffer(port, PRO_HUM_INDEX);
+        let int_buf = ear.get_set_hum_cv_buffer(port, INT_HUM_INDEX);
+        let der_buf = ear.get_set_hum_cv_buffer(port, DER_HUM_INDEX);
 
         let state = &mut self.states[port];
-
-        let mut error = state.prev_error;
-        let mut output = state.prev_output;
-        let mut integral = state.integral;
 
         let voice_buf = base.voice(port).audio_buffer();
 
@@ -115,19 +111,16 @@ impl Talker for Regulator {
             let ik = int_buf[i];
             let dk = der_buf[i];
 
-            let e = input - output;
+            let e = input - state.prev_output;
             let pv = e * pk;
-            integral += e * ik;
-            let dv = (e - error) * dk;
+            state.integral += e * ik;
+            let dv = (e - state.prev_error) * dk;
 
-            output += pv + integral + dv;
+            state.prev_output += pv + state.integral + dv;
 
-            voice_buf[i] = output;
-            error = e;
+            voice_buf[i] = state.prev_output;
+            state.prev_error = e;
         }
-        state.prev_error = error;
-        state.prev_output = output;
-        state.integral = integral;
 
         ln
     }

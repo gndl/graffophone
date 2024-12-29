@@ -10,7 +10,7 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
-pub const MODEL: &str = "Damper";
+pub const MODEL: &str = "Dampers";
 
 struct State {
     prev_output: f32,
@@ -28,10 +28,10 @@ const IN_HUM_INDEX: Index = 0;
 const CEILING_HUM_INDEX: Index = 1;
 const GAIN_HUM_INDEX: Index = 2;
 
-pub struct Damper {
+pub struct Dampers {
     states: Vec<State>,
 }
-impl Damper {
+impl Dampers {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
@@ -51,7 +51,7 @@ impl Damper {
     }
 }
 
-impl Talker for Damper {
+impl Talker for Dampers {
     fn add_set_to_ear_update(
         &mut self,
         base: &TalkerBase,
@@ -91,7 +91,7 @@ impl Talker for Damper {
         let ln = ear.listen_set(tick, len, port);
 
         let input_buf = ear.get_set_hum_audio_buffer(port, IN_HUM_INDEX);
-        let ceiling_buf = ear.get_set_hum_audio_buffer(port, CEILING_HUM_INDEX);
+        let ceiling_buf = ear.get_set_hum_cv_buffer(port, CEILING_HUM_INDEX);
         let gain_buf = ear.get_set_hum_audio_buffer(port, GAIN_HUM_INDEX);
 
         let state = &mut self.states[port];

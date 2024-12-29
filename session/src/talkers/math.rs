@@ -130,7 +130,7 @@ impl Average {
     }
 
     pub fn descriptor() -> TalkerHandlerBase {
-        TalkerHandlerBase::builtin("Modulator", AVERAGE_MODEL, AVERAGE_MODEL)
+        TalkerHandlerBase::builtin("Mathematics", AVERAGE_MODEL, AVERAGE_MODEL)
     }
 }
 
