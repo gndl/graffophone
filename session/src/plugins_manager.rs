@@ -10,6 +10,7 @@ use talkers::adsrp::{self, ADSRp};
 use talkers::audiofile_input::{self, AudioFileInput};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
+use talkers::damper::{self, Damper};
 use talkers::dynamic_modulator::{self, DynamicModulator};
 use talkers::envelope_shaper::{self, EnvelopeShaper};
 use talkers::fuzz::{self, Fuzz};
@@ -89,6 +90,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
+            PluginsManager::tkr_hr_kv(Damper::descriptor()),
             PluginsManager::tkr_hr_kv(DynamicModulator::descriptor()),
             PluginsManager::tkr_hr_kv(EnvelopeShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
@@ -131,6 +133,8 @@ impl PluginsManager {
             Ok(rtalker!(BoundedSinusoidal::new(base)?))
         } else if model == bounded_square::MODEL {
             Ok(rtalker!(BoundedSquare::new(base)?))
+        } else if model == damper::MODEL {
+            Ok(rtalker!(Damper::new(base)?))
         } else if model == dynamic_modulator::MODEL {
             Ok(rtalker!(DynamicModulator::new(base)?))
         } else if model == math::AVERAGE_MODEL {
