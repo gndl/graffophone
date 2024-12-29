@@ -18,6 +18,7 @@ use talkers::hub::{self, Hub};
 use talkers::lv2::Lv2;
 use talkers::math::{self, Average, Product, Sum, AtanSum, TanhSum};
 use talkers::parabolic::{self, Parabolic};
+use talkers::regulator::{self, Regulator};
 use talkers::round::{self, Round};
 use talkers::second_degree_frequency_progression::{self, SecondDegreeFrequencyProgression};
 use talkers::sinusoidal::{self, Sinusoidal};
@@ -97,6 +98,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Hub::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
             PluginsManager::tkr_hr_kv(Product::descriptor()),
+            PluginsManager::tkr_hr_kv(Regulator::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
             PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
@@ -147,6 +149,8 @@ impl PluginsManager {
             Ok(rtalker!(Parabolic::new(base)?))
         } else if model == math::PRODUCT_MODEL {
             Ok(rtalker!(Product::new(base)?))
+        } else if model == regulator::MODEL {
+            Ok(rtalker!(Regulator::new(base)?))
         } else if model == round::MODEL {
             Ok(rtalker!(Round::new(base)?))
         } else if model == second_degree_frequency_progression::MODEL {

@@ -12,6 +12,7 @@ pub mod hub;
 pub mod lv2;
 pub mod math;
 pub mod parabolic;
+pub mod regulator;
 pub mod round;
 pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
