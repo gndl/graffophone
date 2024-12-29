@@ -13,7 +13,7 @@ Prerequisites: ocaml >= 4.05.0, opam, dune
 
 Dependencies:
 
-    $ make dep
+    $ make deps
 
 
 Compilation
@@ -25,7 +25,7 @@ Compilation
 Execution
 ---------
 
-    $ make exec
+    $ make run
 
 
 Installation
