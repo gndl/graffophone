@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -95,7 +95,7 @@ class c =
 
     method newSession() =
       let track = new Track.c in
-      let output = (new PlaybackOutput.c() :> Output.c) in
+      let output = (new Playback.c() :> Output.c) in
       let mixingConsole = new MixingConsole.c ~tracks:[track] ~outputs:[output] ()
       in
       ignore(Session.make ~tracks:[(0, track)]

@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -14,53 +14,80 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *)
 
-open FFmpeg
-
 open Usual
 
 module Bus = EventBus
 
-let output = ref ""
+let errorCodeOutputUnderflowed = -9980
+
+let output = ref 0
 
 
 let getOutput() = !output
 
-(*
+
 let getName device = Portaudio.((get_device_info device).d_name)
 let getMaxOutputChannels device = Portaudio.((get_device_info device).d_max_output_channels)
-*)
+
 
 let getOutputsNames() =
-  Avdevice.get_audio_output_formats() |> List.map Av.Format.get_output_long_name
+  let open Portaudio in
+  let dcount = Portaudio.get_device_count () in
 
+  let rec search id lst =
+    if id < dcount then (
 
-let getOutputIdFormat id =
-  Avdevice.get_audio_output_formats()
-  |> List.find(fun fmt -> Av.Format.get_output_name fmt = id)
+      let dinfo = Portaudio.get_device_info id in
 
-
-let getOutputNameFormat name =
-  Avdevice.get_audio_output_formats()
-  |> List.find(fun fmt -> Av.Format.get_output_long_name fmt = name)
+      if dinfo.d_max_output_channels > 0 then
+        search(id + 1) (dinfo.d_name::lst) 
+      else
+        search(id + 1) lst
+    )
+    else lst
+  in
+  L.rev(search 0 [])
 
 
 let changeOutput newOutputName =
-  output := getOutputNameFormat newOutputName |> Av.Format.get_output_name
+  let open Portaudio in
+  let dcount = Portaudio.get_device_count () in
+
+  let rec search id =
+    if id < dcount then (
+      let dinfo = Portaudio.get_device_info id in
+
+      if dinfo.d_name = newOutputName then id else search(id + 1)
+    )
+    else -1
+  in
+
+  let newOutput = search 0 in
+
+  if newOutput >= 0 && newOutput <> !output then (
+    output := newOutput;
+  )
 
 
 let initialize() =
-  let outputName = Configuration.getOutputDeviceName in
+  Portaudio.init ();
+  try
+    let outputName = Configuration.getOutputDeviceName
+    in
+    trace("outputDeviceName : "^outputName);
 
-  if L.mem outputName ~set:(getOutputsNames()) then (
-    changeOutput outputName
-  )
-  else (
-    let dev = Avdevice.get_default_audio_output_format() in
-    output := Av.Format.get_output_name dev;
-    Configuration.setOutputDeviceName(Av.Format.get_output_long_name dev);
-  );
-  trace("outputDeviceName : " ^ !output)
+    if L.mem outputName ~set:(getOutputsNames()) then (
+      changeOutput outputName
+    )
+    else (
+      output := Portaudio.get_default_output_device();
+      Configuration.setOutputDeviceName(getName !output)
+    )
+
+  with Portaudio.Error code -> (
+      Bus.notify(Bus.Error(Portaudio.string_of_error code));
+    )
 
 
-let terminate() = ()
+let terminate() = Portaudio.terminate ()
 

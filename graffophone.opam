@@ -21,6 +21,7 @@ depends: [
   "sexplib"
   "lablgtk"
   "ffmpeg" {= "0.4.3"}
+  "portaudio"
 ]
 
 available: [

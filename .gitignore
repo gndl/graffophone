@@ -16,3 +16,6 @@
 _build
 .merlin
 *.install
+
+# Rust generated files
+target

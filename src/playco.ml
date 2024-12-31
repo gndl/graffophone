@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -85,7 +85,7 @@ let () =
       let fm_02 = mkTkr(new FrequencyModulator.c ~input:(toEar am_01) ~freq:(toEar ss_02) ()) in
       let trk1 = new Track.c ~input:(toEar fm_01) ~channelsGains:[toEar ss_02; Con 0.] () in
       let trk2 = new Track.c ~input:(toEar fm_02) ~channelsGains:[Con 0.; toEar ss_04] () in
-      let pbo = new PlaybackOutput.c () in
+      let pbo = new Playback.c () in
       let fo = new FileOutput.c ~filename:"sessions/default_session.wav" () in
       let mc = new MixingConsole.c ~tracks:[trk1; trk2] ~outputs:[(*pbo; *)fo] () in
 

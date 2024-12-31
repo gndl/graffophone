@@ -6,6 +6,6 @@
 
 (executable
   (name graffophone)
-  (libraries unix threads dynlink str bigarray sexplib ppx_sexp_conv ppxlib lablgtk2 lablgtk2.glade lablgtk2.gnomecanvas ffmpeg graffophone_plugin graffophone_plugins)
+  (libraries unix threads dynlink str bigarray sexplib ppx_sexp_conv ppxlib lablgtk2 lablgtk2.glade lablgtk2.gnomecanvas portaudio ffmpeg graffophone_plugin graffophone_plugins)
 (preprocess
 (pps ppxlib ppx_sexp_conv)))

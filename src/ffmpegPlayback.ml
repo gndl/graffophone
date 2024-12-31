@@ -1,5 +1,5 @@
 (* 
- * Copyright (C) 2015 Gaëtan Dubreil
+ * Copyright (C) 2015 Gaï¿½tan Dubreil
  *
  *  All rights reserved.This file is distributed under the terms of the
  *  GNU General Public License version 3.0.
@@ -38,7 +38,7 @@ class c ?(name = "Playback Output(") () =
     val mutable mOutputBuffer = Array1.create float32 c_layout (SF.chunkSize * 2)
 
     initializer
-      mOutputDevice <- Device.getOutput();
+      mOutputDevice <- FfmpegDevice.getOutput();
       mNewOutputDevice <- mOutputDevice;
 
 
