@@ -1,6 +1,6 @@
 # Graffophone
-Modular audio processing system
-![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone.png)
+Digital Audio Funstation
+![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone-0.2.0.png)
 
 Building and installing Graffophone
 ==============================
