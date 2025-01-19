@@ -4,6 +4,7 @@ Modular audio processing application including sequencer, synthesis and mixing f
 
 Supported formats :
 - Audio, MIDI
+- Scales : 12 ET, 17 ET, 19 ET, 53 ET, natural, pythagorean
 - Plugins : Lv2
 - Sample rates (Hz) : 8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000 
 - Codecs : FLAC, MP3, Ogg Vorbis, Opus, WAV
