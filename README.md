@@ -1,5 +1,13 @@
 # Graffophone
 
+Modular audio processing application including sequencer, synthesis and mixing functions.
+Supported formats :
+- audio, MIDI
+- Lv2 plugins
+- sample rates (Hz) 8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000
+- FLAC, MP3, Ogg Vorbis, Opus and WAV codecs
+
+
 ![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone-0.2.0.png)
 
 Building and installing Graffophone
