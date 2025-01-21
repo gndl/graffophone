@@ -26,6 +26,7 @@ mod settings;
 mod style;
 mod talker_control;
 mod ui;
+mod undo_redo_list;
 mod util;
 
 use application_view::ApplicationView;

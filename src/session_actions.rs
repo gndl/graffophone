@@ -10,6 +10,8 @@ pub const NEW_SESSION_ACCEL: &str = "<Ctrl>N";
 pub const OPEN_SESSION_ACCEL: &str = "<Ctrl>O";
 pub const SAVE_SESSION_ACCEL: &str = "<Ctrl>S";
 pub const SAVE_SESSION_AS_ACCEL: &str = "<Ctrl><Shift>S";
+pub const UNDO_ACCEL: &str = "<Ctrl>Z";
+pub const REDO_ACCEL: &str = "<Ctrl><Shift>Z";
 pub const PLAY_ACCEL: &str = "<Ctrl>P";
 pub const STOP_ACCEL: &str = "<Ctrl>T";
 pub const RESTART_ACCEL: &str = "<Ctrl>R";
@@ -94,6 +96,24 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
 
     application.set_accels_for_action("session.save_as", &[SAVE_SESSION_AS_ACCEL]);
 
+    // Undo action
+    let undo_ctrl = session_presenter.clone();
+
+    let undo = ActionEntry::builder("undo")
+    .activate(move |_: &SimpleActionGroup, _, _| undo_ctrl.borrow_mut().undo())
+    .build();
+
+    application.set_accels_for_action("session.undo", &[UNDO_ACCEL]);
+
+    // Redo action
+    let redo_ctrl = session_presenter.clone();
+
+    let redo = ActionEntry::builder("redo")
+    .activate(move |_: &SimpleActionGroup, _, _| redo_ctrl.borrow_mut().redo())
+    .build();
+
+    application.set_accels_for_action("session.redo", &[REDO_ACCEL]);
+
 
     // Toggle Play and pause action
     let play_ctrl = session_presenter.clone();
@@ -170,6 +190,6 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
 
 
     let actions = SimpleActionGroup::new();
-    actions.add_action_entries([new, open, save, save_as, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data, duplicate_selected_talkers]);
+    actions.add_action_entries([new, open, save, save_as, undo, redo, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data, duplicate_selected_talkers]);
     window.insert_action_group("session", Some(&actions));
 }

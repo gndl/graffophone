@@ -5,7 +5,7 @@ use std::str::FromStr;
 use gtk::glib;
 
 use ::session::channel;
-use talker::identifier::{Id, Index};
+use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
 use talker::Identifier;
 
@@ -17,6 +17,7 @@ use crate::session::state::State;
 
 use crate::mixer_presenter::MixerPresenter;
 use crate::output_presenter::{self, OutputPresenter};
+use crate::undo_redo_list::UndoRedoList;
 use crate::util;
 
 const GSR: &str = "
@@ -37,6 +38,7 @@ pub struct SessionPresenter {
     session: Session,
     state: State,
     mixers_presenters: Vec<MixerPresenter>,
+    undo_redo_list: UndoRedoList,
     event_bus: REventBus,
 }
 pub type RSessionPresenter = Rc<RefCell<SessionPresenter>>;
@@ -50,6 +52,7 @@ impl SessionPresenter {
             session,
             state,
             mixers_presenters: Vec::new(),
+            undo_redo_list: UndoRedoList::new(),
             event_bus: event_bus.clone(),
         }))
     }
@@ -158,9 +161,7 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
-        let res = self.session.add_talker(talker_model);
-        
-        if self.manage_state_result(res) {
+        if self.modify_band(&Operation::AddTalker(identifier::get_next_id(), talker_model.to_string())) {
             self.event_bus.borrow().notify(Notification::NewTalker);
         }
     }
@@ -193,7 +194,17 @@ impl SessionPresenter {
 
     pub fn modify_band(&mut self, operation: &Operation) -> bool {
         let res = self.session.modify_band(operation);
-        self.manage_state_result(res)
+        
+        let state_ok = self.manage_state_result(res);
+
+        if state_ok {
+            match self.session.serialize_band() {
+                Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
+                Err(e) => self.event_bus.borrow().notify_error(e),
+            }
+        }
+
+        state_ok
     }
 
     pub fn set_start_tick(&mut self, t: i64) {
@@ -215,6 +226,26 @@ impl SessionPresenter {
                 _ => glib::ControlFlow::Break,
             }
         });
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(bd) = self.undo_redo_list.undo() {
+            let res = self.session.load_band(bd);
+
+            if self.manage_state_result(res) {
+                self.event_bus.borrow().notify(Notification::TalkerChanged);
+            }
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(bd) = self.undo_redo_list.redo() {
+            let res = self.session.load_band(bd);
+
+            if self.manage_state_result(res) {
+                self.event_bus.borrow().notify(Notification::TalkerChanged);
+            }
+        }
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {
@@ -242,6 +273,7 @@ impl SessionPresenter {
     }
 
     pub fn exit(&mut self) {
+        self.undo_redo_list.reset();
         let res = self.session.exit();
         self.manage_state_result(res);
     }

@@ -86,6 +86,23 @@ impl ApplicationView {
         let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&left_separator);
 
+        let undo_button = gtk::Button::builder()
+            .icon_name("edit-undo")
+            .action_name("session.undo")
+            .tooltip_text(format!("Undo ({})", session_actions::UNDO_ACCEL))
+            .build();
+        headerbar.pack_start(&undo_button);
+
+        let redo_button = gtk::Button::builder()
+            .icon_name("edit-redo")
+            .action_name("session.redo")
+            .tooltip_text(format!("Redo ({})", session_actions::REDO_ACCEL))
+            .build();
+        headerbar.pack_start(&redo_button);
+
+        let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&left_separator);
+
         let talkers_list_toggle = gtk::ToggleButton::builder()
             .icon_name("view-list-tree")
             .active(true)

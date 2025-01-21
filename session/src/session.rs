@@ -145,16 +145,21 @@ impl Session {
     }
     pub fn set_sample_rate(&self, sample_rate: usize) -> Result<State, failure::Error> {
         AudioFormat::set_sample_rate(sample_rate);
-        self.load_band()
+        self.player.load_band(self.band.serialize()?)
     }
 
-    pub fn load_band(&self) -> Result<State, failure::Error> {
-        self.player.load_band(self.band.serialize()?)
+    pub fn load_band(&mut self, band_description: String) -> Result<State, failure::Error> {
+        self.band = Band::make(&band_description, false)?;
+        self.player.load_band(band_description)
     }
 
     pub fn modify_band(&mut self, operation: &Operation) -> Result<State, failure::Error> {
         self.band.modify(operation)?;
         self.player.modify_band(operation)
+    }
+
+    pub fn serialize_band(&self) -> Result<String, failure::Error> {
+        self.band.serialize()
     }
 
     pub fn save(&self) -> Result<(), failure::Error> {
