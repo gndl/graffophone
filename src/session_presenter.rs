@@ -47,12 +47,13 @@ impl SessionPresenter {
     pub fn new_ref(event_bus: &REventBus) -> RSessionPresenter {
         let mut session = Session::new(GSR.to_string()).unwrap();
         let state = session.state();
+        let undo_redo_list = UndoRedoList::new(GSR.to_string());
 
         Rc::new(RefCell::new(Self {
             session,
             state,
             mixers_presenters: Vec::new(),
-            undo_redo_list: UndoRedoList::new(),
+            undo_redo_list,
             event_bus: event_bus.clone(),
         }))
     }
@@ -83,6 +84,11 @@ impl SessionPresenter {
     fn receive_new_session(&mut self, result: Result<Session, failure::Error>) {
         match result {
             Ok(session) => {
+                match session.serialize_band() {
+                    Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
+                    Err(e) => self.event_bus.borrow().notify_error(e),
+                }
+
                 self.session = session;
                 self.notify_new_session();
                 self.check_state();

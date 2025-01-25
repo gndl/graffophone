@@ -5,9 +5,9 @@ pub struct UndoRedoList {
 }
 
 impl UndoRedoList {
-    pub fn new() -> UndoRedoList {
+    pub fn new(init_state: String) -> UndoRedoList {
         let mut states = Vec::with_capacity(1024);
-        states.push("".to_string());
+        states.push(init_state);
 
         Self {
             states,
@@ -17,7 +17,7 @@ impl UndoRedoList {
 
     pub fn reset(&mut self) {
         self.states.clear();
-        self.states.push("".to_string());
+  //      self.states.push("".to_string());
         self.position = 0;
     }
 
