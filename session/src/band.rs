@@ -87,6 +87,10 @@ impl Band {
         &self.mixers
     }
 
+    pub fn find_mixer(&self, mixer_id: Id) -> Option<&RMixer> {
+        self.mixers().get(&mixer_id)
+    }
+
     fn set_talker_ears<'a>(
         &'a mut self,
         talkers_ptalkers: &mut HashMap<Id, (RTalker, &PTalker)>,
@@ -466,10 +470,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
 
         let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs)?;
 
-        if mixer.borrow().feedback() {
-            mixer.borrow_mut().set_feedback(false)?;
-            updated_mixer.borrow_mut().set_feedback(true)?;
-        }
         updated_mixer.borrow_mut().set_record(mixer.borrow().record())?;
 
         if mixer.borrow().is_open() {
@@ -655,16 +655,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         }
     }
 
-    pub fn set_mixer_feedback(&mut self, mixer_idx:usize, active:bool) -> Result<(), failure::Error> {
-
-        for (idx, rmixer) in self.mixers.values().enumerate() {
-            if idx == mixer_idx {
-                rmixer.borrow_mut().set_feedback(active)?;
-            }
-        }
-        Ok(())
-    }
-
     pub fn set_record(&mut self, active:bool) -> Result<(), failure::Error> {
 
         for rmixer in self.mixers.values() {
@@ -696,6 +686,23 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             rmixer.borrow_mut().run()?;
         }
         Ok(())
+    }
+
+    pub fn play(
+        &mut self,
+        tick: i64,
+        len: usize,
+    ) -> Result<usize, failure::Error> {
+        let mut ln = len;
+
+        for (_, rmixer) in &self.mixers {
+            ln = rmixer.borrow_mut().come_out(tick, ln)?;
+
+            if ln == 0 {
+                break;
+            }
+        }
+        Ok(ln)
     }
 
     pub fn close(&mut self) -> Result<(), failure::Error> {

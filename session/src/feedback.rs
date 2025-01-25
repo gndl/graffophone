@@ -9,6 +9,7 @@ use talker::audio_format::AudioFormat;
 
 use talker::identifier::RIdentifier;
 
+use tables::fadeout;
 use crate::audio_data::Vector;
 use crate::{channel, output};
 use crate::output::{Output, ROutput};
@@ -92,6 +93,78 @@ impl Feedback {
             .map_err(|e| failure::err_msg(format!("Feedback::open error : {}", e)))?;
 
         Ok(AudioStream { producer, stream })
+    }
+
+    pub fn fade_len(&self) -> usize {
+        fadeout::LEN
+    }
+    
+    pub fn write_fadein(
+        &mut self,
+        channels: &Vec<Vector>,
+        nb_samples_per_channel: usize,
+    ) -> Result<(), failure::Error> {
+        let in_chan_end = channels.len() - 1;
+        let mut in_chan_idx = 0;
+
+        let last = fadeout::LEN - 1;
+        let fade_len = fadeout::LEN.min(nb_samples_per_channel);
+
+        let mut channels_buffers = Vec::with_capacity(self.nb_channels);
+
+        for _ in 0..self.nb_channels {
+            let in_chan = &channels[in_chan_idx];
+            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+
+            for i in 0..fade_len {
+                out_chan.push(in_chan[i] * fadeout::TAB[last - i]);
+            }
+            for i in fade_len..nb_samples_per_channel {
+                out_chan.push(in_chan[i]);
+            }
+            channels_buffers.push(out_chan);
+
+            if in_chan_idx < in_chan_end {
+                in_chan_idx += 1;
+            }
+        }
+        self.write(&channels_buffers, nb_samples_per_channel)
+    }
+
+    pub fn write_fadeout(
+        &mut self,
+        channels: &Vec<Vector>,
+        nb_samples_per_channel: usize,
+    ) -> Result<(), failure::Error> {
+        let in_chan_end = channels.len() - 1;
+        let mut in_chan_idx = 0;
+
+        let fade_start = if fadeout::LEN < nb_samples_per_channel {
+            nb_samples_per_channel - fadeout::LEN
+        }
+        else {
+            0
+        };
+
+        let mut channels_buffers = Vec::with_capacity(self.nb_channels);
+
+        for _ in 0..self.nb_channels {
+            let in_chan = &channels[in_chan_idx];
+            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+
+            for i in 0..fade_start {
+                out_chan.push(in_chan[i]);
+            }
+            for i in fade_start..nb_samples_per_channel {
+                out_chan.push(in_chan[i] * fadeout::TAB[i - fade_start]);
+            }
+            channels_buffers.push(out_chan);
+
+            if in_chan_idx < in_chan_end {
+                in_chan_idx += 1;
+            }
+        }
+        self.write(&channels_buffers, nb_samples_per_channel)
     }
 }
 

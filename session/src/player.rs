@@ -18,12 +18,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+
 use std::time::Duration;
 
 use talker::audio_format::AudioFormat;
 use talker::lv2_handler;
 
 use crate::band::{Band, Operation};
+use crate::feedback::Feedback;
+use crate::output::Output;
 use crate::state::State;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -91,11 +94,13 @@ fn run(
     let mut start_tick: i64 = 0;
     let mut end_tick: i64 = i64::max_value();
     let chunk_size = AudioFormat::chunk_size();
+    let mut feedback = Feedback::new(chunk_size)?;
 
-    let feedback_mixer_idx = 0;
-
+    
     let mut band = Band::make(&band_description, true)?;
-
+    
+    let feedback_mixer_id = band.mixers().iter().next().map_or(0, |(k, _)| *k);
+    
     let mut state = State::Stopped;
     let mut oorder = order_receiver.recv();
 
@@ -105,22 +110,40 @@ fn run(
                 Order::Pause => {
                     send_state(&order.to_string(), state, State::Paused);
 
-                    if state != State::Paused {
+                    if state == State::Playing || state == State::Recording {
+                        let len = band.play(tick, feedback.fade_len())?;
+ 
+                        if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                            feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
+                        }
+
+                        tick += len as i64;
+     
                         band.pause()?;
-                        state = State::Paused;
+                        // feedback.pause()?;
                     }
+                    state = State::Paused;
                     oorder = order_receiver.recv();
                     continue;
-                }
+                 }
                 Order::Play => {
                     send_state(&order.to_string(), state, State::Playing);
 
                     if state == State::Stopped {
-                        band.set_mixer_feedback(feedback_mixer_idx, true)?;
                         band.open()?;
+                        feedback.open()?;
                     }
                     else if state == State::Paused {
                         band.run()?;
+                        // feedback.run()?;
+
+                        let len = band.play(tick, feedback.fade_len())?;
+ 
+                        if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                            feedback.write_fadein(mxr.borrow().channels_buffers(), len)?;
+                        }
+
+                        tick += len as i64;
                     }
                     
                     state = State::Playing;
@@ -129,12 +152,13 @@ fn run(
                     send_state(&order.to_string(), state, State::Recording);
 
                     if state == State::Stopped {
-                        band.set_mixer_feedback(feedback_mixer_idx, true)?;
                         band.set_record(true)?;
                         band.open()?;
+                        feedback.open()?;
                     }
                     else if state == State::Paused {
                         band.run()?;
+                        feedback.run()?;
                     }
                     
                     state = State::Recording;
@@ -142,9 +166,16 @@ fn run(
                 Order::Stop => {
                     send_state(&order.to_string(), state, State::Stopped);
 
+                    if state == State::Playing || state == State::Recording {
+                        let len = band.play(tick, feedback.fade_len())?;
+ 
+                        if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                            feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
+                        }
+                    }
                     if state != State::Stopped {
                         band.close()?;
-                        band.set_mixer_feedback(feedback_mixer_idx, false)?;
+                        feedback.close()?;
                         band.set_record(false)?;
                         tick = start_tick;
                         state = State::Stopped;
@@ -162,17 +193,38 @@ fn run(
                     }
                 }
                 Order::LoadBand(band_desc) => {
-                    band = Band::make(&band_desc, true)?;
+                   match state {
+                       State::Playing | State::Recording => {
+                            let len = band.play(tick, feedback.fade_len())?;
 
-                    match state {
-                        State::Playing => band.open()?,
-                        State::Recording => band.open()?,
+                            if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                                feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
+                            }
+
+                            tick += len as i64;
+
+                            let _ = band.close();
+
+                            band = Band::make(&band_desc, true)?;
+                            band.open()?;
+
+                            let len = band.play(tick, feedback.fade_len())?;
+
+                            if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                               feedback.write_fadein(mxr.borrow().channels_buffers(), len)?;
+                            }
+    
+                            tick += len as i64;
+                        }
                         State::Paused => {
+                            let _ = band.close();
+                            band = Band::make(&band_desc, true)?;
                             band.open()?;
                             oorder = Ok(Order::Pause);
                             continue;
                         }
                         State::Stopped => {
+                            band = Band::make(&band_desc, true)?;
                             oorder = Ok(Order::Stop);
                             continue;
                         }
@@ -229,21 +281,10 @@ fn run(
             (end_tick - tick) as usize
         };
 
-        for rmixer in band.mixers().values() {
-            match rmixer.borrow_mut().come_out(tick, len, None)
-            {
-                Ok(ln) => {
-                    len = ln;
+        len = band.play(tick, len)?;
 
-                    if ln == 0 {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    res = Err(failure::err_msg(format!("Player::run error : {}", e)));
-                    break;
-                }
-            }
+        if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+            feedback.write(mxr.borrow().channels_buffers(), len)?;
         }
         tick += len as i64;
 
@@ -258,6 +299,7 @@ fn run(
     }
 
     band.close()?;
+    feedback.close()?;
 
     let _ = state_sender.send(State::Exited)?;
     res

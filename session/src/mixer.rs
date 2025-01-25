@@ -11,8 +11,7 @@ use talker::identifier::{Id, Identifiable, Index, RIdentifier};
 use talker::talker::{MuteTalker, RTalker, TalkerBase};
 
 use crate::audio_data::Vector;
-use crate::feedback::Feedback;
-use crate::output::{Output, ROutput};
+use crate::output::ROutput;
 use tables::fadeout;
 use crate::track;
 
@@ -30,7 +29,6 @@ pub struct Mixer {
     tick: i64,
     is_open: bool,
     record: bool,
-    feedback: Option<Feedback>,
     buf: Vector,
     channels_buffers: Vec<Vector>,
 }
@@ -114,7 +112,6 @@ impl Mixer {
             tick: 0,
             is_open: false,
             record: false,
-            feedback: None,
             buf: vec![0.; AudioFormat::chunk_size()],
             channels_buffers,
         })))
@@ -141,30 +138,12 @@ impl Mixer {
         Ok(())
     }
 
-    pub fn feedback(&self) -> bool {
-        self.feedback.is_none()
-    }
-    pub fn set_feedback(&mut self, active:bool) -> Result<(), failure::Error> {
-        if active && self.feedback.is_none() {
-            let mut feedback = Feedback::new(AudioFormat::chunk_size())?;
-
-            if self.is_open {
-                feedback.open()?;
-            }
-
-            self.feedback = Some(feedback);
-        }
-        else if !active {
-            if let Some(feedback) = &mut self.feedback {
-                feedback.close()?;
-                self.feedback = None;
-            }
-        }
-        Ok(())
-    }
-
     pub fn channels(&self) -> usize {
         self.channels_buffers.len()
+    }
+
+    pub fn channels_buffers<'a>(&'a self) -> &'a Vec<Vector> {
+        &self.channels_buffers
     }
 
     pub fn is_open(&self) -> bool {
@@ -176,10 +155,6 @@ impl Mixer {
             for o in &self.outputs {
                 o.borrow_mut().open()?;
             }
-        }
-
-        if let Some(feedback) = &mut self.feedback {
-            feedback.open()?;
         }
 
         self.tick = 0;
@@ -194,10 +169,6 @@ impl Mixer {
                 o.borrow_mut().pause()?;
             }
         }
-
-        if let Some(feedback) = &mut self.feedback {
-            feedback.pause()?;
-        }
         Ok(())
     }
 
@@ -207,10 +178,6 @@ impl Mixer {
             for o in &self.outputs {
                 o.borrow_mut().run()?;
             }
-        }
-
-        if let Some(feedback) = &mut self.feedback {
-            feedback.run()?;
         }
         Ok(())
     }
@@ -225,9 +192,6 @@ impl Mixer {
             }
         }
 
-        if let Some(feedback) = &mut self.feedback {
-            feedback.close()?;
-        }
         self.is_open = false;
         res
     }
@@ -236,7 +200,6 @@ impl Mixer {
         &mut self,
         tick: i64,
         len: usize,
-        outputs_gain_buf: Option<&[f32]>,
     ) -> Result<usize, failure::Error> {
         let mut ln = self.talker.listen(tick, len);
 
@@ -274,22 +237,10 @@ impl Mixer {
             }
         }
 
-        if let Some(gain_buf) = outputs_gain_buf {
-            for ch in &mut *channels {
-                for i in 0..ln {
-                    ch[i] = ch[i] * gain_buf[i];
-                }
-            }
-        }
-
         if self.record {
             for o in &self.outputs {
                 o.borrow_mut().write(channels, ln)?;
             }
-        }
-
-        if let Some(feedback) = &mut self.feedback {
-            feedback.write(channels, ln)?;
         }
 
         self.tick = tick + ln as i64;
@@ -297,14 +248,53 @@ impl Mixer {
         Ok(ln)
     }
 
-    fn fadeout(&mut self,) -> Result<(), failure::Error> {
-        let len = fadeout::LEN;
-        let fadeout_buf : &[f32] = &fadeout::TAB;
+    pub fn fadein(&mut self, tick: i64,) -> Result<usize, failure::Error> {
+        let record = self.record;
+        self.record = false;
         
-        let _ = self.come_out(self.tick, len, Some(fadeout_buf))?;
-        Ok(())
+        let ln = self.come_out(tick, fadeout::LEN)?;
+
+        let last = fadeout::LEN - 1;
+
+        for ch in &mut self.channels_buffers {
+            for i in 0..ln {
+                ch[i] = ch[i] * fadeout::TAB[last - i];
+            }
+        }
+
+        if record {
+            for o in &self.outputs {
+                o.borrow_mut().write(&self.channels_buffers, ln)?;
+            }
+        }
+
+        self.record = record;
+
+        Ok(ln)
     }
     
+    pub fn fadeout(&mut self,) -> Result<(), failure::Error> {
+        let record = self.record;
+        self.record = false;
+        
+        let ln = self.come_out(self.tick, fadeout::LEN)?;
+
+        for ch in &mut self.channels_buffers {
+            for i in 0..ln {
+                ch[i] = ch[i] * fadeout::TAB[i];
+            }
+        }
+
+        if record {
+            for o in &self.outputs {
+                o.borrow_mut().write(&self.channels_buffers, ln)?;
+            }
+        }
+
+        self.record = record;
+
+        Ok(())
+    }
 }
 
 impl Identifiable for Mixer {
