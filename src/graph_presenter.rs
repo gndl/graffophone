@@ -193,17 +193,26 @@ impl GraphPresenter {
         hum_idx: Index,
         talk_idx: Index,
         value: f32,
-        notify: bool,
     ) {
-        self.session_presenter
-            .borrow_mut()
-            .modify_band(&Operation::SetEarTalkValue(
-                talker_id, ear_idx, set_idx, hum_idx, talk_idx, value,
-            ));
+        self.session_presenter.borrow_mut().modify_band(
+            &Operation::SetEarTalkValue(
+                talker_id, ear_idx, set_idx, hum_idx, talk_idx, value));
 
-        if notify {
-            self.event_bus.borrow().notify(Notification::TalkerChanged);
-        }
+        self.event_bus.borrow().notify(Notification::TalkerChanged);
+    }
+
+    pub fn set_talker_ear_talk_value_volatly(
+        &mut self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+        talk_idx: Index,
+        value: f32,
+    ) {
+        self.session_presenter.borrow_mut().modify_band_volatly(
+            &Operation::SetEarTalkValue(
+                talker_id, ear_idx, set_idx, hum_idx, talk_idx, value));
     }
 
     pub fn select_ear_hum(

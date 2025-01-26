@@ -197,11 +197,14 @@ impl SessionPresenter {
         // TODO : do the job
         Ok(0)
     }
+    
+    pub fn modify_band_volatly(&mut self, operation: &Operation) -> bool {
+        let res = self.session.modify_band(operation);
+        self.manage_state_result(res)
+    }
 
     pub fn modify_band(&mut self, operation: &Operation) -> bool {
-        let res = self.session.modify_band(operation);
-        
-        let state_ok = self.manage_state_result(res);
+        let state_ok = self.modify_band_volatly(operation);
 
         if state_ok {
             match self.session.serialize_band() {

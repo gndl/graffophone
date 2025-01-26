@@ -152,6 +152,7 @@ impl EventReceiver {
         let cur = tkr.ear(ear_idx).talk_value_or_default(set_idx, hum_idx);
 
         let gp_on_scale = self.graph_presenter.clone();
+        let gp_on_ok = self.graph_presenter.clone();
         let gp_on_cancel = self.graph_presenter.clone();
         let gp_on_default = self.graph_presenter.clone();
 
@@ -165,21 +166,22 @@ impl EventReceiver {
             def,
             cur,
             move |v| {
-                gp_on_scale.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v, false,
-                )
+                gp_on_scale.borrow_mut().set_talker_ear_talk_value_volatly(
+                    talker_id, ear_idx, set_idx, hum_idx, 0, v)
             },
-            move |_| ok_popover.popdown(),
+            move |v| {
+                gp_on_ok.borrow_mut().set_talker_ear_talk_value(
+                    talker_id, ear_idx, set_idx, hum_idx, 0, v);
+                ok_popover.popdown()
+            },
             move |_| {
-                gp_on_cancel
-                    .borrow_mut()
-                    .set_talker_ear_talk_value(talker_id, ear_idx, set_idx, hum_idx, 0, cur, false);
+                gp_on_cancel.borrow_mut().set_talker_ear_talk_value(
+                    talker_id, ear_idx, set_idx, hum_idx, 0, cur);
                 cancel_popover.popdown()
             },
             move |_| {
-                gp_on_default
-                    .borrow_mut()
-                    .set_talker_ear_talk_value(talker_id, ear_idx, set_idx, hum_idx, 0, def, false);
+                gp_on_default.borrow_mut().set_talker_ear_talk_value(
+                    talker_id, ear_idx, set_idx, hum_idx, 0, def);
                 default_popover.popdown()
             },
         );
