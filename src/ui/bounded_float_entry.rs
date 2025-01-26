@@ -63,6 +63,7 @@ pub fn create<
 
 
     let key_event_receiver = gtk::Button::builder().can_focus(true).build();
+    key_event_receiver.set_child(Some(&entry));
 
     let cancel_button = gtk::Button::builder()
         .label("Cancel")
@@ -87,7 +88,7 @@ pub fn create<
         .orientation(gtk::Orientation::Horizontal)
         .spacing(2)
         .build();
-    value_box.append(&entry);
+    value_box.append(&key_event_receiver);
     value_box.append(&scale);
 
     let action_box = gtk::Box::builder()
@@ -103,7 +104,6 @@ pub fn create<
         .spacing(2)
         .build();
     widget.append(&value_box);
-    widget.append(&key_event_receiver);
     widget.append(&action_box);
 
 
