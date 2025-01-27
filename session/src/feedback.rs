@@ -101,19 +101,19 @@ impl Feedback {
     
     pub fn write_fadein(
         &mut self,
-        channels: &Vec<Vector>,
+        in_channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
-        let in_chan_end = channels.len() - 1;
+        let in_chan_end = in_channels.len() - 1;
         let mut in_chan_idx = 0;
 
         let last = fadeout::LEN - 1;
         let fade_len = fadeout::LEN.min(nb_samples_per_channel);
 
-        let mut channels_buffers = Vec::with_capacity(self.nb_channels);
+        let mut out_channels = Vec::with_capacity(self.nb_channels);
 
         for _ in 0..self.nb_channels {
-            let in_chan = &channels[in_chan_idx];
+            let in_chan = &in_channels[in_chan_idx];
             let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
 
             for i in 0..fade_len {
@@ -122,21 +122,21 @@ impl Feedback {
             for i in fade_len..nb_samples_per_channel {
                 out_chan.push(in_chan[i]);
             }
-            channels_buffers.push(out_chan);
+            out_channels.push(out_chan);
 
             if in_chan_idx < in_chan_end {
                 in_chan_idx += 1;
             }
         }
-        self.write(&channels_buffers, nb_samples_per_channel)
+        self.write(&out_channels, nb_samples_per_channel)
     }
 
     pub fn write_fadeout(
         &mut self,
-        channels: &Vec<Vector>,
+        in_channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
-        let in_chan_end = channels.len() - 1;
+        let in_chan_end = in_channels.len() - 1;
         let mut in_chan_idx = 0;
 
         let fade_start = if fadeout::LEN < nb_samples_per_channel {
@@ -146,10 +146,10 @@ impl Feedback {
             0
         };
 
-        let mut channels_buffers = Vec::with_capacity(self.nb_channels);
+        let mut out_channels = Vec::with_capacity(self.nb_channels);
 
         for _ in 0..self.nb_channels {
-            let in_chan = &channels[in_chan_idx];
+            let in_chan = &in_channels[in_chan_idx];
             let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
 
             for i in 0..fade_start {
@@ -158,13 +158,56 @@ impl Feedback {
             for i in fade_start..nb_samples_per_channel {
                 out_chan.push(in_chan[i] * fadeout::TAB[i - fade_start]);
             }
-            channels_buffers.push(out_chan);
+            out_channels.push(out_chan);
 
             if in_chan_idx < in_chan_end {
                 in_chan_idx += 1;
             }
         }
-        self.write(&channels_buffers, nb_samples_per_channel)
+        self.write(&out_channels, nb_samples_per_channel)
+    }
+
+    pub fn write_fade(
+        &mut self,
+        a_channels: &Vec<Vector>,
+        b_channels: &Vec<Vector>,
+        nb_samples_per_channel: usize,
+    ) -> Result<(), failure::Error> {
+        let a_chan_end = a_channels.len() - 1;
+        let mut a_chan_idx = 0;
+        let b_chan_end = b_channels.len() - 1;
+        let mut b_chan_idx = 0;
+
+        let last = fadeout::LEN - 1;
+        let fade_len = fadeout::LEN.min(nb_samples_per_channel);
+
+        let mut out_channels = Vec::with_capacity(self.nb_channels);
+
+        for _ in 0..self.nb_channels {
+            let a_chan = &a_channels[a_chan_idx];
+            let b_chan = &b_channels[b_chan_idx];
+
+            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+
+            for i in 0..fade_len {
+                let v = a_chan[i] * fadeout::TAB[i] + b_chan[i] * fadeout::TAB[last - i];
+                out_chan.push(v);
+            }
+            for i in fade_len..nb_samples_per_channel {
+                out_chan.push(b_chan[i]);
+            }
+
+            out_channels.push(out_chan);
+
+            if a_chan_idx < a_chan_end {
+                a_chan_idx += 1;
+            }
+
+            if b_chan_idx < b_chan_end {
+                b_chan_idx += 1;
+            }
+        }
+        self.write(&out_channels, nb_samples_per_channel)
     }
 }
 

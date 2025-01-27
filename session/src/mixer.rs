@@ -26,7 +26,6 @@ const CHANNELS_HUM_INDEX: Index = 2;
 pub struct Mixer {
     talker: RTalker,
     outputs: Vec<ROutput>,
-    tick: i64,
     is_open: bool,
     record: bool,
     buf: Vector,
@@ -109,7 +108,6 @@ impl Mixer {
         Ok(Rc::new(RefCell::new(Self {
             talker: MuteTalker::new(base),
             outputs,
-            tick: 0,
             is_open: false,
             record: false,
             buf: vec![0.; AudioFormat::chunk_size()],
@@ -157,7 +155,6 @@ impl Mixer {
             }
         }
 
-        self.tick = 0;
         self.is_open = true;
         Ok(())
     }
@@ -184,8 +181,6 @@ impl Mixer {
 
     pub fn close(&mut self) -> Result<(), failure::Error> {
         
-        let res = self.fadeout();
-
         if self.record {
             for o in &self.outputs {
                 o.borrow_mut().close()?;
@@ -193,7 +188,7 @@ impl Mixer {
         }
 
         self.is_open = false;
-        res
+        Ok(())
     }
 
     pub fn come_out(
@@ -243,41 +238,14 @@ impl Mixer {
             }
         }
 
-        self.tick = tick + ln as i64;
-
         Ok(ln)
     }
 
-    pub fn fadein(&mut self, tick: i64,) -> Result<usize, failure::Error> {
+    pub fn fadeout(&mut self, tick: i64) -> Result<usize, failure::Error> {
         let record = self.record;
         self.record = false;
         
         let ln = self.come_out(tick, fadeout::LEN)?;
-
-        let last = fadeout::LEN - 1;
-
-        for ch in &mut self.channels_buffers {
-            for i in 0..ln {
-                ch[i] = ch[i] * fadeout::TAB[last - i];
-            }
-        }
-
-        if record {
-            for o in &self.outputs {
-                o.borrow_mut().write(&self.channels_buffers, ln)?;
-            }
-        }
-
-        self.record = record;
-
-        Ok(ln)
-    }
-    
-    pub fn fadeout(&mut self,) -> Result<(), failure::Error> {
-        let record = self.record;
-        self.record = false;
-        
-        let ln = self.come_out(self.tick, fadeout::LEN)?;
 
         for ch in &mut self.channels_buffers {
             for i in 0..ln {
@@ -293,7 +261,7 @@ impl Mixer {
 
         self.record = record;
 
-        Ok(())
+        Ok(ln)
     }
 }
 

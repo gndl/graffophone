@@ -87,8 +87,12 @@ impl Band {
         &self.mixers
     }
 
+    pub fn first_mixer(&self) -> &RMixer {
+        self.mixers.values().next().unwrap()
+    }
+
     pub fn find_mixer(&self, mixer_id: Id) -> Option<&RMixer> {
-        self.mixers().get(&mixer_id)
+        self.mixers.get(&mixer_id)
     }
 
     fn set_talker_ears<'a>(
@@ -703,6 +707,14 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             }
         }
         Ok(ln)
+    }
+
+    pub fn fadeout(&mut self, tick: i64) -> Result<(), failure::Error> {
+
+        for rmixer in self.mixers.values() {
+            rmixer.borrow_mut().fadeout(tick)?;
+        }
+        Ok(())
     }
 
     pub fn close(&mut self) -> Result<(), failure::Error> {

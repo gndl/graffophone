@@ -174,6 +174,7 @@ fn run(
                         }
                     }
                     if state != State::Stopped {
+                        band.fadeout(tick)?;
                         band.close()?;
                         feedback.close()?;
                         band.set_record(false)?;
@@ -196,25 +197,19 @@ fn run(
                    match state {
                        State::Playing | State::Recording => {
                             let len = band.play(tick, feedback.fade_len())?;
-
-                            if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
-                                feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
-                            }
-
-                            tick += len as i64;
-
                             let _ = band.close();
 
-                            band = Band::make(&band_desc, true)?;
-                            band.open()?;
+                            let mut new_band = Band::make(&band_desc, true)?;
+                            new_band.open()?;
+                            let len = new_band.play(tick, len)?;
 
-                            let len = band.play(tick, feedback.fade_len())?;
+                            let mxr = band.find_mixer(feedback_mixer_id).unwrap_or_else(|| band.first_mixer());
+                            let new_mxr = new_band.find_mixer(feedback_mixer_id).unwrap_or_else(|| new_band.first_mixer());
 
-                            if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
-                               feedback.write_fadein(mxr.borrow().channels_buffers(), len)?;
-                            }
-    
+                            feedback.write_fade(mxr.borrow().channels_buffers(), new_mxr.borrow().channels_buffers(), len)?;
+
                             tick += len as i64;
+                            band = new_band;
                         }
                         State::Paused => {
                             let _ = band.close();
