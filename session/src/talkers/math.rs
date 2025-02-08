@@ -160,7 +160,7 @@ impl SumAudioizer {
 
         base.add_ear(Ear::new(None, true, Some(stem_set), None));
 
-        base.add_ear(ear::cv(Some("gain"), -100., 100., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("gain"), 0., 1000., 1., &Init::DefValue)?);
 
         base.add_audio_voice(Some("au"), 0.);
 
