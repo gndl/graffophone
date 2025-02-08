@@ -7,7 +7,6 @@ box.graphview_area {
 
 entry.bounded_float_entry {
     font-size: 14pt;
-    text-align: center;
 }
 
 scrolledwindow.graphview_scrolledwindow {
