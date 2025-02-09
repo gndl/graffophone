@@ -39,7 +39,6 @@ pub fn menu() -> gio::Menu {
     // TODO : menu.append(Some("Feedback"), Some("app.toggle_feedback"));
     menu.append(Some("General settings"), Some("app.general_settings"));
     menu.append(Some("Session settings"), Some("app.session_settings"));
-    menu.append(Some("Quit"), Some("app.quit"));
 
     menu
 }

@@ -37,6 +37,7 @@ Mixer 1#Mixer
 pub struct SessionPresenter {
     session: Session,
     state: State,
+    modified: bool,
     mixers_presenters: Vec<MixerPresenter>,
     undo_redo_list: UndoRedoList,
     event_bus: REventBus,
@@ -52,6 +53,7 @@ impl SessionPresenter {
         Rc::new(RefCell::new(Self {
             session,
             state,
+            modified: false,
             mixers_presenters: Vec::new(),
             undo_redo_list,
             event_bus: event_bus.clone(),
@@ -69,11 +71,16 @@ impl SessionPresenter {
     }
 
     pub fn save_session(&mut self) {
-        self.manage_result(self.session.save(), Some(Notification::SessionSaved));
+        let res = self.session.save();
+        self.modified = self.modified && res.is_err();
+
+        self.manage_result(res, Some(Notification::SessionSaved));
     }
 
     pub fn save_session_as(&mut self, filename: &str) {
         let res = self.session.save_as(filename);
+        self.modified = self.modified && res.is_err();
+
         self.manage_result(res, Some(Notification::SessionSavedAs(self.session.filename().to_string())));
     }
 
@@ -95,6 +102,7 @@ impl SessionPresenter {
             },
             Err(e) => self.event_bus.borrow().notify_error(e),
         }
+        self.modified = false;
     }
 
     fn notify_new_session(&self) {
@@ -212,6 +220,7 @@ impl SessionPresenter {
                 Err(e) => self.event_bus.borrow().notify_error(e),
             }
         }
+        self.modified = true;
 
         state_ok
     }
@@ -243,6 +252,7 @@ impl SessionPresenter {
 
             if self.manage_state_result(res) {
                 self.event_bus.borrow().notify(Notification::TalkerChanged);
+                self.modified = true;
             }
         }
     }
@@ -253,8 +263,13 @@ impl SessionPresenter {
 
             if self.manage_state_result(res) {
                 self.event_bus.borrow().notify(Notification::TalkerChanged);
+                self.modified = true;
             }
         }
+    }
+
+    pub fn is_modified(&self) -> bool {
+        self.modified
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {

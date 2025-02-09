@@ -192,4 +192,42 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let actions = SimpleActionGroup::new();
     actions.add_action_entries([new, open, save, save_as, undo, redo, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data, duplicate_selected_talkers]);
     window.insert_action_group("session", Some(&actions));
+
+
+    // Ask to save session on close window
+    let close_application = application.clone();
+    let close_session = session_presenter.clone();
+
+    window.connect_close_request(move |window| {
+        
+        if close_session.borrow().is_modified() {
+            
+            let save_question_dialog = gtk::AlertDialog::builder()
+                .modal(true)
+                .buttons(["Cancel", "Abandon", "Ok"])
+                .message("Save changes?")
+                .build();
+        
+            let app = close_application.clone();
+            let session = close_session.clone();
+
+            save_question_dialog.choose(Some(window), Cancellable::NONE, move |r| {
+                match r {
+                    Ok(button_idx) => {
+                        if button_idx > 0 {
+                            if button_idx == 2 {
+                                session.borrow_mut().save_session();
+                            }
+                            app.quit();
+                        }
+                    },
+                    Err(e) => println!("Error {}", e),
+                }
+            });
+            glib::Propagation::Stop
+        }
+        else {
+            glib::Propagation::Proceed
+        }
+    });
 }
