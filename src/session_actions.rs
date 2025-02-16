@@ -5,6 +5,8 @@ use gtk::gio::{ActionEntry, Cancellable, SimpleActionGroup};
 
 use crate::session_presenter::RSessionPresenter;
 use crate::application_view::RApplicationView;
+use crate::ui::session_opening_dialog;
+use crate::ui::session_saving_dialog;
 
 pub const NEW_SESSION_ACCEL: &str = "<Ctrl>N";
 pub const OPEN_SESSION_ACCEL: &str = "<Ctrl>O";
@@ -27,39 +29,31 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let new_ctrl = session_presenter.clone();
     
     let new = ActionEntry::builder("new")
-    .activate(move |_, _, _| new_ctrl.borrow_mut().new_session())
+    .activate(glib::clone!(@weak window, @weak new_ctrl => move |_, _, _| {
+        if new_ctrl.borrow().is_modified() {
+            let _ = session_saving_dialog::create(&window, &new_ctrl, move |_, ctrl| ctrl.borrow_mut().new_session() );
+        }
+        else {
+            new_ctrl.borrow_mut().new_session()
+        }
+    }))
     .build();
 
     application.set_accels_for_action("session.new", &[NEW_SESSION_ACCEL]);
-
 
     // Open session action
     let open_ctrl = session_presenter.clone();
 
     let open = ActionEntry::builder("open")
     .activate(glib::clone!(@weak window, @weak open_ctrl => move |_, _, _| {
-        let filters = gio::ListStore::new::<gtk::FileFilter>();
-
-        let gsr_filter = gtk::FileFilter::new();
-        gsr_filter.add_pattern("*.gsr");
-        filters.append(&gsr_filter);
-
-        let no_filter = gtk::FileFilter::new();
-        no_filter.add_pattern("*");
-        filters.append(&no_filter);
-
-        let dialog = FileDialog::builder()
-            .title("Choose a Graffophone session record file")
-            .accept_label("Open")
-            .filters(&filters)
-            .build();
-
-        dialog.open(Some(&window), Cancellable::NONE, move |file| {
-            if let Ok(file) = file {
-                let path_buf = file.path().expect("Couldn't get file path");
-                        open_ctrl.borrow_mut().open_session(&path_buf.to_string_lossy());
-            }
-        });
+        if open_ctrl.borrow().is_modified() {
+            let _ = session_saving_dialog::create(&window, &open_ctrl, move |win, ctrl| {
+                let _ = session_opening_dialog::create(win, ctrl);
+            } );
+        }
+        else {
+            let _ = session_opening_dialog::create(&window, &open_ctrl);
+        }
     }))
     .build();
 
@@ -199,31 +193,11 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let close_session = session_presenter.clone();
 
     window.connect_close_request(move |window| {
-        
-        if close_session.borrow().is_modified() {
-            
-            let save_question_dialog = gtk::AlertDialog::builder()
-                .modal(true)
-                .buttons(["Cancel", "Abandon", "Ok"])
-                .message("Save changes?")
-                .build();
-        
-            let app = close_application.clone();
-            let session = close_session.clone();
 
-            save_question_dialog.choose(Some(window), Cancellable::NONE, move |r| {
-                match r {
-                    Ok(button_idx) => {
-                        if button_idx > 0 {
-                            if button_idx == 2 {
-                                session.borrow_mut().save_session();
-                            }
-                            app.quit();
-                        }
-                    },
-                    Err(e) => println!("Error {}", e),
-                }
-            });
+        if close_session.borrow().is_modified() {
+            let app = close_application.clone();
+            let _ = session_saving_dialog::create(window, &close_session, move |_, _| app.quit());
+
             glib::Propagation::Stop
         }
         else {
