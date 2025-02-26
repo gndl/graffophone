@@ -1,27 +1,42 @@
 use std::collections::VecDeque;
 use std::f32;
 
-use tables::fadein;
-use tables::fadeout;
-use tables::sinramp;
-use tables::roundramp;
-use tables::earlyramp;
-use tables::lateramp;
+use tables::{self, earlyramp, lateramp, roundramp, sinramp};
 use talkers::tseq::envelope;
 use talkers::tseq::parser::PShape;
 use talkers::tseq::sequence::SequenceEvents;
 
-fn fadein_tick(start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
+
+pub struct Shapes {
+    envelopes: Vec<Vec<f32>>,
+    fadein_tab: Vec<f32>,
+    fadeout_tab: Vec<f32>,
+}
+impl Shapes {
+    pub fn new(sample_rate: usize) -> Self {
+        let (fadein_tab, fadeout_tab) = tables::create_fadein_fadeout(sample_rate);
+        Self {envelopes: Vec::new(), fadein_tab, fadeout_tab}
+    }
+    pub fn empty() -> Self {
+        Self {envelopes: Vec::new(), fadein_tab: Vec::new(), fadeout_tab: Vec::new()}
+    }
+
+    pub fn set_envelopes(&mut self, envelopes: Vec<Vec<f32>>) {
+        self.envelopes = envelopes;
+    }
+}
+
+fn fadein_tick(shapes: &Shapes, start_tick: i64, end_tick: i64, fadein: bool) -> i64 {
     if fadein {
-        i64::min(start_tick + fadein::LEN as i64, end_tick)
+        end_tick.min(start_tick + shapes.fadein_tab.len() as i64)
     } else {
         start_tick
     }
 }
 
-fn fadeout_tick(start_tick: i64, end_tick: i64, fadeout: bool) -> i64 {
+fn fadeout_tick(shapes: &Shapes, start_tick: i64, end_tick: i64, fadeout: bool) -> i64 {
     if fadeout {
-        i64::max(start_tick, end_tick - fadeout::LEN as i64)
+        start_tick.max(end_tick - shapes.fadeout_tab.len() as i64)
     } else {
         end_tick
     }
@@ -84,7 +99,7 @@ impl AudioEvent {
 
     pub fn assign_buffer(
         &self,
-        envelops: &Vec<Vec<f32>>,
+        shapes: &Shapes,
         tick: i64,
         buf: &mut [f32],
         ofset: usize,
@@ -97,15 +112,15 @@ impl AudioEvent {
             .assign_buffer(&self.base, tick, buf, ofset, out_len);
 
         if tick < self.base.fadein_tick {
-            self.fadein_buffer(tick, buf, ofset, out_len);
+            self.fadein_buffer(&shapes.fadein_tab, tick, buf, ofset, out_len);
         }
 
         if out_end_t > self.base.fadeout_tick {
-            self.fadeout_buffer(tick, buf, ofset, out_len);
+            self.fadeout_buffer(&shapes.fadeout_tab, tick, buf, ofset, out_len);
         }
 
-        if self.base.envelope_index < envelops.len() {
-            let envelope = envelops[self.base.envelope_index].as_slice();
+        if self.base.envelope_index < shapes.envelopes.len() {
+            let envelope = shapes.envelopes[self.base.envelope_index].as_slice();
             let mut envelope_idx = (tick - self.base.start_tick) as usize;
 
             for i in ofset..ofset + out_len {
@@ -115,17 +130,17 @@ impl AudioEvent {
         }
         out_end_t
     }
-    pub fn fadein_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
+    pub fn fadein_buffer(&self, fadein_tab: &Vec<f32>, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
         let ln = usize::min(len, (self.base.fadein_tick - tick) as usize);
         let mut fadein_idx = (tick - self.base.start_tick) as usize;
 
         for i in ofset..ofset + ln {
-            buf[i] = buf[i] * fadein::TAB[fadein_idx];
+            buf[i] = buf[i] * fadein_tab[fadein_idx];
             fadein_idx += 1;
         }
     }
 
-    pub fn fadeout_buffer(&self, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
+    pub fn fadeout_buffer(&self, fadeout_tab: &Vec<f32>, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
         let fadeout_tick = self.base.fadeout_tick;
 
         let (pos, ln, mut fadeout_idx) = if tick < fadeout_tick {
@@ -136,7 +151,7 @@ impl AudioEvent {
         };
 
         for i in pos..pos + ln {
-            buf[i] = buf[i] * fadeout::TAB[fadeout_idx];
+            buf[i] = buf[i] * fadeout_tab[fadeout_idx];
             fadeout_idx += 1;
         }
     }
@@ -314,6 +329,7 @@ impl AudioEventCore for InterpolatedCurveEvent {
 }
 
 pub fn create(
+    shapes: &Shapes,
     start_tick: i64,
     end_tick: i64,
     start_value: f32,
@@ -325,8 +341,8 @@ pub fn create(
 ) -> AudioEvent {
     let base = AudioEventBase::new(
         start_tick,
-        fadein_tick(start_tick, end_tick, fadein),
-        fadeout_tick(start_tick, end_tick, fadeout),
+        fadein_tick(shapes, start_tick, end_tick, fadein),
+        fadeout_tick(shapes, start_tick, end_tick, fadeout),
         end_tick,
         envelop_index,
     );
@@ -370,7 +386,7 @@ pub fn create(
 
 pub type AudioEvents = Vec<AudioEvent>;
 
-pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents>, envelops: &Vec<Vec<f32>>) -> (VecDeque<AudioEvents>, VecDeque<AudioEvents>) {
+pub fn create_from_sequences(shapes: &Shapes, harmonics_sequence_events: &VecDeque<SequenceEvents>) -> (VecDeque<AudioEvents>, VecDeque<AudioEvents>) {
     let mut harmonics_frequency_events = VecDeque::with_capacity(harmonics_sequence_events.len());
     let mut harmonics_velocity_events = VecDeque::with_capacity(harmonics_sequence_events.len());
 
@@ -382,8 +398,8 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
             let mut event_end_tick = event.end_tick;
             let mut event_fadeout = event.fadeout;
             
-            if event.envelop_index < envelops.len() {
-                let env_len = envelops[event.envelop_index].len() as i64;
+            if event.envelop_index < shapes.envelopes.len() {
+                let env_len = shapes.envelopes[event.envelop_index].len() as i64;
                 let env_end_tick = event.start_tick + env_len;
                 
                 if env_end_tick < event.end_tick {
@@ -393,6 +409,7 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
             }
 
             frequency_events.push(create(
+                shapes,
                 event.start_tick,
                 event_end_tick,
                 event.start_frequency,
@@ -404,6 +421,7 @@ pub fn create_from_sequences(harmonics_sequence_events: &VecDeque<SequenceEvents
             ));
 
             velocity_events.push(create(
+                shapes,
                 event.start_tick,
                 event_end_tick,
                 event.start_velocity,

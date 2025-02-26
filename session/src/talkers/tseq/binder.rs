@@ -3,7 +3,7 @@ use std::f32;
 use std::str::FromStr;
 
 use scale::scale::{self, Scale};
-use talker::audio_format::AudioFormat;
+
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLineFragment, PChordLine, PDurationLine, PHit, PHitLine,
     PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
@@ -226,8 +226,8 @@ pub struct Binder<'a> {
 }
 
 impl<'a> Binder<'a> {
-    pub fn new() -> Binder<'a> {
-        let ticks_per_second = AudioFormat::sample_rate() as f32;
+    pub fn new(sample_rate: usize) -> Binder<'a> {
+        let ticks_per_second = sample_rate as f32;
         let ticks_per_minute = ticks_per_second * 60.;
         Self {
             ticks_per_second,

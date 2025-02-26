@@ -9,7 +9,7 @@ use talker::audio_format::AudioFormat;
 
 use talker::identifier::RIdentifier;
 
-use tables::fadeout;
+use tables;
 use crate::audio_data::Vector;
 use crate::{channel, output};
 use crate::output::{Output, ROutput};
@@ -96,7 +96,7 @@ impl Feedback {
     }
 
     pub fn fade_len(&self) -> usize {
-        fadeout::LEN
+        tables::fade_len(self.sample_rate)
     }
     
     pub fn write_fadein(
@@ -104,11 +104,13 @@ impl Feedback {
         in_channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
+        let fade_tab = tables::create_fadeout(self.sample_rate);
+
         let in_chan_end = in_channels.len() - 1;
         let mut in_chan_idx = 0;
 
-        let last = fadeout::LEN - 1;
-        let fade_len = fadeout::LEN.min(nb_samples_per_channel);
+        let last = fade_tab.len() - 1;
+        let fade_len = fade_tab.len().min(nb_samples_per_channel);
 
         let mut out_channels = Vec::with_capacity(self.nb_channels);
 
@@ -117,7 +119,7 @@ impl Feedback {
             let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
 
             for i in 0..fade_len {
-                out_chan.push(in_chan[i] * fadeout::TAB[last - i]);
+                out_chan.push(in_chan[i] * fade_tab[last - i]);
             }
             for i in fade_len..nb_samples_per_channel {
                 out_chan.push(in_chan[i]);
@@ -136,11 +138,13 @@ impl Feedback {
         in_channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
+        let fade_tab = tables::create_fadeout(self.sample_rate);
+
         let in_chan_end = in_channels.len() - 1;
         let mut in_chan_idx = 0;
 
-        let fade_start = if fadeout::LEN < nb_samples_per_channel {
-            nb_samples_per_channel - fadeout::LEN
+        let fade_start = if fade_tab.len() < nb_samples_per_channel {
+            nb_samples_per_channel - fade_tab.len()
         }
         else {
             0
@@ -156,7 +160,7 @@ impl Feedback {
                 out_chan.push(in_chan[i]);
             }
             for i in fade_start..nb_samples_per_channel {
-                out_chan.push(in_chan[i] * fadeout::TAB[i - fade_start]);
+                out_chan.push(in_chan[i] * fade_tab[i - fade_start]);
             }
             out_channels.push(out_chan);
 
@@ -173,13 +177,15 @@ impl Feedback {
         b_channels: &Vec<Vector>,
         nb_samples_per_channel: usize,
     ) -> Result<(), failure::Error> {
+        let fade_tab = tables::create_fadeout(self.sample_rate);
+
         let a_chan_end = a_channels.len() - 1;
         let mut a_chan_idx = 0;
         let b_chan_end = b_channels.len() - 1;
         let mut b_chan_idx = 0;
 
-        let last = fadeout::LEN - 1;
-        let fade_len = fadeout::LEN.min(nb_samples_per_channel);
+        let last = fade_tab.len() - 1;
+        let fade_len = fade_tab.len().min(nb_samples_per_channel);
 
         let mut out_channels = Vec::with_capacity(self.nb_channels);
 
@@ -190,7 +196,7 @@ impl Feedback {
             let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
 
             for i in 0..fade_len {
-                let v = a_chan[i] * fadeout::TAB[i] + b_chan[i] * fadeout::TAB[last - i];
+                let v = a_chan[i] * fade_tab[i] + b_chan[i] * fade_tab[last - i];
                 out_chan.push(v);
             }
             for i in fade_len..nb_samples_per_channel {

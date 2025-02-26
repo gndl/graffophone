@@ -12,7 +12,7 @@ use talker::talker::{MuteTalker, RTalker, TalkerBase};
 
 use crate::audio_data::Vector;
 use crate::output::ROutput;
-use tables::fadeout;
+use tables;
 use crate::track;
 
 pub const KIND: &str = "Mixer";
@@ -242,14 +242,15 @@ impl Mixer {
     }
 
     pub fn fadeout(&mut self, tick: i64) -> Result<usize, failure::Error> {
+        let fadeout_tab = tables::create_fadeout(AudioFormat::sample_rate());
         let record = self.record;
         self.record = false;
         
-        let ln = self.come_out(tick, fadeout::LEN)?;
+        let ln = self.come_out(tick, fadeout_tab.len())?;
 
         for ch in &mut self.channels_buffers {
             for i in 0..ln {
-                ch[i] = ch[i] * fadeout::TAB[i];
+                ch[i] = ch[i] * fadeout_tab[i];
             }
         }
 

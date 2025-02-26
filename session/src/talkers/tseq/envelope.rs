@@ -1,9 +1,9 @@
-use talkers::tseq::audio_event;
+use talkers::tseq::audio_event::{self, Shapes};
 use talkers::tseq::parser::PEnvelope;
 
 pub const UNDEFINED: usize = usize::MAX;
 
-pub fn create(penvelope: &PEnvelope, ticks_per_second: f32) -> Vec<f32> {
+pub fn create(shapes: &Shapes, penvelope: &PEnvelope, ticks_per_second: f32) -> Vec<f32> {
     let mut duration = 0.;
     let mut sections = Vec::with_capacity(penvelope.points.len());
     let mut start_level: f32 = 0.;
@@ -12,6 +12,7 @@ pub fn create(penvelope: &PEnvelope, ticks_per_second: f32) -> Vec<f32> {
         let end_tick = (point.duration * ticks_per_second) as i64;
 
         sections.push(audio_event::create(
+            shapes,
             0,
             end_tick,
             start_level,
@@ -33,10 +34,9 @@ pub fn create(penvelope: &PEnvelope, ticks_per_second: f32) -> Vec<f32> {
 
     let buf = envelop.as_mut_slice();
     let mut ofset: usize = 0;
-    let no_envelops = Vec::new();
 
     for section in sections {
-        ofset += section.assign_buffer(&no_envelops, 0, buf, ofset, env_len - ofset) as usize;
+        ofset += section.assign_buffer(shapes, 0, buf, ofset, env_len - ofset) as usize;
     }
     envelop
 }

@@ -1,5 +1,7 @@
-pub mod fadein;
-pub mod fadeout;
+use std::f32;
+use std::f64;
+use std::f64::consts::PI;
+
 pub mod parabolic;
 pub mod round;
 pub mod sinramp;
@@ -7,13 +9,44 @@ pub mod roundramp;
 pub mod earlyramp;
 pub mod lateramp;
 
+pub fn fade_len(sample_rate: usize) -> usize {
+    sample_rate / 100
+}
+
+pub fn create_fadein_fadeout(sample_rate: usize) -> (Vec<f32>, Vec<f32>) {
+    let len = fade_len(sample_rate);
+    let mut fadein_tab = Vec::with_capacity(len);
+    let mut fadeout_tab = Vec::with_capacity(len);
+
+    for i in 0..len {
+        let a = ((i as f64 * PI) / (len as f64)) + (PI * 0.5);
+        let v = (a.sin() + 1.) * 0.5;
+        fadein_tab.push((1. - v) as f32);
+        fadeout_tab.push(v as f32);
+    }
+    (fadein_tab, fadeout_tab)
+}
+
+pub fn create_fadeout(sample_rate: usize) -> Vec<f32> {
+    let len = fade_len(sample_rate);
+    let mut fadeout_tab = Vec::with_capacity(len);
+
+    for i in 0..len {
+        let a = ((i as f64 * PI) / (len as f64)) + (PI * 0.5);
+        let v = (a.sin() + 1.) * 0.5;
+        fadeout_tab.push(v as f32);
+    }
+    fadeout_tab
+}
+
 #[cfg(test)]
 mod tests {
-    use std::f32;
-    use std::f64;
-    use std::f64::consts::PI;
     use std::fs::File;
     use std::io::Write;
+
+    use tables::f32;
+    use tables::f64;
+    use tables::PI;
 
 const RAMP_LEN : usize = 24000;
 

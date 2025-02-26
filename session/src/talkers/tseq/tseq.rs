@@ -1,12 +1,12 @@
 use std::f32;
 
+use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::data::Data;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
-use talkers::tseq::audio_event;
-use talkers::tseq::audio_event::AudioEvents;
+use talkers::tseq::audio_event::{self, AudioEvents, Shapes};
 use talkers::tseq::binder::Binder;
 use talkers::tseq::envelope;
 use talkers::tseq::midi_seq::MidiSeq;
@@ -28,7 +28,7 @@ enum Seq {
 
 pub struct Tseq {
     scales: scale::Collection,
-    envelopes: Vec<Vec<f32>>,
+    shapes: Shapes,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
 }
@@ -41,7 +41,7 @@ impl Tseq {
             base,
             Self {
                 scales: scale::Collection::new(),
-                envelopes: Vec::new(),
+                shapes: Shapes::empty(),
                 sequences: Vec::new(),
                 events_reminder: Vec::new()
             }
@@ -56,11 +56,14 @@ impl Tseq {
         &self,
         expressions: &Vec<Expression>,
         base: &mut TalkerBase,
-    ) -> Result<(Vec<Vec<f32>>, Vec<Seq>), failure::Error> {
-        let mut envelops = Vec::new();
+    ) -> Result<(Shapes, Vec<Seq>), failure::Error> {
+        let mut envelopes = Vec::new();
         let mut sequences: Vec<Seq> = Vec::new();
 
-        let mut binder = Binder::new();
+        let sample_rate = AudioFormat::sample_rate();
+        let mut shapes = Shapes::new(sample_rate);
+
+        let mut binder = Binder::new(sample_rate);
         let mut outs = Vec::new();
 
         for exp in expressions {
@@ -93,8 +96,8 @@ impl Tseq {
                     binder.parser_velocitylines.push(&line);
                 }
                 Expression::Envelope(ref envelope) => {
-                    binder.envelops_indexes.insert(envelope.id, envelops.len());
-                    envelops.push(envelope::create(envelope, binder.ticks_per_second))
+                    binder.envelops_indexes.insert(envelope.id, envelopes.len());
+                    envelopes.push(envelope::create(&shapes, envelope, binder.ticks_per_second))
                 }
                 Expression::Seq(ref sequence) => {
                     binder.parser_sequences.push(&sequence);
@@ -105,6 +108,8 @@ impl Tseq {
             }
         }
 
+        shapes.set_envelopes(envelopes);
+
         binder.check_sequences()?;
         binder.deserialize(&self.scales)?;
 
@@ -114,7 +119,7 @@ impl Tseq {
                     let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
 
                     let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                        audio_event::create_from_sequences(&harmonics_sequence_events, &envelops);
+                        audio_event::create_from_sequences(&shapes, &harmonics_sequence_events);
 
                     let harmonics_count = harmonics_frequency_events.len();
                     let display_harmonic_num = harmonics_count > 1;
@@ -172,7 +177,7 @@ impl Tseq {
                 _ => (),
             }
         }
-        Ok((envelops, sequences))
+        Ok((shapes, sequences))
     }
 }
 
@@ -198,7 +203,7 @@ impl Talker for Tseq {
                 let input = format!("{}\n", txt);
 
                 let expressions = parser::parse(&input)?;
-                let (envelops, sequences) = self.build_sequences(&expressions, &mut new_base)?;
+                let (shapes, sequences) = self.build_sequences(&expressions, &mut new_base)?;
 
                 self.events_reminder = Vec::with_capacity(sequences.len());
 
@@ -206,7 +211,7 @@ impl Talker for Tseq {
                     self.events_reminder.push(EventReminder::new());
                 }
 
-                self.envelopes = envelops;
+                self.shapes = shapes;
                 self.sequences = sequences;
 
                 new_base.set_data(data);
@@ -231,7 +236,7 @@ impl Talker for Tseq {
             Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
                 audio_sequence_talk(
-                    &self.envelopes,
+                    &self.shapes,
                     tick,
                     ln,
                     &audio_events,
@@ -243,7 +248,7 @@ impl Talker for Tseq {
             Seq::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
                 audio_sequence_talk(
-                    &self.envelopes,
+                    &self.shapes,
                     tick,
                     ln,
                     &audio_events,
@@ -262,7 +267,7 @@ impl Talker for Tseq {
 }
 
 fn audio_sequence_talk(
-    envelops: &Vec<Vec<f32>>,
+    shapes: &Shapes,
     tick: i64,
     len: usize,
     audio_events: &AudioEvents,
@@ -295,7 +300,7 @@ fn audio_sequence_talk(
             let ev_start_tick = ev.start_tick();
 
             if ev_start_tick <= t {
-                t = ev.assign_buffer(envelops, t, voice_buf, ofset, out_len);
+                t = ev.assign_buffer(shapes, t, voice_buf, ofset, out_len);
             } else {
                 let cur_len = usize::min((ev_start_tick - t) as usize, out_len);
 
