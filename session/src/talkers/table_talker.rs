@@ -16,7 +16,7 @@ pub struct TableTalker {
 impl TableTalker {
     pub fn new(base: &mut TalkerBase, tab_len: usize) -> Result<TableTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
-        base.add_ear(ear::audio(Some("phase"), -1., 1., 0., &Init::DefValue)?);
+        base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
