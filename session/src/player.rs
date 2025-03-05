@@ -166,15 +166,14 @@ fn run(
                 Order::Stop => {
                     send_state(&order.to_string(), state, State::Stopped);
 
-                    if state == State::Playing || state == State::Recording {
-                        let len = band.play(tick, feedback.fade_len())?;
- 
-                        if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
-                            feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
-                        }
-                    }
                     if state != State::Stopped {
-                        band.fadeout(tick)?;
+                        let len = band.fadeout(tick)?;
+
+                        if state == State::Playing || state == State::Recording {
+                            if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
+                                feedback.write(mxr.borrow().channels_buffers(), len)?;
+                            }
+                        }
                         band.close()?;
                         feedback.close()?;
                         band.set_record(false)?;

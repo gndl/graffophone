@@ -709,12 +709,13 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         Ok(ln)
     }
 
-    pub fn fadeout(&mut self, tick: i64) -> Result<(), failure::Error> {
+    pub fn fadeout(&mut self, tick: i64) -> Result<usize, failure::Error> {
+        let mut ln = 0;
 
         for rmixer in self.mixers.values() {
-            rmixer.borrow_mut().fadeout(tick)?;
+            ln = rmixer.borrow_mut().fadeout(tick)?;
         }
-        Ok(())
+        Ok(ln)
     }
 
     pub fn close(&mut self) -> Result<(), failure::Error> {
