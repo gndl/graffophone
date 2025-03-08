@@ -7,6 +7,7 @@ use talker::talker::{RTalker, TalkerBase, TalkerCab};
 use talker::talker_handler::TalkerHandlerBase;
 use talkers::accumulator::{self, Accumulators};
 use talkers::adsrp::{self, ADSRp};
+use talkers::audio_switch::{self, AudioSwitch};
 use talkers::audiofile_input::{self, AudioFileInput};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
@@ -87,6 +88,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Accumulators::descriptor()),
             PluginsManager::tkr_hr_kv(ADSRp::descriptor()),
             PluginsManager::tkr_hr_kv(AtanSum::descriptor()),
+            PluginsManager::tkr_hr_kv(AudioSwitch::descriptor()),
             PluginsManager::tkr_hr_kv(AudioFileInput::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
@@ -127,6 +129,8 @@ impl PluginsManager {
             Ok(rtalker!(ADSRp::new(base)?))
         } else if model == math::ATAN_SUM_MODEL {
             Ok(rtalker!(AtanSum::new(base)?))
+        } else if model == audio_switch::MODEL {
+            Ok(rtalker!(AudioSwitch::new(base)?))
         } else if model == audiofile_input::MODEL {
             Ok(rtalker!(AudioFileInput::new(base)?))
         } else if model == hub::MODEL {

@@ -656,6 +656,9 @@ impl Ear {
     pub fn get_set_hum_control_buffer(&self, set_idx: Index, hum_idx: Index) -> ControlBuf {
         self.sets()[set_idx].get_hum_control_buffer(hum_idx)
     }
+    pub fn get_set_hum_control_value(&self, set_idx: Index, hum_idx: Index) -> ControlVal {
+        self.get_set_hum_control_buffer(set_idx, hum_idx)[0]
+    }
     pub fn get_set_control_buffer(&self, set_idx: Index) -> ControlBuf {
         self.get_set_hum_control_buffer(set_idx, 0)
     }

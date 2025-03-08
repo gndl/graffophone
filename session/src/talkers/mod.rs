@@ -1,5 +1,6 @@
 pub mod accumulator;
 pub mod adsrp;
+pub mod audio_switch;
 pub mod audiofile_input;
 pub mod bounded_sinusoidal;
 pub mod bounded_square;
