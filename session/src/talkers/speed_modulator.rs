@@ -129,8 +129,7 @@ impl Talker for SpeedModulators {
         let speed_buf = ear.get_set_hum_cv_buffer(port, SPEED_HUM_INDEX);
 
         ear.listen_set_hum(tick, 1, port, NEUTRAL_HUM_INDEX);
-        let neutral_buf = ear.get_set_hum_control_buffer(port, NEUTRAL_HUM_INDEX);
-        let speed_step_gap = 1. - neutral_buf[0] as f64;
+        let speed_step_gap = 1. - ear.get_set_hum_control_value(port, NEUTRAL_HUM_INDEX) as f64;
         
         // If the requested time portion is not directly following the previous one, we compute the input corresponding time.
         if starting_point.speed_tick < tick {

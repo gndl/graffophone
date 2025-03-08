@@ -101,7 +101,7 @@ impl Talk {
             let voice = self.talker.voice(port);
 
             if tick == voice.tick() {
-                return usize::min(len, voice.len());
+                return len.min(voice.len());
             }
         }
 
@@ -183,7 +183,7 @@ impl Hum {
     pub fn talks_with(&self, talk_idx: Index, otalk: Option<Talk>) -> Vec<Talk> {
         let mut talks: Vec<Talk> = Vec::with_capacity(self.talks.len());
 
-        for i in 0..Index::min(self.talks.len(), talk_idx) {
+        for i in 0..talk_idx.min(self.talks.len()) {
             talks.push(self.talks[i].clone());
         }
         otalk.map(|talk| talks.push(talk));
@@ -471,7 +471,7 @@ impl Set {
         let hums_len = self.hums.len();
         let mut hums: Vec<Hum> = Vec::with_capacity(hums_len);
 
-        for i in 0..Index::min(hum_idx, hums_len) {
+        for i in 0..hum_idx.min(hums_len) {
             hums.push(self.hums[i].clone());
         }
         hums.push(map(&self.hums[hum_idx])?);
@@ -814,7 +814,7 @@ impl Ear {
         let sets_len = old_sets.len();
         let mut new_sets: Vec<Set> = Vec::with_capacity(sets_len);
 
-        for i in 0..Index::min(set_idx, sets_len) {
+        for i in 0..set_idx.min(sets_len) {
             new_sets.push(old_sets[i].clone());
         }
         if set_idx < sets_len {

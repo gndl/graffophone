@@ -246,8 +246,7 @@ impl Talker for ADSRp {
                         segment_num = new_segment_num;
                     }
 
-                    let mut stop_idx =
-                        usize::min(ln, idx + (next_env_point_tick - envelope_tick) as usize);
+                    let mut stop_idx = ln.min(idx + (next_env_point_tick - envelope_tick) as usize);
 
                     for i in next_note_search_start_idx..stop_idx {
                         if trigger_buf[i] != 0. {

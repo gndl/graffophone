@@ -374,7 +374,7 @@ impl Band {
             let new_ports_count = new_voices.len();
             invalidated_ports = HashSet::with_capacity(old_ports_count);
 
-            let less_ports = usize::min(old_ports_count, new_ports_count);
+            let less_ports = old_ports_count.min(new_ports_count);
 
             for p in 0..less_ports {
                 if new_voices[p].port_type() != old_voices[p].port_type() {

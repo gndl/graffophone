@@ -303,7 +303,7 @@ impl TalkerControlBase {
         let data_area = if draw_data && !minimized {
             style::data(control_supply.cc);
             let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y)?;
-            box_e_x = f64::max(box_e_x, d_a.e_x);
+            box_e_x = box_e_x.max(d_a.e_x);
             header_e_y = d_a.e_y;
             Some(d_a)
         } else {
@@ -320,14 +320,14 @@ impl TalkerControlBase {
 
         if !minimized {
             let b_x = 0.;
-            let mut ears_e_x = 0.;
+            let mut ears_e_x: f64 = 0.;
 
             for ear in tkr.ears() {
                 let mut sets = Vec::with_capacity(ear.sets_len());
                 let ear_is_multi_set = ear.is_multi_set();
                 let sup_set = ear.sets().len() > 1;
                 let ear_tag = format_tag(ear.tag());
-                let mut ear_e_x = 0.;
+                let mut ear_e_x: f64 = 0.;
                 let mut b_y = ears_e_y;
 
                 let (ear_tag_area, hum_tag) = if ear.is_multi_hum() {
@@ -342,7 +342,7 @@ impl TalkerControlBase {
 
                 for set in ear.sets() {
                     let mut hums = Vec::with_capacity(set.hums().len());
-                    let mut hums_e_x = 0.;
+                    let mut hums_e_x: f64 = 0.;
 
                     for hum in set.hums() {
                         let add_in_area = dim_to_area(b_x, b_y, &control_supply.add_in_dim);
@@ -375,7 +375,7 @@ impl TalkerControlBase {
                             (None, None, Area::new(b_x, tag_area.e_x, b_y, tag_area.e_y))
                         };
 
-                        hums_e_x = f64::max(hums_e_x, hum_area.e_x);
+                        hums_e_x = hums_e_x.max(hum_area.e_x);
                         b_y = tag_area.e_y;
 
                         let hum_ctrl = HumControl {
@@ -392,10 +392,10 @@ impl TalkerControlBase {
 
                     let sup_area = if sup_set {
                         let sup_a = dim_to_area(hums_e_x, set_b_y, &control_supply.sup_dim);
-                        ear_e_x = f64::max(ear_e_x, sup_a.e_x);
+                        ear_e_x = ear_e_x.max(sup_a.e_x);
                         Some(sup_a)
                     } else {
-                        ear_e_x = f64::max(ear_e_x, hums_e_x);
+                        ear_e_x = ear_e_x.max(hums_e_x);
                         None
                     };
 
@@ -406,7 +406,7 @@ impl TalkerControlBase {
                 let mut ear_e_y = b_y;
                 let add_set_area = if ear_is_multi_set {
                     let add_area = dim_to_area(b_x, b_y, &control_supply.add_dim);
-                    ear_e_x = f64::max(ear_e_x, add_area.e_x);
+                    ear_e_x = ear_e_x.max(add_area.e_x);
                     ear_e_y = add_area.e_y;
                     Some(add_area)
                 } else {
@@ -421,10 +421,10 @@ impl TalkerControlBase {
                 };
                 ears.push(ear_ctrl);
                 ears_e_y = ear_e_y;
-                ears_e_x = f64::max(ears_e_x, ear_e_x);
+                ears_e_x = ears_e_x.max(ear_e_x);
             }
             let voices_b_x = ears_e_x;
-            let mut voices_e_x = f64::max(voices_b_x, box_e_x);
+            let mut voices_e_x = voices_b_x.max(box_e_x);
 
             let tkr_id = tkr.id();
 
@@ -443,7 +443,7 @@ impl TalkerControlBase {
 
                 let area = control_supply.area_of(&tag, voices_b_x, b_y)?;
 
-                voices_e_x = f64::max(voices_e_x, area.e_x);
+                voices_e_x = voices_e_x.max(area.e_x);
                 voices_e_y = area.e_y;
                 
                 let vc = VoiceControl {
@@ -461,7 +461,7 @@ impl TalkerControlBase {
             destroy_area.right_align(voices_e_x);
         }
         let width = destroy_area.e_x;
-        let height = f64::max(ears_e_y, voices_e_y) + SPACE;
+        let height = ears_e_y.max(voices_e_y) + SPACE;
 
         Ok(Self {
             id: tkr.id(),

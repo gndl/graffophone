@@ -77,7 +77,7 @@ impl Mixer {
 
             base.add_ear(parent.talker.ear(VOLUME_EAR_INDEX).clone());
 
-            let channels_hums_end = usize::min(channels, parent.channels()) + CHANNELS_HUM_INDEX;
+            let channels_hums_end = channels.min(parent.channels()) + CHANNELS_HUM_INDEX;
 
             for src_track in parent.talker.ear(TRACKS_EAR_INDEX).sets() {
                 let track = stem_track.clone();

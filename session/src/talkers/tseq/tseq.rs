@@ -302,7 +302,7 @@ fn audio_sequence_talk(
             if ev_start_tick <= t {
                 t = ev.assign_buffer(shapes, t, voice_buf, ofset, out_len);
             } else {
-                let cur_len = usize::min((ev_start_tick - t) as usize, out_len);
+                let cur_len = out_len.min((ev_start_tick - t) as usize);
 
                 last_value = if conservative_off { last_value } else { 0. };
 
@@ -319,7 +319,7 @@ fn audio_sequence_talk(
             t += out_len as i64;
         }
         ofset = (t - tick) as usize;
-        last_value = voice_buf[usize::max(ofset, 1) - 1];
+        last_value = voice_buf[ofset.max(1) - 1];
     }
     event_reminder.index = ev_idx;
     event_reminder.last_value = last_value;

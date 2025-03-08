@@ -356,7 +356,7 @@ impl GraphView {
 
         for column_property in columns_properties.values() {
             w = w + column_property.thickness + COLUMN_SPACING;
-            row_count = i32::max(row_count, column_property.count);
+            row_count = row_count.max(column_property.count);
         }
 
         let mut prev_rows_y = vec![0.; row_count as usize];
@@ -386,7 +386,7 @@ impl GraphView {
 
                 let mut y = prev_bottom;
                 if tkrc.row() > prev_row + 1 {
-                    y = f64::max(prev_bottom, prev_rows_y[tkrc.dependent_row() as usize]);
+                    y = prev_bottom.max(prev_rows_y[tkrc.dependent_row() as usize]);
                 }
                 tkrc.move_to(x, y);
 
@@ -395,7 +395,7 @@ impl GraphView {
                 prev_bottom = y + tkrc.height() + ROW_SPACING;
             }
             prev_x = prev_x - column_property.thickness - COLUMN_SPACING;
-            h = f64::max(prev_bottom, h);
+            h = prev_bottom.max(h);
         }
         (w, h)
     }
@@ -444,7 +444,7 @@ impl GraphView {
                         column,
                         &mut collector.columns_properties,
                         |column_property, row| {
-                            let tkrc_row = i32::max(row, column_property.count);
+                            let tkrc_row = row.max(column_property.count);
                             column_property.count = tkrc_row + 1;
                             tkrc_row
                         },
@@ -579,8 +579,8 @@ impl GraphView {
             talker_controls.extend(collector.talker_controls);
             talker_controls.extend(sandbox_collector.talker_controls);
 
-            self.width = f64::max(f64::max(graph_e_x, sandbox_e_x) + MARGE, 1024.);
-            self.height = f64::max(sandbox_e_y, 768.);
+            self.width = (graph_e_x.max(sandbox_e_x) + MARGE).max(1024.);
+            self.height = sandbox_e_y.max(768.);
 
             Ok(talker_controls)
         }

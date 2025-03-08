@@ -87,14 +87,14 @@ impl Talker for Square {
                 next_falling_edge_idx = i + (p * (r * 0.5 + 0.5)) as usize;
             }
 
-            let roof_end = usize::min(len, next_falling_edge_idx);
+            let roof_end = len.min(next_falling_edge_idx);
 
             for _ in i..roof_end {
                 voice_buf[i] = gain;
                 i += 1;
             }
 
-            let floor_end = usize::min(len, next_rising_edge_idx);
+            let floor_end = len.min(next_rising_edge_idx);
 
             for _ in i..floor_end {
                 voice_buf[i] = -gain;

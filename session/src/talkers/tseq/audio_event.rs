@@ -105,7 +105,7 @@ impl AudioEvent {
         ofset: usize,
         len: usize,
     ) -> i64 {
-        let out_len = usize::min((self.base.end_tick - tick) as usize, len);
+        let out_len = len.min((self.base.end_tick - tick) as usize);
 
         let out_end_t = self
             .core
@@ -131,7 +131,7 @@ impl AudioEvent {
         out_end_t
     }
     pub fn fadein_buffer(&self, fadein_tab: &Vec<f32>, tick: i64, buf: &mut [f32], ofset: usize, len: usize) {
-        let ln = usize::min(len, (self.base.fadein_tick - tick) as usize);
+        let ln = len.min((self.base.fadein_tick - tick) as usize);
         let mut fadein_idx = (tick - self.base.start_tick) as usize;
 
         for i in ofset..ofset + ln {

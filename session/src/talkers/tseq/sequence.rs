@@ -99,7 +99,7 @@ impl EventsBuilder {
                     let mut next_chord_idx = 0;
                     let mut next_velocity_idx = 0;
 
-                    let max_n = usize::max(hitline_hits_count, pitchs_count);
+                    let max_n = pitchs_count.max(hitline_hits_count);
 
                     while mul > 0. {
                         let n = if mul < 1. {
@@ -123,7 +123,7 @@ impl EventsBuilder {
                                 )
                             };
 
-                            let hit_ticks_count = (i64::min(self.hit_end_tick, next_hit_start_tick)
+                            let hit_ticks_count = (next_hit_start_tick.min(self.hit_end_tick)
                                 - self.hit_start_tick)
                                 as f32;
 
@@ -142,12 +142,12 @@ impl EventsBuilder {
                             let next_velocity = &velocities[next_velocity_idx];
 
                             let max_harmonic_count =
-                                usize::max(self.harmonic_count, next_chord.len());
+                            self.harmonic_count.max(next_chord.len());
 
                             for harmonic_idx in 0..max_harmonic_count {
                                 let harmonic_event = &mut self.chord_events[harmonic_idx];
 
-                                let next_harmonic_idx = usize::min(harmonic_idx, next_chord.len() - 1);
+                                let next_harmonic_idx = harmonic_idx.min(next_chord.len() - 1);
                                 let next_harmonic = &next_chord[next_harmonic_idx];
 
                                 let freq_ratio = match &next_harmonic.pitch_gap {

@@ -87,7 +87,7 @@ impl Talker for BoundedSquare {
                 next_falling_edge_idx = i + (p * (r * 0.5 + 0.5)) as usize;
             }
 
-            let roof_end = usize::min(len, next_falling_edge_idx);
+            let roof_end = len.min(next_falling_edge_idx);
 
             if i < roof_end {
                 let roof_len = roof_end - i;
@@ -102,7 +102,7 @@ impl Talker for BoundedSquare {
                 }
             }
 
-            let floor_end = usize::min(len, next_rising_edge_idx);
+            let floor_end = len.min(next_rising_edge_idx);
 
             if i < floor_end {
                 let floor_len = floor_end - i;
