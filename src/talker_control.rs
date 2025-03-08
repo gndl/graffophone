@@ -572,7 +572,7 @@ impl TalkerControlBase {
         cc.stroke()
     }
 
-    fn draw_destroy(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
+    fn draw_cross(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
         let x1 = self.x + area.content_b_x;
         let y1 = self.y + area.content_e_y;
         let x2 = x1 + SYM_W;
@@ -588,7 +588,7 @@ impl TalkerControlBase {
         if draw_switch {
             style::switch(cc);
             self.draw_imize(cc, &self.imize_area, self.minimized)?;
-            self.draw_destroy(cc, &self.destroy_area)?;
+            self.draw_cross(cc, &self.destroy_area)?;
         }
         if let Some(model_area) = &self.model_area {
             style::model(cc);
@@ -657,15 +657,6 @@ impl TalkerControlBase {
         cc.stroke()
     }
 
-    fn draw_sup(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
-        style::sup(cc);
-        let x1 = self.x + area.content_b_x;
-        let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
-        let x2 = x1 + SYM_W;
-        cc.move_to(x1, y1);
-        cc.line_to(x2, y1);
-        cc.stroke()
-    }
     fn draw_value(
         &self,
         cc: &Context,
@@ -759,7 +750,8 @@ impl TalkerControlBase {
                         }
                     }
                     if let Some(sa) = &set.sup_area {
-                        self.draw_sup(cc, sa)?;
+                        style::sup(cc);
+                        self.draw_cross(cc, sa)?;
                     }
                 }
                 if let Some((tag, area)) = &ear.tag_area {
