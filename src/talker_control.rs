@@ -31,6 +31,9 @@ const V_PADDING: f64 = 3.;
 const SYM_W: f64 = 10.;
 const SYM_H: f64 = 10.;
 
+const CHIP_W: f64 = 6.;
+const CHIP_H: f64 = 6.;
+
 #[derive(PartialEq, Debug, Copy, Clone)]
 struct Area {
     b_x: f64,
@@ -458,7 +461,7 @@ impl TalkerControlBase {
             for voice in &mut voices {
                 voice.area.right_align(voices_e_x);
             }
-            destroy_area.right_align(voices_e_x);
+            destroy_area.right_align(voices_e_x + CHIP_W);
         }
         let width = destroy_area.e_x;
         let height = ears_e_y.max(voices_e_y) + SPACE;
@@ -765,6 +768,7 @@ impl TalkerControlBase {
             }
 
             for (voice_idx, voice) in self.voices.iter().enumerate() {
+                // Draw voice tag
                 self.draw_io(
                     cc,
                     &voice.area,
@@ -772,6 +776,16 @@ impl TalkerControlBase {
                     voice.port_type,
                     graph_presenter.voice_selected(self.id, voice_idx),
                 )?;
+
+                // Draw connection chip
+                cc.rectangle(
+                    self.x + voice.area.e_x,
+                    self.y + (voice.area.b_y + voice.area.e_y - CHIP_H) / 2.,
+                    CHIP_W,
+                    CHIP_H,
+                );
+                style::set_color(cc, voice.color);
+                cc.fill()?;
             }
         }
         Ok(())
@@ -1018,6 +1032,12 @@ pub trait TalkerControl {
     fn height(&self) -> f64 {
         self.base().borrow().height()
     }
+
+    fn is_positioned(&self) -> bool {
+        self.base().borrow().column() > -1
+    }
+
+
     fn draw_connections(&self, cc: &Context, talker_controls: &HashMap<Id, RTalkerControl>) {
         util::print_cairo_result(self.base().borrow().draw_connections(cc, talker_controls));
     }
