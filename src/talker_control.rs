@@ -1034,7 +1034,8 @@ pub trait TalkerControl {
     }
 
     fn is_positioned(&self) -> bool {
-        self.base().borrow().column() > -1
+        let base = self.base().borrow();
+        base.row() > -1 && base.column() > -1
     }
 
 
