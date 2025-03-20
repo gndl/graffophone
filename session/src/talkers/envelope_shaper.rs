@@ -30,6 +30,7 @@ impl PlayerState {
 }
 
 pub struct EnvelopeShaper {
+    sample_rate: f64,
     chunk_size: usize,
     start_tick: i64,
     duration: usize,
@@ -71,6 +72,7 @@ impl EnvelopeShaper {
         Ok(ctalker!(
             base,
             Self {
+                sample_rate: AudioFormat::sample_rate() as f64,
                 chunk_size: AudioFormat::chunk_size(),
                 start_tick: 0,
                 duration: 1,
@@ -138,16 +140,15 @@ impl Talker for EnvelopeShaper {
 
             if trigger != 0. && last_trigger == 0. {
                 let t = tick + i as i64;
-                let sr = AudioFormat::sample_rate() as f64;
 
                 let l = base.ear(TIME_EAR_INDEX).listen(t, 1);
                 if l > 0 {
-                    let start_tick = (base.ear_cv_buffer(TIME_EAR_INDEX)[0] as f64 * sr) as i64;
+                    let start_tick = (base.ear_cv_buffer(TIME_EAR_INDEX)[0] as f64 * self.sample_rate) as i64;
 
                     let l = base.ear(DURATION_EAR_INDEX).listen(t, 1);
                     if l > 0 {
                         let duration =
-                            (base.ear_cv_buffer(DURATION_EAR_INDEX)[0] as f64 * sr) as usize;
+                            (base.ear_cv_buffer(DURATION_EAR_INDEX)[0] as f64 * self.sample_rate) as usize;
 
                         let l = base.ear(A_EAR_INDEX).listen(t, 1);
                         if l > 0 {
@@ -171,21 +172,22 @@ impl Talker for EnvelopeShaper {
 
                                     let mut e_i = 0;
                                     let mut src_t = start_tick;
+                                    let chunk_size = self.chunk_size as i64;
 
                                     for _ in 0..nb_chunk {
                                         base.ear(SRC_EAR_INDEX).listen(src_t, self.chunk_size);
-                                        let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
+                                        let src_buf = base.ear_audio_buffer(SRC_EAR_INDEX);
 
                                         for src_idx in 0..self.chunk_size {
                                             self.env[e_i] = a * src_buf[src_idx] + b;
                                             e_i += 1;
                                         }
-                                        src_t += duration as i64;
+                                        src_t += chunk_size;
                                     }
 
                                     if reminder > 0 {
                                         base.ear(SRC_EAR_INDEX).listen(src_t, reminder);
-                                        let src_buf = base.ear_cv_buffer(SRC_EAR_INDEX);
+                                        let src_buf = base.ear_audio_buffer(SRC_EAR_INDEX);
 
                                         for src_idx in 0..reminder {
                                             self.env[e_i] = a * src_buf[src_idx] + b;
