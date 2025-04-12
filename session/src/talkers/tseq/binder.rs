@@ -307,10 +307,15 @@ impl<'a> Binder<'a> {
                 PChordLineFragment::Part((part, mul)) => {
                     match self.parser_chords.get(part.chord_id) {
                         Some(pchord) => {
-                            let paccents = part
-                                .attack_id
-                                .and_then(|id| self.parser_attacks.get(id))
-                                .map_or(&no_accents, |a| &a.accents);
+                            let paccents = match part.attack_id {
+                                Some(attack_id) => {
+                                    match self.parser_attacks.get(attack_id) {
+                                        Some(attack) => &attack.accents,
+                                        None => return Err(failure::err_msg(format!("Attack {} not found!", attack_id))),
+                                    }
+                                }
+                                None => &no_accents,
+                            };
 
                             let mut chord = Vec::new();
 
