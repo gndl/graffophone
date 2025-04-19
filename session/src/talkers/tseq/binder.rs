@@ -5,7 +5,7 @@ use std::str::FromStr;
 use scale::scale::{self, Scale};
 
 use talkers::tseq::parser::{
-    PAttack, PBeat, PChord, PChordLineFragment, PChordLine, PDurationLine, PHit, PHitLine,
+    PAttack, PBeat, PChord, PChordLineFragment, PChordLine, PDurationLine, PEnvelope, PHit, PHitLine,
     PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
     PSeqFragment, PSequence, PScale, PShape, PTime, PVelocity, PVelocityLine,
 };
@@ -254,6 +254,89 @@ impl<'a> Binder<'a> {
             pitchlines: HashMap::new(),
             parser_sequences: Vec::new(),
         }
+    }
+
+    pub fn add_beat(&mut self, beat: &'a PBeat<'a>) -> Result<(), failure::Error> {
+        if let Some(_) = self.parser_beats.insert(beat.id, &beat) {
+            return Err(failure::err_msg(format!("Beat {} already defined!", beat.id)));
+        }
+        Ok(())
+    }
+
+    pub fn add_scale(&mut self, scale: &'a PScale<'a>) -> Result<(), failure::Error> {
+        if let Some(_) = self.parser_scales.insert(scale.id, &scale) {
+            return Err(failure::err_msg(format!("Scale {} already defined!", scale.id)));
+        }
+        Ok(())
+    }
+
+    pub fn add_chord(&mut self, chord: &'a PChord<'a>) -> Result<(), failure::Error> {
+        if let Some(_) = self.parser_chords.insert(chord.id, &chord) {
+            return Err(failure::err_msg(format!("Chord {} already defined!", chord.id)));
+        }
+        Ok(())
+    }
+
+    pub fn add_attack(&mut self, attack: &'a PAttack<'a>) -> Result<(), failure::Error> {
+        if let Some(_) = self.parser_attacks.insert(attack.id, &attack) {
+            return Err(failure::err_msg(format!("Attack {} already defined!", attack.id)));
+        }
+        Ok(())
+    }
+
+    pub fn add_chordline(&mut self, line: &'a PChordLine<'a>) -> Result<(), failure::Error> {
+        if self.parser_chordlines.iter().any(|&e| e.id == line.id) {
+            return Err(failure::err_msg(format!("Chords {} already defined!", line.id)));
+        }
+        self.parser_chordlines.push(&line);
+        Ok(())
+    }
+
+    pub fn add_pitchline(&mut self, line: &'a PPitchLine<'a>) -> Result<(), failure::Error> {
+        if self.parser_pitchlines.iter().any(|&e| e.id == line.id) {
+            return Err(failure::err_msg(format!("Pitchs {} already defined!", line.id)));
+        }
+        self.parser_pitchlines.push(&line);
+        Ok(())
+    }
+
+    pub fn add_hitline(&mut self, line: &'a PHitLine<'a>) -> Result<(), failure::Error> {
+        if self.parser_hitlines.iter().any(|&e| e.id == line.id) {
+            return Err(failure::err_msg(format!("Hits {} already defined!", line.id)));
+        }
+        self.parser_hitlines.push(&line);
+        Ok(())
+    }
+
+    pub fn add_duration(&mut self, line: &'a PDurationLine<'a>) -> Result<(), failure::Error> {
+        if self.parser_durationlines.iter().any(|&e| e.id == line.id) {
+            return Err(failure::err_msg(format!("Durations {} already defined!", line.id)));
+        }
+        self.parser_durationlines.push(&line);
+        Ok(())
+    }
+
+    pub fn add_velocityline(&mut self, line: &'a PVelocityLine<'a>) -> Result<(), failure::Error> {
+        if self.parser_velocitylines.iter().any(|&e| e.id == line.id) {
+            return Err(failure::err_msg(format!("Velocities {} already defined!", line.id)));
+        }
+        self.parser_velocitylines.push(&line);
+        Ok(())
+    }
+
+    pub fn add_envelope(&mut self, envelope: &'a PEnvelope<'a>, index: usize) -> Result<(), failure::Error> {
+        if let Some(_) = self.envelops_indexes.insert(envelope.id, index) {
+            return Err(failure::err_msg(format!("Envelope {} already defined!", envelope.id)));
+        }
+        Ok(())
+    }
+
+    pub fn add_sequence(&mut self, sequence: &'a PSequence<'a>) -> Result<(), failure::Error> {
+        if self.parser_sequences.iter().any(|&e| e.id == sequence.id) {
+            return Err(failure::err_msg(format!("Seq {} already defined!", sequence.id)));
+        }
+        self.parser_sequences.push(&sequence);
+        Ok(())
     }
 
     fn chordline_dependencies(&self, fragments: &Vec<PChordLineFragment>, line_deps: &mut HashSet<usize>) -> Result<(), failure::Error> {

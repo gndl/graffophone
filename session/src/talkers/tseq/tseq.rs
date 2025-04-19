@@ -69,38 +69,38 @@ impl Tseq {
         for exp in expressions {
             match exp {
                 Expression::Beat(ref beat) => {
-                    binder.parser_beats.insert(beat.id, &beat);
+                    binder.add_beat(beat)?;
                 }
                 Expression::Scale(ref scale) => {
-                    binder.parser_scales.insert(scale.id, &scale);
+                    binder.add_scale(scale)?;
                 }
                 Expression::Chord(ref chord) => {
-                    binder.parser_chords.insert(chord.id, &chord);
+                    binder.add_chord(chord)?;
                 }
                 Expression::Attack(ref attack) => {
-                    binder.parser_attacks.insert(attack.id, &attack);
+                    binder.add_attack(attack)?;
                 }
                 Expression::ChordLine(ref line) => {
-                    binder.parser_chordlines.push(&line);
+                    binder.add_chordline(line)?;
                 }
                 Expression::PitchLine(ref line) => {
-                    binder.parser_pitchlines.push(&line);
+                    binder.add_pitchline(line)?;
                 }
                 Expression::HitLine(ref line) => {
-                    binder.parser_hitlines.push(&line);
+                    binder.add_hitline(line)?;
                 }
                 Expression::DurationLine(ref line) => {
-                    binder.parser_durationlines.push(&line);
+                    binder.add_duration(line)?;
                 }
                 Expression::VelocityLine(ref line) => {
-                    binder.parser_velocitylines.push(&line);
+                    binder.add_velocityline(line)?;
                 }
                 Expression::Envelope(ref envelope) => {
-                    binder.envelops_indexes.insert(envelope.id, envelopes.len());
+                    binder.add_envelope(envelope, envelopes.len())?;
                     envelopes.push(envelope::create(&shapes, envelope, binder.ticks_per_second))
                 }
                 Expression::Seq(ref sequence) => {
-                    binder.parser_sequences.push(&sequence);
+                    binder.add_sequence(sequence)?;
                 }
                 Expression::SeqOut(_) => outs.push(exp),
                 Expression::MidiOut(_) => outs.push(exp),
