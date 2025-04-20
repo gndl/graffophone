@@ -70,7 +70,7 @@ impl Velocity {
             Some(id) => {
                 match env_idxs.get(id) {
                     Some(idx) => *idx,
-                    None => return Err(failure::err_msg(format!("Envelope {} not found!", id))),
+                    None => return Err(failure::err_msg(format!("Envelope {} undefined.", id))),
                 }
             }
             None => envelope::UNDEFINED,
@@ -258,35 +258,35 @@ impl<'a> Binder<'a> {
 
     pub fn add_beat(&mut self, beat: &'a PBeat<'a>) -> Result<(), failure::Error> {
         if let Some(_) = self.parser_beats.insert(beat.id, &beat) {
-            return Err(failure::err_msg(format!("Beat {} already defined!", beat.id)));
+            return Err(failure::err_msg(format!("Beat {} defined several times.", beat.id)));
         }
         Ok(())
     }
 
     pub fn add_scale(&mut self, scale: &'a PScale<'a>) -> Result<(), failure::Error> {
         if let Some(_) = self.parser_scales.insert(scale.id, &scale) {
-            return Err(failure::err_msg(format!("Scale {} already defined!", scale.id)));
+            return Err(failure::err_msg(format!("Scale {} defined several times.", scale.id)));
         }
         Ok(())
     }
 
     pub fn add_chord(&mut self, chord: &'a PChord<'a>) -> Result<(), failure::Error> {
         if let Some(_) = self.parser_chords.insert(chord.id, &chord) {
-            return Err(failure::err_msg(format!("Chord {} already defined!", chord.id)));
+            return Err(failure::err_msg(format!("Chord {} defined several times.", chord.id)));
         }
         Ok(())
     }
 
     pub fn add_attack(&mut self, attack: &'a PAttack<'a>) -> Result<(), failure::Error> {
         if let Some(_) = self.parser_attacks.insert(attack.id, &attack) {
-            return Err(failure::err_msg(format!("Attack {} already defined!", attack.id)));
+            return Err(failure::err_msg(format!("Attack {} defined several times.", attack.id)));
         }
         Ok(())
     }
 
     pub fn add_chordline(&mut self, line: &'a PChordLine<'a>) -> Result<(), failure::Error> {
         if self.parser_chordlines.iter().any(|&e| e.id == line.id) {
-            return Err(failure::err_msg(format!("Chords {} already defined!", line.id)));
+            return Err(failure::err_msg(format!("Chords {} defined several times.", line.id)));
         }
         self.parser_chordlines.push(&line);
         Ok(())
@@ -294,7 +294,7 @@ impl<'a> Binder<'a> {
 
     pub fn add_pitchline(&mut self, line: &'a PPitchLine<'a>) -> Result<(), failure::Error> {
         if self.parser_pitchlines.iter().any(|&e| e.id == line.id) {
-            return Err(failure::err_msg(format!("Pitchs {} already defined!", line.id)));
+            return Err(failure::err_msg(format!("Pitchs {} defined several times.", line.id)));
         }
         self.parser_pitchlines.push(&line);
         Ok(())
@@ -302,7 +302,7 @@ impl<'a> Binder<'a> {
 
     pub fn add_hitline(&mut self, line: &'a PHitLine<'a>) -> Result<(), failure::Error> {
         if self.parser_hitlines.iter().any(|&e| e.id == line.id) {
-            return Err(failure::err_msg(format!("Hits {} already defined!", line.id)));
+            return Err(failure::err_msg(format!("Hits {} defined several times.", line.id)));
         }
         self.parser_hitlines.push(&line);
         Ok(())
@@ -310,7 +310,7 @@ impl<'a> Binder<'a> {
 
     pub fn add_duration(&mut self, line: &'a PDurationLine<'a>) -> Result<(), failure::Error> {
         if self.parser_durationlines.iter().any(|&e| e.id == line.id) {
-            return Err(failure::err_msg(format!("Durations {} already defined!", line.id)));
+            return Err(failure::err_msg(format!("Durations {} defined several times.", line.id)));
         }
         self.parser_durationlines.push(&line);
         Ok(())
@@ -318,7 +318,7 @@ impl<'a> Binder<'a> {
 
     pub fn add_velocityline(&mut self, line: &'a PVelocityLine<'a>) -> Result<(), failure::Error> {
         if self.parser_velocitylines.iter().any(|&e| e.id == line.id) {
-            return Err(failure::err_msg(format!("Velocities {} already defined!", line.id)));
+            return Err(failure::err_msg(format!("Velocities {} defined several times.", line.id)));
         }
         self.parser_velocitylines.push(&line);
         Ok(())
@@ -326,14 +326,14 @@ impl<'a> Binder<'a> {
 
     pub fn add_envelope(&mut self, envelope: &'a PEnvelope<'a>, index: usize) -> Result<(), failure::Error> {
         if let Some(_) = self.envelops_indexes.insert(envelope.id, index) {
-            return Err(failure::err_msg(format!("Envelope {} already defined!", envelope.id)));
+            return Err(failure::err_msg(format!("Envelope {} defined several times.", envelope.id)));
         }
         Ok(())
     }
 
     pub fn add_sequence(&mut self, sequence: &'a PSequence<'a>) -> Result<(), failure::Error> {
         if self.parser_sequences.iter().any(|&e| e.id == sequence.id) {
-            return Err(failure::err_msg(format!("Seq {} already defined!", sequence.id)));
+            return Err(failure::err_msg(format!("Seq {} defined several times.", sequence.id)));
         }
         self.parser_sequences.push(&sequence);
         Ok(())
@@ -356,7 +356,7 @@ impl<'a> Binder<'a> {
                         dep_idx += 1;
                     }
                     if dep_idx == lines_count {
-                        return Err(failure::err_msg(format!("Chordline {} unknown!", line_ref.id)));
+                        return Err(failure::err_msg(format!("Chordline {} undefined.", line_ref.id)));
                     }
                 },
                 PChordLineFragment::Fragments((frags, _)) => {
@@ -394,7 +394,7 @@ impl<'a> Binder<'a> {
                                 Some(attack_id) => {
                                     match self.parser_attacks.get(attack_id) {
                                         Some(attack) => &attack.accents,
-                                        None => return Err(failure::err_msg(format!("Attack {} not found!", attack_id))),
+                                        None => return Err(failure::err_msg(format!("Attack {} undefined.", attack_id))),
                                     }
                                 }
                                 None => &no_accents,
@@ -437,7 +437,7 @@ impl<'a> Binder<'a> {
                         }
                         None => {
                             return Err(failure::err_msg(format!(
-                                "Chord {} not found!",
+                                "Chord {} undefined.",
                                 part.chord_id
                             )))
                         }
@@ -446,7 +446,7 @@ impl<'a> Binder<'a> {
                 PChordLineFragment::Ref(line_ref) => {
                     let ref_line = match self.chordlines.get(line_ref.id) {
                         Some(ref_line) => ref_line,
-                        None => return Err(failure::err_msg(format!("Chordline {} not found!", line_ref.id))),
+                        None => return Err(failure::err_msg(format!("Chordline {} undefined.", line_ref.id))),
                     };
 
                     line.reserve(ref_line.len() * line_ref.mul);
@@ -491,7 +491,7 @@ impl<'a> Binder<'a> {
                         dep_idx += 1;
                     }
                     if dep_idx == lines_count {
-                        return Err(failure::err_msg(format!("Pitchline {} unknown!", line_ref.id)));
+                        return Err(failure::err_msg(format!("Pitchline {} undefined.", line_ref.id)));
                     }
                 },
                 PPitchLineFragment::Fragments((frags, _)) => {
@@ -535,7 +535,7 @@ impl<'a> Binder<'a> {
 
                     let ref_line = match pitchs_map.get(line_ref.id) {
                         Some(ref_line) => ref_line,
-                        None => return Err(failure::err_msg(format!("Pitchline {} not found!", line_ref.id))),
+                        None => return Err(failure::err_msg(format!("Pitchline {} undefined.", line_ref.id))),
                     };
 
                     line.reserve(ref_line.len() * line_ref.mul);
@@ -602,7 +602,7 @@ impl<'a> Binder<'a> {
                         dep_idx += 1;
                     }
                     if dep_idx == lines_count {
-                        return Err(failure::err_msg(format!("Velocityline {} unknown!", line_ref.id)));
+                        return Err(failure::err_msg(format!("Velocityline {} undefined.", line_ref.id)));
                     }
                 },
                 PVelocityLineFragment::Fragments((frags, _)) => {
@@ -645,7 +645,7 @@ impl<'a> Binder<'a> {
                 PVelocityLineFragment::Ref(line_ref) => {
                     let ref_line = match self.velocitylines.get(line_ref.id) {
                         Some(ref_line) => ref_line,
-                        None => return Err(failure::err_msg(format!("Velocityline {} not found!", line_ref.id))),
+                        None => return Err(failure::err_msg(format!("Velocityline {} undefined.", line_ref.id))),
                     };
 
                     line.reserve(ref_line.len() * line_ref.mul);
@@ -690,7 +690,7 @@ impl<'a> Binder<'a> {
                         dep_idx += 1;
                     }
                     if dep_idx == sequences_count {
-                        return Err(failure::err_msg(format!("Sequence {} unknown!", line_ref.id)));
+                        return Err(failure::err_msg(format!("Sequence {} undefined.", line_ref.id)));
                     }
                 },
                 PSeqFragment::Fragments((frags, _)) => self.sequence_dependencies(frags, sequence_deps)?,
@@ -824,21 +824,21 @@ impl<'a> Binder<'a> {
             Some(e) => Ok(e.bpm as f32),
             None => match f32::from_str(id) {
                 Ok(f) => Ok(f),
-                Err(_) => Err(failure::err_msg(format!("Beat {} not found!", id))),
+                Err(_) => Err(failure::err_msg(format!("Beat {} undefined.", id))),
             },
         }
     }
     pub fn fetch_envelop_index(&'a self, id: &str) -> Result<usize, failure::Error> {
         match self.envelops_indexes.get(id) {
             Some(ei) => Ok(*ei),
-            None => Err(failure::err_msg(format!("Envelope {} not found!", id))),
+            None => Err(failure::err_msg(format!("Envelope {} undefined.", id))),
         }
     }
     pub fn fetch_durationline(&'a self, oid: &'a Option<&str>,) -> Result<&'a DurationLine, failure::Error> {
         match oid {
             Some(id) => match self.durationlines.get(id) {
                 Some(e) => Ok(e),
-                None => Err(failure::err_msg(format!("Durations {} not found!", id))),
+                None => Err(failure::err_msg(format!("Durations {} undefined.", id))),
             },
             None => Ok(&self.default_durationline),
         }
@@ -850,7 +850,7 @@ impl<'a> Binder<'a> {
         match oid {
             Some(id) => match self.velocitylines.get(id) {
                 Some(e) => Ok(e),
-                None => Err(failure::err_msg(format!("Velocityline {} not found!", id))),
+                None => Err(failure::err_msg(format!("Velocityline {} undefined.", id))),
             },
             None => Ok(&self.default_velocityline),
         }
@@ -859,7 +859,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_chord(&'a self, id: &str) -> Result<&'a PChord, failure::Error> {
         match self.parser_chords.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Chord {} not found!", id))),
+            None => Err(failure::err_msg(format!("Chord {} undefined.", id))),
         }
     }
 
@@ -870,7 +870,7 @@ impl<'a> Binder<'a> {
         match oid {
             Some(id) => match self.chordlines.get(id) {
                 Some(chordline) => Ok(chordline),
-                None => Err(failure::err_msg(format!("Chords {} not found!", id))),
+                None => Err(failure::err_msg(format!("Chords {} undefined.", id))),
             },
             None => Ok(&self.default_chordline),
         }
@@ -879,13 +879,13 @@ impl<'a> Binder<'a> {
     pub fn fetch_hitline(&'a self, id: &str) -> Result<&'a HitLine, failure::Error> {
         match self.hitlines.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Hits {} not found!", id))),
+            None => Err(failure::err_msg(format!("Hits {} undefined.", id))),
         }
     }
     pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&Scale, Vec<(f32, PShape)>), failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
-            None => Err(failure::err_msg(format!("Pitchs {} not found!", id))),
+            None => Err(failure::err_msg(format!("Pitchs {} undefined.", id))),
         }
     }
     pub fn fetch_sequence(&'a self, id: &str) -> Result<&'a PSequence, failure::Error> {
@@ -894,6 +894,6 @@ impl<'a> Binder<'a> {
                 return Ok(seq);
             }
         }
-        Err(failure::err_msg(format!("Sequence {} not found!", id)))
+        Err(failure::err_msg(format!("Sequence {} undefined.", id)))
     }
 }
