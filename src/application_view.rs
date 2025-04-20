@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::glib;
 use gtk::prelude::*;
 use gtk::Widget;
 use gtk::gio::Cancellable;
@@ -50,6 +49,7 @@ impl ApplicationView {
         session_presenter: &RSessionPresenter,
         event_bus: &REventBus,
     ) -> Result<RApplicationView, failure::Error> {
+
         // header bar
         let headerbar = gtk::HeaderBar::new();
 
@@ -172,6 +172,16 @@ impl ApplicationView {
         headerbar.pack_end(&play_or_pause_button);
 
 
+        // ApplicationWindow
+        let window = gtk::ApplicationWindow::builder()
+            .application(application)
+            .titlebar(&headerbar)
+            .default_width(1024)
+            .default_height(768)
+            .visible(true)
+            .build();
+
+
         // Message view
         let message_view_label = gtk::Label::builder().hexpand(true).lines(5).halign(gtk::Align::Center).build();
         let message_view_scrolledwindow = gtk::ScrolledWindow::builder()
@@ -220,7 +230,7 @@ impl ApplicationView {
 
 
         // Graph view
-        let graph_view = GraphView::new_ref(&session_presenter, event_bus);
+        let graph_view = GraphView::new_ref(&window, &session_presenter, event_bus);
 
         let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
             .hexpand(true)
@@ -235,15 +245,7 @@ impl ApplicationView {
         v_box.append(&talker_data_view_scrolledwindow);
         v_box.append(&split_pane);
 
-        // ApplicationWindow
-        let window = gtk::ApplicationWindow::builder()
-            .application(application)
-            .titlebar(&headerbar)
-            .default_width(1024)
-            .default_height(768)
-            .child(&v_box)
-            .visible(true)
-            .build();
+        window.set_child(Some(&v_box));
 
         /*
         Actions
@@ -263,20 +265,6 @@ impl ApplicationView {
             message_view_revealer_ctrl.set_reveal_child(false);
         });
 
-        // Key pressed event
-        let key_pressed_ctrl = graph_view.clone();
-        let key_pressed_event_controller = gtk::EventControllerKey::builder().build();
-        key_pressed_event_controller.connect_key_pressed(move |_, key, _, _| {
-            key_pressed_ctrl.borrow().on_key_pressed(key);
-            return glib::signal::Propagation::Proceed;
-        });
-        window.add_controller(key_pressed_event_controller);
-
-        // Key released event
-        let key_released_ctrl = graph_view.clone();
-        let key_released_event_controller = gtk::EventControllerKey::builder().build();
-        key_released_event_controller.connect_key_released(move |_, key, _, _| key_released_ctrl.borrow().on_key_released(key));
-        window.add_controller(key_released_event_controller);
 
         window.present();
 

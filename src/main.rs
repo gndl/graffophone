@@ -15,6 +15,7 @@ use gtk::{CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use session::event_bus::EventBus;
 
 mod application_view;
+mod graph_control;
 mod graph_presenter;
 mod graph_view;
 mod mixer_control;

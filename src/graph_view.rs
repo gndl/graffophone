@@ -4,27 +4,25 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use gtk::gdk;
 use crate::gtk::prelude::PopoverExt;
 use gtk::prelude::*;
 use gtk::prelude::{DrawingAreaExtManual, IsA, WidgetExt};
 
 use cairo::Context;
 
-use talker::identifier::Identifiable;
-use talker::identifier::{Id, Index};
+use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
 
 use session::event_bus::{Notification, REventBus};
 use session::mixer::Mixer;
 
+use crate::graph_control::{GraphControl, RGraphControl};
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::mixer_control::MixerControl;
 use crate::session_presenter::RSessionPresenter;
 use crate::style;
 use crate::talker_control;
 use crate::talker_control::{ControlSupply, RTalkerControl};
-use crate::ui;
 use crate::util;
 
 const MARGE: f64 = 10.;
@@ -106,123 +104,10 @@ impl<'c> Collector<'c> {
     }
 }
 
-pub struct EventReceiver {
-    session_presenter: RSessionPresenter,
-    graph_presenter: RGraphPresenter,
-    talker_controls: Vec<RTalkerControl>,
-    event_bus: REventBus,
-}
-pub type REventReceiver = Rc<RefCell<EventReceiver>>;
-
-impl EventReceiver {
-    pub fn new_ref(
-        session_presenter: &RSessionPresenter,
-        graph_presenter: &RGraphPresenter,
-        event_bus: &REventBus,
-    ) -> REventReceiver {
-        Rc::new(RefCell::new(Self {
-            session_presenter: session_presenter.clone(),
-            graph_presenter: graph_presenter.clone(),
-            talker_controls: Vec::new(),
-            event_bus: event_bus.clone(),
-        }))
-    }
-    pub fn set_talker_controls(&mut self, talker_controls: &HashMap<Id, RTalkerControl>) {
-        self.talker_controls.clear();
-
-        for tkrc in talker_controls.values() {
-            self.talker_controls.push(tkrc.clone());
-        }
-    }
-
-    fn on_ear_value_selected(
-        &self,
-        x: f64,
-        y: f64,
-        talker_id: Id,
-        ear_idx: Index,
-        set_idx: Index,
-        hum_idx: Index,
-        popover: &gtk::Popover,
-    ) {
-        let session_presenter = self.session_presenter.borrow();
-        let tkr = session_presenter.find_talker(talker_id).unwrap();
-
-        let (min, max, def) = tkr.ear(ear_idx).hum_range(hum_idx);
-        let cur = tkr.ear(ear_idx).talk_value_or_default(set_idx, hum_idx);
-
-        let gp_on_scale = self.graph_presenter.clone();
-        let gp_on_ok = self.graph_presenter.clone();
-        let gp_on_cancel = self.graph_presenter.clone();
-        let gp_on_default = self.graph_presenter.clone();
-
-        let ok_popover = popover.clone();
-        let cancel_popover = popover.clone();
-        let default_popover = popover.clone();
-
-        let dialog = ui::bounded_float_entry::create(
-            min,
-            max,
-            def,
-            cur,
-            move |v| {
-                gp_on_scale.borrow_mut().set_talker_ear_talk_value_volatly(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v)
-            },
-            move |v| {
-                gp_on_ok.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v);
-                ok_popover.popdown()
-            },
-            move |_| {
-                gp_on_cancel.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, cur);
-                cancel_popover.popdown()
-            },
-            move |_| {
-                gp_on_default.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, def);
-                default_popover.popdown()
-            },
-        );
-
-        popover.set_child(Some(&dialog));
-        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-        popover.popup();
-    }
-
-    pub fn on_button_release(&self, area_x: f64, area_y: f64, popover: &gtk::Popover) {
-        let x = area_x - 5.;
-        let y = area_y - 5.;
-
-        for tkrc in &self.talker_controls {
-            match tkrc.borrow().on_button_release(x, y, &self.graph_presenter) {
-                Ok(None) => (),
-                Ok(Some(notifications)) => {
-                    for notification in notifications {
-                        match notification {
-                            Notification::EarValueSelected(
-                                talker_id,
-                                ear_idx,
-                                set_idx,
-                                hum_idx,
-                            ) => self.on_ear_value_selected(
-                                x, y, talker_id, ear_idx, set_idx, hum_idx, popover,
-                            ),
-                            _ => self.event_bus.borrow().notify(notification),
-                        }
-                    }
-                    return;
-                }
-                Err(e) => self.event_bus.borrow().notify_error(e),
-            }
-        }
-    }
-}
 
 pub struct GraphView {
     session_presenter: RSessionPresenter,
-    event_receiver: REventReceiver,
+    graph_control: RGraphControl,
     graph_presenter: RGraphPresenter,
     drawing_area: gtk::DrawingArea,
     area: gtk::Box,
@@ -234,7 +119,7 @@ pub struct GraphView {
 pub type RGraphView = Rc<RefCell<GraphView>>;
 
 impl GraphView {
-    pub fn new_ref(session_presenter: &RSessionPresenter, event_bus: &REventBus) -> RGraphView {
+    pub fn new_ref(window: &gtk::ApplicationWindow, session_presenter: &RSessionPresenter, event_bus: &REventBus) -> RGraphView {
         let graph_presenter = GraphPresenter::new_ref(session_presenter, event_bus);
 
         let drawing_area = gtk::DrawingArea::builder()
@@ -264,7 +149,7 @@ impl GraphView {
 
         let rgv = Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            event_receiver: EventReceiver::new_ref(session_presenter, &graph_presenter, event_bus),
+            graph_control: GraphControl::new_ref(window, session_presenter, &graph_presenter, event_bus),
             graph_presenter,
             drawing_area,
             area,
@@ -284,7 +169,7 @@ impl GraphView {
         drawing_area: &gtk::DrawingArea,
         popover: gtk::Popover,
     ) {
-        let er = rgraphview.borrow().event_receiver.clone();
+        let er = rgraphview.borrow().graph_control.clone();
 
         let click = gtk::GestureClick::new();
 
@@ -293,18 +178,6 @@ impl GraphView {
 
         let gv_drawer = rgraphview.clone();
         drawing_area.set_draw_func(move |w, cc, _, _| gv_drawer.borrow_mut().on_draw(w, cc));
-    }
-
-    pub fn on_key_pressed(&self, key: gdk::Key) {
-        if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
-            self.graph_presenter.borrow_mut().set_multi_selection(true);
-        }
-    }
-
-    pub fn on_key_released(&self, key: gdk::Key) {
-        if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
-            self.graph_presenter.borrow_mut().set_multi_selection(false);
-        }
     }
 
     pub fn area(&self) -> &impl IsA<gtk::Widget> {
@@ -708,7 +581,7 @@ impl GraphView {
         match ControlSupply::new(cc) {
             Ok(control_supply) => match self.create_graph(drawing_area, &control_supply) {
                 Ok(talker_controls) => {
-                    self.event_receiver.borrow_mut().set_talker_controls(&talker_controls);
+                    self.graph_control.borrow_mut().set_talker_controls(&talker_controls);
 
                     self.talker_controls = talker_controls;
 
