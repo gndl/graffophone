@@ -472,6 +472,26 @@ impl ApplicationView {
         self.graph_presenter().borrow().duplicate_selected_talkers();
     }
 
+    // Undo action
+    pub fn undo(&self) {
+        if self.talker_data_view.is_focus() {
+            self.talker_data_view.buffer().undo();
+        }
+        else {
+            self.session_presenter.borrow_mut().undo()
+        }
+    }
+
+    // Redo action
+    pub fn redo(&self) {
+        if self.talker_data_view.is_focus() {
+            self.talker_data_view.buffer().redo();
+        }
+        else {
+            self.session_presenter.borrow_mut().redo()
+        }
+    }
+
     // Messages view
     fn display_message(&self, message: &String, tags: &str) {
         let msg = gtk::glib::markup_escape_text(&message.replace("\\n", "\n"));

@@ -23,7 +23,13 @@ pub const COMMIT_TALKER_DATA_ACCEL: &str = "<Ctrl>M";
 pub const CANCEL_TALKER_DATA_ACCEL: &str = "<Ctrl>W";
 pub const DUPLIATE_SELECTED_TALKERS_ACCEL: &str = "<Ctrl>D";
 
-pub fn create_actions_entries(application: &gtk::Application, window: &gtk::ApplicationWindow, view: &RApplicationView, session_presenter: &RSessionPresenter,) {
+pub fn create_actions_entries(
+    application: &gtk::Application,
+    window: &gtk::ApplicationWindow,
+    view: &RApplicationView,
+    session_presenter: &RSessionPresenter) {
+
+    let mut entries = Vec::new();
 
     // New session action
     let new_ctrl = session_presenter.clone();
@@ -38,6 +44,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
         }
     }))
     .build();
+
+    entries.push(new);
 
     application.set_accels_for_action("session.new", &[NEW_SESSION_ACCEL]);
 
@@ -57,6 +65,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     }))
     .build();
 
+    entries.push(open);
+
     application.set_accels_for_action("session.open", &[OPEN_SESSION_ACCEL]);
 
 
@@ -66,6 +76,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let save = ActionEntry::builder("save")
     .activate(move |_, _, _| save_ctrl.borrow_mut().save_session())
     .build();
+
+    entries.push(save);
 
     application.set_accels_for_action("session.save", &[SAVE_SESSION_ACCEL]);
 
@@ -88,23 +100,30 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     }))
     .build();
 
+    entries.push(save_as);
+
     application.set_accels_for_action("session.save_as", &[SAVE_SESSION_AS_ACCEL]);
 
+
     // Undo action
-    let undo_ctrl = session_presenter.clone();
+    let undo_ctrl = view.clone();
 
     let undo = ActionEntry::builder("undo")
-    .activate(move |_: &SimpleActionGroup, _, _| undo_ctrl.borrow_mut().undo())
+    .activate(move |_: &SimpleActionGroup, _, _| undo_ctrl.borrow().undo())
     .build();
+
+    entries.push(undo);
 
     application.set_accels_for_action("session.undo", &[UNDO_ACCEL]);
 
     // Redo action
-    let redo_ctrl = session_presenter.clone();
+    let redo_ctrl = view.clone();
 
     let redo = ActionEntry::builder("redo")
-    .activate(move |_: &SimpleActionGroup, _, _| redo_ctrl.borrow_mut().redo())
+    .activate(move |_: &SimpleActionGroup, _, _| redo_ctrl.borrow().redo())
     .build();
+
+    entries.push(redo);
 
     application.set_accels_for_action("session.redo", &[REDO_ACCEL]);
 
@@ -116,6 +135,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| play_ctrl.borrow_mut().play_or_pause(&play_ctrl))
     .build();
 
+    entries.push(play);
+
     application.set_accels_for_action("session.play", &[PLAY_ACCEL]);
 
     // Stop action
@@ -124,6 +145,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let stop = ActionEntry::builder("stop")
     .activate(move |_: &SimpleActionGroup, _, _| stop_ctrl.borrow_mut().stop())
     .build();
+
+    entries.push(stop);
 
     application.set_accels_for_action("session.stop", &[STOP_ACCEL]);
 
@@ -137,6 +160,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     })
     .build();
 
+    entries.push(restart);
+
     application.set_accels_for_action("session.restart", &[RESTART_ACCEL]);
 
     // Record action
@@ -145,6 +170,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let record = ActionEntry::builder("record")
     .activate(move |_: &SimpleActionGroup, _, _| record_ctrl.borrow_mut().record(&record_ctrl))
     .build();
+
+    entries.push(record);
 
     application.set_accels_for_action("session.record", &[RECORD_ACCEL]);
 
@@ -156,6 +183,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| push_talker_data_view.borrow().push_talker_data())
     .build();
 
+    entries.push(push_talker_data);
+
     application.set_accels_for_action("session.push_talker_data", &[PUSH_TALKER_DATA_ACCEL]);
 
     // Commit talker data action
@@ -163,6 +192,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     let commit_talker_data = ActionEntry::builder("commit_talker_data")
     .activate(move |_: &SimpleActionGroup, _, _| commit_talker_data_view.borrow().commit_talker_data())
     .build();
+
+    entries.push(commit_talker_data);
 
     application.set_accels_for_action("session.commit_talker_data", &[COMMIT_TALKER_DATA_ACCEL]);
 
@@ -172,6 +203,8 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| cancel_talker_data_view.borrow().cancel_talker_data())
     .build();
 
+    entries.push(cancel_talker_data);
+
     application.set_accels_for_action("session.cancel_talker_data", &[CANCEL_TALKER_DATA_ACCEL]);
 
     // Duplicate selected talkers action
@@ -180,11 +213,13 @@ pub fn create_actions_entries(application: &gtk::Application, window: &gtk::Appl
     .activate(move |_: &SimpleActionGroup, _, _| duplicate_selected_talkers_view.borrow().duplicate_selected_talkers())
     .build();
 
+    entries.push(duplicate_selected_talkers);
+
     application.set_accels_for_action("session.duplicate_selected_talkers", &[DUPLIATE_SELECTED_TALKERS_ACCEL]);
 
 
     let actions = SimpleActionGroup::new();
-    actions.add_action_entries([new, open, save, save_as, undo, redo, play, stop, restart, record, push_talker_data, commit_talker_data, cancel_talker_data, duplicate_selected_talkers]);
+    actions.add_action_entries(entries);
     window.insert_action_group("session", Some(&actions));
 
 
