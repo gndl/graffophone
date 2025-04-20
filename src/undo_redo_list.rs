@@ -17,13 +17,12 @@ impl UndoRedoList {
 
     pub fn reset(&mut self) {
         self.states.clear();
-  //      self.states.push("".to_string());
         self.position = 0;
     }
 
     pub fn new_state(&mut self, state: String) {
 
-        let mut end_pos = self.states.len() - 1;
+        let mut end_pos = self.end_position();
 
         if self.position < end_pos {
             let mut start_pos = self.position;
@@ -36,7 +35,7 @@ impl UndoRedoList {
             }
         }
         self.states.push(state);
-        self.position = self.states.len() - 1;
+        self.position = self.end_position();
     }
 
     pub fn undo(&mut self) -> Option<String> {
@@ -50,12 +49,16 @@ impl UndoRedoList {
     }
 
     pub fn redo(&mut self) -> Option<String> {
-        if self.position < self.states.len() - 1 {
+        if self.position < self.end_position() {
             self.position += 1;
             Some(self.states[self.position].clone())
         }
         else {
             None
         }
+    }
+
+    fn end_position(&self) -> usize {
+        self.states.len().max(1) - 1
     }
 }
