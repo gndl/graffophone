@@ -41,10 +41,7 @@ impl GraphControl {
         // Key pressed event
         let key_pressed_ctrl = instance.clone();
         let key_pressed_event_controller = gtk::EventControllerKey::builder().build();
-        key_pressed_event_controller.connect_key_pressed(move |_, key, _, _| {
-            key_pressed_ctrl.borrow().on_key_pressed(key);
-            return glib::signal::Propagation::Proceed;
-        });
+        key_pressed_event_controller.connect_key_pressed(move |_, key, _, _| key_pressed_ctrl.borrow().on_key_pressed(key));
         window.add_controller(key_pressed_event_controller);
 
         // Key released event
@@ -64,16 +61,15 @@ impl GraphControl {
         }
     }
 
-    pub fn on_key_pressed(&self, key: gdk::Key) {
-        println!("GraphControl::on_key_pressed");
+    pub fn on_key_pressed(&self, key: gdk::Key) -> glib::signal::Propagation{
 
         if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
             self.graph_presenter.borrow_mut().set_multi_selection(true);
         }
+        glib::signal::Propagation::Proceed
     }
 
     pub fn on_key_released(&self, key: gdk::Key) {
-        println!("GraphControl::on_key_released");
 
         if key == gdk::Key::Control_L || key == gdk::Key::Control_R {
             self.graph_presenter.borrow_mut().set_multi_selection(false);
