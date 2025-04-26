@@ -26,6 +26,7 @@ mod session_presenter;
 mod settings;
 mod style;
 mod talker_control;
+mod talker_data_view;
 mod ui;
 mod undo_redo_list;
 mod util;

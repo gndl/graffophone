@@ -3,22 +3,19 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use gtk::Widget;
-use gtk::gio::Cancellable;
 
-use talker::data::Data;
 use talker::identifier::Id;
 
 use session;
 use session::event_bus::{Notification, REventBus};
 use session::state::State;
-use sourceview5::traits::BufferExt;
 
 use crate::graph_presenter::RGraphPresenter;
 use crate::graph_view::{GraphView, RGraphView};
 use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
 use crate::settings;
-use crate::ui::plugin_ui;
+use crate::talker_data_view::TalkerDataView;
 use crate::ui::talker_object::TalkerObject;
 
 pub struct ApplicationView {
@@ -29,13 +26,8 @@ pub struct ApplicationView {
     record_button: gtk::Button,
     message_view_revealer: gtk::Revealer,
     message_view_label: gtk::Label,
-    talker_data_view: sourceview5::View,
-    talker_data_view_scrolledwindow: gtk::ScrolledWindow,
-    push_talker_data_button: gtk::Button,
-    commit_talker_data_button: gtk::Button,
-    cancel_talker_data_button: gtk::Button,
+    talker_data_view: TalkerDataView,
     talkers_box: gtk::Box,
-    plugin_ui_manager: RefCell<plugin_ui::Manager>,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
     event_bus: REventBus,
@@ -114,30 +106,6 @@ impl ApplicationView {
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&separator);
 
-        // Push talker data
-        let push_talker_data_button = gtk::Button::builder()
-            .icon_name("go-up")
-            .action_name("session.push_talker_data")
-            .tooltip_text(format!("Push talker data ({})", session_actions::PUSH_TALKER_DATA_ACCEL))
-            .build();
-        headerbar.pack_start(&push_talker_data_button);
-
-        // Commit talker data
-        let commit_talker_data_button = gtk::Button::builder()
-            .icon_name("dialog-ok")
-            .action_name("session.commit_talker_data")
-            .tooltip_text(format!("Commit talker data ({})", session_actions::COMMIT_TALKER_DATA_ACCEL))
-            .build();
-        headerbar.pack_start(&commit_talker_data_button);
-
-        // Cancel talker data
-        let cancel_talker_data_button = gtk::Button::builder()
-            .icon_name("dialog-cancel")
-            .action_name("session.cancel_talker_data")
-            .tooltip_text(format!("Cancel talker data ({})", session_actions::CANCEL_TALKER_DATA_ACCEL))
-            .build();
-        headerbar.pack_start(&cancel_talker_data_button);
-
         // header bar right controls
         let settings_menu = settings::menu();
         let menu_button = gtk::MenuButton::builder()
@@ -199,18 +167,9 @@ impl ApplicationView {
 
 
         // Talker data view
-        let talker_data_view = sourceview5::View::builder()
-            .wrap_mode(gtk::WrapMode::Word)
-            .vscroll_policy(gtk::ScrollablePolicy::Natural)
-            .highlight_current_line(true)
-            .build();
-
-        let talker_data_view_scrolledwindow = gtk::ScrolledWindow::builder()
-            .child(&talker_data_view)
-            .hadjustment(&talker_data_view.hadjustment().unwrap())
-            .vexpand(true)
-            .max_content_height(256)
-            .build();
+        let talker_data_view = TalkerDataView::new(session_presenter);
+        talker_data_view.add_tools(|w| headerbar.pack_start(w));
+        talker_data_view.hide();
 
 
         // Split pane
@@ -242,7 +201,7 @@ impl ApplicationView {
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
         v_box.append(&message_view_revealer);
-        v_box.append(&talker_data_view_scrolledwindow);
+        talker_data_view.add_content(|w| v_box.append(w));
         v_box.append(&split_pane);
 
         window.set_child(Some(&v_box));
@@ -279,18 +238,11 @@ impl ApplicationView {
             message_view_revealer,
             message_view_label,
             talker_data_view,
-            talker_data_view_scrolledwindow,
-            push_talker_data_button,
-            commit_talker_data_button,
-            cancel_talker_data_button,
             talkers_box,
-            plugin_ui_manager: RefCell::new(plugin_ui::Manager::new()),
             graph_view,
             session_presenter: session_presenter.clone(),
             event_bus: event_bus.clone(),
         };
-
-        av.hide_talker_data_editor();
 
         let rav = Rc::new(RefCell::new(av));
         
@@ -368,55 +320,9 @@ impl ApplicationView {
 
     // Talker data editor
     fn edit_talker_data(&self, talker_id: Id) {
-        if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
-            match &*talker.data().borrow() {
-                Data::Int(_) => println!("Todo : Applicationview.edit_talker_data Data::Int"),
-                Data::Float(_) => println!("Todo : Applicationview.edit_talker_data Data::Float"),
-                Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
-                Data::Text(data) => {
-                    let text_buffer = sourceview5::Buffer::builder()
-                        .enable_undo(true)
-                        .highlight_matching_brackets(true)
-                        .highlight_syntax(true)
-                        .build();
-
-                    if let Some(scheme) =
-                        sourceview5::StyleSchemeManager::default().scheme("classic-dark")
-                    {
-                        text_buffer.set_style_scheme(Some(&scheme));
-                    }
-                    text_buffer.set_text(&data);
-                    self.talker_data_view.set_buffer(Some(&text_buffer));
-                    self.talker_data_view_scrolledwindow.set_visible(true);
-                    self.push_talker_data_button.set_visible(true);
-                    self.commit_talker_data_button.set_visible(true);
-                    self.cancel_talker_data_button.set_visible(true);
-                    self.talker_data_view.grab_focus();
-                }
-                Data::File(_) => {
-                    let open_ctrl = self.session_presenter.clone();
-
-                    let dialog = gtk::FileDialog::builder()
-                    .title("Choose a file")
-                    .accept_label("Open")
-                    .build();
-
-                    dialog.open(Some(&self.window), Cancellable::NONE, move |file| {
-                        if let Ok(file) = file {
-                            let path_buf = file.path().expect("Couldn't get file path");
-
-                            open_ctrl.borrow_mut().set_talker_data(talker_id,&path_buf.to_string_lossy());
-                        }
-                    });
-                },
-                Data::UI => {
-                    match self.plugin_ui_manager.borrow_mut().show(talker, &self.session_presenter) {
-                        Ok(()) => (),
-                        Err(e) => self.display_error_message(&format!("{}", e)),
-                    }
-                },
-                Data::Nil => (),
-            }
+        match self.talker_data_view.edit_talker_data(&self.window, talker_id) {
+            Ok(()) => (),
+            Err(e) => self.display_error_message(&format!("{}", e)),
         }
     }
 
@@ -424,12 +330,7 @@ impl ApplicationView {
         let selected_data_talker = self.graph_presenter().borrow().selected_data_talker();
 
         if let Some(talker_id) = selected_data_talker {
-            let text_buffer = self.talker_data_view.buffer();
-
-            self.session_presenter.borrow_mut().set_talker_data(
-                talker_id,
-                &text_buffer.text(&text_buffer.start_iter(), &text_buffer.end_iter(), false),
-            );
+            self.session_presenter.borrow_mut().set_talker_data(talker_id, &self.talker_data_view.get_data());
         }
     }
 
@@ -443,17 +344,10 @@ impl ApplicationView {
     }
 
     fn close_talker_data_editor(&self) {
-        self.hide_talker_data_editor();
+        self.talker_data_view.hide();
 
         let res = self.graph_presenter().borrow_mut().unselect_data_talker();
         self.event_bus.borrow().notify_notifications_result(res);
-    }
-
-    fn hide_talker_data_editor(&self) {
-        self.talker_data_view_scrolledwindow.set_visible(false);
-        self.push_talker_data_button.set_visible(false);
-        self.commit_talker_data_button.set_visible(false);
-        self.cancel_talker_data_button.set_visible(false);
     }
 
     pub fn duplicate_selected_talkers(&self) {
@@ -462,8 +356,8 @@ impl ApplicationView {
 
     // Undo action
     pub fn undo(&self) {
-        if self.talker_data_view.is_focus() {
-            self.talker_data_view.buffer().undo();
+        if self.talker_data_view.is_active() {
+            self.talker_data_view.undo();
         }
         else {
             self.session_presenter.borrow_mut().undo()
@@ -472,8 +366,8 @@ impl ApplicationView {
 
     // Redo action
     pub fn redo(&self) {
-        if self.talker_data_view.is_focus() {
-            self.talker_data_view.buffer().redo();
+        if self.talker_data_view.is_active() {
+            self.talker_data_view.redo();
         }
         else {
             self.session_presenter.borrow_mut().redo()
@@ -551,7 +445,7 @@ impl ApplicationView {
                 },
                 Notification::NewSession(name) => {
                     obs.borrow().hide_message();
-                    obs.borrow().hide_talker_data_editor();
+                    obs.borrow().talker_data_view.hide();
                     obs.borrow().window.set_title(Some(&name));
                 }
                 Notification::SessionSaved => obs.borrow().display_info_message(&"Session saved.".to_string()),
