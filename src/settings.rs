@@ -42,3 +42,19 @@ pub fn menu() -> gio::Menu {
 
     menu
 }
+
+pub fn get_directory() -> std::path::PathBuf {
+    match dirs::config_local_dir() {
+        Some(path) => {
+            path.join("graffophone")
+        }
+        None => {
+            match dirs::home_dir() {
+                Some(path) => {
+                    path.join(".graffophone")
+                }
+                None => std::path::PathBuf::from(".graffophone")
+            }
+        },
+    }
+}

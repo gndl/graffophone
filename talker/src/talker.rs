@@ -12,6 +12,11 @@ use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
 use crate::lv2_handler::Lv2Handler;
 use crate::voice::{self, Voice};
 
+pub struct Language {
+    pub id: String,
+    pub definition: Option<String>,
+}
+
 pub struct TalkerBase {
     identifier: RIdentifier,
     data: RData,
@@ -223,6 +228,11 @@ impl Identifiable for TalkerBase {
 pub trait Talker {
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
+    
+
+    fn data_language(&self) -> Option<Language> {
+        None
+    }
 
     fn set_data_update(
         &mut self,
@@ -338,6 +348,10 @@ impl TalkerCab {
 
     pub fn set_effective(&mut self, effective: bool) {
         self.base.effective = effective;
+    }
+
+    pub fn data_language(&self) -> Option<Language> {
+        self.core.borrow().data_language()
     }
 
     pub fn data(&self) -> &RData {
