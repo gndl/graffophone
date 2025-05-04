@@ -378,14 +378,14 @@ impl SessionPresenter {
     }
 
     pub fn add_mixer_file_output(&mut self, mixer_id: Id) {
-        let filepath = self.default_audiofile_name();
+        let file_path = self.default_audiofile_name();
 
         self.visite_mutable_mixer(mixer_id, |mixer| {
             let output = OutputPresenter::new(Identifier::new("", "file"), 
                 output_presenter::DEFAULT_CODEC,
                 output_presenter::DEFAULT_SAMPLE_RATE,
                 channel::DEFAULT_LAYOUT,
-                filepath.as_str());
+                file_path.as_str());
             mixer.add_output(output);
         });
     }

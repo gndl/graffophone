@@ -410,7 +410,7 @@ impl ApplicationView {
                         State::Playing => {
                             obs.borrow()
                                 .play_or_pause_icon
-                                .set_from_icon_name(Some("media-playback-pause"));
+                                .set_icon_name(Some("media-playback-pause"));
                             obs.borrow().record_button.set_sensitive(false);
                             obs.borrow().stop_button.set_sensitive(true);
                         }
@@ -422,13 +422,13 @@ impl ApplicationView {
                         State::Paused => {
                             obs.borrow()
                                 .play_or_pause_icon
-                                .set_from_icon_name(Some("media-playback-start"));
+                                .set_icon_name(Some("media-playback-start"));
                             obs.borrow().stop_button.set_sensitive(true);
                         }
                         State::Stopped => {
                             obs.borrow()
                                 .play_or_pause_icon
-                                .set_from_icon_name(Some("media-playback-start"));
+                                .set_icon_name(Some("media-playback-start"));
                             obs.borrow().play_or_pause_button.set_sensitive(true);
                             obs.borrow().record_button.set_sensitive(true);
                             obs.borrow().stop_button.set_sensitive(false);
@@ -436,7 +436,7 @@ impl ApplicationView {
                         State::Exited => {
                             obs.borrow()
                                 .play_or_pause_icon
-                                .set_from_icon_name(Some("media-playback-start"));
+                                .set_icon_name(Some("media-playback-start"));
                             obs.borrow().play_or_pause_button.set_sensitive(true);
                             obs.borrow().record_button.set_sensitive(true);
                             obs.borrow().stop_button.set_sensitive(false);

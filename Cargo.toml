@@ -15,9 +15,10 @@ path = "au2tseq/src/main.rs"
 [dependencies]
 failure = "0.1.8"
 ringbuf = "0.2.8"
-#glib = "0.18.2"
-cairo-rs = "0.18.2"
-sourceview5 = "0.7.1"
+dirs = "6.0.0"
+#glib = "0.20.9"
+cairo-rs = "0.20.7"
+sourceview5 = "0.9.1"
 audiofile = { path = "./audiofile" }
 talker = { path = "./talker" }
 scale = { path = "./scale" }
@@ -29,9 +30,9 @@ suil-sys = { git = "https://github.com/gndl/suil-sys.git" }
 
 [dependencies.gtk]
 package = "gtk4"
-version = "0.7.3"
+version = "0.9.6"
 features = ["v4_12"]
 
 [dependencies.gio]
-version = "0.18.2"
+version = "0.20.9"
 features = ["v2_58"]

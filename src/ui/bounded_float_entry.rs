@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
 use crate::gtk::Adjustment;
-use gtk::glib::IsA;
+use gtk::prelude::IsA;
 use gtk::prelude::EditableExt;
 use gtk::prelude::WidgetExt;
-use gtk::traits::{AdjustmentExt, BoxExt, ButtonExt};
+use crate::gtk::prelude::AdjustmentExt;
+use crate::gtk::prelude::ButtonExt;
+use crate::gtk::prelude::BoxExt;
 
 fn key_is_numeric(c: u32) -> bool {
     (c >= 10 && c <= 19) || (c >= 79 && c <= 91) || c == 59 || c == 82
