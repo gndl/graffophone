@@ -364,3 +364,75 @@ pub const SYNTAX_DESCRIPTION: &str = concat!(
     "<pan_value (0-127)>]]]][...]\n",
     MULTILINE_COMMENT_KW!()
 );
+
+
+pub const TSEQ_LANGUAGE_ID: &str = "tseq";
+
+pub const TSEQ_LANGUAGE_DEFINITION: &str = concat!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<language id=\"tseq\" name=\"tseq\" version=\"2.0\" _section=\"Source\">
+  <metadata>
+    <property name=\"mimetypes\">text/x-c</property>
+    <property name=\"globs\">*.tsq</property>
+  </metadata>
+  <styles>
+    <style id=\"comment\" name=\"Comment\" map-to=\"def:comment\"/>
+    <style id=\"floating-point\" name=\"Floating point number\" map-to=\"def:floating-point\"/>
+    <style id=\"identifier\" name=\"Identifier\" map-to=\"def:identifier\"/>
+    <style id=\"keyword\" name=\"Keyword\" map-to=\"def:keyword\"/>
+    <style id=\"unit\" name=\"Unit\" map-to=\"def:keyword\"/>
+  </styles>
+  <definitions>
+    <context id=\"comment-multiline\" style-ref=\"comment\">
+      <start>", MULTILINE_COMMENT_KW!(), "</start>
+      <end>", MULTILINE_COMMENT_KW!(), "</end>
+    </context>
+    <context id=\"comment\" style-ref=\"comment\">
+      <start>", LINE_COMMENT_KW!(), "</start>
+      <end>$</end>
+    </context>
+    <context id=\"float\">
+      <match extended=\"true\" case-sensitive=\"false\">[^\\#\\w](\\d*\\.?\\d+)</match>
+      <include>
+        <context sub-pattern=\"1\" style-ref=\"floating-point\"/>
+      </include>
+    </context>
+    <context id=\"unit\">
+      <match extended=\"true\" case-sensitive=\"false\">[0-9\\s](ms|s|m)\\W</match>
+      <include>
+        <context sub-pattern=\"1\" style-ref=\"unit\"/>
+      </include>
+    </context>
+    <context id=\"identifier\">
+      <match extended=\"true\" case-sensitive=\"false\">\\W([a-zA-Z_\\^][\\^\\w\\#]*)</match>
+      <include>
+        <context sub-pattern=\"1\" style-ref=\"identifier\"/>
+      </include>
+    </context>
+    <context id=\"keywords\" style-ref=\"keyword\">
+      <keyword>", BEAT_KW!(), "</keyword>
+      <keyword>", SCALE_KW!(), "</keyword>
+      <keyword>", ENVELOP_KW!(), "</keyword>
+      <keyword>", ATTACK_KW!(), "</keyword>
+      <keyword>", CHORD_KW!(), "</keyword>
+      <keyword>", CHORDLINE_KW!(), "</keyword>
+      <keyword>", HITLINE_KW!(), "</keyword>
+      <keyword>", DURATIONLINE_KW!(), "</keyword>
+      <keyword>", PITCHLINE_KW!(), "</keyword>
+      <keyword>", VELOCITYLINE_KW!(), "</keyword>
+      <keyword>", SEQUENCE_KW!(), "</keyword>
+      <keyword>", SEQUENCE_OUTPUT_KW!(), "</keyword>
+      <keyword>", MIDI_OUTPUT_KW!(), "</keyword>
+    </context>
+    <context id=\"tseq\" class=\"no-spell-check\">
+      <include>
+        <context ref=\"comment-multiline\"/>
+        <context ref=\"comment\"/>
+        <context ref=\"float\"/>
+        <context ref=\"unit\"/>
+        <context ref=\"keywords\"/>
+        <context ref=\"identifier\"/>
+      </include>
+    </context>
+  </definitions>
+</language>
+");

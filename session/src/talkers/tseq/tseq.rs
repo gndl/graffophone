@@ -3,6 +3,7 @@ use std::f32;
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::data::Data;
+use talker::talker::Language;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
@@ -11,7 +12,7 @@ use talkers::tseq::binder::Binder;
 use talkers::tseq::envelope;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
-use talkers::tseq::syntax::SYNTAX_DESCRIPTION;
+use talkers::tseq::syntax::{SYNTAX_DESCRIPTION, TSEQ_LANGUAGE_DEFINITION, TSEQ_LANGUAGE_ID};
 use talkers::tseq::{sequence, parser};
 use talkers::tseq::sequence::EventReminder;
 use scale::scale;
@@ -190,6 +191,10 @@ impl Talker for Tseq {
         for _ in 0..self.sequences.len() {
             self.events_reminder.push(EventReminder::new());
         }
+    }
+
+    fn data_language(&self) -> Option<Language> {
+        Some(Language {id: TSEQ_LANGUAGE_ID.to_string(), definition: Some(TSEQ_LANGUAGE_DEFINITION.to_string())})
     }
 
     fn set_data_update(
