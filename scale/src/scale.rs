@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub const DEFAULT: &str = "12ET";
+pub const DEFAULT: &str = "SCL_12ET";
 
 pub struct Scale {
     pub name: &'static str,
@@ -123,7 +123,7 @@ impl Scale {
 pub fn create_pythagorean_scale() -> Scale {
     let freq_0 = 440. / 27.0_f64;
 
-    Scale::new("pythagorean", freq_0,
+    Scale::new("SCL_pythagorean", freq_0,
         vec![
             ("C", 1.),
             ("Db", 2.0_f64.powi(8) / 3.0_f64.powi(5)),
@@ -148,7 +148,7 @@ pub fn create_pythagorean_scale() -> Scale {
 pub fn create_natural_scale() -> Scale {
     let freq_0 = (440.0_f64 * 3.) / (5.0_f64 * 16.);
 
-    Scale::new("natural", freq_0,
+    Scale::new("SCL_natural", freq_0,
         vec![
             ("C", 1.),
             ("C#", 25. / 24.0_f64),
@@ -168,7 +168,7 @@ pub fn create_natural_scale() -> Scale {
 pub fn create_12et_scale() -> Scale {
     let freq_0 = 440.0_f64 / (57. / 12.0_f64).exp2();
 
-    Scale::new("12ET", freq_0,
+    Scale::new("SCL_12ET", freq_0,
         vec![
             ("C", 1.),
             ("C#", (1. / 12.0_f64).exp2()),
@@ -188,7 +188,7 @@ pub fn create_12et_scale() -> Scale {
 pub fn create_17et_scale() -> Scale {
     let freq_0 = 440.0_f64 / (81. / 17.0_f64).exp2();
 
-    Scale::new("17ET", freq_0,
+    Scale::new("SCL_17ET", freq_0,
         vec![
             ("C", 1.),
             ("Db", (1. / 17.0_f64).exp2()),
@@ -213,7 +213,7 @@ pub fn create_17et_scale() -> Scale {
 pub fn create_19et_scale() -> Scale {
     let freq_0 = 440.0_f64 / (90. / 19.0_f64).exp2();
 
-    Scale::new("19ET", freq_0,
+    Scale::new("SCL_19ET", freq_0,
         vec![
             ("C", 1.),
             ("C#", (1. / 19.0_f64).exp2()),
@@ -272,7 +272,7 @@ pub fn create_24et_scale() -> Scale {
 pub fn create_53et_scale() -> Scale {
     let freq_0 = 440.0_f64 / (252. / 53.0_f64).exp2();
 
-    Scale::new("53ET", freq_0,
+    Scale::new("SCL_53ET", freq_0,
         vec![
             ("C", 1.),
             ("^C", (1. / 53.0_f64).exp2()),
@@ -337,12 +337,12 @@ impl Collection {
     pub fn new() -> Self {
         let mut map = HashMap::new();
 
-        map.insert("pythagorean", create_pythagorean_scale());
-        map.insert("natural", create_natural_scale());
-        map.insert("12ET", create_12et_scale());
-        map.insert("17ET", create_17et_scale());
-        map.insert("19ET", create_19et_scale());
-        map.insert("53ET", create_53et_scale());
+        map.insert("SCL_pythagorean", create_pythagorean_scale());
+        map.insert("SCL_natural", create_natural_scale());
+        map.insert("SCL_12ET", create_12et_scale());
+        map.insert("SCL_17ET", create_17et_scale());
+        map.insert("SCL_19ET", create_19et_scale());
+        map.insert("SCL_53ET", create_53et_scale());
 
         Self {
             map,

@@ -280,7 +280,7 @@ macro_rules! VELOCITY_DESC {
 pub const SYNTAX_DESCRIPTION: &str = concat!(
     MULTILINE_COMMENT_KW!(), " Description\n",
     BEAT_KW!(), " <beat_id> ", DEF_KW!(), " <bpm>\n",
-    SCALE_KW!(), " <scale_alias> ", DEF_KW!(), " <scale_name (12ET|17ET|19ET|53ET|natural|pythagorean)>\n",
+    SCALE_KW!(), " <scale_alias> ", DEF_KW!(), " <scale_name (SCL_12ET|SCL_17ET|SCL_19ET|SCL_53ET|SCL_natural|SCL_pythagorean)>\n",
     CHORD_KW!(), " <chord_id> ", DEF_KW!(), RATIO_DESC!("ratio"), "[", JOIN_KW!(), TIME_DESC!("delay", "hit"), "[", JOIN_KW!(), VELOCITY_DESC!(), "]][...]\n",
     ATTACK_KW!(), " <attack_id> ", DEF_KW!(), TIME_DESC!("delay", "hit"), "[", JOIN_KW!(), VELOCITY_DESC!(), "][...]\n",
     CHORDLINE_KW!(), " <chords_id> ", DEF_KW!(),
