@@ -29,7 +29,9 @@ pub enum Time {
 fn to_time(ptime: &PTime, ticks_per_second: f32) -> Time {
     match ptime {
         PTime::Rate(v) => Time::Rate(v.num / v.den),
-        PTime::Second(v) => Time::Ticks((ticks_per_second * v.num / v.den) as i64),
+        PTime::Millisecond(v) => Time::Ticks(((ticks_per_second * v.num) / (v.den * 1000.)) as i64),
+        PTime::Second(v) => Time::Ticks(((ticks_per_second * v.num) / v.den) as i64),
+        PTime::Minute(v) => Time::Ticks(((ticks_per_second * v.num * 60.) / v.den) as i64),
     }
 }
 

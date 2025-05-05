@@ -131,10 +131,25 @@ macro_rules! DURATIONLINE_KW {
         "durations"
     };
 }
+
 #[macro_export]
-macro_rules! SECOND_SYM_KW {
+macro_rules! MILLISECOND_KW {
     () => {
-        's'
+        "ms"
+    };
+}
+
+#[macro_export]
+macro_rules! SECOND_KW {
+    () => {
+        "s"
+    };
+}
+
+#[macro_export]
+macro_rules! MINUTE_KW {
+    () => {
+        "m"
     };
 }
 
@@ -266,7 +281,7 @@ macro_rules! RATIO_DESC {
 #[macro_export]
 macro_rules! TIME_DESC {
     ($t:expr, $u:expr) => {
-        concat!(RATIO_DESC!($t), "[", SECOND_SYM_KW!(), "](", $u, "|second)")
+        concat!(RATIO_DESC!($t), " ", MILLISECOND_KW!(), "|", SECOND_KW!(), "|", MINUTE_KW!(), "(", $u, "|millisecond|second|minute)")
     };
 }
 
@@ -397,7 +412,7 @@ pub const TSEQ_LANGUAGE_DEFINITION: &str = concat!("<?xml version=\"1.0\" encodi
       </include>
     </context>
     <context id=\"unit\">
-      <match extended=\"true\" case-sensitive=\"false\">[0-9\\s](ms|s|m)\\W</match>
+      <match extended=\"true\" case-sensitive=\"false\">[0-9\\s](", MILLISECOND_KW!(), "|", SECOND_KW!(), "|", MINUTE_KW!(), ")\\W</match>
       <include>
         <context sub-pattern=\"1\" style-ref=\"unit\"/>
       </include>

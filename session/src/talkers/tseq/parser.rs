@@ -31,9 +31,11 @@ use MUL_KW;
 use ON_KW;
 use PER_KW;
 use PITCHLINE_KW;
+use MILLISECOND_KW;
 use REF_KW;
 use ROUND_SHAPE_KW;
-use SECOND_SYM_KW;
+use SECOND_KW;
+use MINUTE_KW;
 use SEQUENCE_KW;
 use SEQUENCE_OUTPUT_KW;
 use SIN_SHAPE_KW;
@@ -53,7 +55,9 @@ pub struct PRatio {
 #[derive(Debug, PartialEq)]
 pub enum PTime {
     Rate(PRatio),
+    Millisecond(PRatio),
     Second(PRatio),
+    Minute(PRatio),
 }
 #[derive(Debug, PartialEq)]
 pub struct PAttribute<'a> {
@@ -365,11 +369,20 @@ fn interval(input: &str) -> IResult<&str, PPitchGap> {
 }
 
 fn time(input: &str) -> IResult<&str, PTime> {
-    let (input, (value, ounit, _)) = tuple((ratio, opt(char(SECOND_SYM_KW!())), space0))(input)?;
-    let duration = if ounit.is_some() {
-        PTime::Second(value)
-    } else {
-        PTime::Rate(value)
+    let (input, (value, ounit, _)) = tuple((ratio, opt(alt((tag(MILLISECOND_KW!()), tag(SECOND_KW!()), tag(MINUTE_KW!())))), space0))(input)?;
+    let duration = match ounit {
+        Some(unit) => {
+            if unit == MILLISECOND_KW!() {
+                PTime::Millisecond(value)
+            }
+            else if unit == SECOND_KW!() {
+                PTime::Second(value)
+            }
+            else {
+                PTime::Minute(value)
+            }
+        }
+        None => PTime::Rate(value),
     };
     Ok((input, duration))
 }
@@ -862,7 +875,7 @@ fn test_chord() {
         " 1 1.5",
         JOIN_KW!(),
         "2",
-        SECOND_SYM_KW!(),
+        SECOND_KW!(),
         " 3",
         ON_KW!(),
         "2",
