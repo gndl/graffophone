@@ -9,7 +9,6 @@ use talker::talker_handler::TalkerHandlerBase;
 
 use talkers::tseq::audio_event::{self, AudioEvents, Shapes};
 use talkers::tseq::binder::Binder;
-use talkers::tseq::envelope;
 use talkers::tseq::midi_seq::MidiSeq;
 use talkers::tseq::parser::Expression;
 use talkers::tseq::syntax::{SYNTAX_DESCRIPTION, TSEQ_LANGUAGE_DEFINITION, TSEQ_LANGUAGE_ID};
@@ -97,8 +96,7 @@ impl Tseq {
                     binder.add_velocityline(line)?;
                 }
                 Expression::Envelope(ref envelope) => {
-                    binder.add_envelope(envelope, envelopes.len())?;
-                    envelopes.push(envelope::create(&shapes, envelope, binder.ticks_per_second))
+                    envelopes.push(binder.add_envelope(&shapes, envelope, envelopes.len())?);
                 }
                 Expression::Seq(ref sequence) => {
                     binder.add_sequence(sequence)?;

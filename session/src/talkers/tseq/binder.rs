@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use scale::scale::{self, Scale};
 
+use talkers::tseq::audio_event::Shapes;
 use talkers::tseq::parser::{
     PAttack, PBeat, PChord, PChordLineFragment, PChordLine, PDurationLine, PEnvelope, PHit, PHitLine,
     PPitchGap, PPitchLineFragment, PPitchLine, PPitchLineTransformation,
@@ -142,6 +143,18 @@ fn to_durationline(pdurationline: &PDurationLine, ticks_per_second: f32) -> Dura
             .collect(),
     }
 }
+
+fn to_envelope(shapes: &Shapes, penvelope: &PEnvelope, ticks_per_second: f32) -> Result<Vec<f32>, failure::Error> {
+    let mut points = Vec::with_capacity(penvelope.points.len());
+
+    for ppoint in &penvelope.points {
+        match to_time(&ppoint.duration, ticks_per_second) {
+            Time::Ticks(t) => points.push(envelope::Point::new(t, ppoint.shape, ppoint.level)),
+            Time::Rate(_) => return Err(failure::err_msg(format!("Envelope {} points duration must have a time unit.", penvelope.id))),
+        }
+    }
+    Ok(envelope::create(shapes, &points))
+} 
 
 fn elements_scheduling<F>(elements_deps: &Vec<HashSet<usize>>, elements_type: &str, element_id: F) -> Result<Vec<usize>, failure::Error>
 where F: Fn(usize) -> String,
@@ -326,11 +339,11 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
-    pub fn add_envelope(&mut self, envelope: &'a PEnvelope<'a>, index: usize) -> Result<(), failure::Error> {
-        if let Some(_) = self.envelops_indexes.insert(envelope.id, index) {
-            return Err(failure::err_msg(format!("Envelope {} defined several times.", envelope.id)));
+    pub fn add_envelope(&mut self, shapes: &Shapes, penvelope: &'a PEnvelope<'a>, index: usize) -> Result<Vec<f32>, failure::Error> {
+        if let Some(_) = self.envelops_indexes.insert(penvelope.id, index) {
+            return Err(failure::err_msg(format!("Envelope {} defined several times.", penvelope.id)));
         }
-        Ok(())
+        to_envelope(shapes, penvelope, self.ticks_per_second)
     }
 
     pub fn add_sequence(&mut self, sequence: &'a PSequence<'a>) -> Result<(), failure::Error> {

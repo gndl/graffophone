@@ -46,13 +46,13 @@ use {OPEN_BRACKET_KW, CLOSE_BRACKET_KW, PARAM_SEP_KW, NOTE_SHIFT_KW, BACK_NOTE_S
 use {FADEIN_KW, FADEOUT_KW};
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PRatio {
     pub num: f32,
     pub den: f32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PTime {
     Rate(PRatio),
     Millisecond(PRatio),
@@ -194,7 +194,7 @@ pub struct PDurationLine<'a> {
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct PEnvelopePoint {
-    pub duration: f32,
+    pub duration: PTime,
     pub shape: PShape,
     pub level: f32,
 }
@@ -590,11 +590,11 @@ fn velocityline(input: &str) -> IResult<&str, Expression> {
 }
 
 fn envelop_point(input: &str) -> IResult<&str, PEnvelopePoint> {
-    let (input, (duration, shape, level, _)) = tuple((ratio, shape, ratio, space0))(input)?;
+    let (input, (duration, shape, level, _)) = tuple((time, shape, ratio, space0))(input)?;
     Ok((
         input,
         PEnvelopePoint {
-            duration: duration.num / duration.den,
+            duration,
             shape,
             level: level.num / level.den,
         },
