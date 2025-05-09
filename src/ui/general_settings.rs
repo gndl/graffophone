@@ -67,7 +67,7 @@ pub fn expose(app: &gtk::Application, session_presenter: &RSessionPresenter,) {
         .build();
 
     let rssp = session_presenter.clone();
-    ok_button.connect_clicked(clone!(@weak window => move |_| {
+    ok_button.connect_clicked(clone!(#[weak] window, move |_| {
         let new_sample_rate = sample_rates[sample_rate_selector.selected() as usize];
 
         if new_sample_rate != sample_rate {
@@ -76,7 +76,7 @@ pub fn expose(app: &gtk::Application, session_presenter: &RSessionPresenter,) {
 
         window.destroy();
     }));
-    cancel_button.connect_clicked(clone!(@weak window => move |_| window.destroy()));
+    cancel_button.connect_clicked(clone!(#[weak] window, move |_| window.destroy()));
 
     window.present();
 }

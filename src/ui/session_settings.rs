@@ -28,7 +28,7 @@ fn add_output_selectors(window: &gtk::Window,
     let del_button = gtk::Button::from_icon_name("list-remove-symbolic");
     del_button.set_can_focus(false);
 
-    del_button.connect_clicked(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |_| {
+    del_button.connect_clicked(clone!(#[weak] window, #[weak] session_presenter, #[weak] outputs_box, move |_| {
         session_presenter.borrow_mut().remove_mixer_output(mixer_id, output_id);
         update_outputs_view(&window, &session_presenter, mixer_id, &outputs_box);
     }));
@@ -41,7 +41,7 @@ fn add_output_selectors(window: &gtk::Window,
     codec_selector.set_selected(output_presenter.codec_index() as u32);
     codec_selector.set_can_focus(false);
 
-    codec_selector.connect_selected_item_notify(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |i| {
+    codec_selector.connect_selected_item_notify(clone!(#[weak] window, #[weak] session_presenter, #[weak] outputs_box, move |i| {
         session_presenter.borrow_mut().set_mixer_output_codec(mixer_id, output_id, i.selected() as usize);
         update_outputs_view(&window, &session_presenter, mixer_id, &outputs_box);
     }));
@@ -54,7 +54,7 @@ fn add_output_selectors(window: &gtk::Window,
     sample_rate_selector.set_selected(output_presenter.sample_rate_index() as u32);
     sample_rate_selector.set_can_focus(false);
 
-    sample_rate_selector.connect_selected_item_notify(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |i| {
+    sample_rate_selector.connect_selected_item_notify(clone!(#[weak] window, #[weak] session_presenter, #[weak] outputs_box, move |i| {
         session_presenter.borrow_mut().set_mixer_output_sample_rate(mixer_id, output_id, i.selected() as usize);
         update_outputs_view(&window, &session_presenter, mixer_id, &outputs_box);
     }));
@@ -67,7 +67,7 @@ fn add_output_selectors(window: &gtk::Window,
     channel_layout_selector.set_selected(output_presenter.channel_layout_index() as u32);
     channel_layout_selector.set_can_focus(false);
 
-    channel_layout_selector.connect_selected_item_notify(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |i| {
+    channel_layout_selector.connect_selected_item_notify(clone!(#[weak] window, #[weak] session_presenter, #[weak] outputs_box, move |i| {
         session_presenter.borrow_mut().set_mixer_output_channel_layout(mixer_id, output_id, i.selected() as usize);
         update_outputs_view(&window, &session_presenter, mixer_id, &outputs_box);
     }));
@@ -82,13 +82,13 @@ fn add_output_selectors(window: &gtk::Window,
         .build();
     filepath_entry.buffer().set_text(output_presenter.file_path());
 
-    filepath_entry.connect_icon_press(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |_, _| {
+    filepath_entry.connect_icon_press(clone!(#[weak] window, #[weak] session_presenter, move |_, _| {
         let dialog = FileDialog::builder()
             .title("Choose a audio output file")
             .accept_label("Open")
             .build();
 
-        dialog.open(Some(&window), gio::Cancellable::NONE, glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |file| {
+        dialog.open(Some(&window), gio::Cancellable::NONE, clone!(#[weak] session_presenter, move |file| {
             if let Ok(file) = file {
                 let path_buf = file.path().expect("Couldn't get file path");
 
@@ -99,7 +99,7 @@ fn add_output_selectors(window: &gtk::Window,
         }));
     }));
 
-    filepath_entry.connect_changed(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box => move |i| {
+    filepath_entry.connect_changed(clone!(#[weak] session_presenter, move |i| {
         session_presenter.borrow_mut().set_mixer_output_file_path(mixer_id, output_id, i.buffer().text().as_str());
     }));
 
@@ -130,7 +130,7 @@ fn update_outputs_view(window: &gtk::Window,
     let add_button = gtk::Button::from_icon_name("list-add-symbolic");
     add_button.set_can_focus(false);
     
-    add_button.connect_clicked(glib::clone!(@weak window, @weak session_presenter, @weak outputs_box, => move |_| {
+    add_button.connect_clicked(clone!(#[weak] window, #[weak] session_presenter, #[weak] outputs_box, move |_| {
         session_presenter.borrow_mut().add_mixer_file_output(mixer_id);
 
         update_outputs_view(&window, &session_presenter, mixer_id, &outputs_box);
@@ -183,7 +183,7 @@ pub fn expose(app: &gtk::Application, session_presenter: &RSessionPresenter,) {
     // Cancel button
     let cancel_button = gtk::Button::builder().label("Cancel").hexpand(true).can_focus(false).build();
 
-    cancel_button.connect_clicked(clone!(@weak window, @weak session_presenter => move |_| {
+    cancel_button.connect_clicked(clone!(#[weak] window, #[weak] session_presenter, move |_| {
         session_presenter.borrow_mut().cancel_mixers_presenters();
         window.destroy()
     }));
@@ -195,7 +195,7 @@ pub fn expose(app: &gtk::Application, session_presenter: &RSessionPresenter,) {
     let ok_button = gtk::Button::builder().label("Ok").hexpand(true).build();
     ok_button.grab_focus();
 
-    ok_button.connect_clicked(clone!(@weak window, @weak session_presenter => move |_| {
+    ok_button.connect_clicked(clone!(#[weak] window, #[weak] session_presenter, move |_| {
         session_presenter.borrow_mut().ratify_mixers_outputs();
         window.destroy()
     }));

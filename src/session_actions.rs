@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 use gtk::FileDialog;
-use gtk::glib;
+use gtk::glib::{self, clone};
 use gtk::gio::{ActionEntry, Cancellable, SimpleActionGroup};
 
 use crate::session_presenter::RSessionPresenter;
@@ -35,7 +35,7 @@ pub fn create_actions_entries(
     let new_ctrl = session_presenter.clone();
     
     let new = ActionEntry::builder("new")
-    .activate(glib::clone!(@weak window, @weak new_ctrl => move |_, _, _| {
+    .activate(clone!(#[weak] window, #[weak] new_ctrl, move |_, _, _| {
         if new_ctrl.borrow().is_modified() {
             let _ = session_saving_dialog::create(&window, &new_ctrl, move |_, ctrl| ctrl.borrow_mut().new_session() );
         }
@@ -53,7 +53,7 @@ pub fn create_actions_entries(
     let open_ctrl = session_presenter.clone();
 
     let open = ActionEntry::builder("open")
-    .activate(glib::clone!(@weak window, @weak open_ctrl => move |_, _, _| {
+    .activate(clone!(#[weak] window, #[weak] open_ctrl, move |_, _, _| {
         if open_ctrl.borrow().is_modified() {
             let _ = session_saving_dialog::create(&window, &open_ctrl, move |win, ctrl| {
                 let _ = session_opening_dialog::create(win, ctrl);
@@ -86,7 +86,7 @@ pub fn create_actions_entries(
     let save_as_ctrl = session_presenter.clone();
 
     let save_as = ActionEntry::builder("save_as")
-    .activate(glib::clone!(@weak window, @weak save_as_ctrl => move |_, _, _| {
+    .activate(clone!(#[weak] window, #[weak] save_as_ctrl, move |_, _, _| {
         let dialog = FileDialog::builder().title("Choose a Graffophone session record file")
         .accept_label("Open").initial_name(session::session::NEW_SESSION_FILENAME)
         .build();
