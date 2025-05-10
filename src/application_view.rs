@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use gtk::Widget;
+use gtk::glib::clone;
 
 use talker::identifier::Id;
 
@@ -30,6 +31,9 @@ pub struct ApplicationView {
     talkers_box: gtk::Box,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
+    overall_entry_in_progress: bool,
+    overall_entry: String,
+    search_in_progress: bool,
     event_bus: REventBus,
 }
 
@@ -228,6 +232,7 @@ impl ApplicationView {
         window.present();
 
         let action_window = window.clone();
+        let event_window = window.clone();
 
         let av = Self {
             window,
@@ -241,14 +246,18 @@ impl ApplicationView {
             talkers_box,
             graph_view,
             session_presenter: session_presenter.clone(),
+            overall_entry_in_progress: false,
+            overall_entry: String::new(),
+            search_in_progress: false,
             event_bus: event_bus.clone(),
         };
 
         let rav = Rc::new(RefCell::new(av));
-        
+
         session_actions::create_actions_entries(application, &action_window, &rav, &session_presenter);
+        ApplicationView::receive_events(&event_window, &rav);
         ApplicationView::observe(&rav, event_bus);
-        
+
         Ok(rav)
     }
 
@@ -374,6 +383,65 @@ impl ApplicationView {
         }
     }
 
+    // Find action
+    pub fn find(&mut self) {
+        let msg = format!("find: {}", self.overall_entry);
+        self.display_info_message(&msg);
+
+        if self.talker_data_view.is_active() {
+            self.talker_data_view.find(&self.overall_entry);
+        }
+    }
+
+    pub fn find_next(&mut self, backward: bool) {
+        self.search_in_progress = true;
+        self.overall_entry_in_progress = true;
+
+        let msg = format!("find: {}", self.overall_entry);
+        self.display_info_message(&msg);
+
+        if self.talker_data_view.is_active() {
+            if self.overall_entry.is_empty() {
+                self.talker_data_view.start_research();
+            }
+            else {
+                self.talker_data_view.find_next(backward);
+            }
+        }
+    }
+
+    pub fn supply_overall_entry(&mut self, ch: char) {
+        self.overall_entry.push(ch);
+
+        if self.search_in_progress {
+            self.find();
+        }
+    }
+
+    pub fn crop_overall_entry(&mut self) {
+
+        if self.overall_entry.is_empty() {
+            self.finish_overall_entry();
+        }
+        else {
+            let _ = self.overall_entry.pop();
+
+            if !self.overall_entry.is_empty() && self.search_in_progress {
+                self.find();
+            }
+        }
+    }
+
+    pub fn finish_overall_entry(&mut self) {
+        self.hide_message();
+
+        self.search_in_progress = false;
+        self.talker_data_view.finish_research();
+
+        self.overall_entry.clear();
+        self.overall_entry_in_progress = false;
+    }
+
     // Messages view
     fn display_message(&self, message: &String, tags: &str) {
         let msg = gtk::glib::markup_escape_text(&message.replace("\\n", "\n"));
@@ -398,11 +466,37 @@ impl ApplicationView {
         self.message_view_revealer.set_reveal_child(false);
     }
 
+    fn receive_events(window: &gtk::ApplicationWindow, view: &RApplicationView) {
+        let key_pressed_event_controller = gtk::EventControllerKey::builder().build();
+
+        key_pressed_event_controller.connect_key_pressed(clone!(#[strong] view, move |_, key, _, _| {
+
+            if view.borrow().overall_entry_in_progress {
+                if key == gtk::gdk::Key::BackSpace {
+                    view.borrow_mut().crop_overall_entry();
+                }
+                else if key == gtk::gdk::Key::Escape || key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter || key == gtk::gdk::Key::Delete {
+                    view.borrow_mut().finish_overall_entry();
+                }
+                else {
+                    if let Some(ch) = key.to_unicode() {
+                        view.borrow_mut().supply_overall_entry(ch);
+                    }
+                }
+        
+                gtk::glib::signal::Propagation::Stop
+            }
+            else {
+                gtk::glib::signal::Propagation::Proceed
+            }
+        }));
+        window.add_controller(key_pressed_event_controller);
+    }
+
     fn observe(observer: &RApplicationView, bus: &REventBus) {
         let obs = observer.clone();
 
-        bus.borrow_mut()
-            .add_observer(Box::new(move |notification| match notification {
+        bus.borrow_mut().add_observer(Box::new(move |notification| match notification {
                 Notification::State(state) => {
                     obs.borrow().hide_message();
 

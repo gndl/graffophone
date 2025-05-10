@@ -20,11 +20,11 @@ use std::io::Write;
 use gtk::prelude::*;
 use gtk::gio::Cancellable;
 
+use sourceview5::{prelude::{BufferExt, SearchSettingsExt, TextBufferExt}, SearchContext};
+
 use talker::data::Data;
 use talker::identifier::Id;
 use talker::talker::RTalker;
-
-use sourceview5::prelude::BufferExt;
 
 use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
@@ -32,6 +32,7 @@ use crate::settings;
 use crate::ui::plugin_ui;
 
 pub struct TalkerDataView {
+    buffer: sourceview5::Buffer,
     source_view: sourceview5::View,
     source_view_scrolledwindow: gtk::ScrolledWindow,
     push_talker_data_button: gtk::Button,
@@ -40,6 +41,8 @@ pub struct TalkerDataView {
     plugin_ui_manager: RefCell<plugin_ui::Manager>,
     session_presenter: RSessionPresenter,
     language_definition_directory: std::path::PathBuf,
+    search_context: SearchContext,
+    search_start: gtk::TextIter,
 }
 
 impl TalkerDataView {
@@ -47,7 +50,20 @@ impl TalkerDataView {
         session_presenter: &RSessionPresenter,
      ) -> TalkerDataView {
 
+        let buffer = sourceview5::Buffer::builder()
+            .enable_undo(true)
+            .highlight_matching_brackets(true)
+            .highlight_syntax(true)
+            .build();
+
+        if let Some(scheme) =
+            sourceview5::StyleSchemeManager::default().scheme("classic-dark")
+        {
+            buffer.set_style_scheme(Some(&scheme));
+        }
+
         let source_view = sourceview5::View::builder()
+            .buffer(&buffer)
             .wrap_mode(gtk::WrapMode::Word)
             .vscroll_policy(gtk::ScrollablePolicy::Natural)
             .highlight_current_line(true)
@@ -111,7 +127,16 @@ impl TalkerDataView {
             Err(e) => println!("{}", e),
         }
 
+        // Search context
+        let search_context = SearchContext::builder().buffer(&buffer).build();
+        search_context.settings().set_at_word_boundaries(false);
+        search_context.settings().set_case_sensitive(true);
+        search_context.settings().set_regex_enabled(false);
+        search_context.settings().set_wrap_around(true);
+        let search_start = buffer.start_iter();
+
         Self {
+            buffer,
             source_view,
             source_view_scrolledwindow,
             push_talker_data_button,
@@ -120,6 +145,8 @@ impl TalkerDataView {
             plugin_ui_manager: RefCell::new(plugin_ui::Manager::new()),
             session_presenter: session_presenter.clone(),
             language_definition_directory,
+            search_context,
+            search_start,
         }
     }
 
@@ -138,16 +165,12 @@ impl TalkerDataView {
     }
 
     fn edit_text(&self, talker: &RTalker, text: &String) {
-        let text_buffer = sourceview5::Buffer::builder()
-            .enable_undo(true)
-            .highlight_matching_brackets(true)
-            .highlight_syntax(true)
-            .text(text)
-            .build();
 
+        self.buffer.set_text(text);
+            
         if let Some(language) = talker.data_language() {
             match sourceview5::LanguageManager::new().language(&language.id) {
-                Some(lang) => text_buffer.set_language(Some(&lang)),
+                Some(lang) => self.buffer.set_language(Some(&lang)),
                 None => {
                     match language.definition {
                         Some(definition) => {
@@ -159,7 +182,7 @@ impl TalkerDataView {
                                     match file.write_all(definition.as_bytes()) {
                                         Ok(()) => {
                                             if let Some(ref language) = sourceview5::LanguageManager::new().language(&language.id) {
-                                                text_buffer.set_language(Some(language));
+                                                self.buffer.set_language(Some(language));
                                             }
                                         }
                                         Err(_) => (),
@@ -174,14 +197,6 @@ impl TalkerDataView {
             }
         }
 
-
-        if let Some(scheme) =
-            sourceview5::StyleSchemeManager::default().scheme("classic-dark")
-        {
-            text_buffer.set_style_scheme(Some(&scheme));
-        }
-
-        self.source_view.set_buffer(Some(&text_buffer));
         self.source_view.grab_focus();
 
         self.source_view_scrolledwindow.set_visible(true);
@@ -226,8 +241,7 @@ impl TalkerDataView {
     }
 
     pub fn get_data(&self) -> String {
-        let text_buffer = self.source_view.buffer();
-        text_buffer.text(&text_buffer.start_iter(), &text_buffer.end_iter(), false).to_string()
+        self.buffer.text(&self.buffer.start_iter(), &self.buffer.end_iter(), false).to_string()
     }
 
     pub fn hide(&self) {
@@ -238,17 +252,67 @@ impl TalkerDataView {
     }
 
     pub fn is_active(&self) -> bool {
-        self.source_view.is_focus()
+        self.source_view_scrolledwindow.is_visible()
+    }
+
+    pub fn set_sensitive(&self, sensitive: bool) {
+        self.source_view.set_sensitive(sensitive);
     }
 
     // Undo action
     pub fn undo(&self) {
-        self.source_view.buffer().undo();
+        self.buffer.undo();
     }
 
     // Redo action
     pub fn redo(&self) {
-        self.source_view.buffer().redo();
+        self.buffer.redo();
     }
 
+
+    // Find action
+    pub fn start_research(&mut self) {
+        self.search_start = self.buffer.start_iter();
+
+        self.search_context.set_highlight(true);
+        self.set_sensitive(false);
     }
+
+    pub fn find(&mut self, pattern: &str) {
+
+        self.search_context.settings().set_search_text(Some(pattern));
+
+        let search_result = self.search_context.forward(&self.search_start);
+
+        if let Some((start, end, _)) = &search_result {
+            self.buffer.place_cursor(start);
+            self.buffer.select_range(start, end);
+            self.search_start = *start;
+        }
+    }
+    
+    pub fn find_next(&mut self, backward: bool) {
+
+        if !self.search_start.forward_char() {
+            self.search_start = self.buffer.start_iter();
+        }
+
+        let search_result = if backward {
+            self.search_context.backward(&self.search_start)
+        }
+        else {
+            self.search_context.forward(&self.search_start)
+        };
+
+        if let Some((start, end, _)) = &search_result {
+            self.buffer.place_cursor(start);
+            self.buffer.select_range(start, end);
+            self.search_start = *start;
+        }
+    }
+    
+    pub fn finish_research(&self) {
+        self.search_context.set_highlight(false);
+        self.set_sensitive(true);
+    }
+}
