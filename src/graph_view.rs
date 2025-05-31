@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::gtk::prelude::PopoverExt;
 use gtk::prelude::*;
-use gtk::prelude::{DrawingAreaExtManual, IsA, WidgetExt};
+use gtk::prelude::{DrawingAreaExtManual, WidgetExt};
 
 use cairo::Context;
 
@@ -110,7 +110,7 @@ pub struct GraphView {
     graph_control: RGraphControl,
     graph_presenter: RGraphPresenter,
     drawing_area: gtk::DrawingArea,
-    area: gtk::Box,
+    graph_view_scrolledwindow: gtk::ScrolledWindow,
     talker_controls: HashMap<Id, RTalkerControl>,
     width: f64,
     height: f64,
@@ -147,12 +147,18 @@ impl GraphView {
         area.append(&drawing_area);
         area.append(&popover);
 
+        let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
+            .hexpand(true)
+            .vexpand(true)
+            .child(&area)
+            .build();
+
         let rgv = Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
             graph_control: GraphControl::new_ref(window, session_presenter, &graph_presenter, event_bus),
             graph_presenter,
             drawing_area,
-            area,
+            graph_view_scrolledwindow,
             talker_controls: HashMap::new(),
             width: 0.,
             height: 0.,
@@ -162,6 +168,12 @@ impl GraphView {
         GraphView::observe(&rgv, event_bus);
 
         rgv
+    }
+
+    pub fn add_content<F>(&self, add: F)
+    where F: Fn(&gtk::ScrolledWindow),
+    {
+        add(&self.graph_view_scrolledwindow)
     }
 
     fn connect_area(
@@ -178,10 +190,6 @@ impl GraphView {
 
         let gv_drawer = rgraphview.clone();
         drawing_area.set_draw_func(move |w, cc, _, _| gv_drawer.borrow_mut().on_draw(w, cc));
-    }
-
-    pub fn area(&self) -> &impl IsA<gtk::Widget> {
-        &self.area
     }
 
     pub fn init(&mut self) {
