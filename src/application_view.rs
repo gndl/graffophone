@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
-use gtk::Widget;
 use gtk::glib::clone;
 
 use talker::identifier::Id;
@@ -17,7 +16,7 @@ use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
 use crate::settings;
 use crate::talker_data_view::TalkerDataView;
-use crate::ui::talker_object::TalkerObject;
+use crate::talkers_list_view::TalkersListView;
 
 pub struct ApplicationView {
     window: gtk::ApplicationWindow,
@@ -28,7 +27,7 @@ pub struct ApplicationView {
     message_view_revealer: gtk::Revealer,
     message_view_label: gtk::Label,
     talker_data_view: TalkerDataView,
-    talkers_box: gtk::Box,
+    talkers_list_view: TalkersListView,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
     overall_entry_in_progress: bool,
@@ -99,17 +98,6 @@ impl ApplicationView {
         let left_separator = gtk::Separator::new(gtk::Orientation::Vertical);
         headerbar.pack_start(&left_separator);
 
-        let talkers_list_toggle = gtk::ToggleButton::builder()
-            .icon_name("view-list-tree")
-            .active(true)
-            .tooltip_text("Plugins list")
-            .build();
-
-        headerbar.pack_start(&talkers_list_toggle);
-
-        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
-        headerbar.pack_start(&separator);
-
         // header bar right controls
         let settings_menu = settings::menu();
         let menu_button = gtk::MenuButton::builder()
@@ -169,38 +157,28 @@ impl ApplicationView {
         let message_view_revealer = gtk::Revealer::builder().transition_type(gtk::RevealerTransitionType::SlideDown).transition_duration(200).build();
         message_view_revealer.set_child(Some(&message_view_box));
 
+        // Split pane
+        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+
+
+        // Talkers list view
+        let talkers_list_view = TalkersListView::new(session_presenter);
+        talkers_list_view.add_tools(|w| headerbar.pack_start(w));
+        talkers_list_view.add_content(|w| split_pane.append(w));
+
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        headerbar.pack_start(&separator);
+
 
         // Talker data view
         let talker_data_view = TalkerDataView::new(session_presenter);
         talker_data_view.add_tools(|w| headerbar.pack_start(w));
         talker_data_view.hide();
 
-
-        // Split pane
-        let split_pane = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-
-        // Talkers box
-        let talkers_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
-
-        let talkers_box_scrolledwindow = gtk::ScrolledWindow::builder()
-            .min_content_width(256)
-            .vexpand(true)
-            .child(&talkers_box)
-            .visible(false)
-            .build();
-        split_pane.append(&talkers_box_scrolledwindow);
-        talkers_box_scrolledwindow.set_visible(true);
-
-
         // Graph view
         let graph_view = GraphView::new_ref(&window, &session_presenter, event_bus);
+        graph_view.borrow().add_content(|w| split_pane.append(w));
 
-        let graph_view_scrolledwindow = gtk::ScrolledWindow::builder()
-            .hexpand(true)
-            .vexpand(true)
-            .child(graph_view.borrow().area())
-            .build();
-        split_pane.append(&graph_view_scrolledwindow);
 
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -213,15 +191,6 @@ impl ApplicationView {
         /*
         Actions
         */
-        // talkers tree toggle
-        talkers_list_toggle.connect_toggled(move |tb| {
-            if tb.is_active() {
-                talkers_box_scrolledwindow.set_visible(true);
-            } else {
-                talkers_box_scrolledwindow.set_visible(false);
-            }
-        });
-
         // Message view close
         let message_view_revealer_ctrl = message_view_revealer.clone();
         message_view_close_button.connect_clicked(move |_| {
@@ -243,7 +212,7 @@ impl ApplicationView {
             message_view_revealer,
             message_view_label,
             talker_data_view,
-            talkers_box,
+            talkers_list_view,
             graph_view,
             session_presenter: session_presenter.clone(),
             overall_entry_in_progress: false,
@@ -263,68 +232,6 @@ impl ApplicationView {
 
     pub fn graph_presenter(&self) -> RGraphPresenter {
         self.graph_view.borrow().graph_presenter()
-    }
-
-    // Plugins list
-    fn fill_talkers_list(
-        &self,
-        categorized_talkers_label_model: &Vec<(String, Vec<(String, String)>)>,
-    ) {
-        for (category, talkers) in categorized_talkers_label_model {
-            let talkers_store = gio::ListStore::new::<TalkerObject>();
-
-            let talkers_item_factory = gtk::SignalListItemFactory::new();
-            // talkers list item factory setup
-            talkers_item_factory.connect_setup(move |_, list_item| {
-                // Create label
-                let label = gtk::Label::new(None);
-                let list_item = list_item
-                    .downcast_ref::<gtk::ListItem>()
-                    .expect("Needs to be ListItem");
-
-                list_item.set_child(Some(&label));
-
-                list_item
-                    .property_expression("item")
-                    .chain_property::<TalkerObject>("label")
-                    .bind(&label, "label", Widget::NONE);
-            });
-
-            let talkers_selection_model = gtk::SingleSelection::new(Some(talkers_store.clone()));
-            let talkers_list = gtk::ListView::builder()
-                .model(&talkers_selection_model)
-                .factory(&talkers_item_factory)
-                .single_click_activate(true)
-                .build();
-
-            // talkers list selection
-            let session_ctrl = self.session_presenter.clone();
-            talkers_list.connect_activate(move |list_view, position| {
-                let model = list_view.model().expect("The model has to exist.");
-                let talker_object = model
-                    .item(position)
-                    .and_downcast::<TalkerObject>()
-                    .expect("The item has to be an `TalkerObject`.");
-
-                let talker_model = talker_object.model();
-
-                if talker_model.is_empty() {
-                } else {
-                    session_ctrl.borrow_mut().add_talker(talker_model.as_str());
-                }
-            });
-
-            for (label, model) in talkers {
-                talkers_store.append(&TalkerObject::new(label, model));
-            }
-            let expander = gtk::Expander::builder()
-                .label(category)
-                .child(&talkers_list)
-                .vexpand(false)
-                .build();
-            self.talkers_box.append(&expander);
-        }
-        self.talkers_box.append(&gtk::Label::new(None));
     }
 
     // Talker data editor
@@ -551,7 +458,7 @@ impl ApplicationView {
                 Notification::TimeRange(st, et) => {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)
                 }
-                Notification::TalkersRange(talkers) => obs.borrow().fill_talkers_list(&talkers),
+                Notification::TalkersRange(talkers) => obs.borrow().talkers_list_view.fill(&talkers),
                 Notification::EditTalkerData(talker_id) => {
                     obs.borrow().edit_talker_data(*talker_id)
                 }

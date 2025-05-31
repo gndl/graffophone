@@ -27,6 +27,7 @@ mod settings;
 mod style;
 mod talker_control;
 mod talker_data_view;
+mod talkers_list_view;
 mod ui;
 mod undo_redo_list;
 mod util;
