@@ -78,7 +78,7 @@ fn add_output_selectors(window: &gtk::Window,
     // File path entry
     let filepath_entry = gtk::Entry::builder()
         .primary_icon_name("document-open-symbolic").primary_icon_sensitive(true).primary_icon_activatable(true)
-        .hexpand(true).width_request(360).can_focus(false)
+        .hexpand(true).width_request(360)
         .build();
     filepath_entry.buffer().set_text(output_presenter.file_path());
 
