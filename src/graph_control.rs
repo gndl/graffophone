@@ -111,18 +111,18 @@ impl GraphControl {
                     talker_id, ear_idx, set_idx, hum_idx, 0, v)
             },
             move |v| {
-                gp_on_ok.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v);
+                gp_on_ok.borrow_mut().set_talker_ear_hum_value(
+                    talker_id, ear_idx, set_idx, hum_idx, v);
                 ok_popover.popdown()
             },
             move |_| {
-                gp_on_cancel.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, cur);
+                gp_on_cancel.borrow_mut().set_talker_ear_hum_value(
+                    talker_id, ear_idx, set_idx, hum_idx, cur);
                 cancel_popover.popdown()
             },
             move |_| {
-                gp_on_default.borrow_mut().set_talker_ear_talk_value(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, def);
+                gp_on_default.borrow_mut().set_talker_ear_hum_value(
+                    talker_id, ear_idx, set_idx, hum_idx, def);
                 default_popover.popdown()
             },
         );

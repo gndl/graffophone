@@ -185,18 +185,17 @@ impl GraphPresenter {
         ])
     }
 
-    pub fn set_talker_ear_talk_value(
+    pub fn set_talker_ear_hum_value(
         &mut self,
         talker_id: Id,
         ear_idx: Index,
         set_idx: Index,
         hum_idx: Index,
-        talk_idx: Index,
         value: f32,
     ) {
         self.session_presenter.borrow_mut().modify_band(
-            &Operation::SetEarTalkValue(
-                talker_id, ear_idx, set_idx, hum_idx, talk_idx, value));
+            &Operation::SetEarHumValue(
+                talker_id, ear_idx, set_idx, hum_idx, value));
 
         self.event_bus.borrow().notify(Notification::TalkerChanged);
     }
