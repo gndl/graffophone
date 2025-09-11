@@ -6,7 +6,7 @@ use talker::identifier::Identifiable;
 use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
 
-use session::band::Operation;
+use session::band::{EarHum, Operation};
 use session::event_bus::{Notification, REventBus};
 
 use crate::session_presenter::RSessionPresenter;
@@ -183,6 +183,13 @@ impl GraphPresenter {
             Notification::TalkerRenamed(talker.id()),
             Notification::TalkerChanged,
         ])
+    }
+
+    pub fn set_talker_ear_hum(&mut self, ear_hum: EarHum) {
+        self.session_presenter.borrow_mut().modify_band(
+            &Operation::SetEarHum(ear_hum));
+
+        self.event_bus.borrow().notify(Notification::TalkerChanged);
     }
 
     pub fn set_talker_ear_hum_value(
@@ -590,5 +597,9 @@ impl GraphPresenter {
         for id in &self.selected_talkers {
             self.session_presenter.borrow_mut().duplicate_talker(*id);
         }
+    }
+
+    pub fn backup_hum(&self, talker_id: Id, ear_idx: Index, set_idx: Index, hum_idx: Index) -> EarHum {
+        self.session_presenter.borrow().session().backup_ear_hum(talker_id, ear_idx, set_idx, hum_idx).expect("Talker ear hum invalid")
     }
 }

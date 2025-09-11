@@ -19,11 +19,11 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
-use talker::identifier;
+use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
 use talker::audio_format::AudioFormat;
 
-use crate::band::{Band, Operation};
+use crate::band::{Band, EarHum, Operation};
 use crate::mixer::RMixer;
 use crate::player::Player;
 use crate::state::State;
@@ -156,6 +156,10 @@ impl Session {
     pub fn modify_band(&mut self, operation: &Operation) -> Result<State, failure::Error> {
         self.band.modify(operation)?;
         self.player.modify_band(operation)
+    }
+
+    pub fn backup_ear_hum(&self, talker_id: Id, ear_idx: Index, set_idx: Index, hum_idx: Index) -> Result<EarHum, failure::Error> {
+        self.band.backup_ear_hum(talker_id, ear_idx, set_idx, hum_idx)
     }
 
     pub fn serialize_band(&self) -> Result<String, failure::Error> {

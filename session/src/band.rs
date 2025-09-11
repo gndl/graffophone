@@ -31,10 +31,26 @@ use crate::parser;
 use crate::parser::{PMixer, POutput, PTalk, PTalker};
 
 #[derive(PartialEq, Debug, Clone)]
+pub enum EarHumTalk {
+    Voice(Id, Index),
+    Value(f32),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct EarHum {
+    talker_id: Id,
+    ear_idx: Index,
+    set_idx: Index,
+    hum_idx: Index,
+    talks: Vec<EarHumTalk>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Operation {
     AddTalker(Id, String),
     SupTalker(Id),
     SetTalkerData(Id, String),
+    SetEarHum(EarHum),
     SetEarHumVoice(Id, Index, Index, Index, Id, Index),
     SetEarHumValue(Id, Index, Index, Index, f32),
     SetEarTalkVoice(Id, Index, Index, Index, Index, Id, Index), // TODO: to remove
@@ -518,6 +534,36 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             Operation::SetTalkerData(tkr_id, data) => {
                 self.update_talker(tkr_id, |tkr| tkr.set_data_from_string_update(&data))?
             }
+            Operation::SetEarHum(ear_hum) => {
+                let ear_tkr_id = ear_hum.talker_id;
+                let ear_tkr = self.fetch_talker(&ear_tkr_id)?;
+
+                ear_tkr.deactivate();
+
+                match ear_hum.talks[0] {
+                    EarHumTalk::Voice(voice_tkr_id, voice_port) => {
+                        let voice_tkr = self.fetch_talker(&voice_tkr_id)?;
+                        self.check_cyclic_dependency(voice_tkr, &ear_tkr_id)?;
+
+                        ear_tkr.set_ear_hum_voice(ear_hum.ear_idx, ear_hum.set_idx, ear_hum.hum_idx, &voice_tkr, voice_port)?;
+                    },
+                    EarHumTalk::Value(v) => ear_tkr.set_ear_hum_value(ear_hum.ear_idx, ear_hum.set_idx, ear_hum.hum_idx, v)?,
+                }
+
+                for tlk_idx in 1..ear_hum.talks.len() {
+                    match ear_hum.talks[tlk_idx] {
+                        EarHumTalk::Voice(voice_tkr_id, voice_port) => {
+                            let voice_tkr = self.fetch_talker(&voice_tkr_id)?;
+                            self.check_cyclic_dependency(voice_tkr, &ear_tkr_id)?;
+    
+                            ear_tkr.add_voice_to_ear_hum(ear_hum.ear_idx, ear_hum.set_idx, ear_hum.hum_idx, &voice_tkr, voice_port)?;
+                        },
+                        EarHumTalk::Value(v) => ear_tkr.add_value_to_ear_hum(ear_hum.ear_idx, ear_hum.set_idx, ear_hum.hum_idx, v)?,
+                    }
+                }
+
+                ear_tkr.activate();
+            }
             Operation::SetEarHumVoice(
                 ear_tkr_id,
                 ear_idx,
@@ -644,6 +690,33 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             }
         }
         result
+    }
+
+    pub fn backup_ear_hum(&self,
+        talker_id: Id,
+        ear_idx: Index,
+        set_idx: Index,
+        hum_idx: Index,
+    ) -> Result<EarHum, failure::Error> {
+        let mut talks = Vec::new();
+
+        let tkr = self.fetch_talker(&talker_id)?;
+
+        tkr.ear(ear_idx).iter_hum_talks(set_idx, hum_idx, |tlk| {
+            match tlk.value() {
+                Some(v) => talks.push(EarHumTalk::Value(v)),
+                None => talks.push(EarHumTalk::Voice(tlk.talker().id(), tlk.port())),
+            }
+            Ok(())
+        })?;
+
+        Ok(EarHum {
+            talker_id,
+            ear_idx,
+            set_idx,
+            hum_idx,
+            talks,
+        })
     }
 
     pub fn activate_talkers(&self) {

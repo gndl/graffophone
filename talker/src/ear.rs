@@ -721,6 +721,16 @@ impl Ear {
         Ok(())
     }
 
+    pub fn iter_hum_talks<F>(&self, set_idx: Index, hum_idx: Index, mut f: F) -> Result<(), failure::Error>
+    where
+        F: FnMut(&Talk) -> Result<(), failure::Error>,
+    {
+        for talk in &self.sets()[set_idx].hums[hum_idx].talks {
+            f(&talk)?;
+        }
+        Ok(())
+    }
+
     pub fn fold_talks<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>
     where
         F: FnMut(Index, Index, Index, &Talk, P) -> Result<P, failure::Error>,

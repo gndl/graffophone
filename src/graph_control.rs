@@ -92,6 +92,8 @@ impl GraphControl {
         let (min, max, def) = tkr.ear(ear_idx).hum_range(hum_idx);
         let cur = tkr.ear(ear_idx).talk_value_or_default(set_idx, hum_idx);
 
+        let hum = self.graph_presenter.borrow().backup_hum(talker_id, ear_idx, set_idx, hum_idx);
+
         let gp_on_scale = self.graph_presenter.clone();
         let gp_on_ok = self.graph_presenter.clone();
         let gp_on_cancel = self.graph_presenter.clone();
@@ -116,8 +118,7 @@ impl GraphControl {
                 ok_popover.popdown()
             },
             move |_| {
-                gp_on_cancel.borrow_mut().set_talker_ear_hum_value(
-                    talker_id, ear_idx, set_idx, hum_idx, cur);
+                gp_on_cancel.borrow_mut().set_talker_ear_hum(hum.clone());
                 cancel_popover.popdown()
             },
             move |_| {
