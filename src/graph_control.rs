@@ -86,13 +86,15 @@ impl GraphControl {
         hum_idx: Index,
         popover: &gtk::Popover,
     ) {
-        let session_presenter = self.session_presenter.borrow();
-        let tkr = session_presenter.find_talker(talker_id).unwrap();
+        let tkr = self.graph_presenter.borrow().get_talker(talker_id);
 
         let (min, max, def) = tkr.ear(ear_idx).hum_range(hum_idx);
         let cur = tkr.ear(ear_idx).talk_value_or_default(set_idx, hum_idx);
 
         let hum = self.graph_presenter.borrow().backup_hum(talker_id, ear_idx, set_idx, hum_idx);
+
+        self.graph_presenter.borrow_mut().set_talker_ear_hum_value_volatly(
+            talker_id, ear_idx, set_idx, hum_idx, cur);
 
         let gp_on_scale = self.graph_presenter.clone();
         let gp_on_ok = self.graph_presenter.clone();
@@ -109,8 +111,8 @@ impl GraphControl {
             def,
             cur,
             move |v| {
-                gp_on_scale.borrow_mut().set_talker_ear_talk_value_volatly(
-                    talker_id, ear_idx, set_idx, hum_idx, 0, v)
+                gp_on_scale.borrow_mut().set_talker_ear_hum_value_volatly(
+                    talker_id, ear_idx, set_idx, hum_idx, v)
             },
             move |v| {
                 gp_on_ok.borrow_mut().set_talker_ear_hum_value(
