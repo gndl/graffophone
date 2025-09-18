@@ -197,15 +197,15 @@ impl SessionPresenter {
 
     pub fn find_compatible_hum_with_voice_in_ear(
         &self,
-        _: Id,    // talker_id
-        _: Index, // ear_idx
-        _: Id,    // voice_tkr_id
-        _: Index, // voice_port
+        _talker_id: Id,
+        _ear_idx: Index,
+        _voice_tkr_id: Id,
+        _voice_port: Index,
     ) -> Result<Index, failure::Error> {
         // TODO : do the job
         Ok(0)
     }
-    
+
     pub fn modify_band_volatly(&mut self, operation: &Operation) -> bool {
         let res = self.session.modify_band(operation);
         self.manage_state_result(res)

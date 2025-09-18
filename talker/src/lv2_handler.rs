@@ -68,7 +68,7 @@ impl Lv2Handler {
         }
         false
     }
-    }
+}
 
 static INSTANCE: LazyLock<Mutex<Lv2Handler>> = LazyLock::new(|| Mutex::new(Lv2Handler::new()));
 

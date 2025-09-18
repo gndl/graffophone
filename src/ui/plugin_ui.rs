@@ -24,7 +24,7 @@ pub fn init() {
     }
 }
 struct PluginPresenter {
-    talker: RTalker,
+    _talker: RTalker,
     session_presenter: RSessionPresenter,
 }
 
@@ -33,7 +33,7 @@ unsafe extern "C" fn write_func(
     port_index: u32,
     buffer_size: u32,
     protocol: u32,
-    buffer: *const ::std::os::raw::c_void,
+    _buffer: *const ::std::os::raw::c_void,
 ) {
     let plugin_presenter: &mut PluginPresenter = unsafe { &mut *(controller as *mut PluginPresenter) };
     
@@ -42,27 +42,27 @@ unsafe extern "C" fn write_func(
 }
 unsafe extern "C" fn index_func(
     controller: suil_sys::SuilController,
-    port_symbol: *const ::std::os::raw::c_char,
+    _port_symbol: *const ::std::os::raw::c_char,
 ) -> u32 {
-   let plugin_presenter: &mut PluginPresenter = unsafe { &mut *(controller as *mut PluginPresenter) };
+   let _plugin_presenter: &mut PluginPresenter = unsafe { &mut *(controller as *mut PluginPresenter) };
 0
 }
 unsafe extern "C" fn subscribe_func(
-    controller: suil_sys::SuilController,
-    port_index: u32,
-    protocol: u32,
-    features: *const *const lv2_raw::LV2Feature,
+    _controller: suil_sys::SuilController,
+    _port_index: u32,
+    _protocol: u32,
+    _features: *const *const lv2_raw::LV2Feature,
 ) -> u32 {0}
 unsafe extern "C" fn unsubscribe_func(
-    controller: suil_sys::SuilController,
-    port_index: u32,
-    protocol: u32,
-    features: *const *const lv2_raw::LV2Feature,
+    _controller: suil_sys::SuilController,
+    _port_index: u32,
+    _protocol: u32,
+    _features: *const *const lv2_raw::LV2Feature,
 ) -> u32 {0}
 
 struct InstanceHandler {
     instance: *mut suil_sys::SuilInstance,
-    plugin_presenter: PluginPresenter,
+    _plugin_presenter: PluginPresenter,
 }
 
 pub struct Manager {
@@ -115,7 +115,7 @@ impl Manager {
                     // let (ui_bundle_hostname, ui_bundle_path) = ui.bundle_uri().map_or(None, |u| u.path()).expect("Missing bundle path.");
 
                     let mut plugin_presenter = PluginPresenter {
-                        talker: talker.clone(),
+                        _talker: talker.clone(),
                         session_presenter: session_presenter.clone(),
                     };
 
@@ -144,7 +144,7 @@ impl Manager {
                         features.as_ptr())
                     };
 
-                    self.instances.insert(talker.id(), InstanceHandler{instance, plugin_presenter});
+                    self.instances.insert(talker.id(), InstanceHandler{instance, _plugin_presenter: plugin_presenter});
 
                     Ok(())
                 },
