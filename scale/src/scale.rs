@@ -63,7 +63,7 @@ impl Scale {
 
     pub fn pitch_number_to_name(&self, number: usize) -> String {
         let pitchs_per_octave = self.pitchs_name_ratio.len();
-        let octave = (number / pitchs_per_octave) - 1;
+        let octave = (number / pitchs_per_octave) as i64 - 1;
         let idx = number % pitchs_per_octave;
 
         let (name, _) = &self.pitchs_name_ratio[idx];
@@ -72,7 +72,7 @@ impl Scale {
 
     pub fn pitch_number_to_frequency(&self, number: usize) -> f32 {
         let pitchs_per_octave = self.pitchs_name_ratio.len();
-        let octave = ((number / pitchs_per_octave) - 1) as f64;
+        let octave = ((number / pitchs_per_octave) as i64 - 1) as f64;
         let idx = number % pitchs_per_octave;
 
         let (_, ratio) = &self.pitchs_name_ratio[idx];
@@ -349,7 +349,7 @@ impl Collection {
         }
     }
 
-    pub fn values<'a>(&'a self) -> std::collections::hash_map::Values<'_, &str, Scale> {
+    pub fn values<'a>(&'a self) -> std::collections::hash_map::Values<'a, &'a str, Scale> {
         self.map.values().into_iter()
     }
 
