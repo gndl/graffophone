@@ -6,6 +6,7 @@ use talker::data::Data;
 use talker::talker::Language;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
+use talker::lv2_handler;
 
 use talkers::tseq::audio_event::{self, AudioEvents, Shapes};
 use talkers::tseq::binder::Binder;
@@ -31,11 +32,16 @@ pub struct Tseq {
     shapes: Shapes,
     sequences: Vec<Seq>,
     events_reminder: Vec<EventReminder>,
+    midi_urid: lv2_raw::LV2Urid,
 }
 
 impl Tseq {
     pub fn new(base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.set_data(Data::Text(SYNTAX_DESCRIPTION.to_string()));
+        
+        let midi_urid = lv2_handler::visit(|lv2_handler| {
+            Ok(lv2_handler.features.midi_urid())
+        })?;
 
         Ok(ctalker!(
             base,
@@ -43,7 +49,8 @@ impl Tseq {
                 scales: scale::Collection::new(),
                 shapes: Shapes::empty(),
                 sequences: Vec::new(),
-                events_reminder: Vec::new()
+                events_reminder: Vec::new(),
+                midi_urid,
             }
         ))
     }
@@ -170,6 +177,7 @@ impl Tseq {
                     sequences.push(Seq::Midi(MidiSeq::new(
                         &binder,
                         &seq,
+                        self.midi_urid,
                     )?));
                     base.add_atom_voice(Some(seq.id), None);
                 }

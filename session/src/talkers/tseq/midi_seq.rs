@@ -4,7 +4,6 @@ use talkers::tseq::binder::Binder;
 use talkers::tseq::sequence;
 use talkers::tseq::sequence::EventReminder;
 use talkers::tseq::parser::PMidiSequence;
-use talker::lv2_handler;
 use talker::horn::MAtomBuf;
 
 const FREQ_0: f64 = 8.175799;
@@ -58,12 +57,14 @@ pub struct MidiSeq {
     controller_events: Vec<MidiEvent>,
     program_change_events: Vec<MidiEvent>,
     events: Vec<MidiEvent>,
+    midi_urid: lv2_raw::LV2Urid,
 }
 
 impl MidiSeq {
     pub fn new(
         binder: &Binder,
         sequence: &PMidiSequence,
+        midi_urid: lv2_raw::LV2Urid,
     ) -> Result<MidiSeq, failure::Error> {
         if sequence.channels.len() > 16 {
             return Err(failure::err_msg(format!("Midi output {} have {} channels instead of 16 maximum!", sequence.id, sequence.channels.len())))
@@ -164,10 +165,11 @@ impl MidiSeq {
             controller_events,
             program_change_events,
             events,
+            midi_urid,
         })
     }
 
-    pub fn talk(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) {
+    fn make_midi_event(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) -> Result<(), failure::Error> {
         let end_t = tick + len as i64;
         let ev_count = self.events.len();
         let mut ev_idx = event_reminder.index;
@@ -182,31 +184,36 @@ impl MidiSeq {
         }
 
         if ev_idx < ev_count {
-            lv2_handler::visit(|lv2_handler| {
-                if !event_reminder.initialized {
-                    for ev in &self.controller_events {
-                        voice_buf.push_midi_event::<3>(0, lv2_handler.features.midi_urid(), &ev.data)?;
-                    }
-                    for ev in &self.program_change_events {
-                        voice_buf.push_midi_event::<2>(0, lv2_handler.features.midi_urid(), &ev.data)?;
-                    }
-                    event_reminder.initialized = true;
+            if !event_reminder.initialized {
+                for ev in &self.controller_events {
+                    voice_buf.push_midi_event::<3>(0, self.midi_urid, &ev.data)?;
                 }
-                while ev_idx < ev_count {
-                    let ev = &self.events[ev_idx];
+                for ev in &self.program_change_events {
+                    voice_buf.push_midi_event::<2>(0, self.midi_urid, &ev.data)?;
+                }
+                event_reminder.initialized = true;
+            }
+            while ev_idx < ev_count {
+                let ev = &self.events[ev_idx];
 
-                    if ev.tick < end_t {
-                        let time_in_frames = ev.tick - tick;
-                        voice_buf.push_midi_event::<3>(time_in_frames, lv2_handler.features.midi_urid(), &ev.data)?;
-                        ev_idx += 1;
-                    } else {
-                        break;
-                    }
+                if ev.tick < end_t {
+                    let time_in_frames = ev.tick - tick;
+                    voice_buf.push_midi_event::<3>(time_in_frames, self.midi_urid, &ev.data)?;
+                    ev_idx += 1;
+                } else {
+                    break;
                 }
-                Ok(())
-            }).unwrap_or_else(|e| eprintln!("MidiSeq::talk failed : {:?}", e));
+            }
 
             event_reminder.index = ev_idx;
+        }
+        Ok(())
+    }
+
+    pub fn talk(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) {
+        match self.make_midi_event(tick, len, event_reminder, voice_buf) {
+            Ok(()) => (),
+            Err(e) => eprintln!("MidiSeq::talk failed : {:?}", e),
         }
     }
 }
