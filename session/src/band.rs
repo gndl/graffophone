@@ -62,6 +62,7 @@ pub enum Operation {
     AddSetVoiceToEar(Id, Index, Index, Id, Index),
     SupEarSet(Id, Index, Index),
     SetMixerOutputs(Id, Vec<OutputParam>),
+    SetIndexedData(Id, Index, u32, Vec<u8>),
 }
 
 pub struct Band {
@@ -688,8 +689,22 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             Operation::SetMixerOutputs(mixer_idx, outputs_params) => {
                 self.set_mixer_outputs(mixer_idx, outputs_params)?;
             }
+            Operation::SetIndexedData(tkr_id, idx, protocol, data) => {
+                let tkr = self.fetch_talker(tkr_id)?;
+
+                tkr.deactivate();
+
+                tkr.set_indexed_data(*idx, *protocol, data)?;
+
+                tkr.activate();
+            }
         }
         result
+    }
+
+    pub fn read_port_events(&self, tkr_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+        let tkr = self.fetch_talker(&tkr_id)?;
+        tkr.read_port_events()
     }
 
     pub fn backup_ear_hum(&self,

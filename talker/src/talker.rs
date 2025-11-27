@@ -264,6 +264,18 @@ pub trait Talker {
         Ok(None)
     }
 
+    fn set_indexed_data(
+        &mut self,
+        _base: &TalkerBase,
+        _ear_idx: Index,
+        _protocol: u32,
+        _data: &Vec<u8>,
+    ) -> Result<(), failure::Error> { Err(failure::err_msg(format!("set_indexed_data unsupported"))) }
+
+    fn read_port_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+        Ok(Vec::new())
+    }
+
     fn talk(&mut self, _base: &TalkerBase, _port: usize, _tick: i64, _len: usize) -> usize {
         0
     }
@@ -562,6 +574,20 @@ impl TalkerCab {
             .sup_ear_set_update(&self.base, ear_idx, set_idx)?;
         self.update(obase)
     }
+
+    pub fn set_indexed_data(
+        &self,
+        ear_idx: Index,
+        protocol: u32,
+        data: &Vec<u8>,
+    ) -> Result<(), failure::Error> {
+        self.core.borrow_mut().set_indexed_data(&self.base, ear_idx, protocol, data)
+    }
+
+    pub fn read_port_events(&self) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+        self.core.borrow_mut().read_port_events(&self.base)
+    }
+
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         self.base.listen(tick, len)

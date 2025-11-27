@@ -36,7 +36,6 @@ use application_view::ApplicationView;
 use session_presenter::SessionPresenter;
 
 fn main() {
-    ui::plugin_ui::init();
 
     let application =
         gtk::Application::new(Some("com.gitlab.gndl.graffophone"), Default::default());

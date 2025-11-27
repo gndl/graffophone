@@ -105,10 +105,18 @@ impl SessionPresenter {
         self.modified = false;
     }
 
+    pub fn notify(&self, notification: Notification) {
+        self.event_bus.borrow().notify(notification);
+    }
+
     fn notify_new_session(&self) {
         self.event_bus.borrow().notify(Notification::NewSession(
             self.session.filename().to_string(),
         ));
+    }
+
+    pub fn notify_error(&self, error: failure::Error) {
+        self.event_bus.borrow().notify_error(error);
     }
 
     fn manage_result(&self, result: Result<(), failure::Error>, on_ok: Option<Notification>) {
@@ -270,6 +278,16 @@ impl SessionPresenter {
 
     pub fn is_modified(&self) -> bool {
         self.modified
+    }
+
+    pub fn read_port_events(&self, talker_id: Id) -> Vec<(u32, u32, u32, Vec<u8>)> {
+        match self.session.read_port_events(talker_id) {
+            Ok(port_events) => port_events,
+            Err(e) => {
+                self.event_bus.borrow().notify_error(e);
+                Vec::new()
+            },
+        }
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {

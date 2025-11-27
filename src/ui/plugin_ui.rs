@@ -1,164 +1,177 @@
+
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::collections::HashMap;
-use std::ffi::{c_void, CString};
-use std::os::raw::c_char;
 
-use lv2_raw::LV2Feature;
+use std::ffi::CString;
+use std::str::FromStr;
 
-extern crate suil_sys;
+extern crate luil;
 
 use talker::lv2_handler;
 use talker::talker::RTalker;
 use talker::identifier::{Id, Identifiable};
+use talker::audio_format::AudioFormat;
 
+use session::band::Operation;
+use session::talkers::lv2;
 use crate::session_presenter::RSessionPresenter;
+use crate::session::event_bus::Notification;
 
-pub fn init() {
-    let args = std::env::args().map(|arg| CString::new(arg).unwrap() ).collect::<Vec<CString>>();
-    let mut c_args = args.iter().map(|arg| arg.clone().into_raw()).collect::<Vec<*mut c_char>>();
-    
-    let mut argc = c_args.len() as i32;
-    let mut argv = c_args.as_mut_ptr();
-    
-    unsafe {
-        suil_sys::suil_init((&mut argc) as *mut i32, (&mut argv) as *mut *mut *mut i8, suil_sys::SuilArg_SUIL_ARG_NONE);
-    }
-}
-struct PluginPresenter {
-    _talker: RTalker,
+const IDLE_PERIOD: u64 = 20;
+const RATIFICATION_IDLE_COUNT: u64 = 250 / IDLE_PERIOD;
+
+
+struct HostPresenter {
+    talker_id: Id,
     session_presenter: RSessionPresenter,
+    port_symbol_indexes: HashMap<String, u32>,
+    ratification_countdown: u64,
+    ears_indexes: Vec<usize>,
 }
 
-unsafe extern "C" fn write_func(
-    controller: suil_sys::SuilController,
-    port_index: u32,
-    buffer_size: u32,
-    protocol: u32,
-    _buffer: *const ::std::os::raw::c_void,
-) {
-    let plugin_presenter: &mut PluginPresenter = unsafe { &mut *(controller as *mut PluginPresenter) };
-    
-    let state = plugin_presenter.session_presenter.borrow_mut().check_state().to_string();
-    println!("port_index: {}, buffer_size: {}, protocol: {}, state: {}", port_index, buffer_size, protocol, state);
-}
-unsafe extern "C" fn index_func(
-    controller: suil_sys::SuilController,
-    _port_symbol: *const ::std::os::raw::c_char,
-) -> u32 {
-   let _plugin_presenter: &mut PluginPresenter = unsafe { &mut *(controller as *mut PluginPresenter) };
-0
-}
-unsafe extern "C" fn subscribe_func(
-    _controller: suil_sys::SuilController,
-    _port_index: u32,
-    _protocol: u32,
-    _features: *const *const lv2_raw::LV2Feature,
-) -> u32 {0}
-unsafe extern "C" fn unsubscribe_func(
-    _controller: suil_sys::SuilController,
-    _port_index: u32,
-    _protocol: u32,
-    _features: *const *const lv2_raw::LV2Feature,
-) -> u32 {0}
-
-struct InstanceHandler {
-    instance: *mut suil_sys::SuilInstance,
-    _plugin_presenter: PluginPresenter,
-}
-
-pub struct Manager {
-    suil_host: *mut suil_sys::SuilHost,
-    instances: HashMap<Id, InstanceHandler>,
-    features: Vec<lv2_raw::LV2Feature>,
-}
-
-impl Manager {
-    pub fn new() -> Manager {
-        let suil_host = unsafe {suil_sys::suil_host_new(Some(write_func),
-            Some(index_func),
-            Some(subscribe_func),
-            Some(unsubscribe_func))
-        };
-
-        let bounded_block_length_feature = lv2_raw::LV2Feature {
-            uri: lv2_sys::LV2_BUF_SIZE__boundedBlockLength.as_ptr().cast(),
-            data: std::ptr::null_mut(),
-        };
-
-        let features = vec![bounded_block_length_feature];
-
-        Self {
-            suil_host,
-            instances: HashMap::new(),
-            features,
-        }
-    }
-
-    pub fn show(&mut self, talker: &RTalker, session_presenter: &RSessionPresenter) -> Result<(), failure::Error> {
-        lv2_handler::visit(|lv2_handler| {
-            let plugin_uri = &talker.model();
-                
-            match lv2_handler.world.plugin_by_uri(plugin_uri) {
-                Some(plugin) => {
-                    let plugin_uri_node = plugin.raw().uri();
-                    let plugin_uri = plugin_uri_node.as_uri().expect("Missing plugin uri.");
-
-                    let uis = plugin.raw().uis().expect("Missing plugin UIs.");
-                    let ui = uis.iter().next().expect("Missing plugin UI.");
-                    let ui_type_uri_node = ui.classes().iter().next().expect("Missing UI classe.");
-                    let ui_type_uri = ui_type_uri_node.as_uri().unwrap().as_ptr() as *const i8;
-                    let ui_uri = ui.uri();
-                    let ui_binary_uri = ui.binary_uri().expect("Missing binary uri.");
-                    let ui_binary_path = ui_binary_uri.as_str().expect("Missing binary uri str.").get(7..).unwrap();
-                    // let (ui_binary_hostname, ui_binary_path) = binary_uri.path().expect("Missing binary path.");
-                    let ui_bundle_uri = ui.bundle_uri().expect("Missing bundle uri.");
-                    let ui_bundle_path = ui_bundle_uri.as_str().expect("Missing bundle uri str.").get(7..).unwrap();
-                    // let (ui_bundle_hostname, ui_bundle_path) = ui.bundle_uri().map_or(None, |u| u.path()).expect("Missing bundle path.");
-
-                    let mut plugin_presenter = PluginPresenter {
-                        _talker: talker.clone(),
-                        session_presenter: session_presenter.clone(),
-                    };
-
-                    let plugin_presenter_ptr: *mut c_void = &mut plugin_presenter as *mut _ as *mut c_void;
-
-                    let host_type_uri = lv2_handler::LV2_UI_HOST_TYPE_URI.as_ptr() as *const i8;
-                    let plugin_uri = plugin_uri.as_ptr() as *const i8;
-                    let ui_uri = ui_uri.as_uri().unwrap().as_ptr() as *const i8;
-                    let ui_bundle_path = ui_bundle_path.as_ptr() as *const i8;
-                    let ui_binary_path = ui_binary_path.as_ptr() as *const i8;
-            
-                    let features: Vec<*const LV2Feature> = self.features
-                        .iter()
-                        .map(|f| f as *const LV2Feature)
-                        .chain(std::iter::once(std::ptr::null()))
-                        .collect();
-
-                    let instance = unsafe {suil_sys::suil_instance_new(self.suil_host, 
-                        plugin_presenter_ptr,
-                        host_type_uri,
-                        plugin_uri,
-                        ui_uri,
-                        ui_type_uri,
-                        ui_bundle_path,
-                        ui_binary_path,
-                        features.as_ptr())
-                    };
-
-                    self.instances.insert(talker.id(), InstanceHandler{instance, _plugin_presenter: plugin_presenter});
-
-                    Ok(())
-                },
-                None => Err(failure::err_msg(format!("LV2 plugin {} not found.", plugin_uri))),
-            }
+impl HostPresenter {
+    pub fn new(talker_id: Id, plugin_uri: &str, session_presenter: &RSessionPresenter) -> Result<HostPresenter, failure::Error> {
+        let port_symbol_indexes = lv2::get_port_symbol_indexes(plugin_uri)?;
+        let ears_indexes = lv2::get_ears_indexes(plugin_uri)?;
+        
+        Ok(Self {
+            talker_id,
+            session_presenter: session_presenter.clone(),
+            port_symbol_indexes,
+            ratification_countdown: 0,
+            ears_indexes,
         })
     }
 }
 
-impl Drop for Manager {
-    fn drop(&mut self) {
-        for inst in self.instances.values() {
-            unsafe{suil_sys::suil_instance_free(inst.instance);}
+impl luil::HostTrait for HostPresenter {
+    fn configuration(&mut self) -> luil::HostConfiguration {
+        luil::HostConfiguration {
+            sample_rate: AudioFormat::sample_rate() as f64,
+            support_touch: false,
+            support_peak_protocol: false,
         }
-        unsafe{suil_sys::suil_host_free(self.suil_host);}
+    }
+    fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
+        lv2_handler::visit(|lv2_handler| {
+            let urid = lv2_handler.features.urid(&uri);
+            println!("urid_map {:?} -> {}", uri, urid);
+            Ok(urid)
+        }).unwrap()
+    }
+    fn urid_unmap(&mut self, urid: lv2_raw::LV2Urid) -> Option<CString> {
+        lv2_handler::visit(|lv2_handler| {
+            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(s).unwrap()))
+        }).unwrap()
+    }
+    fn index(&mut self, port_symbol: String) -> u32 {
+        let idx = *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1);
+        println!("Index : Port {} index = {}", port_symbol, idx);
+        idx
+    }
+    fn notify(&mut self, message: String) {
+        self.session_presenter.borrow().notify(Notification::Error(message));
+    }
+    fn on_run(&mut self) {
+        if self.ratification_countdown > 0 {
+            self.ratification_countdown -= 1;
+
+            if self.ratification_countdown == 0 {
+                self.session_presenter.borrow().notify(Notification::TalkerChanged);
+            }
+        }
+    }
+    fn write(&mut self, port_index: u32, buffer_size: u32, protocol: u32, buffer: Vec<u8>) {
+        let _ = println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
+
+        if protocol == 0 {
+            let val_ptr: *const f32 = buffer.as_ptr().cast();
+            let value = unsafe {*val_ptr};
+
+            self.session_presenter.borrow_mut().modify_band_volatly(
+                &Operation::SetEarHumValue(
+                self.talker_id, self.ears_indexes[port_index as usize], 0, 0, value));
+            }
+        else {
+            self.session_presenter.borrow_mut().modify_band_volatly(
+                &Operation::SetIndexedData(
+                    self.talker_id, port_index as usize, protocol, buffer));
+        }
+        self.ratification_countdown = RATIFICATION_IDLE_COUNT;
+    }
+    fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
+//        self.session_presenter.borrow().read_port_events(self.talker_id)
+        None
+    }
+}
+pub type RLuil = Rc<RefCell<luil::Luil>>;
+
+pub struct UiParameters {
+    talker_id: Id,
+    plugin_uri: String,
+    instance_name: String,
+}
+pub struct Manager {
+    luil: RLuil,
+    pending_ui: Option<UiParameters>,
+}
+
+impl Manager {
+    pub fn new() -> Manager {
+        let luil = Rc::new(RefCell::new(luil::Luil::new()));
+
+        Self {luil, pending_ui: None}
+    }
+
+    pub fn prepare_new_ui(&mut self, talker: &RTalker) {
+        self.pending_ui = Some(UiParameters {
+            talker_id: talker.id(),
+            plugin_uri: talker.model(),
+            instance_name: talker.name(),
+        });
+    }
+
+    pub fn show_pending_ui(&mut self, session_presenter: &RSessionPresenter) -> Result<(), failure::Error> {
+
+        if let Some(ui_param) = &self.pending_ui {
+            let host: Box<HostPresenter> = Box::new(HostPresenter::new(ui_param.talker_id, &ui_param.plugin_uri, session_presenter)?);
+            
+            let ui_handler = self.luil.borrow_mut().launch_plugin_ui(
+                &ui_param.plugin_uri,
+                &ui_param.instance_name,
+                host
+            )?;
+
+            let instance_id = ui_param.talker_id.to_string();
+            let ui_count = self.luil.borrow_mut().manage_plugin_ui(&instance_id, ui_handler)?;
+
+            if ui_count == 1 {
+                let period = std::time::Duration::from_millis(IDLE_PERIOD);
+                let idle_luil = self.luil.clone();
+                let idle_session_presenter = session_presenter.clone();
+
+                glib::source::timeout_add_local(period, move || {
+                    match idle_luil.borrow_mut().run() {
+                        Ok(ui_count) => {
+                            if ui_count > 0 {
+                                glib::ControlFlow::Continue
+                            }
+                            else {
+                                glib::ControlFlow::Break
+                            }
+                        }
+                        Err(e) => {
+                            idle_session_presenter.borrow().notify_error(e);
+                            glib::ControlFlow::Continue
+                        }
+                    }
+                });
+            }
+        }
+
+        self.pending_ui = None;
+                
+        Ok(())
     }
 }

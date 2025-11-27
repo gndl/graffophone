@@ -7,7 +7,9 @@ authors = ["gndl"]
 failure = "0.1.8"
 ringbuf = "0.2.8"
 cpal = "0.15.2"
-livi = "0.7.5"
+lv2-sys = "2"
+lv2_raw = "0.2"
+livi = { git = "https://github.com/gndl/livi-rs.git" }
 nom = "7.1"
 audiofile = { path = "../audiofile" }
 scale = { path = "../scale" }

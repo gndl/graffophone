@@ -224,6 +224,7 @@ impl TalkerDataView {
 
     // Talker data editor
     pub fn edit_talker_data(&self, window: &gtk::ApplicationWindow, talker_id: Id) -> Result<(), failure::Error> {
+
         if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
             match &*talker.data().borrow() {
                 Data::Int(_) => println!("Todo : Applicationview.edit_talker_data Data::Int"),
@@ -231,12 +232,13 @@ impl TalkerDataView {
                 Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
                 Data::Text(text) => self.edit_text(talker, text),
                 Data::File(_) => self.edit_file_path(window, talker_id),
-                Data::UI => {
-                    return self.plugin_ui_manager.borrow_mut().show(talker, &self.session_presenter);
-                },
+                Data::UI => self.plugin_ui_manager.borrow_mut().prepare_new_ui(talker),
                 Data::Nil => (),
             }
         }
+        
+        self.plugin_ui_manager.borrow_mut().show_pending_ui(&self.session_presenter)?;
+
         Ok(())
     }
 

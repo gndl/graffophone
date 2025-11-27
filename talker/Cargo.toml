@@ -6,5 +6,5 @@ authors = ["gndl"]
 [dependencies]
 failure = "0.1.8"
 lv2-sys = "2"
-livi = "0.7.5"
-suil-sys = { git = "https://github.com/gndl/suil-sys.git" }
+livi = { git = "https://github.com/gndl/livi-rs.git" }
+#suil-sys = { git = "https://github.com/gndl/suil-sys.git" }

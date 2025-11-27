@@ -29,6 +29,8 @@ use crate::feedback::Feedback;
 use crate::output::Output;
 use crate::state::State;
 
+const YIELD_SLEEP_DURATION: u64 = 2;
+
 #[derive(PartialEq, Debug, Clone)]
 enum Order {
     Nil,
@@ -332,7 +334,7 @@ impl Player {
         match self.state {
             State::Exited => {}
             _ => {
-                thread::sleep(Duration::from_millis(20));
+                thread::sleep(Duration::from_millis(YIELD_SLEEP_DURATION));
 
                 match self.state_receiver.try_recv() {
                     Err(_) => {}
@@ -349,7 +351,7 @@ impl Player {
         match self.state {
             State::Exited => (),
             _ => {
-                thread::sleep(Duration::from_millis(20));
+                thread::sleep(Duration::from_millis(YIELD_SLEEP_DURATION));
 
                 match self.state_receiver.recv() {
                     Err(e) => {

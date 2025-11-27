@@ -158,6 +158,10 @@ impl Session {
         self.player.modify_band(operation)
     }
 
+    pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+        self.band.read_port_events(talker_id)
+    }
+
     pub fn backup_ear_hum(&self, talker_id: Id, ear_idx: Index, set_idx: Index, hum_idx: Index) -> Result<EarHum, failure::Error> {
         self.band.backup_ear_hum(talker_id, ear_idx, set_idx, hum_idx)
     }
