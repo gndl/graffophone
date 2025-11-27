@@ -11,13 +11,11 @@ use talker::identifier::{Id, Index};
 use session::event_bus::{Notification, REventBus};
 
 use crate::graph_presenter::RGraphPresenter;
-use crate::session_presenter::RSessionPresenter;
 use crate::talker_control::RTalkerControl;
 use crate::ui;
 
 
 pub struct GraphControl {
-    session_presenter: RSessionPresenter,
     graph_presenter: RGraphPresenter,
     talker_controls: Vec<RTalkerControl>,
     event_bus: REventBus,
@@ -27,12 +25,10 @@ pub type RGraphControl = Rc<RefCell<GraphControl>>;
 impl GraphControl {
     pub fn new_ref(
         window: &gtk::ApplicationWindow,
-        session_presenter: &RSessionPresenter,
         graph_presenter: &RGraphPresenter,
         event_bus: &REventBus,
     ) -> RGraphControl {
         let instance = Rc::new(RefCell::new(Self {
-            session_presenter: session_presenter.clone(),
             graph_presenter: graph_presenter.clone(),
             talker_controls: Vec::new(),
             event_bus: event_bus.clone(),

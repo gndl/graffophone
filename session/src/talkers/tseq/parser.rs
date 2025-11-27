@@ -307,16 +307,16 @@ fn per(input: &str) -> IResult<&str, char> {
     terminated(char(PER_KW!()), space0)(input)
 }
 
-fn end(input: &str) -> IResult<&str, Expression> {
+fn end(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, _) = many1_count(preceded(space0, newline))(input)?;
     Ok((input, Expression::None))
 }
 
-fn line_comment(input: &str) -> IResult<&str, Expression> {
+fn line_comment(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, _) = delimited(tag(LINE_COMMENT_KW!()), take_until("\n"), end)(input)?;
     Ok((input, Expression::None))
 }
-fn multiline_comment(input: &str) -> IResult<&str, Expression> {
+fn multiline_comment(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, _) = delimited(
         tag(MULTILINE_COMMENT_KW!()),
         take_until(MULTILINE_COMMENT_KW!()),
@@ -325,7 +325,7 @@ fn multiline_comment(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::None))
 }
 
-fn beat(input: &str) -> IResult<&str, Expression> {
+fn beat(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, bpm, _)) = tuple((head(BEAT_KW!()), digit1, end))(input)?;
     Ok((
         input,
@@ -336,7 +336,7 @@ fn beat(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
-fn scale(input: &str) -> IResult<&str, Expression> {
+fn scale(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, name, _)) = tuple((head(SCALE_KW!()), id, end))(input)?;
     Ok((
         input,
@@ -347,7 +347,7 @@ fn scale(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
-fn attribute(input: &str) -> IResult<&str, PAttribute> {
+fn attribute(input: &str) -> IResult<&str, PAttribute<'_>> {
     let (input, (_, _, label, _, _, value)) =
         tuple((char(ATTRIBUTE_KW!()), space0, id, char(ASSIGNMENT_KW!()), space0, id))(input)?;
     Ok((input, PAttribute { label, value }))
@@ -387,7 +387,7 @@ fn time(input: &str) -> IResult<&str, PTime> {
     Ok((input, duration))
 }
 
-fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
+fn harmonic(input: &str) -> IResult<&str, PHarmonic<'_>> {
     let (input, (pitch_gap, delay, velocity, _)) = tuple((
         alt((freq_ratio, interval)),
         opt(preceded(terminated(char(JOIN_KW!()), space0), time)),
@@ -404,14 +404,14 @@ fn harmonic(input: &str) -> IResult<&str, PHarmonic> {
     ))
 }
 
-fn chord(input: &str) -> IResult<&str, Expression> {
+fn chord(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, harmonics, _)) =
         tuple((head(CHORD_KW!()), many0(terminated(harmonic, space0)), end))(input)?;
 
     Ok((input, Expression::Chord(PChord { id, harmonics })))
 }
 
-fn accent(input: &str) -> IResult<&str, PAccent> {
+fn accent(input: &str) -> IResult<&str, PAccent<'_>> {
     let (input, (delay, velocity)) = tuple((
         time,
         opt(delimited(
@@ -423,14 +423,14 @@ fn accent(input: &str) -> IResult<&str, PAccent> {
     Ok((input, PAccent { delay, velocity }))
 }
 
-fn attack(input: &str) -> IResult<&str, Expression> {
+fn attack(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, accents, _)) =
         tuple((head(ATTACK_KW!()), many0(terminated(accent, space0)), end))(input)?;
 
     Ok((input, Expression::Attack(PAttack { id, accents })))
 }
 
-fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment> {
+fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
     let (input, (chord_id, attack_id, omul)) = tuple((
         id,
         opt(preceded(char(JOIN_KW!()), id)),
@@ -446,7 +446,7 @@ fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment> {
     ))
 }
 
-fn chordline_ref(input: &str) -> IResult<&str, PChordLineFragment> {
+fn chordline_ref(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
     let (input, (id, omul)) = tuple((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
@@ -455,7 +455,7 @@ fn chordline_ref(input: &str) -> IResult<&str, PChordLineFragment> {
     Ok((input, PChordLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
-fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment> {
+fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
     let (input, (fragments, mul)) = tuple((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
@@ -470,7 +470,7 @@ fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment> {
     ))
 }
 
-fn chordline(input: &str) -> IResult<&str, Expression> {
+fn chordline(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, fragments, _)) = tuple((
         head(CHORDLINE_KW!()),
         many0(alt((chordline_part, chordline_ref, chordline_fragments))),
@@ -492,13 +492,13 @@ fn hit(input: &str) -> IResult<&str, PHit> {
     Ok((input, PHit { position, duration }))
 }
 
-fn hits(input: &str) -> IResult<&str, Expression> {
+fn hits(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, hits, duration)) =
         tuple((head(HITLINE_KW!()), many0(hit), delimited(per, time, end)))(input)?;
     Ok((input, Expression::HitLine(PHitLine { id, hits, duration })))
 }
 
-fn durations(input: &str) -> IResult<&str, Expression> {
+fn durations(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, durations)) =
         tuple((head(DURATIONLINE_KW!()), many0(terminated(time, space0))))(input)?;
     Ok((
@@ -525,7 +525,7 @@ fn shape(input: &str) -> IResult<&str, PShape> {
     Ok((input, shape))
 }
 
-fn velocity(input: &str) -> IResult<&str, PVelocity> {
+fn velocity(input: &str) -> IResult<&str, PVelocity<'_>> {
     let (input, (ofadein, level, envelope_id, ofadeout, transition)) = tuple((
         opt(tag(FADEIN_KW!())),
         ratio,
@@ -545,7 +545,7 @@ fn velocity(input: &str) -> IResult<&str, PVelocity> {
     ))
 }
 
-fn velocityline_part(input: &str) -> IResult<&str, PVelocityLineFragment> {
+fn velocityline_part(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
     let (input, (velocity, omul)) = tuple((
         velocity,
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
@@ -553,7 +553,7 @@ fn velocityline_part(input: &str) -> IResult<&str, PVelocityLineFragment> {
     Ok((input, PVelocityLineFragment::Part((velocity, omul.unwrap_or(1)))))
 }
 
-fn velocityline_ref(input: &str) -> IResult<&str, PVelocityLineFragment> {
+fn velocityline_ref(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
     let (input, (id, omul)) = tuple((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
@@ -562,7 +562,7 @@ fn velocityline_ref(input: &str) -> IResult<&str, PVelocityLineFragment> {
     Ok((input, PVelocityLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
-fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment> {
+fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
     let (input, (fragments, mul)) = tuple((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
@@ -577,7 +577,7 @@ fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment> {
     ))
 }
 
-fn velocityline(input: &str) -> IResult<&str, Expression> {
+fn velocityline(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, fragments, _)) = tuple((
         head(VELOCITYLINE_KW!()),
         many0(alt((velocityline_part, velocityline_ref, velocityline_fragments))),
@@ -601,7 +601,7 @@ fn envelop_point(input: &str) -> IResult<&str, PEnvelopePoint> {
     ))
 }
 
-fn envelope(input: &str) -> IResult<&str, Expression> {
+fn envelope(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, points, _)) = tuple((head(ENVELOP_KW!()), many0(envelop_point), end))(input)?;
     Ok((input, Expression::Envelope(PEnvelope { id, points })))
 }
@@ -611,7 +611,7 @@ pub fn pitch_id(input: &str) -> IResult<&str, &str> {
     recognize(many1_count(alt((alphanumeric1, tag("#"), tag("."), tag("^") ) ) ) ) (input)
 }
 
-fn pitch(input: &str) -> IResult<&str, PPitchLineFragment> {
+fn pitch(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
     let (input, (id, transition, omul)) = tuple((
         recognize(pitch_id),
         shape,
@@ -620,29 +620,29 @@ fn pitch(input: &str) -> IResult<&str, PPitchLineFragment> {
     Ok((input, PPitchLineFragment::Part((PPitch {id, transition}, omul.unwrap_or(1)))))
 }
 
-fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
+fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
     let (input, (_, _, oshift_count)) = tuple((tag(NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::NoteShift(shift_count ) ) )
 }
 
-fn backward_note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
+fn backward_note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
     let (input, (_, _, oshift_count)) = tuple((tag(BACK_NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::BackwardNoteShift(shift_count) ) )
 }
 
-fn pitch_transpo_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
+fn pitch_transpo_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
     let (input, (pa, _, _, _, pb)) = tuple((pitch_id, space1, tag(PITCH_TRANSPO_KW!()), space1, pitch_id))(input)?;
     Ok((input, PPitchLineTransformation::PitchTranspo(pa, pb) ) )
 }
 
-fn pitch_inv_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
+fn pitch_inv_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
     let (input, _) = tag(PITCH_INV_KW!()) (input)?;
     Ok((input, PPitchLineTransformation::PitchInv))
 }
 
-fn pitchline_transformation(input: &str) -> IResult<&str, PPitchLineTransformation> {
+fn pitchline_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
     let (input, (_, transfo, _, _, _)) = tuple((space0,
         alt((note_shift_transformation, backward_note_shift_transformation, pitch_transpo_transformation, pitch_inv_transformation)),
         space0,
@@ -652,7 +652,7 @@ fn pitchline_transformation(input: &str) -> IResult<&str, PPitchLineTransformati
     Ok((input, transfo))
 }
 
-fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment> {
+fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
     let (input, (id, transformations, _, omul)) = tuple((
         preceded(char(REF_KW!()), id),
         opt(delimited(char(OPEN_BRACKET_KW!()), many0(pitchline_transformation), char(CLOSE_BRACKET_KW!()))),
@@ -666,7 +666,7 @@ fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment> {
     ))
 }
 
-fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment> {
+fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
     let (input, (fragments, mul)) = tuple((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
@@ -681,7 +681,7 @@ fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment> {
     ))
 }
 
-fn pitchline(input: &str) -> IResult<&str, Expression> {
+fn pitchline(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, attributes, fragments, _, _)) =
         tuple((head(PITCHLINE_KW!()),
         many0(attribute),
@@ -701,7 +701,7 @@ fn pitchline(input: &str) -> IResult<&str, Expression> {
 }
 
 
-fn seq_part(input: &str) -> IResult<&str, PSeqFragment> {
+fn seq_part(input: &str) -> IResult<&str, PSeqFragment<'_>> {
     let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, omul, _)) =
         tuple((
             id,
@@ -725,7 +725,7 @@ fn seq_part(input: &str) -> IResult<&str, PSeqFragment> {
     ))
 }
 
-fn seq_ref(input: &str) -> IResult<&str, PSeqFragment> {
+fn seq_ref(input: &str) -> IResult<&str, PSeqFragment<'_>> {
     let (input, (id, omul)) = tuple((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
@@ -734,7 +734,7 @@ fn seq_ref(input: &str) -> IResult<&str, PSeqFragment> {
     Ok((input, PSeqFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
-fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment> {
+fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment<'_>> {
     let (input, (fragments, mul)) = tuple((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
@@ -749,7 +749,7 @@ fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment> {
     ))
 }
 
-fn sequence(input: &str) -> IResult<&str, PSequence> {
+fn sequence(input: &str) -> IResult<&str, PSequence<'_>> {
     let (input, (_, id, _, attributes, fragments, _)) = tuple((
         space1,
         id,
@@ -779,17 +779,17 @@ fn sequence(input: &str) -> IResult<&str, PSequence> {
     ))
 }
 
-fn seq(input: &str) -> IResult<&str, Expression> {
+fn seq(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, sequence) = preceded(tag(SEQUENCE_KW!()), sequence)(input)?;
     Ok((input, Expression::Seq(sequence)))
 }
 
-fn seqout(input: &str) -> IResult<&str, Expression> {
+fn seqout(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, sequence) = preceded(tag(SEQUENCE_OUTPUT_KW!()), sequence)(input)?;
     Ok((input, Expression::SeqOut(sequence)))
 }
 
-fn midi_channel(input: &str) -> IResult<&str, PMidiChannel> {
+fn midi_channel(input: &str) -> IResult<&str, PMidiChannel<'_>> {
     let (input, (seq_id, program, attributes, _)) = tuple((
         preceded(char(REF_KW!()), id),
         preceded(char(JOIN_KW!()), digit1),
@@ -806,7 +806,7 @@ fn midi_channel(input: &str) -> IResult<&str, PMidiChannel> {
     ))
 }
 
-fn midiout(input: &str) -> IResult<&str, Expression> {
+fn midiout(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, _attributes, channels, _)) = tuple((
         head(MIDI_OUTPUT_KW!()),
         many0(attribute),
@@ -816,7 +816,7 @@ fn midiout(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::MidiOut(PMidiSequence {id, channels})))
 }
 
-pub fn parse(input: &str) -> Result<Vec<Expression>, failure::Error> {
+pub fn parse(input: &str) -> Result<Vec<Expression<'_>>, failure::Error> {
     let (input, expressions) = many0(alt((
         beat,
         scale,

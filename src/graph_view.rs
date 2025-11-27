@@ -155,7 +155,7 @@ impl GraphView {
 
         let rgv = Rc::new(RefCell::new(Self {
             session_presenter: session_presenter.clone(),
-            graph_control: GraphControl::new_ref(window, session_presenter, &graph_presenter, event_bus),
+            graph_control: GraphControl::new_ref(window, &graph_presenter, event_bus),
             graph_presenter,
             drawing_area,
             graph_view_scrolledwindow,

@@ -60,16 +60,16 @@ impl Voice {
         &self.horn
     }
 
-    pub fn audio_buffer(&self) -> MAudioBuf {
+    pub fn audio_buffer(&self) -> MAudioBuf<'_> {
         self.horn.audio_buffer()
     }
-    pub fn control_buffer(&self) -> MControlBuf {
+    pub fn control_buffer(&self) -> MControlBuf<'_> {
         self.horn.control_buffer()
     }
-    pub fn cv_buffer(&self) -> MCvBuf {
+    pub fn cv_buffer(&self) -> MCvBuf<'_> {
         self.horn.cv_buffer()
     }
-    pub fn atom_buffer(&self) -> MAtomBuf {
+    pub fn atom_buffer(&self) -> MAtomBuf<'_> {
         self.horn.atom_buffer()
     }
     pub fn audio_value(&self, index: usize) -> AudioVal {

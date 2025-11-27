@@ -861,7 +861,7 @@ impl<'a> Binder<'a> {
     pub fn fetch_velocityline(
         &'a self,
         oid: &'a Option<&str>,
-    ) -> Result<&Vec<Velocity>, failure::Error> {
+    ) -> Result<&'a Vec<Velocity>, failure::Error> {
         match oid {
             Some(id) => match self.velocitylines.get(id) {
                 Some(e) => Ok(e),
@@ -871,7 +871,7 @@ impl<'a> Binder<'a> {
         }
     }
 
-    pub fn fetch_chord(&'a self, id: &str) -> Result<&'a PChord, failure::Error> {
+    pub fn fetch_chord(&'a self, id: &str) -> Result<&'a PChord<'a>, failure::Error> {
         match self.parser_chords.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!("Chord {} undefined.", id))),
@@ -897,13 +897,13 @@ impl<'a> Binder<'a> {
             None => Err(failure::err_msg(format!("Hits {} undefined.", id))),
         }
     }
-    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&(&Scale, Vec<(f32, PShape)>), failure::Error> {
+    pub fn fetch_pitchline(&'a self, id: &str) -> Result<&'a (&'a Scale, Vec<(f32, PShape)>), failure::Error> {
         match self.pitchlines.get(id) {
             Some(e) => Ok(e),
             None => Err(failure::err_msg(format!("Pitchs {} undefined.", id))),
         }
     }
-    pub fn fetch_sequence(&'a self, id: &str) -> Result<&'a PSequence, failure::Error> {
+    pub fn fetch_sequence(&'a self, id: &str) -> Result<&'a PSequence<'a>, failure::Error> {
         for seq in &self.parser_sequences {
             if seq.id == id {
                 return Ok(seq);

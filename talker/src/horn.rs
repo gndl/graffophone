@@ -131,16 +131,16 @@ impl Horn {
         self.port_type
     }
 
-    pub fn audio_buffer(&self) -> MAudioBuf {
+    pub fn audio_buffer(&self) -> MAudioBuf<'_> {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
-    pub fn control_buffer(&self) -> MControlBuf {
+    pub fn control_buffer(&self) -> MControlBuf<'_> {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
-    pub fn cv_buffer(&self) -> MCvBuf {
+    pub fn cv_buffer(&self) -> MCvBuf<'_> {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
-    pub fn atom_buffer(&self) -> MAtomBuf {
+    pub fn atom_buffer(&self) -> MAtomBuf<'_> {
         unsafe { &mut *self.atom.as_ref().unwrap().as_ptr().as_mut().unwrap() }
     }
 

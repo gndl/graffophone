@@ -79,19 +79,19 @@ impl Talk {
             }
         }
     }
-    pub fn audio_buffer(&self) -> AudioBuf {
+    pub fn audio_buffer(&self) -> AudioBuf<'_> {
         self.talker.voice(self.port).audio_buffer()
     }
-    pub fn control_buffer(&self) -> ControlBuf {
+    pub fn control_buffer(&self) -> ControlBuf<'_> {
         self.talker.voice(self.port).control_buffer()
     }
     pub fn control_value(&self) -> ControlVal {
         self.talker.voice(self.port).control_value()
     }
-    pub fn cv_buffer(&self) -> CvBuf {
+    pub fn cv_buffer(&self) -> CvBuf<'_> {
         self.talker.voice(self.port).cv_buffer()
     }
-    pub fn atom_buffer(&self) -> AtomBuf {
+    pub fn atom_buffer(&self) -> AtomBuf<'_> {
         self.talker.voice(self.port).atom_buffer()
     }
 
@@ -270,28 +270,28 @@ impl Hum {
     pub fn value_or_default(&self) -> f32 {
         self.value().unwrap_or(self.def_value)
     }
-    pub fn audio_buffer(&self) -> AudioBuf {
+    pub fn audio_buffer(&self) -> AudioBuf<'_> {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().audio_buffer()
         } else {
             self.talks[0].audio_buffer()
         }
     }
-    pub fn control_buffer(&self) -> ControlBuf {
+    pub fn control_buffer(&self) -> ControlBuf<'_> {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().control_buffer()
         } else {
             self.talks[0].control_buffer()
         }
     }
-    pub fn cv_buffer(&self) -> CvBuf {
+    pub fn cv_buffer(&self) -> CvBuf<'_> {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().cv_buffer()
         } else {
             self.talks[0].cv_buffer()
         }
     }
-    pub fn atom_buffer(&self) -> AtomBuf {
+    pub fn atom_buffer(&self) -> AtomBuf<'_> {
         if self.talks.len() > 1 {
             self.horn.as_ref().unwrap().atom_buffer()
         } else {
@@ -491,15 +491,15 @@ impl Set {
         Set { hums }
     }
 
-    pub fn get_hum_audio_buffer(&self, hum_idx: Index) -> AudioBuf {
+    pub fn get_hum_audio_buffer(&self, hum_idx: Index) -> AudioBuf<'_> {
         self.hums[hum_idx].audio_buffer()
     }
 
-    pub fn get_hum_control_buffer(&self, hum_idx: Index) -> ControlBuf {
+    pub fn get_hum_control_buffer(&self, hum_idx: Index) -> ControlBuf<'_> {
         self.hums[hum_idx].control_buffer()
     }
 
-    pub fn get_hum_cv_buffer(&self, hum_idx: Index) -> CvBuf {
+    pub fn get_hum_cv_buffer(&self, hum_idx: Index) -> CvBuf<'_> {
         self.hums[hum_idx].cv_buffer()
     }
 }
@@ -643,43 +643,43 @@ impl Ear {
         0.
     }
 
-    pub fn get_set_hum_audio_buffer(&self, set_idx: Index, hum_idx: Index) -> AudioBuf {
+    pub fn get_set_hum_audio_buffer(&self, set_idx: Index, hum_idx: Index) -> AudioBuf<'_> {
         self.sets()[set_idx].get_hum_audio_buffer(hum_idx)
     }
-    pub fn get_set_audio_buffer(&self, set_idx: Index) -> AudioBuf {
+    pub fn get_set_audio_buffer(&self, set_idx: Index) -> AudioBuf<'_> {
         self.get_set_hum_audio_buffer(set_idx, 0)
     }
-    pub fn get_audio_buffer(&self) -> AudioBuf {
+    pub fn get_audio_buffer(&self) -> AudioBuf<'_> {
         self.get_set_audio_buffer(0)
     }
 
-    pub fn get_set_hum_control_buffer(&self, set_idx: Index, hum_idx: Index) -> ControlBuf {
+    pub fn get_set_hum_control_buffer(&self, set_idx: Index, hum_idx: Index) -> ControlBuf<'_> {
         self.sets()[set_idx].get_hum_control_buffer(hum_idx)
     }
     pub fn get_set_hum_control_value(&self, set_idx: Index, hum_idx: Index) -> ControlVal {
         self.get_set_hum_control_buffer(set_idx, hum_idx)[0]
     }
-    pub fn get_set_control_buffer(&self, set_idx: Index) -> ControlBuf {
+    pub fn get_set_control_buffer(&self, set_idx: Index) -> ControlBuf<'_> {
         self.get_set_hum_control_buffer(set_idx, 0)
     }
-    pub fn get_control_buffer(&self) -> ControlBuf {
+    pub fn get_control_buffer(&self) -> ControlBuf<'_> {
         self.get_set_control_buffer(0)
     }
     pub fn get_control_value(&self) -> ControlVal {
         self.get_set_control_buffer(0)[0]
     }
 
-    pub fn get_set_hum_cv_buffer(&self, set_idx: Index, hum_idx: Index) -> CvBuf {
+    pub fn get_set_hum_cv_buffer(&self, set_idx: Index, hum_idx: Index) -> CvBuf<'_> {
         self.sets()[set_idx].get_hum_cv_buffer(hum_idx)
     }
-    pub fn get_set_cv_buffer(&self, set_idx: Index) -> CvBuf {
+    pub fn get_set_cv_buffer(&self, set_idx: Index) -> CvBuf<'_> {
         self.get_set_hum_cv_buffer(set_idx, 0)
     }
-    pub fn get_cv_buffer(&self) -> CvBuf {
+    pub fn get_cv_buffer(&self) -> CvBuf<'_> {
         self.get_set_cv_buffer(0)
     }
 
-    pub fn get_atom_buffer(&self) -> AtomBuf {
+    pub fn get_atom_buffer(&self) -> AtomBuf<'_> {
         self.sets()[0].hums[0].atom_buffer()
     }
 

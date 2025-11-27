@@ -455,17 +455,6 @@ impl GraphPresenter {
         Ok(notifications)
     }
 
-    pub fn show_voice(
-        &self,
-        talker: &RTalker,
-        voice_port: Index,
-    ) -> Result<Vec<Notification>, failure::Error> {
-        Ok(vec![
-            Notification::TalkSelected(talker.id(), voice_port),
-            Notification::SelectionChanged,
-        ])
-    }
-
     pub fn add_ear_talk(
         &mut self,
         talker_id: Id,

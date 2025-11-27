@@ -1004,10 +1004,6 @@ impl TalkerControlBase {
 pub trait TalkerControl {
     fn base<'a>(&'a self) -> &'a RTalkerControlBase;
 
-    fn id(&self) -> Id {
-        self.base().borrow().id
-    }
-
     fn row(&self) -> i32 {
         self.base().borrow().row()
     }

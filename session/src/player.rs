@@ -45,7 +45,7 @@ enum Order {
 }
 
 impl Order {
-    pub fn to_string(&self) -> String {
+    pub fn _to_string(&self) -> String {
         (match self {
             Order::Nil => "Nil",
             Order::Play => "Play",
@@ -75,19 +75,11 @@ fn run(
     band_description: String,
 ) -> Result<(), failure::Error> {
 
-    let send_state = |order: &String, prev_state: State, state: State| {
+    let send_state = |state: State| {
         match state_sender.send(state) {
             Err(e) => eprintln!("Player state sender error : {}", e),
             Ok(()) => (),
         }
-
-        println!(
-            "Player received order {} : {} -> {}",
-            order,
-            prev_state.to_string(),
-            state.to_string()
-        );
-
         state
     };
 
@@ -110,7 +102,7 @@ fn run(
         match oorder {
             Ok(order) => match order {
                 Order::Pause => {
-                    send_state(&order.to_string(), state, State::Paused);
+                    send_state(State::Paused);
 
                     if state == State::Playing || state == State::Recording {
                         let len = band.play(tick, feedback.fade_len())?;
@@ -129,7 +121,7 @@ fn run(
                     continue;
                  }
                 Order::Play => {
-                    send_state(&order.to_string(), state, State::Playing);
+                    send_state(State::Playing);
 
                     if state == State::Stopped {
                         band.open()?;
@@ -151,7 +143,7 @@ fn run(
                     state = State::Playing;
                 }
                 Order::Record => {
-                    send_state(&order.to_string(), state, State::Recording);
+                    send_state(State::Recording);
 
                     if state == State::Stopped {
                         band.set_record(true)?;
@@ -166,7 +158,7 @@ fn run(
                     state = State::Recording;
                 }
                 Order::Stop => {
-                    send_state(&order.to_string(), state, State::Stopped);
+                    send_state(State::Stopped);
 
                     if state != State::Stopped {
                         let len = band.fadeout(tick)?;
@@ -243,7 +235,7 @@ fn run(
                     }
                 }
                 Order::Exit => {
-                    send_state(&order.to_string(), state, State::Exited);
+                    send_state(State::Exited);
                     break;
                 }
                 Order::Nil => {}

@@ -182,23 +182,23 @@ impl TalkerBase {
         ear_idx: Index,
         set_idx: Index,
         hum_idx: Index,
-    ) -> AudioBuf {
+    ) -> AudioBuf<'_> {
         self.ears[ear_idx].get_set_hum_audio_buffer(set_idx, hum_idx)
     }
-    pub fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf {
+    pub fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf<'_> {
         self.ear_set_hum_audio_buffer(ear_idx, set_idx, 0)
     }
-    pub fn ear_audio_buffer(&self, ear_idx: Index) -> AudioBuf {
+    pub fn ear_audio_buffer(&self, ear_idx: Index) -> AudioBuf<'_> {
         self.ear_set_audio_buffer(ear_idx, 0)
     }
 
-    pub fn ear_set_hum_cv_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> CvBuf {
+    pub fn ear_set_hum_cv_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> CvBuf<'_> {
         self.ears[ear_idx].get_set_hum_cv_buffer(set_idx, hum_idx)
     }
-    pub fn ear_set_cv_buffer(&self, ear_idx: Index, set_idx: Index) -> CvBuf {
+    pub fn ear_set_cv_buffer(&self, ear_idx: Index, set_idx: Index) -> CvBuf<'_> {
         self.ear_set_hum_cv_buffer(ear_idx, set_idx, 0)
     }
-    pub fn ear_cv_buffer(&self, ear_idx: Index) -> CvBuf {
+    pub fn ear_cv_buffer(&self, ear_idx: Index) -> CvBuf<'_> {
         self.ear_set_cv_buffer(ear_idx, 0)
     }
 
@@ -415,13 +415,13 @@ impl TalkerCab {
         ear_idx: Index,
         set_idx: Index,
         hum_idx: Index,
-    ) -> AudioBuf {
+    ) -> AudioBuf<'_> {
         self.base.ears[ear_idx].get_set_hum_audio_buffer(set_idx, hum_idx)
     }
-    pub fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf {
+    pub fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf<'_> {
         self.ear_set_hum_audio_buffer(ear_idx, set_idx, 0)
     }
-    pub fn ear_audio_buffer(&self, ear_idx: Index) -> AudioBuf {
+    pub fn ear_audio_buffer(&self, ear_idx: Index) -> AudioBuf<'_> {
         self.ear_set_audio_buffer(ear_idx, 0)
     }
 
@@ -430,23 +430,23 @@ impl TalkerCab {
         ear_idx: Index,
         set_idx: Index,
         hum_idx: Index,
-    ) -> AudioBuf {
+    ) -> AudioBuf<'_> {
         self.base.ears[ear_idx].get_set_hum_control_buffer(set_idx, hum_idx)
     }
-    pub fn ear_set_control_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf {
+    pub fn ear_set_control_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf<'_> {
         self.ear_set_hum_control_buffer(ear_idx, set_idx, 0)
     }
-    pub fn ear_control_buffer(&self, ear_idx: Index) -> AudioBuf {
+    pub fn ear_control_buffer(&self, ear_idx: Index) -> AudioBuf<'_> {
         self.ear_set_control_buffer(ear_idx, 0)
     }
 
-    pub fn ear_set_hum_cv_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> CvBuf {
+    pub fn ear_set_hum_cv_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> CvBuf<'_> {
         self.base.ears[ear_idx].get_set_hum_cv_buffer(set_idx, hum_idx)
     }
-    pub fn ear_set_cv_buffer(&self, ear_idx: Index, set_idx: Index) -> CvBuf {
+    pub fn ear_set_cv_buffer(&self, ear_idx: Index, set_idx: Index) -> CvBuf<'_> {
         self.ear_set_hum_cv_buffer(ear_idx, set_idx, 0)
     }
-    pub fn ear_cv_buffer(&self, ear_idx: Index) -> CvBuf {
+    pub fn ear_cv_buffer(&self, ear_idx: Index) -> CvBuf<'_> {
         self.ear_set_cv_buffer(ear_idx, 0)
     }
 
@@ -613,7 +613,7 @@ impl TalkerCab {
         ln
     }
 
-    pub fn backup<'a>(&'a self) -> (String, String, &Vec<ear::Ear>) {
+    pub fn backup<'a>(&'a self) -> (String, String, &'a Vec<ear::Ear>) {
         (self.model(), self.data_string(), &self.base.ears)
     }
 }
