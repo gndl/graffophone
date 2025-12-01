@@ -366,6 +366,7 @@ impl ApplicationView {
     }
 
     fn display_error_message(&self, message: &String) {
+        println!("{}", message);
         self.display_message(message, "color=\"#FF8080\" weight=\"bold\"");
     }
 

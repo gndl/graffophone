@@ -4,6 +4,8 @@ use std::str::FromStr;
 
 use gtk::glib;
 
+use luil::plugin_handle::UiConnector;
+
 use ::session::channel;
 use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
@@ -40,6 +42,7 @@ pub struct SessionPresenter {
     modified: bool,
     mixers_presenters: Vec<MixerPresenter>,
     undo_redo_list: UndoRedoList,
+    ui_count: usize,
     event_bus: REventBus,
 }
 pub type RSessionPresenter = Rc<RefCell<SessionPresenter>>;
@@ -56,6 +59,7 @@ impl SessionPresenter {
             modified: false,
             mixers_presenters: Vec::new(),
             undo_redo_list,
+            ui_count: 0,
             event_bus: event_bus.clone(),
         }))
     }
@@ -195,7 +199,6 @@ impl SessionPresenter {
         }
     }
 
-    
     pub fn set_talker_data(&mut self, talker_id: Id, data: &str) {
 
         if self.modify_band(&Operation::SetTalkerData(talker_id, data.to_string())) {
@@ -288,6 +291,41 @@ impl SessionPresenter {
                 Vec::new()
             },
         }
+    }
+
+    // UI
+    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector) {
+        let res = self.session.add_plugin_handle(talker_id, ui_connector);
+
+        if self.manage_state_result(res) {
+            self.ui_count += 1;
+        }
+    }
+
+    pub fn update_band_and_ui_count(&mut self) -> (usize, usize) {
+        match self.session.update_band_and_ui_count() {
+            Ok((modification_count, ui_count)) => {
+                if modification_count > 0 {
+                    match self.session.serialize_band() {
+                        Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
+                        Err(e) => self.event_bus.borrow().notify_error(e),
+                    }
+
+                    self.modified = true;
+                }
+                self.ui_count = ui_count;
+
+                (modification_count, ui_count)
+            }
+            Err(e) => {
+                self.event_bus.borrow().notify_error(e);
+                (0, 0)
+            },
+        }
+    }
+
+    pub fn ui_count(&self) -> usize {
+        self.ui_count
     }
 
     pub fn play_or_pause(&mut self, monitor: &RSessionPresenter) {

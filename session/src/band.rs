@@ -815,3 +815,9 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         Ok(())
     }
 }
+
+impl Drop for Band {
+    fn drop(&mut self) {
+        let _ = self.close();
+    }
+}

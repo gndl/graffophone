@@ -3,6 +3,7 @@ extern crate failure;
 extern crate livi;
 extern crate nom;
 extern crate ringbuf;
+extern crate luil;
 
 extern crate audiofile;
 extern crate scale;
@@ -19,6 +20,7 @@ pub mod mixer;
 pub mod output;
 pub mod parser;
 pub mod player;
+pub mod plugin_handle_manager;
 pub mod plugins_manager;
 pub mod session;
 pub mod state;

@@ -1,6 +1,4 @@
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::collections::HashMap;
 
 use std::ffi::CString;
@@ -18,15 +16,13 @@ use session::talkers::lv2;
 use crate::session_presenter::RSessionPresenter;
 use crate::session::event_bus::Notification;
 
-const IDLE_PERIOD: u64 = 20;
-const RATIFICATION_IDLE_COUNT: u64 = 250 / IDLE_PERIOD;
+const HMI_UPDATE_PERIOD: u64 = 333;
 
 
 struct HostPresenter {
     talker_id: Id,
     session_presenter: RSessionPresenter,
     port_symbol_indexes: HashMap<String, u32>,
-    ratification_countdown: u64,
     ears_indexes: Vec<usize>,
 }
 
@@ -39,7 +35,6 @@ impl HostPresenter {
             talker_id,
             session_presenter: session_presenter.clone(),
             port_symbol_indexes,
-            ratification_countdown: 0,
             ears_indexes,
         })
     }
@@ -56,7 +51,6 @@ impl luil::HostTrait for HostPresenter {
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
         lv2_handler::visit(|lv2_handler| {
             let urid = lv2_handler.features.urid(&uri);
-            println!("urid_map {:?} -> {}", uri, urid);
             Ok(urid)
         }).unwrap()
     }
@@ -73,17 +67,8 @@ impl luil::HostTrait for HostPresenter {
     fn notify(&mut self, message: String) {
         self.session_presenter.borrow().notify(Notification::Error(message));
     }
-    fn on_run(&mut self) {
-        if self.ratification_countdown > 0 {
-            self.ratification_countdown -= 1;
-
-            if self.ratification_countdown == 0 {
-                self.session_presenter.borrow().notify(Notification::TalkerChanged);
-            }
-        }
-    }
     fn write(&mut self, port_index: u32, buffer_size: u32, protocol: u32, buffer: Vec<u8>) {
-        let _ = println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
+        println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
 
         if protocol == 0 {
             let val_ptr: *const f32 = buffer.as_ptr().cast();
@@ -98,14 +83,11 @@ impl luil::HostTrait for HostPresenter {
                 &Operation::SetIndexedData(
                     self.talker_id, port_index as usize, protocol, buffer));
         }
-        self.ratification_countdown = RATIFICATION_IDLE_COUNT;
     }
     fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
-//        self.session_presenter.borrow().read_port_events(self.talker_id)
         None
     }
 }
-pub type RLuil = Rc<RefCell<luil::Luil>>;
 
 pub struct UiParameters {
     talker_id: Id,
@@ -113,13 +95,13 @@ pub struct UiParameters {
     instance_name: String,
 }
 pub struct Manager {
-    luil: RLuil,
+    luil: luil::Luil,
     pending_ui: Option<UiParameters>,
 }
 
 impl Manager {
     pub fn new() -> Manager {
-        let luil = Rc::new(RefCell::new(luil::Luil::new()));
+        let luil = luil::Luil::new();
 
         Self {luil, pending_ui: None}
     }
@@ -136,42 +118,36 @@ impl Manager {
 
         if let Some(ui_param) = &self.pending_ui {
             let host: Box<HostPresenter> = Box::new(HostPresenter::new(ui_param.talker_id, &ui_param.plugin_uri, session_presenter)?);
-            
-            let ui_handler = self.luil.borrow_mut().launch_plugin_ui(
+
+            let mut plugin_handle = self.luil.create_plugin_handle(
                 &ui_param.plugin_uri,
                 &ui_param.instance_name,
                 host
             )?;
 
-            let instance_id = ui_param.talker_id.to_string();
-            let ui_count = self.luil.borrow_mut().manage_plugin_ui(&instance_id, ui_handler)?;
+            session_presenter.borrow_mut().add_plugin_handle(ui_param.talker_id, plugin_handle.take_ui_connector().unwrap());
 
-            if ui_count == 1 {
-                let period = std::time::Duration::from_millis(IDLE_PERIOD);
-                let idle_luil = self.luil.clone();
+            if session_presenter.borrow().ui_count() == 1 {
+                let period = std::time::Duration::from_millis(HMI_UPDATE_PERIOD);
                 let idle_session_presenter = session_presenter.clone();
 
-                glib::source::timeout_add_local(period, move || {
-                    match idle_luil.borrow_mut().run() {
-                        Ok(ui_count) => {
-                            if ui_count > 0 {
-                                glib::ControlFlow::Continue
-                            }
-                            else {
-                                glib::ControlFlow::Break
-                            }
-                        }
-                        Err(e) => {
-                            idle_session_presenter.borrow().notify_error(e);
-                            glib::ControlFlow::Continue
-                        }
+                let _ = glib::source::timeout_add_local(period, move || {
+                    let (modification_count, ui_count) = idle_session_presenter.borrow_mut().update_band_and_ui_count();
+
+                    if modification_count > 0 {
+                        idle_session_presenter.borrow().notify(Notification::TalkerChanged);
+                    }
+
+                    if ui_count > 0 {
+                        glib::ControlFlow::Continue
+                    }
+                    else {
+                        glib::ControlFlow::Break
                     }
                 });
             }
+            self.pending_ui = None;
         }
-
-        self.pending_ui = None;
-                
         Ok(())
     }
 }

@@ -321,3 +321,9 @@ impl Output for Feedback {
         (output::KIND, MODEL, String::new())
     }
 }
+
+impl Drop for Feedback {
+    fn drop(&mut self) {
+        let _ = self.close();
+    }
+}

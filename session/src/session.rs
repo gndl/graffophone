@@ -19,6 +19,8 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
+use luil::plugin_handle::UiConnector;
+
 use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
 use talker::audio_format::AudioFormat;
@@ -143,7 +145,7 @@ impl Session {
     pub fn sample_rate(&self) -> usize {
         AudioFormat::sample_rate()
     }
-    pub fn set_sample_rate(&self, sample_rate: usize) -> Result<State, failure::Error> {
+    pub fn set_sample_rate(&mut self, sample_rate: usize) -> Result<State, failure::Error> {
         AudioFormat::set_sample_rate(sample_rate);
         self.player.load_band(self.band.serialize()?)
     }
@@ -158,8 +160,22 @@ impl Session {
         self.player.modify_band(operation)
     }
 
+    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector) -> Result<State, failure::Error> {
+        self.player.add_plugin_handle(talker_id, ui_connector)
+    }
+
     pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
         self.band.read_port_events(talker_id)
+    }
+
+    pub fn update_band_and_ui_count(&mut self) -> Result<(usize, usize), failure::Error> {
+        let (modifications, ui_count) = self.player.band_modifications_and_ui_count()?;
+        let modification_count = modifications.len();
+
+        for (tkr_id, ear_idx, set_idx, hum_idx, value) in modifications {
+            self.band.modify(&Operation::SetEarHumValue(tkr_id, ear_idx, set_idx, hum_idx, value))?;
+        }
+        Ok((modification_count, ui_count))
     }
 
     pub fn backup_ear_hum(&self, talker_id: Id, ear_idx: Index, set_idx: Index, hum_idx: Index) -> Result<EarHum, failure::Error> {
