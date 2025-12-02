@@ -92,6 +92,7 @@ impl luil::HostTrait for HostPresenter {
 pub struct UiParameters {
     talker_id: Id,
     plugin_uri: String,
+    bundle_uri: String,
     instance_name: String,
 }
 pub struct Manager {
@@ -107,9 +108,12 @@ impl Manager {
     }
 
     pub fn prepare_new_ui(&mut self, talker: &RTalker) {
+        let bundle_uri = lv2::get_bundle_uri(&talker.model()).unwrap();
+
         self.pending_ui = Some(UiParameters {
             talker_id: talker.id(),
             plugin_uri: talker.model(),
+            bundle_uri,
             instance_name: talker.name(),
         });
     }
@@ -121,6 +125,7 @@ impl Manager {
 
             let mut plugin_handle = self.luil.create_plugin_handle(
                 &ui_param.plugin_uri,
+                Some(&ui_param.bundle_uri),
                 &ui_param.instance_name,
                 host
             )?;

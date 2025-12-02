@@ -367,6 +367,19 @@ impl Talker for Lv2 {
     }
 }
 
+pub fn get_bundle_uri(plugin_uri: &str) -> Result<String, failure::Error> {
+    lv2_handler::visit(|lv2_handler| {
+        match lv2_handler.world.plugin_by_uri(plugin_uri) {
+            Some(plugin) => {
+                let bundle_node = plugin.raw().bundle_uri();
+                let bundle_uri = bundle_node.as_uri().unwrap_or("");
+                Ok(bundle_uri.to_string())
+            }
+            None => Ok("".to_string()),
+        }
+    })
+}
+
 pub fn get_ears_indexes(plugin_uri: &str) -> Result<Vec<usize>, failure::Error> {
     lv2_handler::visit(|lv2_handler| {
         match lv2_handler.world.plugin_by_uri(plugin_uri) {
