@@ -19,8 +19,6 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
-use luil::plugin_handle::UiConnector;
-
 use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
 use talker::audio_format::AudioFormat;
@@ -160,8 +158,8 @@ impl Session {
         self.player.modify_band(operation)
     }
 
-    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector) -> Result<State, failure::Error> {
-        self.player.add_plugin_handle(talker_id, ui_connector)
+    pub fn add_plugin_handle(&mut self, talker_id: Id) -> Result<State, failure::Error> {
+        self.player.add_plugin_handle(talker_id)
     }
 
     pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {

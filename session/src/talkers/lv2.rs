@@ -42,7 +42,7 @@ pub struct Lv2 {
     atom_sequence_outputs_indexes: Vec<Idxs>,
     cv_inputs_indexes: Vec<Idxs>,
     cv_outputs_indexes: Vec<Idxs>,
-    instance: RefCell<livi::Instance>,
+    instance: livi::Instance,
 }
 
 impl Lv2 {
@@ -165,7 +165,7 @@ impl Lv2 {
                                 atom_sequence_outputs_indexes,
                                 cv_inputs_indexes,
                                 cv_outputs_indexes,
-                                instance: RefCell::new(instance),
+                                instance,
                             }
                         ))
                     }
@@ -177,8 +177,9 @@ impl Lv2 {
     }
 
     fn connect_ports(&mut self, base: &TalkerBase) {
-        let mut instance = self.instance.borrow_mut();
-        let livi_active_instance = instance.raw_mut();
+        let livi_active_instance = self
+        // .borrow_mut()
+        .instance.raw_mut();
         let livi_instance = livi_active_instance.instance_mut();
 
         unsafe {
@@ -216,7 +217,7 @@ impl Lv2 {
 
         for idx in &self.control_inputs_indexes {
             self.instance
-                .borrow_mut()
+                // .borrow_mut()
                 .set_control_input(PortIndex(idx.plugin_port), base.ear(idx.tkr_port).get_control_value());
         }
 
@@ -261,10 +262,15 @@ impl Lv2 {
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
 
-        unsafe { self.instance.borrow_mut().run(ln, ports).unwrap() };
+        unsafe { self.instance
+            // .borrow_mut()
+            .run(ln, ports).unwrap()
+        };
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = self.instance.borrow().control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = self.instance
+            // .borrow()
+            .control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }
@@ -278,6 +284,10 @@ impl Lv2 {
 }
 
 impl Talker for Lv2 {
+    fn lv2_instance(&self, visitor: &mut luil::PluginHandleBuilder) -> Result<luil::PluginHandle, failure::Error> {
+        visitor.visit(Some(&self.instance))
+    }
+
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
 
@@ -292,8 +302,8 @@ impl Talker for Lv2 {
             }
             self.connect_ports(base);
             
-            let mut instance = self.instance.borrow_mut();
-            let livi_active_instance = instance.raw_mut();
+            // let mut instance = self.instance.borrow_mut();
+            let livi_active_instance = self.instance.raw_mut();
             let livi_instance = livi_active_instance.instance_mut();
 
             self.atom_sequence.clear();
@@ -307,7 +317,7 @@ impl Talker for Lv2 {
 
             unsafe{ livi_instance.connect_port(port_index, self.atom_sequence.as_ptr()); }
             unsafe{ livi_active_instance.run(2); }
-            let _ = instance.run_worker();
+            let _ = self.instance.run_worker();
         }
         Ok(())
     }
@@ -346,15 +356,15 @@ impl Talker for Lv2 {
 
         self.connect_ports(base);
 
-        let mut instance = self.instance.borrow_mut();
-        let livi_active_instance = instance.raw_mut();
+        // let mut instance = self.instance.borrow_mut();
+        let livi_active_instance = self.instance.raw_mut();
 
         unsafe{ livi_active_instance.run(ln); }
 
-        let _ = instance.run_worker();
+        let _ = self.instance.run_worker();
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = instance.control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = self.instance.control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }

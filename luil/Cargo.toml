@@ -1,0 +1,13 @@
+[package]
+name = "luil"
+version = "0.11.3"
+edition = "2018"
+
+[dependencies]
+failure = "0.1.8"
+libc = "0.2"
+xcb = "1.6.0"
+lv2-sys = "2"
+lv2_raw = "0.2"
+livi = { git = "https://github.com/gndl/livi-rs.git" }
+suil-sys = { git = "https://github.com/gndl/suil-sys.git" }

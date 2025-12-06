@@ -21,8 +21,6 @@ use std::thread;
 
 use std::time::Duration;
 
-use luil::plugin_handle::UiConnector;
-
 use talker::audio_format::AudioFormat;
 use talker::lv2_handler;
 use talker::identifier::{Id, Index};
@@ -45,7 +43,7 @@ enum Order {
     SetTimeRange(i64, i64),
     LoadBand(String),
     ModifyBand(Operation),
-    AddPluginHandle(Id, UiConnector),
+    AddPluginHandle(Id),
     BandModificationsAndUiCount,
     State,
     Exit,
@@ -66,7 +64,7 @@ fn state_order(state: State) -> Order {
     }
 }
 
-pub struct Runner {
+struct Runner {
     order_receiver: Receiver<Order>,
     response_sender: Sender<Response>,
     plugin_handle_manager: PluginHandleManager,
@@ -244,8 +242,8 @@ impl Runner {
                     order = state_order(state);
                     continue;
                 }
-                Order::AddPluginHandle(talker_id, ui_connector) => {
-                    self.plugin_handle_manager.add_plugin_handle(talker_id, ui_connector, &mut band)?;
+                Order::AddPluginHandle(talker_id) => {
+                    self.plugin_handle_manager.add_plugin_handle(talker_id, &mut band)?;
                     
                     order = state_order(state);
                     continue;
@@ -479,11 +477,11 @@ impl Player {
         Ok(self.receive_state())
     }
 
-    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector) -> Result<State, failure::Error> {
+    pub fn add_plugin_handle(&mut self, talker_id: Id) -> Result<State, failure::Error> {
         self.check_not_exited()?;
 
         self.order_sender
-            .send(Order::AddPluginHandle(talker_id, ui_connector))
+            .send(Order::AddPluginHandle(talker_id))
             .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
 
         Ok(self.receive_state())

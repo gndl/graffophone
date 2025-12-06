@@ -7,8 +7,6 @@ use std::str::FromStr;
 
 extern crate luil;
 
-use luil::plugin_handle::UiConnector;
-
 use talker::lv2_handler;
 use talker::talker::RTalker;
 use talker::identifier::{Id, Identifiable, Index};
@@ -16,9 +14,6 @@ use talker::audio_format::AudioFormat;
 
 use crate::band::Band;
 use crate::talkers::lv2;
-
-const IDLE_PERIOD: u64 = 20;
-const RATIFICATION_IDLE_COUNT: u64 = 250 / IDLE_PERIOD;
 
 struct Report {
     modifications: Vec<(Id, Index, Index, Index, f32)>,
@@ -28,17 +23,17 @@ impl Report {
         Self {modifications: Vec::new()}
     }
 }
-pub type RReport = Rc<RefCell<Report>>;
+type RReport = Rc<RefCell<Report>>;
 
-struct HostPresenter {
+struct PluginPresenter {
     talker: RTalker,
     port_symbol_indexes: HashMap<String, u32>,
     ears_indexes: Vec<usize>,
     report: RReport,
 }
 
-impl HostPresenter {
-    pub fn new(talker: RTalker, report: RReport) -> Result<HostPresenter, failure::Error> {
+impl PluginPresenter {
+    pub fn new(talker: RTalker, report: RReport) -> Result<PluginPresenter, failure::Error> {
         let plugin_uri = talker.model();
         let port_symbol_indexes = lv2::get_port_symbol_indexes(&plugin_uri)?;
         let ears_indexes = lv2::get_ears_indexes(&plugin_uri)?;
@@ -52,14 +47,7 @@ impl HostPresenter {
     }
 }
 
-impl luil::HostTrait for HostPresenter {
-    fn configuration(&mut self) -> luil::HostConfiguration {
-        luil::HostConfiguration {
-            sample_rate: AudioFormat::sample_rate() as f64,
-            support_touch: false,
-            support_peak_protocol: false,
-        }
-    }
+impl luil::PluginTrait for PluginPresenter {
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
         lv2_handler::visit(|lv2_handler| {
             let urid = lv2_handler.features.urid(&uri);
@@ -131,19 +119,37 @@ pub struct PluginHandleManager {
 
 impl PluginHandleManager {
     pub fn new() -> PluginHandleManager {
-        let luil = luil::Luil::new();
+        let host_configuration = luil::HostConfiguration {
+            sample_rate: AudioFormat::sample_rate() as f64,
+            support_touch: false,
+            support_peak_protocol: false,
+        };
+
+        let luil = luil::Luil::new(host_configuration);
         let report = Rc::new(RefCell::new(Report::new()));
 
         Self {luil, handle_count: 0, report}
     }
 
-    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector, band: &mut Band) -> Result<(), failure::Error> {
+    pub fn add_plugin_handle(&mut self, talker_id: Id, band: &mut Band) -> Result<(), failure::Error> {
 
         let talker = band.fetch_talker(&talker_id)?;
 
-        let host: Box<HostPresenter> = Box::new(HostPresenter::new(talker.clone(), self.report.clone())?);
+        let instance_id = talker.id().to_string();
+        let plugin_uri = talker.model();
+        let bundle_uri = lv2::get_bundle_uri(&talker.model()).unwrap();
+        let instance_name = talker.name();
 
-        self.handle_count = self.luil.manage_plugin_handle(host, &talker_id.to_string(), ui_connector)?;
+        let plugin: Box<PluginPresenter> = Box::new(PluginPresenter::new(talker.clone(), self.report.clone())?);
+
+        self.handle_count = self.luil.launch_plugin_ui(
+            &plugin_uri,
+            &bundle_uri,
+            &instance_id,
+            &instance_name,
+            plugin,
+            |v| talker.lv2_instance(v)
+        )?;
         Ok(())
     }
 

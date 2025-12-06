@@ -25,8 +25,7 @@ scale = { path = "./scale" }
 session = { path = "./session" }
 rustfft = "6.2.0"
 lv2-sys = "2"
-lv2_raw = "0.2"
-luil = { git = "https://gitlab.com/gndl/luil.git" }
+luil = { path = "./luil" }
 
 [dependencies.gtk]
 package = "gtk4"

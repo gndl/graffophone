@@ -101,7 +101,7 @@ impl TalkerBase {
     pub fn add_ear(&mut self, ear: Ear) {
         self.ears.push(ear);
     }
-    pub fn sup_ear_set_with_associated_voice(&mut self, ear_idx: Index, set_idx: Index)-> Result<(), failure::Error> {
+    pub fn sup_ear_set_with_associated_voice(&mut self, ear_idx: Index, set_idx: Index) -> Result<(), failure::Error> {
         let mut voice_idx = self.voices.len();
 
         while voice_idx > 0 {
@@ -226,6 +226,10 @@ impl Identifiable for TalkerBase {
 }
 
 pub trait Talker {
+    fn lv2_instance(&self, visitor: &mut luil::PluginHandleBuilder) -> Result<luil::PluginHandle, failure::Error> {
+        visitor.visit(None)
+    }
+
     fn activate(&mut self) {}
     fn deactivate(&mut self) {}
     
@@ -322,6 +326,10 @@ impl TalkerCab {
     }
     pub fn new_ref(ctalker: CTalker) -> RTalker {
         Rc::new(TalkerCab::new(ctalker))
+    }
+
+    pub fn lv2_instance(&self, visitor: &mut luil::PluginHandleBuilder) -> Result<luil::PluginHandle, failure::Error> {
+        self.core.borrow().lv2_instance(visitor)
     }
 
     fn update(&self, obase: Option<TalkerBase>) -> Result<Option<RTalker>, failure::Error> {

@@ -4,8 +4,6 @@ use std::str::FromStr;
 
 use gtk::glib;
 
-use luil::plugin_handle::UiConnector;
-
 use ::session::channel;
 use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
@@ -294,8 +292,8 @@ impl SessionPresenter {
     }
 
     // UI
-    pub fn add_plugin_handle(&mut self, talker_id: Id, ui_connector: UiConnector) {
-        let res = self.session.add_plugin_handle(talker_id, ui_connector);
+    pub fn add_plugin_handle(&mut self, talker_id: Id) {
+        let res = self.session.add_plugin_handle(talker_id);
 
         if self.manage_state_result(res) {
             self.ui_count += 1;

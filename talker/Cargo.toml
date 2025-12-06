@@ -7,4 +7,4 @@ authors = ["gndl"]
 failure = "0.1.8"
 lv2-sys = "2"
 livi = { git = "https://github.com/gndl/livi-rs.git" }
-#suil-sys = { git = "https://github.com/gndl/suil-sys.git" }
+luil = { path = "../luil" }

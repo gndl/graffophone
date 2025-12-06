@@ -10,8 +10,9 @@ cpal = "0.15.2"
 nom = "7.1"
 lv2-sys = "2"
 lv2_raw = "0.2"
+lilv = "0.2"
 livi = { git = "https://github.com/gndl/livi-rs.git" }
-luil = { git = "https://gitlab.com/gndl/luil.git" }
+luil = { path = "../luil" }
 audiofile = { path = "../audiofile" }
 scale = { path = "../scale" }
 talker = { path = "../talker" }
