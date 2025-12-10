@@ -153,6 +153,12 @@ impl PluginHandleManager {
         Ok(())
     }
 
+    pub fn run_idle(&mut self) -> Result<(), failure::Error> {
+        thread::sleep(Duration::from_millis(IDLE_PERIOD));
+
+        self.run()
+    }
+
     pub fn has_handle(&self) -> bool {
         self.handle_count > 0
     }

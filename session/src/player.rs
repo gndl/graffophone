@@ -298,9 +298,7 @@ impl Runner {
 
         if self.plugin_handle_manager.has_handle() {
             loop {
-                thread::sleep(Duration::from_millis(100));
-
-                self.plugin_handle_manager.run()?;
+                self.plugin_handle_manager.run_idle()?;
 
                 if self.plugin_handle_manager.has_handle() {
                     match self.order_receiver.try_recv() {
