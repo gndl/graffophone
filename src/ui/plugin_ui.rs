@@ -41,13 +41,6 @@ impl HostPresenter {
 }
 
 impl luil::HostTrait for HostPresenter {
-    fn configuration(&mut self) -> luil::HostConfiguration {
-        luil::HostConfiguration {
-            sample_rate: AudioFormat::sample_rate() as f64,
-            support_touch: false,
-            support_peak_protocol: false,
-        }
-    }
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
         lv2_handler::visit(|lv2_handler| {
             let urid = lv2_handler.features.urid(&uri);
@@ -87,6 +80,14 @@ impl luil::HostTrait for HostPresenter {
     fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
         None
     }
+    fn subscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
+        println!("subscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
+        0
+    }
+    fn unsubscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
+        println!("unsubscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
+        0
+    }
 }
 
 pub struct UiParameters {
@@ -102,7 +103,11 @@ pub struct Manager {
 
 impl Manager {
     pub fn new() -> Manager {
-        let luil = luil::Luil::new();
+        let luil = luil::Luil::new(luil::HostConfiguration {
+            sample_rate: AudioFormat::sample_rate() as f64,
+            support_touch: false,
+            support_peak_protocol: false,
+        });
 
         Self {luil, pending_ui: None}
     }

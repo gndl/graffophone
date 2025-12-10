@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
+use std::thread;
+use std::time::Duration;
 
 use std::ffi::CString;
 use std::str::FromStr;
@@ -17,8 +19,7 @@ use talker::audio_format::AudioFormat;
 use crate::band::Band;
 use crate::talkers::lv2;
 
-const IDLE_PERIOD: u64 = 20;
-const RATIFICATION_IDLE_COUNT: u64 = 250 / IDLE_PERIOD;
+const IDLE_PERIOD: u64 = 33;
 
 struct Report {
     modifications: Vec<(Id, Index, Index, Index, f32)>,
@@ -28,7 +29,7 @@ impl Report {
         Self {modifications: Vec::new()}
     }
 }
-pub type RReport = Rc<RefCell<Report>>;
+type RReport = Rc<RefCell<Report>>;
 
 struct HostPresenter {
     talker: RTalker,
@@ -53,13 +54,6 @@ impl HostPresenter {
 }
 
 impl luil::HostTrait for HostPresenter {
-    fn configuration(&mut self) -> luil::HostConfiguration {
-        luil::HostConfiguration {
-            sample_rate: AudioFormat::sample_rate() as f64,
-            support_touch: false,
-            support_peak_protocol: false,
-        }
-    }
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
         lv2_handler::visit(|lv2_handler| {
             let urid = lv2_handler.features.urid(&uri);
@@ -82,7 +76,7 @@ impl luil::HostTrait for HostPresenter {
     fn on_run(&mut self) {
     }
     fn write(&mut self, port_index: u32, buffer_size: u32, protocol: u32, buffer: Vec<u8>) {
-        let _ = println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
+        println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
         self.talker.deactivate();
 
         if protocol == 0 {
@@ -118,8 +112,25 @@ impl luil::HostTrait for HostPresenter {
         self.talker.activate();
     }
     fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
-//        self.session_presenter.borrow().read_port_events(self.talker_id)
-        None
+        match self.talker.read_port_events() {
+            Ok(evs) => {
+                if evs.is_empty() {
+                    None
+                }
+                else {
+                    Some(evs)
+                }
+            }
+            Err(_) => None,
+        }
+    }
+    fn subscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
+        println!("subscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
+        0
+    }
+    fn unsubscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
+        println!("unsubscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
+        0
     }
 }
 
@@ -131,7 +142,11 @@ pub struct PluginHandleManager {
 
 impl PluginHandleManager {
     pub fn new() -> PluginHandleManager {
-        let luil = luil::Luil::new();
+        let luil = luil::Luil::new(luil::HostConfiguration {
+            sample_rate: AudioFormat::sample_rate() as f64,
+            support_touch: false,
+            support_peak_protocol: false,
+        });
         let report = Rc::new(RefCell::new(Report::new()));
 
         Self {luil, handle_count: 0, report}
