@@ -82,9 +82,9 @@ impl MidiSeq {
 
             // Channel configuration events
             for attribute in &channel.attributes {
-                let ctrl_type = if attribute.label == "MSB" {
+                let ctrl_type = if attribute.label == "bank_MSB" {
                     CTRL_BANK_SELECT_MSB
-                } else if attribute.label == "LSB" {
+                } else if attribute.label == "bank_LSB" {
                     CTRL_BANK_SELECT_LSB
                 } else if attribute.label.starts_with("vol") {
                     CTRL_VOLUME
@@ -127,7 +127,7 @@ impl MidiSeq {
                 tick: 0,
                 data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_LSB, bank_select_lsb],
             });
-
+ 
             program_change_events.push(MidiEvent {
                 tick: 0,
                 data: vec![PROGRAM_CHANGE | channel_number, channel.program],
