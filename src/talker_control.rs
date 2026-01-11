@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use cairo::Context;
 
+use talker::data::RData;
 use talker::horn::PortType;
 use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
@@ -139,8 +140,18 @@ fn format_label(s: &str, max_len: usize) -> String {
 fn format_name(s: &str) -> String {
     format_label(s, 24)
 }
-fn format_data(s: &str) -> String {
-    format_label(s, 15)
+fn format_data(data: &RData) -> String {
+    let data = data.borrow();
+
+    if let Some(s) = data.to_string() {
+        format_label(&s, 15)
+    }
+    else if data.is_ui() {
+        "[-O-]".to_string()
+    }
+    else {
+        String::default()
+    }
 }
 fn format_tag(s: &str) -> String {
     //    s[0..1].to_uppercase() + &s[1..s.len()]
@@ -305,7 +316,7 @@ impl TalkerControlBase {
 
         let data_area = if draw_data && !minimized {
             style::data(control_supply.cc);
-            let d_a = control_supply.area_of(&format_data(&tkr.data_string()), 0., header_e_y)?;
+            let d_a = control_supply.area_of(&format_data(tkr.data()), 0., header_e_y)?;
             box_e_x = box_e_x.max(d_a.e_x);
             header_e_y = d_a.e_y;
             Some(d_a)
@@ -615,7 +626,7 @@ impl TalkerControlBase {
                 self.x + data_area.content_b_x,
                 self.y + data_area.content_e_y,
             );
-            cc.show_text(&format_data(&self.talker.data_string()))?;
+            cc.show_text(&format_data(self.talker.data()))?;
         }
         Ok(())
     }

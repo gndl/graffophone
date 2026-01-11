@@ -15,6 +15,13 @@ pub enum Data {
 pub type RData = RefCell<Data>;
 
 impl Data {
+    pub fn is_ui(&self) -> bool {
+        match self {
+            Data::UI => true,
+            _ =>false,
+        }
+    }
+
     pub fn type_str(&self) -> &'static str {
         match self {
             Data::Int(_) => "Int",
@@ -82,15 +89,14 @@ impl Data {
         Data::File(f)
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&self) -> Option<String> {
         match self {
-            Data::Int(i) => i.to_string(),
-            Data::Float(f) => f.to_string(),
-            Data::String(s) => s.to_string(),
-            Data::Text(s) => s.to_string(),
-            Data::File(s) => s.to_string(),
-            Data::UI => "[-O-]".to_string(),
-            Data::Nil => "".to_string(),
+            Data::Nil | Data::UI => None,
+            Data::Int(i) => Some(i.to_string()),
+            Data::Float(f) => Some(f.to_string()),
+            Data::String(s) => Some(s.to_string()),
+            Data::Text(s) => Some(s.to_string()),
+            Data::File(s) => Some(s.to_string()),
         }
     }
 

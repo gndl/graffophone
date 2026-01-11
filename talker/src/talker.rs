@@ -77,7 +77,7 @@ impl TalkerBase {
     pub fn set_data(&self, data: Data) {
         *self.data.borrow_mut() = data;
     }
-    pub fn data_string(&self) -> String {
+    pub fn data_string(&self) -> Option<String> {
         self.data.borrow().to_string()
     }
     pub fn data_float(&self) -> Result<f32, failure::Error> {
@@ -369,7 +369,7 @@ impl TalkerCab {
     pub fn data(&self) -> &RData {
         self.base.data()
     }
-    pub fn data_string(&self) -> String {
+    pub fn data_string(&self) -> Option<String> {
         self.base.data.borrow().to_string()
     }
     pub fn data_float(&self) -> Result<f32, failure::Error> {
@@ -613,8 +613,8 @@ impl TalkerCab {
         ln
     }
 
-    pub fn backup<'a>(&'a self) -> (String, String, &'a Vec<ear::Ear>) {
-        (self.model(), self.data_string(), &self.base.ears)
+    pub fn backup<'a>(&'a self) -> Result<(String, Option<String>, &'a Vec<ear::Ear>, Option<String>), failure::Error> {
+        Ok((self.model(), self.data_string(), &self.base.ears, self.core.borrow_mut().state()?))
     }
 }
 
