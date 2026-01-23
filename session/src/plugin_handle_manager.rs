@@ -16,17 +16,17 @@ use talker::talker::RTalker;
 use talker::identifier::{Id, Identifiable, Index};
 use talker::audio_format::AudioFormat;
 
-use crate::band::Band;
+use crate::band::{Band, Operation};
 use crate::talkers::lv2;
 
 const IDLE_PERIOD: u64 = 33;
 
 struct Report {
-    modifications: Vec<(Id, Index, Index, Index, f32)>,
+    operations: Vec<Operation>,
 }
 impl Report {
     pub fn new() -> Report {
-        Self {modifications: Vec::new()}
+        Self {operations: Vec::new()}
     }
 }
 type RReport = Rc<RefCell<Report>>;
@@ -63,7 +63,7 @@ impl luil::HostTrait for HostPresenter {
     }
     fn urid_unmap(&mut self, urid: lv2_raw::LV2Urid) -> Option<CString> {
         lv2_handler::visit(|lv2_handler| {
-            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(s).unwrap()))
+            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(&s).unwrap()))
         }).unwrap()
     }
     fn index(&mut self, port_symbol: String) -> u32 {
@@ -75,9 +75,9 @@ impl luil::HostTrait for HostPresenter {
     }
     fn on_run(&mut self) {
     }
-    fn write(&mut self, port_index: u32, buffer_size: u32, protocol: u32, buffer: Vec<u8>) {
-        println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
-        self.talker.deactivate();
+    fn write(&mut self, port_index: u32, protocol: u32, buffer: Vec<u8>) {
+        let tkr_id = self.talker.id();
+        let mut report = self.report.borrow_mut();
 
         if protocol == 0 {
             let val_ptr: *const f32 = buffer.as_ptr().cast();
@@ -86,32 +86,15 @@ impl luil::HostTrait for HostPresenter {
 
             let _ = self.talker.set_ear_hum_value(ear_idx, 0, 0, value);
 
-            let tkr_id = self.talker.id();
-
-            let mut report = self.report.borrow_mut();
-            let mut modif_idx = usize::MAX;
-
-            for (i, (ti, ei, _, _, _)) in report.modifications.iter().enumerate() {
-
-                if *ti == tkr_id && *ei == ear_idx {
-                    modif_idx = i;
-                    break;
-                }
-            }
-
-            if modif_idx < report.modifications.len() {
-                report.modifications[modif_idx] = (tkr_id, ear_idx, 0, 0, value);
-            }
-            else {
-                report.modifications.push((tkr_id, ear_idx, 0, 0, value));
-            }
+            report.operations.push(Operation::SetEarHumValue(tkr_id, ear_idx, 0, 0, value));
         }
         else {
             let _ = self.talker.set_indexed_data(port_index as usize, protocol, &buffer);
+
+            report.operations.push(Operation::SetIndexedData(tkr_id, port_index as usize, protocol, buffer));
         }
-        self.talker.activate();
     }
-    fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
+    fn read(&mut self) -> Option<Vec<(u32, u32, Vec<u8>)>> {
         match self.talker.read_port_events() {
             Ok(evs) => {
                 if evs.is_empty() {
@@ -131,6 +114,10 @@ impl luil::HostTrait for HostPresenter {
     fn unsubscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
         println!("unsubscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
         0
+    }
+    fn state(&mut self) -> Option<String> {
+        println!("plugin_handle_manager::HostPresenter.state");
+        self.talker.state().unwrap_or(None)
     }
 }
 
@@ -178,12 +165,12 @@ impl PluginHandleManager {
         self.handle_count > 0
     }
 
-    pub fn band_modifications_and_ui_count(&self) -> (Vec<(Id, Index, Index, Index, f32)>, usize) {
-        let mut modifications: Vec<(Id, Index, Index, Index, f32)> = Vec::new();
+    pub fn band_modifications_and_ui_count(&self) -> (Vec<Operation>, usize) {
+        let mut operations: Vec<Operation> = Vec::new();
 
-        modifications.append(&mut self.report.borrow_mut().modifications);
+        operations.append(&mut self.report.borrow_mut().operations);
 
-        (modifications, self.luil.running_instances_count())
+        (operations, self.luil.running_instances_count())
     }
 }
 

@@ -164,7 +164,7 @@ impl Session {
         self.player.add_plugin_handle(talker_id, ui_connector)
     }
 
-    pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+    pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         self.band.read_port_events(talker_id)
     }
 
@@ -172,8 +172,8 @@ impl Session {
         let (modifications, ui_count) = self.player.band_modifications_and_ui_count()?;
         let modification_count = modifications.len();
 
-        for (tkr_id, ear_idx, set_idx, hum_idx, value) in modifications {
-            self.band.modify(&Operation::SetEarHumValue(tkr_id, ear_idx, set_idx, hum_idx, value))?;
+        for operation in &modifications {
+            self.band.modify(operation)?;
         }
         Ok((modification_count, ui_count))
     }

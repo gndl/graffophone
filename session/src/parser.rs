@@ -28,6 +28,7 @@ pub struct PTalker<'a> {
     pub name: &'a str,
     pub data: Option<&'a str>,
     pub connections: Vec<PConnection>,
+    pub state: Option<&'a str>,
 }
 pub struct PMixer<'a> {
     pub talker: PTalker<'a>,
@@ -74,6 +75,16 @@ fn parse_data<'a>(source: &'a str) -> Result<(&'a str, Option<&'a str>), failure
         let data_end = source.find(":]\n").unwrap();
         let data = source.get("[:".len()..data_end).unwrap();
         Ok((source.get(data_end + ":]\n".len()..).unwrap(), Some(data)))
+    } else {
+        Ok((source, None))
+    }
+}
+
+fn parse_state<'a>(source: &'a str) -> Result<(&'a str, Option<&'a str>), failure::Error> {
+    if source.starts_with("[-:") {
+        let data_end = source.find(":-]\n").unwrap();
+        let state = source.get("[-:".len()..data_end).unwrap();
+        Ok((source.get(data_end + ":-]\n".len()..).unwrap(), Some(state)))
     } else {
         Ok((source, None))
     }
@@ -201,6 +212,7 @@ pub fn parse<'a>(
                     name,
                     data: None,
                     connections,
+                    state: None,
                 },
                 outputs,
             };
@@ -227,6 +239,7 @@ pub fn parse<'a>(
             let (rest, id, name) = parse_id_name(src.get(model_end + " ".len()..).unwrap())?;
             let (rest, data) = parse_data(rest)?;
             let (rest, connections) = parse_connections(rest)?;
+            let (rest, state) = parse_state(rest)?;
 
             let talker = PTalker {
                 model,
@@ -234,6 +247,7 @@ pub fn parse<'a>(
                 name,
                 data,
                 connections,
+                state,
             };
             talkers.insert(id, talker);
             src = rest;

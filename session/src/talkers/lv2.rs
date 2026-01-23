@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::ffi::CStr;
 use std::collections::HashMap;
 
@@ -16,7 +15,7 @@ use talker::lv2_handler::{self, Lv2Handler};
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::data::Data;
 
-const ATOM_SEQUENCE_CAPACITY: usize = 2048;
+const ATOM_SEQUENCE_CAPACITY: usize = 65536;
 
 
 fn an_or(v: f32, def: f32) -> f32 {
@@ -29,6 +28,7 @@ fn an_or(v: f32, def: f32) -> f32 {
 
 struct Idxs {tkr_port: usize, plugin_port: usize}
 pub struct Lv2 {
+    uri: String,
     urid_float_protocol: u32,
     urid_event_transfer: u32,
     urid_atom_transfer: u32,
@@ -42,7 +42,7 @@ pub struct Lv2 {
     atom_sequence_outputs_indexes: Vec<Idxs>,
     cv_inputs_indexes: Vec<Idxs>,
     cv_outputs_indexes: Vec<Idxs>,
-    instance: RefCell<livi::Instance>,
+    instance: livi::Instance,
 }
 
 impl Lv2 {
@@ -152,6 +152,7 @@ impl Lv2 {
                         Ok(ctalker!(
                             base,
                             Self {
+                                uri: uri.to_string(),
                                 urid_float_protocol,
                                 urid_event_transfer,
                                 urid_atom_transfer,
@@ -165,7 +166,7 @@ impl Lv2 {
                                 atom_sequence_outputs_indexes,
                                 cv_inputs_indexes,
                                 cv_outputs_indexes,
-                                instance: RefCell::new(instance),
+                                instance,
                             }
                         ))
                     }
@@ -177,8 +178,7 @@ impl Lv2 {
     }
 
     fn connect_ports(&mut self, base: &TalkerBase) {
-        let mut instance = self.instance.borrow_mut();
-        let livi_active_instance = instance.raw_mut();
+        let livi_active_instance = self.instance.raw_mut();
         let livi_instance = livi_active_instance.instance_mut();
 
         unsafe {
@@ -216,7 +216,6 @@ impl Lv2 {
 
         for idx in &self.control_inputs_indexes {
             self.instance
-                .borrow_mut()
                 .set_control_input(PortIndex(idx.plugin_port), base.ear(idx.tkr_port).get_control_value());
         }
 
@@ -261,10 +260,10 @@ impl Lv2 {
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
 
-        unsafe { self.instance.borrow_mut().run(ln, ports).unwrap() };
+        unsafe { self.instance.run(ln, ports).unwrap() };
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = self.instance.borrow().control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = self.instance.control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }
@@ -292,8 +291,7 @@ impl Talker for Lv2 {
             }
             self.connect_ports(base);
             
-            let mut instance = self.instance.borrow_mut();
-            let livi_active_instance = instance.raw_mut();
+            let livi_active_instance = self.instance.raw_mut();
             let livi_instance = livi_active_instance.instance_mut();
 
             self.atom_sequence.clear();
@@ -307,12 +305,12 @@ impl Talker for Lv2 {
 
             unsafe{ livi_instance.connect_port(port_index, self.atom_sequence.as_ptr()); }
             unsafe{ livi_active_instance.run(2); }
-            let _ = instance.run_worker();
+            let _ = self.instance.run_worker();
         }
         Ok(())
     }
 
-    fn read_port_events(&mut self, base: &TalkerBase) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+    fn read_port_events(&mut self, base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
 
         let mut port_events = Vec::new();
 
@@ -322,17 +320,13 @@ impl Talker for Lv2 {
             for ev in atom_buf.iter() {
                 let header_size = std::mem::size_of::<lv2_raw::LV2Atom>();
                 let buffer_size = header_size + ev.data.len();
-                let protocol = self.urid_event_transfer;
-
                 let mut buffer = Vec::with_capacity(buffer_size as usize);
 
-            
-                println!("read_port_events data :\n{:?}", ev);
                 let header = unsafe{ std::slice::from_raw_parts((&ev.event.body) as *const lv2_raw::LV2Atom as *const u8, header_size) };
                 buffer.extend_from_slice(header);
                 buffer.extend_from_slice(ev.data);
-                // a.event.body.size
-                port_events.push((idx.plugin_port as u32, buffer_size as u32, protocol, buffer));
+
+                port_events.push((idx.plugin_port as u32, self.urid_event_transfer, buffer));
             }
 
             atom_buf.clear();
@@ -346,15 +340,14 @@ impl Talker for Lv2 {
 
         self.connect_ports(base);
 
-        let mut instance = self.instance.borrow_mut();
-        let livi_active_instance = instance.raw_mut();
+        let livi_active_instance = self.instance.raw_mut();
 
         unsafe{ livi_active_instance.run(ln); }
 
-        let _ = instance.run_worker();
+        let _ = self.instance.run_worker();
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = instance.control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = self.instance.control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }
@@ -364,6 +357,45 @@ impl Talker for Lv2 {
         }
 
         ln
+    }
+
+    fn state(&mut self) -> Result<Option<String>, failure::Error> {
+        lv2_handler::visit(|lv2_handler| {
+            match lv2_handler.world.plugin_by_uri(&self.uri) {
+                Some(plugin) => {
+                    Ok(self.instance.state_string(
+                        &plugin,
+                        Some("/home/gndl/tmp/file"),
+                        Some("/home/gndl/tmp/copy"),
+                        Some("/home/gndl/tmp/link"),
+                        Some("/home/gndl/tmp/save"),
+                        None,
+                        lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD))
+                }
+                None => Err(failure::err_msg(format!("LV2 plugin {} not found.", &self.uri))),
+            }
+        })
+    }
+
+    fn set_state(&self, state_string: &str) -> Result<(), failure::Error> {
+        
+        lv2_handler::visit(|lv2_handler| {
+            let ostate = lv2_handler.world.new_state_from_string(
+                lv2_handler.features.as_ref(),
+                state_string);
+
+            if let Some(state) = ostate {
+                self.instance.restore_state(
+                    &state,
+                    None,
+                    lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD,
+                );
+                Ok(())
+            }
+            else {
+                Err(failure::err_msg(format!("LV2 plugin {} instance state restoration failed.", &self.uri)))
+            }
+        })
     }
 }
 

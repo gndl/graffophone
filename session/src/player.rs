@@ -53,7 +53,7 @@ enum Order {
 
 enum Response {
     State(State),
-    BandModificationsAndUiCount(Vec<(Id, Index, Index, Index, f32)>, usize),
+    BandModificationsAndUiCount(Vec<Operation>, usize),
 }
 
 fn state_order(state: State) -> Order {
@@ -66,14 +66,14 @@ fn state_order(state: State) -> Order {
     }
 }
 
-pub struct Runner {
+struct Runner {
     order_receiver: Receiver<Order>,
     response_sender: Sender<Response>,
     plugin_handle_manager: PluginHandleManager,
 }
 
 impl Runner {
-    pub fn new(
+    fn new(
         order_receiver: Receiver<Order>,
         response_sender: Sender<Response>,
     ) -> Runner {
@@ -121,8 +121,8 @@ impl Runner {
             match order {
                 Order::Nil => {}
                 Order::BandModificationsAndUiCount => {
-                    let (modifications, ui_count) = self.plugin_handle_manager.band_modifications_and_ui_count();
-                    let _ = self.response_sender.send(Response::BandModificationsAndUiCount(modifications, ui_count));
+                    let (operations, ui_count) = self.plugin_handle_manager.band_modifications_and_ui_count();
+                    let _ = self.response_sender.send(Response::BandModificationsAndUiCount(operations, ui_count));
 
                     order = state_order(state);
                     continue;
@@ -487,7 +487,7 @@ impl Player {
         Ok(self.receive_state())
     }
 
-    pub fn band_modifications_and_ui_count(&mut self) -> Result<(Vec<(Id, Index, Index, Index, f32)>, usize), failure::Error> {
+    pub fn band_modifications_and_ui_count(&mut self) -> Result<(Vec<Operation>, usize), failure::Error> {
         self.check_not_exited()?;
 
         self.order_sender
@@ -500,7 +500,7 @@ impl Player {
         let response = res.map_err(|e| failure::err_msg(format!("Player::band_modifications_and_ui_count response error : {}", e)))?;
 
         match response {
-            Response::BandModificationsAndUiCount(modifications, ui_count) => Ok((modifications, ui_count)),
+            Response::BandModificationsAndUiCount(operations, ui_count) => Ok((operations, ui_count)),
             _ => Err(failure::err_msg("Player::band_modifications_and_ui_count response error : Unexpected player state response")),
         }
     }

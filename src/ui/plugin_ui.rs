@@ -43,26 +43,21 @@ impl HostPresenter {
 impl luil::HostTrait for HostPresenter {
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
         lv2_handler::visit(|lv2_handler| {
-            let urid = lv2_handler.features.urid(&uri);
-            Ok(urid)
+            Ok(lv2_handler.features.urid(&uri))
         }).unwrap()
     }
     fn urid_unmap(&mut self, urid: lv2_raw::LV2Urid) -> Option<CString> {
         lv2_handler::visit(|lv2_handler| {
-            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(s).unwrap()))
+            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(&s).unwrap()))
         }).unwrap()
     }
     fn index(&mut self, port_symbol: String) -> u32 {
-        let idx = *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1);
-        println!("Index : Port {} index = {}", port_symbol, idx);
-        idx
+        *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1)
     }
     fn notify(&mut self, message: String) {
         self.session_presenter.borrow().notify(Notification::Error(message));
     }
-    fn write(&mut self, port_index: u32, buffer_size: u32, protocol: u32, buffer: Vec<u8>) {
-        println!("Write port_index {}, buffer_size {}, protocol {}, buffer {:?}", port_index, buffer_size, protocol, buffer);
-
+    fn write(&mut self, port_index: u32, protocol: u32, buffer: Vec<u8>) {
         if protocol == 0 {
             let val_ptr: *const f32 = buffer.as_ptr().cast();
             let value = unsafe {*val_ptr};
@@ -77,8 +72,8 @@ impl luil::HostTrait for HostPresenter {
                     self.talker_id, port_index as usize, protocol, buffer));
         }
     }
-    fn read(&mut self) -> Option<Vec<(u32, u32, u32, Vec<u8>)>> {
-        None
+    fn read(&mut self) -> Option<Vec<(u32, u32, Vec<u8>)>> {
+        Some(self.session_presenter.borrow().read_port_events(self.talker_id))
     }
     fn subscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
         println!("subscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
@@ -87,6 +82,11 @@ impl luil::HostTrait for HostPresenter {
     fn unsubscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
         println!("unsubscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
         0
+    }
+    fn state(&mut self) -> Option<String> {
+        self.session_presenter.borrow()
+        .find_talker(self.talker_id)
+        .map_or(None, |tkr| tkr.state().unwrap_or(None))
     }
 }
 

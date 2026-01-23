@@ -283,7 +283,7 @@ impl SessionPresenter {
         self.modified
     }
 
-    pub fn read_port_events(&self, talker_id: Id) -> Vec<(u32, u32, u32, Vec<u8>)> {
+    pub fn read_port_events(&self, talker_id: Id) -> Vec<(u32, u32, Vec<u8>)> {
         match self.session.read_port_events(talker_id) {
             Ok(port_events) => port_events,
             Err(e) => {

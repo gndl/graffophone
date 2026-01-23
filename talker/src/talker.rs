@@ -272,12 +272,19 @@ pub trait Talker {
         _data: &Vec<u8>,
     ) -> Result<(), failure::Error> { Err(failure::err_msg(format!("set_indexed_data unsupported"))) }
 
-    fn read_port_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+    fn read_port_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         Ok(Vec::new())
     }
 
     fn talk(&mut self, _base: &TalkerBase, _port: usize, _tick: i64, _len: usize) -> usize {
         0
+    }
+
+    fn state(&mut self) -> Result<Option<String>, failure::Error> {
+        Ok(None)
+    }
+    fn set_state(&self, _state: &str) -> Result<(), failure::Error> {
+        Ok(())
     }
 }
 
@@ -380,6 +387,14 @@ impl TalkerCab {
         let data = self.base.data.borrow().birth(s)?;
         let obase = self.core.borrow_mut().set_data_update(&self.base, data)?;
         self.update(obase)
+    }
+
+    pub fn state(&self) -> Result<Option<String>, failure::Error> {
+        self.core.borrow_mut().state()
+    }
+
+    pub fn set_state(&self, state: &str) -> Result<(), failure::Error> {
+        self.core.borrow_mut().set_state(state)
     }
 
     pub fn ear(&self, ear_idx: Index) -> &Ear {
@@ -584,7 +599,7 @@ impl TalkerCab {
         self.core.borrow_mut().set_indexed_data(&self.base, ear_idx, protocol, data)
     }
 
-    pub fn read_port_events(&self) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+    pub fn read_port_events(&self) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         self.core.borrow_mut().read_port_events(&self.base)
     }
 
@@ -614,7 +629,7 @@ impl TalkerCab {
     }
 
     pub fn backup<'a>(&'a self) -> Result<(String, Option<String>, &'a Vec<ear::Ear>, Option<String>), failure::Error> {
-        Ok((self.model(), self.data_string(), &self.base.ears, self.core.borrow_mut().state()?))
+        Ok((self.model(), self.data_string(), &self.base.ears, self.state()?))
     }
 }
 

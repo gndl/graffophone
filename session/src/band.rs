@@ -212,6 +212,10 @@ impl Band {
                     talker = updated_talker;
                 }
             }
+
+            if let Some(state) = ptalker.state {
+                talker.set_state(state)?;
+            }
             talkers_ptalkers.insert(talker.id(), (talker, ptalker));
         }
 
@@ -263,7 +267,7 @@ impl Band {
         if tkr.is_hidden() {
             let data = tkr.data_string();
 
-            if !data.is_empty() {
+            if let Some(data) = data {
                 writeln!(buf, "{}<{}", talk_tag, data)?;
             }
         } else {
@@ -277,11 +281,11 @@ impl Band {
 
         for tkr in self.talkers.values() {
             if tkr.model() != mixer::KIND {
-                let (model, data, ears): (String, String, &Vec<Ear>) = tkr.backup();
+                let (model, data, ears, state): (String, Option<String>, &Vec<Ear>, Option<String>) = tkr.backup()?;
 
                 writeln!(buf, "\n{} {}#{}", model, tkr.id(), &tkr.name(),)?;
 
-                if !data.is_empty() {
+                if let Some(data) = data {
                     writeln!(buf, "[:{}:]", data)?;
                 }
                 for (ear_idx, ear) in ears.iter().enumerate() {
@@ -291,6 +295,9 @@ impl Band {
                         },
                         &mut buf,
                     )?;
+                }
+                if let Some(state) = state {
+                    writeln!(buf, "[-:{}:-]", state)?;
                 }
             }
         }
@@ -702,7 +709,7 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         result
     }
 
-    pub fn read_port_events(&self, tkr_id: Id) -> Result<Vec<(u32, u32, u32, Vec<u8>)>, failure::Error> {
+    pub fn read_port_events(&self, tkr_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         let tkr = self.fetch_talker(&tkr_id)?;
         tkr.read_port_events()
     }
