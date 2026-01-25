@@ -365,10 +365,10 @@ impl Talker for Lv2 {
                 Some(plugin) => {
                     Ok(self.instance.state_string(
                         &plugin,
-                        Some("/home/gndl/tmp/file"),
-                        Some("/home/gndl/tmp/copy"),
-                        Some("/home/gndl/tmp/link"),
-                        Some("/home/gndl/tmp/save"),
+                        None,
+                        None,
+                        None,
+                        None,
                         None,
                         lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD))
                 }

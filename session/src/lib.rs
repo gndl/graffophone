@@ -27,3 +27,7 @@ pub mod state;
 pub mod tables;
 pub mod talkers;
 pub mod track;
+pub mod util;
+
+
+pub const APPLICATION_NAME: &str = "graffophone";

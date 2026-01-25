@@ -5,6 +5,7 @@ authors = ["gndl"]
 
 [dependencies]
 failure = "0.1.8"
+dirs = "6.0.0"
 ringbuf = "0.2.8"
 cpal = "0.15.2"
 nom = "7.1"
