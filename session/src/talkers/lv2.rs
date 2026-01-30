@@ -43,6 +43,7 @@ pub struct Lv2 {
     cv_inputs_indexes: Vec<Idxs>,
     cv_outputs_indexes: Vec<Idxs>,
     instance: livi::Instance,
+    save_dir: String,
 }
 
 impl Lv2 {
@@ -149,6 +150,10 @@ impl Lv2 {
                                 }
                             }
                         }
+
+                        let save_path = crate::util::backup_path().join(base.identifier().borrow().id().to_string());
+                        let save_dir = save_path.to_str().unwrap_or(".").to_string();
+
                         Ok(ctalker!(
                             base,
                             Self {
@@ -167,6 +172,7 @@ impl Lv2 {
                                 cv_inputs_indexes,
                                 cv_outputs_indexes,
                                 instance,
+                                save_dir,
                             }
                         ))
                     }
@@ -365,10 +371,10 @@ impl Talker for Lv2 {
                 Some(plugin) => {
                     Ok(self.instance.state_string(
                         &plugin,
-                        None,
-                        None,
-                        None,
-                        None,
+                        Some(&self.save_dir),
+                        Some(&self.save_dir),
+                        Some(&self.save_dir),
+                        Some(&self.save_dir),
                         None,
                         lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD))
                 }
