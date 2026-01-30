@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use gtk::glib;
 
-use luil::plugin_handle::UiConnector;
+use luil::ui_connector::UiConnector;
 
 use ::session::channel;
 use talker::identifier::{self, Id, Index};
@@ -283,8 +283,8 @@ impl SessionPresenter {
         self.modified
     }
 
-    pub fn read_port_events(&self, talker_id: Id) -> Vec<(u32, u32, Vec<u8>)> {
-        match self.session.read_port_events(talker_id) {
+    pub fn read_ports_events(&self, talker_id: Id) -> Vec<(u32, u32, Vec<u8>)> {
+        match self.session.read_ports_events(talker_id) {
             Ok(port_events) => port_events,
             Err(e) => {
                 self.event_bus.borrow().notify_error(e);

@@ -21,11 +21,11 @@ use std::thread;
 
 use std::time::Duration;
 
-use luil::plugin_handle::UiConnector;
+use luil::ui_connector::UiConnector;
 
 use talker::audio_format::AudioFormat;
 use talker::lv2_handler;
-use talker::identifier::{Id, Index};
+use talker::identifier::Id;
 
 use crate::band::{Band, Operation};
 use crate::feedback::Feedback;
@@ -34,6 +34,7 @@ use crate::state::State;
 use crate::plugin_handle_manager::PluginHandleManager;
 
 const RECEIVE_TIMEOUT: u64 = 10;
+const IDLE_PERIOD: u64 = 33;
 
 //#[derive(PartialEq, Debug, Clone)]
 enum Order {
@@ -132,13 +133,13 @@ impl Runner {
                     
                     if state == State::Playing || state == State::Recording {
                         let len = band.play(tick, feedback.fade_len())?;
-                        
+
                         if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
                             feedback.write_fadeout(mxr.borrow().channels_buffers(), len)?;
                         }
-                        
+
                         tick += len as i64;
-                        
+
                         band.pause()?;
                     }
                     state = State::Paused;
@@ -147,16 +148,16 @@ impl Runner {
                 }
                 Order::Play => {
                     self.send_state(State::Playing);
-                    
+
                     if state == State::Stopped {
                         band.open()?;
                         feedback.open()?;
                     }
                     else if state == State::Paused {
                         band.run()?;
-                        
+
                         let len = band.play(tick, feedback.fade_len())?;
-                        
+
                         if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
                             feedback.write_fadein(mxr.borrow().channels_buffers(), len)?;
                         }
@@ -204,7 +205,7 @@ impl Runner {
                 Order::SetTimeRange(start, end) => {
                     start_tick = start;
                     end_tick = end;
-                    
+
                     order = state_order(state);
                     continue;
                 }
@@ -213,16 +214,16 @@ impl Runner {
                         State::Playing | State::Recording => {
                             let len = band.play(tick, feedback.fade_len())?;
                             let _ = band.close();
-                            
+
                             let mut new_band = Band::make(&band_desc, true)?;
                             new_band.open()?;
                             let len = new_band.play(tick, len)?;
-                            
+
                             let mxr = band.find_mixer(feedback_mixer_id).unwrap_or_else(|| band.first_mixer());
                             let new_mxr = new_band.find_mixer(feedback_mixer_id).unwrap_or_else(|| new_band.first_mixer());
-                            
+
                             feedback.write_fade(mxr.borrow().channels_buffers(), new_mxr.borrow().channels_buffers(), len)?;
-                            
+
                             tick += len as i64;
                             band = new_band;
                         }
@@ -246,7 +247,7 @@ impl Runner {
                 }
                 Order::AddPluginHandle(talker_id, ui_connector) => {
                     self.plugin_handle_manager.add_plugin_handle(talker_id, ui_connector, &mut band)?;
-                    
+
                     order = state_order(state);
                     continue;
                 }
@@ -256,28 +257,28 @@ impl Runner {
                 }
                 Order::Exit => break,
             }
-            
+
             // Run LV2 workers
             lv2_handler::run_workers()?;
-            
+
             if tick > end_tick {
                 tick = start_tick;
             }
-            
+
             let mut len = if tick + (chunk_size as i64) < end_tick {
                 chunk_size
             } else {
                 (end_tick - tick) as usize
             };
-            
+
             len = band.play(tick, len)?;
             
             if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
                 feedback.write(mxr.borrow().channels_buffers(), len)?;
             }
-            
+
             if self.plugin_handle_manager.has_handle() {
-                self.plugin_handle_manager.run()?;
+                self.plugin_handle_manager.transmit(true)?;
             }
 
             tick += len as i64;
@@ -298,7 +299,7 @@ impl Runner {
 
         if self.plugin_handle_manager.has_handle() {
             loop {
-                self.plugin_handle_manager.run_idle()?;
+                self.plugin_handle_manager.transmit(false)?;
 
                 if self.plugin_handle_manager.has_handle() {
                     match self.order_receiver.try_recv() {
@@ -307,13 +308,12 @@ impl Runner {
                     }
                 }
                 else {
-                    return self.wait_order();
+                    break;
                 }
+                thread::sleep(Duration::from_millis(IDLE_PERIOD));
             }
         }
-        else {
-            self.order_receiver.recv().map_err(|e| failure::err_msg(format!("Player::wait_order error : {}", e)))
-        }
+        self.order_receiver.recv().map_err(|e| failure::err_msg(format!("Player::wait_order error : {}", e)))
     }
 }
 
@@ -482,7 +482,7 @@ impl Player {
 
         self.order_sender
             .send(Order::AddPluginHandle(talker_id, ui_connector))
-            .map_err(|e| failure::err_msg(format!("Player::set_time_range error : {}", e)))?;
+            .map_err(|e| failure::err_msg(format!("Player::add_plugin_handle error : {}", e)))?;
 
         Ok(self.receive_state())
     }

@@ -1,25 +1,20 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::collections::HashMap;
-use std::thread;
-use std::time::Duration;
 
 use std::ffi::CString;
-use std::str::FromStr;
 
 extern crate luil;
 
-use luil::plugin_handle::UiConnector;
+use luil::ui_connector::UiConnector;
 
 use talker::lv2_handler;
 use talker::talker::RTalker;
-use talker::identifier::{Id, Identifiable, Index};
+use talker::identifier::{Id, Identifiable};
 use talker::audio_format::AudioFormat;
 
 use crate::band::{Band, Operation};
-use crate::talkers::lv2;
-
-const IDLE_PERIOD: u64 = 33;
+use crate::util;
 
 struct Report {
     operations: Vec<Operation>,
@@ -41,8 +36,8 @@ struct HostPresenter {
 impl HostPresenter {
     pub fn new(talker: RTalker, report: RReport) -> Result<HostPresenter, failure::Error> {
         let plugin_uri = talker.model();
-        let port_symbol_indexes = lv2::get_port_symbol_indexes(&plugin_uri)?;
-        let ears_indexes = lv2::get_ears_indexes(&plugin_uri)?;
+        let port_symbol_indexes = lv2_handler::get_port_symbol_indexes(&plugin_uri)?;
+        let ears_indexes = lv2_handler::get_ears_indexes(&plugin_uri)?;
 
         Ok(Self {
             talker,
@@ -55,56 +50,49 @@ impl HostPresenter {
 
 impl luil::HostTrait for HostPresenter {
     fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
-        lv2_handler::visit(|lv2_handler| {
-            let urid = lv2_handler.features.urid(&uri);
-            println!("urid_map {:?} -> {}", uri, urid);
-            Ok(urid)
-        }).unwrap()
+        lv2_handler::urid_map(&uri)
     }
     fn urid_unmap(&mut self, urid: lv2_raw::LV2Urid) -> Option<CString> {
-        lv2_handler::visit(|lv2_handler| {
-            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(&s).unwrap()))
-        }).unwrap()
+        lv2_handler::urid_unmap(urid)
     }
     fn index(&mut self, port_symbol: String) -> u32 {
-        let idx = *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1);
-        println!("Index : Port {} index = {}", port_symbol, idx);
-        idx
+        *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1)
     }
     fn notify(&mut self, _message: String) {
     }
     fn on_run(&mut self) {
     }
-    fn write(&mut self, port_index: u32, protocol: u32, buffer: Vec<u8>) {
+    fn write(&mut self, port_index: u32, protocol: u32, buffer: Vec<u8>) -> Option<Vec<(u32, u32, Vec<u8>)>> {
         let tkr_id = self.talker.id();
-        let mut report = self.report.borrow_mut();
 
         if protocol == 0 {
             let val_ptr: *const f32 = buffer.as_ptr().cast();
             let value = unsafe {*val_ptr};
             let ear_idx = self.ears_indexes[port_index as usize];
 
-            let _ = self.talker.set_ear_hum_value(ear_idx, 0, 0, value);
+            util::print_error(self.talker.set_ear_hum_value(ear_idx, 0, 0, value), ());
 
-            report.operations.push(Operation::SetEarHumValue(tkr_id, ear_idx, 0, 0, value));
+            self.report.borrow_mut().operations.push(Operation::SetEarHumValue(tkr_id, ear_idx, 0, 0, value));
+
+            None
         }
         else {
-            let _ = self.talker.set_indexed_data(port_index as usize, protocol, &buffer);
+            util::print_error(self.talker.set_indexed_data(port_index as usize, protocol, &buffer), ());
 
-            report.operations.push(Operation::SetIndexedData(tkr_id, port_index as usize, protocol, buffer));
+            self.report.borrow_mut().operations.push(Operation::SetIndexedData(tkr_id, port_index as usize, protocol, buffer));
+
+            self.read()
         }
     }
     fn read(&mut self) -> Option<Vec<(u32, u32, Vec<u8>)>> {
-        match self.talker.read_port_events() {
-            Ok(evs) => {
-                if evs.is_empty() {
-                    None
-                }
-                else {
-                    Some(evs)
-                }
-            }
-            Err(_) => None,
+
+        let evs = util::print_error(self.talker.read_ports_events(), Vec::default());
+
+        if evs.is_empty() {
+            None
+        }
+        else {
+            Some(evs)
         }
     }
     fn subscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
@@ -116,7 +104,6 @@ impl luil::HostTrait for HostPresenter {
         0
     }
     fn state(&mut self) -> Option<String> {
-        println!("plugin_handle_manager::HostPresenter.state");
         self.talker.state().unwrap_or(None)
     }
 }
@@ -145,20 +132,19 @@ impl PluginHandleManager {
 
         let host: Box<HostPresenter> = Box::new(HostPresenter::new(talker.clone(), self.report.clone())?);
 
-        self.handle_count = self.luil.manage_plugin_handle(host, &talker_id.to_string(), ui_connector)?;
-        Ok(())
+        self.handle_count = self.luil.create_plugin_handle(
+            host,
+            &talker_id.to_string(),
+            ui_connector
+        )?;
+
+       Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), failure::Error> {
+    pub fn transmit(&mut self, live: bool) -> Result<(), failure::Error> {
 
-        self.handle_count = self.luil.run()?;
+        self.handle_count = util::print_error(self.luil.transmit(live), self.handle_count);
         Ok(())
-    }
-
-    pub fn run_idle(&mut self) -> Result<(), failure::Error> {
-        thread::sleep(Duration::from_millis(IDLE_PERIOD));
-
-        self.run()
     }
 
     pub fn has_handle(&self) -> bool {

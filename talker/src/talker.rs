@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 extern crate failure;
 
-use crate::audio_format::AudioFormat;
+use crate::audio_format::{self, AudioFormat};
 use crate::data::{Data, RData};
 use crate::ear;
 use crate::ear::{Ear, Entree};
@@ -128,7 +128,7 @@ impl TalkerBase {
             AudioFormat::chunk_size()
         }
         else {
-            1
+            audio_format::MIN_CHUNK_SIZE
         }
     }
 
@@ -267,12 +267,12 @@ pub trait Talker {
     fn set_indexed_data(
         &mut self,
         _base: &TalkerBase,
-        _ear_idx: Index,
+        _port_index: Index,
         _protocol: u32,
         _data: &Vec<u8>,
     ) -> Result<(), failure::Error> { Err(failure::err_msg(format!("set_indexed_data unsupported"))) }
 
-    fn read_port_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
+    fn read_ports_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         Ok(Vec::new())
     }
 
@@ -592,15 +592,15 @@ impl TalkerCab {
 
     pub fn set_indexed_data(
         &self,
-        ear_idx: Index,
+        port_index: Index,
         protocol: u32,
         data: &Vec<u8>,
     ) -> Result<(), failure::Error> {
-        self.core.borrow_mut().set_indexed_data(&self.base, ear_idx, protocol, data)
+        self.core.borrow_mut().set_indexed_data(&self.base, port_index, protocol, data)
     }
 
-    pub fn read_port_events(&self) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
-        self.core.borrow_mut().read_port_events(&self.base)
+    pub fn read_ports_events(&self) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
+        self.core.borrow_mut().read_ports_events(&self.base)
     }
 
 

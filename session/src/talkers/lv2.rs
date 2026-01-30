@@ -1,7 +1,6 @@
 use std::ffi::CStr;
-use std::collections::HashMap;
 
-use livi::{self, PortIndex, PortType, Plugin};
+use livi::{self, PortIndex, Plugin};
 use livi::event::{LV2AtomEventBuilder, LV2AtomSequence};
 
 use talker::audio_format;
@@ -29,11 +28,8 @@ fn an_or(v: f32, def: f32) -> f32 {
 struct Idxs {tkr_port: usize, plugin_port: usize}
 pub struct Lv2 {
     uri: String,
-    urid_float_protocol: u32,
     urid_event_transfer: u32,
     urid_atom_transfer: u32,
-    atom_sequence: LV2AtomSequence,
-    atom_sequences: Vec<LV2AtomSequence>,
     control_inputs_indexes: Vec<Idxs>,
     control_outputs_indexes: Vec<Idxs>,
     audio_inputs_indexes: Vec<Idxs>,
@@ -48,12 +44,8 @@ pub struct Lv2 {
 
 impl Lv2 {
     pub fn new(lv2_handler: &Lv2Handler, uri: &str, mut base: TalkerBase) -> Result<CTalker, failure::Error> {
-        let urid_float_protocol = lv2_handler.features.urid(CStr::from_bytes_with_nul(lv2_sys::LV2_UI__floatProtocol).unwrap());
         let urid_event_transfer = lv2_handler.features.urid(CStr::from_bytes_with_nul(lv2_sys::LV2_ATOM__eventTransfer).unwrap());
         let urid_atom_transfer = lv2_handler.features.urid(CStr::from_bytes_with_nul(lv2_sys::LV2_ATOM__atomTransfer).unwrap());
-
-        let atom_sequence = LV2AtomSequence::new(&lv2_handler.features, ATOM_SEQUENCE_CAPACITY);
-        let mut atom_sequences = Vec::new();
 
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
@@ -119,8 +111,6 @@ impl Lv2 {
                                     outputs_count = outputs_count + 1;
                                 }
                                 livi::PortType::AtomSequenceInput => {
-                                    atom_sequences.push(LV2AtomSequence::new(&lv2_handler.features, ATOM_SEQUENCE_CAPACITY));
-
                                     let ear = ear::atom(Some(&port.name), Some(lv2_handler))?;
                                     base.add_ear(ear);
                                     atom_sequence_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
@@ -158,11 +148,8 @@ impl Lv2 {
                             base,
                             Self {
                                 uri: uri.to_string(),
-                                urid_float_protocol,
                                 urid_event_transfer,
                                 urid_atom_transfer,
-                                atom_sequence,
-                                atom_sequences,
                                 control_inputs_indexes,
                                 control_outputs_indexes,
                                 audio_inputs_indexes,
@@ -210,8 +197,9 @@ impl Lv2 {
                 livi_instance.connect_port(idx.plugin_port, base.ear(idx.tkr_port).get_atom_buffer().as_ptr());
             }
             for idx in &self.atom_sequence_outputs_indexes {
-                base.voice(idx.tkr_port).atom_buffer().clear_as_chunk();
-                livi_instance.connect_port(idx.plugin_port, base.voice(idx.tkr_port).atom_buffer().as_mut_ptr());
+                let atom_seq = base.voice(idx.tkr_port).atom_buffer();
+                atom_seq.clear_as_chunk();
+                livi_instance.connect_port(idx.plugin_port, atom_seq.as_mut_ptr());
             }
         }
     }
@@ -289,10 +277,7 @@ impl Talker for Lv2 {
     fn set_indexed_data(&mut self, base: &TalkerBase, port_index: Index, protocol: u32, data: &Vec<u8>) -> Result<(), failure::Error> {
 
         if protocol == self.urid_event_transfer || protocol == self.urid_atom_transfer {
-            if protocol == self.urid_event_transfer {
-                println!("set_indexed_data event_transfer");
-            }
-            else {
+            if protocol == self.urid_atom_transfer {
                 println!("set_indexed_data atom_transfer");
             }
             self.connect_ports(base);
@@ -300,45 +285,55 @@ impl Talker for Lv2 {
             let livi_active_instance = self.instance.raw_mut();
             let livi_instance = livi_active_instance.instance_mut();
 
-            self.atom_sequence.clear();
-
             let header = unsafe { (data.as_ptr() as *const lv2_raw::LV2Atom).as_ref().unwrap() };
 
             let content = &data[std::mem::size_of::<lv2_raw::LV2Atom>()..];
 
-            let event: LV2AtomEventBuilder<ATOM_SEQUENCE_CAPACITY> = LV2AtomEventBuilder::new(0, header.mytype, content).unwrap();
-            self.atom_sequence.push_event(&event).unwrap();
+            let event: LV2AtomEventBuilder<ATOM_SEQUENCE_CAPACITY> = LV2AtomEventBuilder::new(
+                0,
+                header.mytype,
+                content,
+            ).unwrap();
 
-            unsafe{ livi_instance.connect_port(port_index, self.atom_sequence.as_ptr()); }
-            unsafe{ livi_active_instance.run(2); }
+            let mut atom_sequence = lv2_handler::visit(
+                |h|
+                Ok(LV2AtomSequence::new(&h.features, ATOM_SEQUENCE_CAPACITY))
+            )?;
+
+            atom_sequence.push_event(&event)?;
+
+            unsafe{ livi_instance.connect_port(port_index, atom_sequence.as_ptr()); }
+            unsafe{ livi_active_instance.run(audio_format::MIN_CHUNK_SIZE); }
+
             let _ = self.instance.run_worker();
         }
         Ok(())
     }
 
-    fn read_port_events(&mut self, base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
+    fn read_ports_events(&mut self, base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
 
-        let mut port_events = Vec::new();
+        let mut ports_events = Vec::new();
 
         for idx in &self.atom_sequence_outputs_indexes {
-            let atom_buf = base.voice(idx.tkr_port).atom_buffer();
+            let port = idx.plugin_port as u32;
 
-            for ev in atom_buf.iter() {
+            for ev in base.voice(idx.tkr_port).atom_buffer().iter() {
                 let header_size = std::mem::size_of::<lv2_raw::LV2Atom>();
                 let buffer_size = header_size + ev.data.len();
                 let mut buffer = Vec::with_capacity(buffer_size as usize);
-
-                let header = unsafe{ std::slice::from_raw_parts((&ev.event.body) as *const lv2_raw::LV2Atom as *const u8, header_size) };
+    
+                let header = unsafe{ std::slice::from_raw_parts(
+                    (&ev.event.body) as *const lv2_raw::LV2Atom as *const u8,
+                    header_size)
+                };
                 buffer.extend_from_slice(header);
                 buffer.extend_from_slice(ev.data);
-
-                port_events.push((idx.plugin_port as u32, self.urid_event_transfer, buffer));
+                // println!("{}:{} read_sequence_events type {}: {:?}", file!(), line!(), ev.event.body.mytype, ev.data); //String::from_utf8_lossy(ev.data)
+    
+                ports_events.push((port, self.urid_event_transfer, buffer));
             }
-
-            atom_buf.clear();
         }
-
-        Ok(port_events)
+        Ok(ports_events)
     }
 
     fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
@@ -403,58 +398,6 @@ impl Talker for Lv2 {
             }
         })
     }
-}
-
-pub fn get_bundle_uri(plugin_uri: &str) -> Result<String, failure::Error> {
-    lv2_handler::visit(|lv2_handler| {
-        match lv2_handler.world.plugin_by_uri(plugin_uri) {
-            Some(plugin) => {
-                let bundle_node = plugin.raw().bundle_uri();
-                let bundle_uri = bundle_node.as_uri().unwrap_or("");
-                Ok(bundle_uri.to_string())
-            }
-            None => Ok("".to_string()),
-        }
-    })
-}
-
-pub fn get_ears_indexes(plugin_uri: &str) -> Result<Vec<usize>, failure::Error> {
-    lv2_handler::visit(|lv2_handler| {
-        match lv2_handler.world.plugin_by_uri(plugin_uri) {
-            Some(plugin) => {
-                let mut ears_indexes: Vec<usize> = vec![0; plugin.ports().count()];
-                let mut ear_idx = 0;
-
-                for port in plugin.ports() {
-                    match port.port_type {
-                        PortType::ControlInput | PortType::AudioInput | PortType::AtomSequenceInput | PortType::CVInput => {
-                            ears_indexes[port.index.0] = ear_idx;
-                            ear_idx += 1;
-                        },
-                        _ => (),
-                    }
-                }
-                Ok(ears_indexes)
-            }
-            None => Err(failure::err_msg(format!("LV2 plugin {} not found.", plugin_uri))),
-        }
-    })
-}
-
-pub fn get_port_symbol_indexes(plugin_uri: &str) -> Result<HashMap<String, u32>, failure::Error> {
-    lv2_handler::visit(|lv2_handler| {
-        match lv2_handler.world.plugin_by_uri(plugin_uri) {
-            Some(plugin) => {
-                let mut port_symbol_indexes = HashMap::new();
-
-                for port in plugin.ports() {
-                    port_symbol_indexes.insert(port.symbol, port.index.0 as u32);
-                }
-                Ok(port_symbol_indexes)
-            }
-            None => Err(failure::err_msg(format!("LV2 plugin {} not found.", plugin_uri))),
-        }
-    })
 }
 
 pub fn show_plugin(plugin: &Plugin) {

@@ -19,7 +19,7 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
-use luil::plugin_handle::UiConnector;
+use luil::ui_connector::UiConnector;
 
 use talker::identifier::{self, Id, Index};
 use talker::talker::RTalker;
@@ -164,8 +164,8 @@ impl Session {
         self.player.add_plugin_handle(talker_id, ui_connector)
     }
 
-    pub fn read_port_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
-        self.band.read_port_events(talker_id)
+    pub fn read_ports_events(&self, talker_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
+        self.band.read_ports_events(talker_id)
     }
 
     pub fn update_band_and_ui_count(&mut self) -> Result<(usize, usize), failure::Error> {

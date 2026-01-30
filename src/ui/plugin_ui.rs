@@ -1,8 +1,4 @@
 
-use std::collections::HashMap;
-
-use std::ffi::CString;
-use std::str::FromStr;
 
 extern crate luil;
 
@@ -11,84 +7,10 @@ use talker::talker::RTalker;
 use talker::identifier::{Id, Identifiable};
 use talker::audio_format::AudioFormat;
 
-use session::band::Operation;
-use session::talkers::lv2;
 use crate::session_presenter::RSessionPresenter;
 use crate::session::event_bus::Notification;
 
 const HMI_UPDATE_PERIOD: u64 = 333;
-
-
-struct HostPresenter {
-    talker_id: Id,
-    session_presenter: RSessionPresenter,
-    port_symbol_indexes: HashMap<String, u32>,
-    ears_indexes: Vec<usize>,
-}
-
-impl HostPresenter {
-    pub fn new(talker_id: Id, plugin_uri: &str, session_presenter: &RSessionPresenter) -> Result<HostPresenter, failure::Error> {
-        let port_symbol_indexes = lv2::get_port_symbol_indexes(plugin_uri)?;
-        let ears_indexes = lv2::get_ears_indexes(plugin_uri)?;
-        
-        Ok(Self {
-            talker_id,
-            session_presenter: session_presenter.clone(),
-            port_symbol_indexes,
-            ears_indexes,
-        })
-    }
-}
-
-impl luil::HostTrait for HostPresenter {
-    fn urid_map(&mut self, uri: CString) -> lv2_raw::LV2Urid {
-        lv2_handler::visit(|lv2_handler| {
-            Ok(lv2_handler.features.urid(&uri))
-        }).unwrap()
-    }
-    fn urid_unmap(&mut self, urid: lv2_raw::LV2Urid) -> Option<CString> {
-        lv2_handler::visit(|lv2_handler| {
-            Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(&s).unwrap()))
-        }).unwrap()
-    }
-    fn index(&mut self, port_symbol: String) -> u32 {
-        *self.port_symbol_indexes.get(&port_symbol).unwrap_or(&1)
-    }
-    fn notify(&mut self, message: String) {
-        self.session_presenter.borrow().notify(Notification::Error(message));
-    }
-    fn write(&mut self, port_index: u32, protocol: u32, buffer: Vec<u8>) {
-        if protocol == 0 {
-            let val_ptr: *const f32 = buffer.as_ptr().cast();
-            let value = unsafe {*val_ptr};
-
-            self.session_presenter.borrow_mut().modify_band_volatly(
-                &Operation::SetEarHumValue(
-                self.talker_id, self.ears_indexes[port_index as usize], 0, 0, value));
-            }
-        else {
-            self.session_presenter.borrow_mut().modify_band_volatly(
-                &Operation::SetIndexedData(
-                    self.talker_id, port_index as usize, protocol, buffer));
-        }
-    }
-    fn read(&mut self) -> Option<Vec<(u32, u32, Vec<u8>)>> {
-        Some(self.session_presenter.borrow().read_port_events(self.talker_id))
-    }
-    fn subscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
-        println!("subscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
-        0
-    }
-    fn unsubscribe(&mut self, port_index: u32, protocol: u32, features: Vec<CString>) -> u32 {
-        println!("unsubscribe : port_index: {}, protocol: {}, features: {:?}", port_index, protocol, features);
-        0
-    }
-    fn state(&mut self) -> Option<String> {
-        self.session_presenter.borrow()
-        .find_talker(self.talker_id)
-        .map_or(None, |tkr| tkr.state().unwrap_or(None))
-    }
-}
 
 pub struct UiParameters {
     talker_id: Id,
@@ -113,7 +35,7 @@ impl Manager {
     }
 
     pub fn prepare_new_ui(&mut self, talker: &RTalker) {
-        let bundle_uri = lv2::get_bundle_uri(&talker.model()).unwrap();
+        let bundle_uri = lv2_handler::get_bundle_uri(&talker.model()).unwrap();
 
         self.pending_ui = Some(UiParameters {
             talker_id: talker.id(),
@@ -126,16 +48,14 @@ impl Manager {
     pub fn show_pending_ui(&mut self, session_presenter: &RSessionPresenter) -> Result<(), failure::Error> {
 
         if let Some(ui_param) = &self.pending_ui {
-            let host: Box<HostPresenter> = Box::new(HostPresenter::new(ui_param.talker_id, &ui_param.plugin_uri, session_presenter)?);
-
-            let mut plugin_handle = self.luil.create_plugin_handle(
+            let ui_connector = self.luil.launch_plugin_ui(
                 &ui_param.plugin_uri,
                 Some(&ui_param.bundle_uri),
                 &ui_param.instance_name,
-                host
+                |uri| lv2_handler::urid_map(&uri)
             )?;
-
-            session_presenter.borrow_mut().add_plugin_handle(ui_param.talker_id, plugin_handle.take_ui_connector().unwrap());
+    
+            session_presenter.borrow_mut().add_plugin_handle(ui_param.talker_id, ui_connector);
 
             if session_presenter.borrow().ui_count() == 1 {
                 let period = std::time::Duration::from_millis(HMI_UPDATE_PERIOD);

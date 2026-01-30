@@ -88,6 +88,14 @@ pub fn empty_audio_buf() -> HAudioBuf {
 
 const ATOM_CAPACITY: usize = 65536;
 
+fn new_atom_buf(lv2_handler: &Lv2Handler) -> HAtomBuf {
+    let mut seq = LV2AtomSequence::new(&lv2_handler.features,ATOM_CAPACITY);
+
+    seq.clear_as_chunk();
+
+    Some(Cell::new(seq))
+}
+
 pub struct Horn {
     port_type: PortType,
     buf: HBuf,
@@ -183,15 +191,9 @@ impl Horn {
 
     pub fn atom_buf(olv2_handler: Option<&Lv2Handler>) -> HAtomBuf {
         match olv2_handler {
-            Some(lv2_handler) => Some(Cell::new(LV2AtomSequence::new(
-                &lv2_handler.features,
-                ATOM_CAPACITY,
-            ))),
+            Some(lv2_handler) => new_atom_buf(lv2_handler),
             None => lv2_handler::visit(|lv2_handler| {
-                Ok(Some(Cell::new(LV2AtomSequence::new(
-                    &lv2_handler.features,
-                    ATOM_CAPACITY,
-                ))))
+                Ok(new_atom_buf(lv2_handler))
             })
             .unwrap_or(None),
         }

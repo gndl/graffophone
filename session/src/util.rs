@@ -1,4 +1,14 @@
 
+pub fn print_error<R>(result: Result<R, failure::Error>, default: R) -> R {
+    match result {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{}", e);
+            default
+        }
+    }
+}
+
 pub fn configuration_path() -> std::path::PathBuf {
     match dirs::config_local_dir() {
         Some(path) => path.join(crate::APPLICATION_NAME),

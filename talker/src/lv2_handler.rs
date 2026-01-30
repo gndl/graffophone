@@ -1,12 +1,15 @@
 use std::sync::{Arc, LazyLock, Mutex};
 use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
+use std::ffi::{CString, CStr};
+use std::str::FromStr;
+use std::collections::HashMap;
 
-use livi;
+use livi::{self, PortType};
 
 use audio_format;
 
-const MIN_BLOCK_SIZE: usize = 1;
+const MIN_BLOCK_SIZE: usize = audio_format::MIN_CHUNK_SIZE;
 const MAX_BLOCK_SIZE: usize = audio_format::DEFAULT_CHUNK_SIZE;
 
 enum WorkerOrder {
@@ -65,6 +68,70 @@ where
     };
     res
 }
+
+pub fn urid_map(uri: &CStr) -> lv2_raw::LV2Urid {
+    visit(|lv2_handler| {
+        Ok(lv2_handler.features.urid(&uri))
+    }).unwrap()
+}
+pub fn urid_unmap(urid: lv2_raw::LV2Urid) -> Option<CString> {
+    visit(|lv2_handler| {
+        Ok(lv2_handler.features.uri(urid).map(|s| CString::from_str(&s).unwrap()))
+    }).unwrap()
+}
+
+pub fn get_bundle_uri(plugin_uri: &str) -> Result<String, failure::Error> {
+    visit(|lv2_handler| {
+        match lv2_handler.world.plugin_by_uri(plugin_uri) {
+            Some(plugin) => {
+                let bundle_node = plugin.raw().bundle_uri();
+                let bundle_uri = bundle_node.as_uri().unwrap_or("");
+                Ok(bundle_uri.to_string())
+            }
+            None => Ok("".to_string()),
+        }
+    })
+}
+
+pub fn get_ears_indexes(plugin_uri: &str) -> Result<Vec<usize>, failure::Error> {
+    visit(|lv2_handler| {
+        match lv2_handler.world.plugin_by_uri(plugin_uri) {
+            Some(plugin) => {
+                let mut ears_indexes: Vec<usize> = vec![0; plugin.ports().count()];
+                let mut ear_idx = 0;
+
+                for port in plugin.ports() {
+                    match port.port_type {
+                        PortType::ControlInput | PortType::AudioInput | PortType::AtomSequenceInput | PortType::CVInput => {
+                            ears_indexes[port.index.0] = ear_idx;
+                            ear_idx += 1;
+                        },
+                        _ => (),
+                    }
+                }
+                Ok(ears_indexes)
+            }
+            None => Err(failure::err_msg(format!("LV2 plugin {} not found.", plugin_uri))),
+        }
+    })
+}
+
+pub fn get_port_symbol_indexes(plugin_uri: &str) -> Result<HashMap<String, u32>, failure::Error> {
+    visit(|lv2_handler| {
+        match lv2_handler.world.plugin_by_uri(plugin_uri) {
+            Some(plugin) => {
+                let mut port_symbol_indexes = HashMap::new();
+
+                for port in plugin.ports() {
+                    port_symbol_indexes.insert(port.symbol, port.index.0 as u32);
+                }
+                Ok(port_symbol_indexes)
+            }
+            None => Err(failure::err_msg(format!("LV2 plugin {} not found.", plugin_uri))),
+        }
+    })
+}
+
 
 pub fn run_workers() -> Result<(), failure::Error> {
     match (*INSTANCE).lock() {

@@ -709,9 +709,9 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         result
     }
 
-    pub fn read_port_events(&self, tkr_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
+    pub fn read_ports_events(&self, tkr_id: Id) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         let tkr = self.fetch_talker(&tkr_id)?;
-        tkr.read_port_events()
+        tkr.read_ports_events()
     }
 
     pub fn backup_ear_hum(&self,
