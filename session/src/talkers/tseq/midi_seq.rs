@@ -55,7 +55,6 @@ struct MidiEvent {
 
 pub struct MidiSeq {
     controller_events: Vec<MidiEvent>,
-    program_change_events: Vec<MidiEvent>,
     events: Vec<MidiEvent>,
     midi_urid: lv2_raw::LV2Urid,
 }
@@ -71,22 +70,44 @@ impl MidiSeq {
         }
 
         let mut controller_events = Vec::with_capacity(16);
-        let mut program_change_events = Vec::with_capacity(16);
         let mut events = Vec::with_capacity(1024);
         let mut channel_number: u8 = 0;
 
         for channel in &sequence.channels {
             let seq = binder.fetch_sequence(&channel.seq_id)?;
-            let mut bank_select_msb = 0;
-            let mut bank_select_lsb = 0;
 
             // Channel configuration events
+            if let Some(bank_msb) = channel.bank_msb {
+                let msb = u8::from_str(bank_msb)?;
+
+                controller_events.push(MidiEvent {
+                    tick: 0,
+                    data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_MSB, msb],
+                });
+            }
+
+            if let Some(bank_lsb) = channel.bank_lsb {
+                if !bank_lsb.is_empty() {
+                    let lsb = u8::from_str(bank_lsb)?;
+                    
+                    controller_events.push(MidiEvent {
+                        tick: 0,
+                        data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_LSB, lsb],
+                    });
+                }
+            }
+
+            if let Some(program) = channel.program {
+                let prog = u8::from_str(program)?;
+
+                controller_events.push(MidiEvent {
+                    tick: 0,
+                    data: vec![PROGRAM_CHANGE | channel_number, prog],
+                });
+            }
+
             for attribute in &channel.attributes {
-                let ctrl_type = if attribute.label == "bank_MSB" {
-                    CTRL_BANK_SELECT_MSB
-                } else if attribute.label == "bank_LSB" {
-                    CTRL_BANK_SELECT_LSB
-                } else if attribute.label.starts_with("vol") {
+                let ctrl_type = if attribute.label.starts_with("vol") {
                     CTRL_VOLUME
                 } else if attribute.label == "bal" {
                     CTRL_BALANCE
@@ -106,32 +127,11 @@ impl MidiSeq {
                     Err(_) => return Err(failure::err_msg(format!("Midi controller value {} invalid!", attribute.value))),
                 };
 
-                if ctrl_type == CTRL_BANK_SELECT_MSB {
-                    bank_select_msb = ctrl_value;
-                } else if ctrl_type == CTRL_BANK_SELECT_LSB {
-                    bank_select_lsb = ctrl_value;
-                } else {
-                    controller_events.push(MidiEvent {
-                        tick: 0,
-                        data: vec![CONTROLLER | channel_number, ctrl_type, ctrl_value],
-                    });
-                }
+                controller_events.push(MidiEvent {
+                    tick: 0,
+                    data: vec![CONTROLLER | channel_number, ctrl_type, ctrl_value],
+                });
             }
-
-            controller_events.push(MidiEvent {
-                tick: 0,
-                data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_MSB, bank_select_msb],
-            });
-
-            controller_events.push(MidiEvent {
-                tick: 0,
-                data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_LSB, bank_select_lsb],
-            });
- 
-            program_change_events.push(MidiEvent {
-                tick: 0,
-                data: vec![PROGRAM_CHANGE | channel_number, channel.program],
-            });
 
             // Notes events
             let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
@@ -163,7 +163,6 @@ impl MidiSeq {
 
         Ok(MidiSeq {
             controller_events,
-            program_change_events,
             events,
             midi_urid,
         })
@@ -187,9 +186,6 @@ impl MidiSeq {
             if !event_reminder.initialized {
                 for ev in &self.controller_events {
                     voice_buf.push_midi_event::<3>(0, self.midi_urid, &ev.data)?;
-                }
-                for ev in &self.program_change_events {
-                    voice_buf.push_midi_event::<2>(0, self.midi_urid, &ev.data)?;
                 }
                 event_reminder.initialized = true;
             }

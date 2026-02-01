@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
-    character::complete::{alphanumeric1, char, digit1, newline, one_of, space0, space1},
+    character::complete::{alphanumeric1, char, digit0, digit1, newline, one_of, space0, space1},
     combinator::{map_res, opt, recognize},
     multi::{many0, many1_count},
     number::complete::float,
@@ -255,7 +255,9 @@ pub struct PSequence<'a> {
 #[derive(Debug, PartialEq)]
 pub struct PMidiChannel<'a> {
     pub seq_id: &'a str,
-    pub program: u8,
+    pub bank_msb: Option<&'a str>,
+    pub bank_lsb: Option<&'a str>,
+    pub program: Option<&'a str>,
     pub attributes: Vec<PAttribute<'a>>,
 }
 
@@ -790,19 +792,27 @@ fn seqout(input: &str) -> IResult<&str, Expression<'_>> {
 }
 
 fn midi_channel(input: &str) -> IResult<&str, PMidiChannel<'_>> {
-    let (input, (seq_id, program, attributes, _)) = tuple((
+    let (input, (seq_id, bank_prog_a, bank_prog_b, bank_prog_c, attributes, _)) = tuple((
         preceded(char(REF_KW!()), id),
-        preceded(char(JOIN_KW!()), digit1),
+        opt(preceded(char(JOIN_KW!()), digit1)),
+        opt(preceded(char(COUPLING_KW!()), digit0)),
+        opt(preceded(char(COUPLING_KW!()), digit1)),
         many0(attribute),
         space0,
     ))(input)?;
+
+    let (bank_msb, bank_lsb, program) = if bank_prog_c.is_some() {
+        (bank_prog_a, bank_prog_b, bank_prog_c)
+    }
+    else if bank_prog_b.is_some() {
+        (None, bank_prog_a, bank_prog_b)
+    }
+    else {
+        (None, None, bank_prog_a)
+    };
     Ok((
         input,
-        PMidiChannel {
-            seq_id,
-            program: u8::from_str(program).unwrap(),
-            attributes,
-        },
+        PMidiChannel {seq_id, bank_msb, bank_lsb, program, attributes},
     ))
 }
 
