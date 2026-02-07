@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::collections::HashMap;
 
 use gtk::glib;
 
@@ -182,6 +183,9 @@ impl SessionPresenter {
         self.manage_state_result(res);
     }
 
+    pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
+        self.session.talkers()
+    }
     pub fn find_talker(&self, talker_id: Id) -> Option<&RTalker> {
         self.session.talkers().get(&talker_id)
     }
