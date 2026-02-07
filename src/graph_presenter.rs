@@ -11,6 +11,11 @@ use session::event_bus::{Notification, REventBus};
 
 use crate::session_presenter::RSessionPresenter;
 
+enum TalkersFace {
+    Maximized,
+    Minimized,
+    Undefined,
+}
 pub struct GraphPresenter {
     selected_hum: Option<(Id, Index, Index, Index)>,
     selected_hum_add_in: Option<(Id, Index, Index, Index)>,
@@ -19,6 +24,7 @@ pub struct GraphPresenter {
     selected_talkers: HashSet<Id>,
     selected_data_talker: Option<Id>,
     minimized_talkers: HashSet<Id>,
+    talkers_face: TalkersFace,
     multi_selection: bool,
     session_presenter: RSessionPresenter,
     event_bus: REventBus,
@@ -36,6 +42,7 @@ impl GraphPresenter {
             selected_talkers: HashSet::new(),
             selected_data_talker: None,
             minimized_talkers: HashSet::new(),
+            talkers_face: TalkersFace::Undefined,
             multi_selection: false,
             session_presenter: session_presenter.clone(),
             event_bus: event_bus.clone(),
@@ -63,10 +70,6 @@ impl GraphPresenter {
 
     pub fn selected_data_talker(&self) -> Option<Id> {
         self.selected_data_talker
-    }
-
-    pub fn talker_minimized(&self, talker_id: Id) -> bool {
-        self.minimized_talkers.contains(&talker_id)
     }
 
     pub fn voice_selected(&self, talker_id: Id, voice_idx: Index) -> bool {
@@ -168,6 +171,14 @@ impl GraphPresenter {
         }
     }
 
+    pub fn talker_minimized(&self, talker_id: Id) -> bool {
+        match self.talkers_face {
+            TalkersFace::Undefined => self.minimized_talkers.contains(&talker_id),
+            TalkersFace::Minimized => true,
+            TalkersFace::Maximized => false,
+        }
+    }
+
     pub fn minimize_talker(&mut self, talker_id: Id) -> Result<Vec<Notification>, failure::Error> {
         if self.minimized_talkers.contains(&talker_id) {
             self.minimized_talkers.remove(&talker_id);
@@ -175,6 +186,22 @@ impl GraphPresenter {
             self.minimized_talkers.insert(talker_id);
         }
         Ok(vec![Notification::TalkerChanged])
+    }
+
+    pub fn toggle_talkers_face(&mut self) {
+        self.talkers_face = match self.talkers_face {
+            TalkersFace::Undefined => TalkersFace::Minimized,
+            TalkersFace::Minimized => {
+                if self.minimized_talkers.is_empty() {
+                    TalkersFace::Undefined
+                }
+                else {
+                    TalkersFace::Maximized
+                }
+            },
+            TalkersFace::Maximized => TalkersFace::Undefined,
+        };
+        self.session_presenter.borrow().notify(Notification::TalkerChanged);
     }
 
     pub fn set_talker_name(

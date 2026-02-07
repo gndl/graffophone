@@ -19,11 +19,12 @@ pub const STOP_ACCEL: &str = "<Ctrl>T";
 pub const RESTART_ACCEL: &str = "<Ctrl>R";
 pub const RECORD_ACCEL: &str = "<Ctrl><Shift>R";
 pub const PUSH_TALKER_DATA_ACCEL: &str = "<Ctrl>U";
-pub const COMMIT_TALKER_DATA_ACCEL: &str = "<Ctrl>M";
+pub const COMMIT_TALKER_DATA_ACCEL: &str = "<Ctrl>I";
 pub const CANCEL_TALKER_DATA_ACCEL: &str = "<Ctrl>W";
 pub const DUPLIATE_SELECTED_TALKERS_ACCEL: &str = "<Ctrl>D";
 pub const FIND_FORWARD_ACCEL: &str = "<Ctrl>F";
 pub const FIND_BACKWARD_ACCEL: &str = "<Ctrl><Shift>F";
+pub const TOGGLE_TALKERS_FACE_ACCEL: &str = "<Ctrl>M";
 
 pub fn create_actions_entries(
     application: &gtk::Application,
@@ -212,6 +213,15 @@ pub fn create_actions_entries(
     entries.push(find_backward);
 
     application.set_accels_for_action("session.find_backward", &[FIND_BACKWARD_ACCEL]);
+
+    // Toggle talkers face action
+    let toggle_talkers_face = ActionEntry::builder("toggle_talkers_face")
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().graph_presenter().borrow_mut().toggle_talkers_face()))
+    .build();
+
+    entries.push(toggle_talkers_face);
+
+    application.set_accels_for_action("session.toggle_talkers_face", &[TOGGLE_TALKERS_FACE_ACCEL]);
 
 
     let actions = SimpleActionGroup::new();
