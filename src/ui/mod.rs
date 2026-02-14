@@ -5,3 +5,5 @@ pub mod plugin_ui;
 pub mod session_opening_dialog;
 pub mod session_saving_dialog;
 pub mod talker_object;
+pub mod control;
+pub mod style;

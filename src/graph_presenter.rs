@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use talker::identifier::Identifiable;
@@ -21,6 +22,8 @@ pub struct GraphPresenter {
     minimized_talkers: HashSet<Id>,
     all_talkers_minimized: bool,
     multi_selection: bool,
+    solo_track: Option<(Id, Index)>,
+    mute_tracks: HashMap<Id, HashSet<Index>>,
     session_presenter: RSessionPresenter,
     event_bus: REventBus,
 }
@@ -39,6 +42,8 @@ impl GraphPresenter {
             minimized_talkers: HashSet::new(),
             all_talkers_minimized: false,
             multi_selection: false,
+            solo_track: None,
+            mute_tracks: HashMap::new(),
             session_presenter: session_presenter.clone(),
             event_bus: event_bus.clone(),
         }))
@@ -53,6 +58,8 @@ impl GraphPresenter {
         self.selected_data_talker = None;
         self.minimized_talkers.clear();
         self.multi_selection = false;
+        self.solo_track = None;
+        self.mute_tracks.clear();
     }
 
     pub fn get_talker(&self, talker_id: Id) -> RTalker {
@@ -606,6 +613,86 @@ impl GraphPresenter {
             self.session_presenter.borrow_mut().duplicate_talker(*id);
         }
     }
+
+    pub fn is_solo_track(&self, mixer_id: Id, track_idx: Index) -> bool {
+        match self.solo_track {
+            Some((mxr_id, trk_idx)) => mxr_id == mixer_id && trk_idx == track_idx,
+            None => false,
+        }
+    }
+
+    pub fn set_solo_track(&mut self, mixer_id: Id, track_idx: Index) -> Result<Vec<Notification>, failure::Error> {
+
+        if let Some((mxr_id, trk_idx)) = self.solo_track {
+            if mxr_id == mixer_id && trk_idx == track_idx {
+                self.solo_track = None
+            }
+            else {
+                self.solo_track = Some((mixer_id, track_idx));
+            }
+        }
+        else {
+            self.solo_track = Some((mixer_id, track_idx));
+        }
+        self.set_audible_tracks();
+
+        Ok(vec![Notification::TalkerChanged])
+    }
+
+    pub fn is_mute_track(&self, mixer_id: Id, track_idx: Index) -> bool {
+        match self.mute_tracks.get(&mixer_id) {
+            Some(muteds) => muteds.contains(&track_idx),
+            None => false,
+        }
+    }
+
+    pub fn set_mute_track(&mut self, mixer_id: Id, track_idx: Index) -> Result<Vec<Notification>, failure::Error> {
+
+        if let Some(muteds) = self.mute_tracks.get_mut(&mixer_id) {
+            if muteds.contains(&track_idx) {
+                muteds.remove(&track_idx);
+            }
+            else {
+                muteds.insert(track_idx);
+            }
+        }
+        else {
+            let mut muteds = HashSet::new();
+            muteds.insert(track_idx);
+            self.mute_tracks.insert(mixer_id, muteds);
+        }
+        self.set_audible_tracks();
+
+        Ok(vec![Notification::TalkerChanged])
+    }
+
+    fn set_audible_tracks(&self) {
+
+        if let Some((mxr_id, trk_idx)) = self.solo_track {
+            self.session_presenter
+            .borrow_mut()
+            .set_audible_tracks(mxr_id, vec![trk_idx]);
+        }
+        else {
+            for (mxr_id, muteds) in  &self.mute_tracks {
+                let otracks_count = self.session_presenter.borrow().get_mixer_tracks_count(*mxr_id);
+
+                if let Some(tracks_count) = otracks_count {
+                    let mut audible_tracks = Vec::new();
+
+                    for trk_idx in 0..tracks_count {
+                        if !muteds.contains(&trk_idx) {
+                            audible_tracks.push(trk_idx);
+                        }
+                    }
+                    self.session_presenter
+                    .borrow_mut()
+                    .set_audible_tracks(*mxr_id, audible_tracks);
+                }
+            }
+        }
+    }
+
 
     pub fn backup_hum(&self, talker_id: Id, ear_idx: Index, set_idx: Index, hum_idx: Index) -> EarHum {
         self.session_presenter.borrow().session().backup_ear_hum(talker_id, ear_idx, set_idx, hum_idx).expect("Talker ear hum invalid")

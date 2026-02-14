@@ -98,6 +98,10 @@ impl Session {
         self.start_tick
     }
 
+    pub fn set_audible_tracks(&mut self, mixer_id: Id, audible_tracks: Vec<Index>) -> Result<State, failure::Error> {
+        self.player.set_audible_tracks(mixer_id, audible_tracks)
+    }
+
     pub fn set_start_tick(&mut self, t: i64) -> Result<State, failure::Error> {
         if self.start_tick == self.end_tick {
             self.start_tick = t;

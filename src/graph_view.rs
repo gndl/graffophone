@@ -20,9 +20,9 @@ use crate::graph_control::{GraphControl, RGraphControl};
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
 use crate::mixer_control::MixerControl;
 use crate::session_presenter::RSessionPresenter;
-use crate::style;
 use crate::talker_control;
-use crate::talker_control::{ControlSupply, RTalkerControl};
+use crate::talker_control::RTalkerControl;
+use crate::ui::{self, control::ControlSupply};
 use crate::util;
 
 const MARGE: f64 = 10.;
@@ -606,7 +606,7 @@ impl GraphView {
         if self.build_needed {
             self.build(drawing_area, cc);
         }
-        style::background(cc);
+        ui::style::background(cc);
         cc.rectangle(0., 0., self.width, self.height);
         util::print_cairo_result(cc.fill());
 

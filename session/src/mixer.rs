@@ -17,8 +17,8 @@ use crate::track;
 
 pub const KIND: &str = "Mixer";
 
-const VOLUME_EAR_INDEX: Index = 0;
-const TRACKS_EAR_INDEX: Index = 1;
+pub const VOLUME_EAR_INDEX: Index = 0;
+pub const TRACKS_EAR_INDEX: Index = 1;
 const INPUT_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 const CHANNELS_HUM_INDEX: Index = 2;
@@ -29,7 +29,10 @@ pub struct Mixer {
     is_open: bool,
     record: bool,
     buf: Vector,
+    tracks_count: usize,
     channels_buffers: Vec<Vector>,
+    feedback_buffers: Vec<Vector>,
+    audible_tracks: Vec<Index>,
 }
 
 pub type RMixer = Rc<RefCell<Mixer>>;
@@ -99,10 +102,14 @@ impl Mixer {
 
         let chunk_size = AudioFormat::chunk_size();
 
-        let mut channels_buffers = Vec::new();
+        let mut channels_buffers = Vec::with_capacity(channels);
+        let mut feedback_buffers = Vec::with_capacity(channels);
+        let mut audible_tracks = Vec::with_capacity(channels);
 
-        for _ in 0..channels {
+        for track_idx in 0..channels {
             channels_buffers.push(vec![0.; chunk_size]);
+            feedback_buffers.push(vec![0.; chunk_size]);
+            audible_tracks.push(track_idx);
         }
 
         Ok(Rc::new(RefCell::new(Self {
@@ -111,7 +118,10 @@ impl Mixer {
             is_open: false,
             record: false,
             buf: vec![0.; AudioFormat::chunk_size()],
+            tracks_count: 0,
             channels_buffers,
+            feedback_buffers,
+            audible_tracks,
         })))
     }
 
@@ -143,7 +153,23 @@ impl Mixer {
     pub fn channels_buffers<'a>(&'a self) -> &'a Vec<Vector> {
         &self.channels_buffers
     }
+    
+    pub fn feedback<'a>(&'a self) -> &'a Vec<Vector> {
+        match self.audible_tracks.len() < self.tracks_count {
+            true => &self.feedback_buffers,
+            false => &self.channels_buffers
+       }
+    }
+    pub fn set_audible_tracks(&mut self, audible_tracks: Vec<Index>) -> Result<(), failure::Error> {
 
+        if audible_tracks.is_empty() {
+            for buf in &mut self.feedback_buffers {
+                buf.fill(0.);
+            }
+        }
+        self.audible_tracks = audible_tracks;
+        Ok(())
+    }
     pub fn is_open(&self) -> bool {
         self.is_open
     }
@@ -201,6 +227,7 @@ impl Mixer {
         let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
 
         let tracks_count = tracks_ear.sets_len();
+        self.tracks_count = tracks_count;
 
         if tracks_count == 0 {
             return Ok(0);
@@ -235,6 +262,31 @@ impl Mixer {
         if self.record {
             for o in &self.outputs {
                 o.borrow_mut().write(channels, ln)?;
+            }
+        }
+
+        // Compute feedback
+        if self.audible_tracks.len() < tracks_count && !self.audible_tracks.is_empty() {
+            let channels = &mut self.feedback_buffers;
+
+            let _ = tracks_ear.visit_set(
+                self.audible_tracks[0],
+                |set, ln| Ok(track::set(set, tick, buf, ln, channels)),
+                ln,
+            )?;
+
+            for i in 1..self.audible_tracks.len() {
+                let _ = tracks_ear.visit_set(
+                    self.audible_tracks[i],
+                    |set, ln| Ok(track::add(set, tick, buf, ln, channels)),
+                    ln,
+                )?;
+            }
+    
+            for ch in &mut *channels {
+                for i in 0..ln {
+                    ch[i] = ch[i] * master_volume_buf[i] * average_coef;
+                }
             }
         }
 

@@ -15,6 +15,7 @@ use talker::Identifier;
 use crate::session::band::Operation;
 use crate::session::event_bus::{Notification, REventBus};
 use crate::session::factory::{Factory, OutputParam};
+use crate::session::mixer;
 use crate::session::session::{self, Session};
 use crate::session::state::State;
 
@@ -238,6 +239,18 @@ impl SessionPresenter {
         self.modified = true;
 
         state_ok
+    }
+
+    pub fn get_mixer_tracks_count(&self, mixer_id: Id) -> Option<usize> {
+        if let Some(tkr) = self.find_talker(mixer_id) {
+            return Some(tkr.ear(mixer::TRACKS_EAR_INDEX).sets_len());
+        }
+        None
+    }
+
+    pub fn set_audible_tracks(&mut self, mixer_id: Id, audible_tracks: Vec<Index>) {
+        let res = self.session.set_audible_tracks(mixer_id, audible_tracks);
+        self.manage_state_result(res);
     }
 
     pub fn set_start_tick(&mut self, t: i64) {

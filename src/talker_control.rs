@@ -11,86 +11,9 @@ use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
 
 use crate::graph_presenter::{GraphPresenter, RGraphPresenter};
-use crate::style;
-use crate::style::Color;
 use crate::util;
 use session::event_bus::Notification;
-
-pub const ADD_TAG: &str = "+";
-pub const SUP_TAG: &str = "-";
-pub const VAL_TAG: &str = "←"; // ⟵
-pub const ADD_IN_TAG: &str = "⊕"; // ● ⟴ ⊕
-pub const DESTROY_TAG: &str = "✖";
-pub const MAXIMIZE_TAG: &str = "▮";
-pub const MINIMIZE_TAG: &str = "▬";
-
-const SPACE: f64 = 4.;
-
-const H_PADDING: f64 = 3.;
-const V_PADDING: f64 = 3.;
-
-const SYM_W: f64 = 10.;
-const SYM_H: f64 = 10.;
-
-const CHIP_W: f64 = 6.;
-const CHIP_H: f64 = 6.;
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-struct Area {
-    b_x: f64,
-    e_x: f64,
-    b_y: f64,
-    e_y: f64,
-    content_b_x: f64,
-    content_e_y: f64,
-}
-impl Area {
-    pub fn new(b_x: f64, e_x: f64, b_y: f64, e_y: f64) -> Area {
-        Self {
-            b_x,
-            e_x,
-            b_y,
-            e_y,
-            content_b_x: b_x,
-            content_e_y: e_y,
-        }
-    }
-    pub fn of_content(b_x: f64, b_y: f64, w: f64, h: f64) -> Area {
-        Self {
-            b_x,
-            e_x: b_x + H_PADDING + w + H_PADDING + 1.,
-            b_y,
-            e_y: b_y + V_PADDING + h + V_PADDING + 1.,
-            content_b_x: b_x + H_PADDING,
-            content_e_y: b_y + V_PADDING + h,
-        }
-    }
-
-    pub fn right_align(&mut self, e_x: f64) {
-        let dx = e_x - self.e_x;
-
-        self.b_x += dx;
-        self.e_x = e_x;
-        self.content_b_x += dx;
-    }
-
-    pub fn centered(&self, l: f64, r: f64) -> Area {
-        let w = self.e_x - self.b_x;
-        let b_x = (l + r - w) * 0.5;
-        Self {
-            b_x,
-            e_x: b_x + w,
-            b_y: self.b_y,
-            e_y: self.e_y,
-            content_b_x: b_x + H_PADDING,
-            content_e_y: self.content_e_y,
-        }
-    }
-
-    pub fn is_under(&self, x: f64, y: f64) -> bool {
-        x >= self.b_x && x < self.e_x && y >= self.b_y && y < self.e_y
-    }
-}
+use crate::ui::{self, control::{Area, ControlSupply}, style::Color};
 
 struct HumControl {
     area: Area,
@@ -161,71 +84,6 @@ fn format_value(v: &f32) -> String {
     format_label(&f32::to_string(v), 6)
 }
 
-#[derive(Debug, Copy, Clone)]
-struct Dim {
-    w: f64,
-    h: f64,
-}
-impl Dim {
-    pub fn new(w: f64, h: f64) -> Dim {
-        Self { w, h }
-    }
-
-    pub fn of_symbol(_cc: &Context, _txt: &str) -> Result<Dim, failure::Error> {
-        Ok(Dim::new(SYM_W, SYM_H))
-    }
-}
-
-pub struct ControlSupply<'a> {
-    cc: &'a Context,
-    add_dim: Dim,
-    sup_dim: Dim,
-    val_dim: Dim,
-    add_in_dim: Dim,
-    maximize_dim: Dim,
-    minimize_dim: Dim,
-    destroy_dim: Dim,
-}
-
-fn dim_to_area(b_x: f64, b_y: f64, dim: &Dim) -> Area {
-    Area::of_content(b_x, b_y, dim.w, dim.h)
-}
-
-impl<'a> ControlSupply<'a> {
-    pub fn new(cc: &'a Context) -> Result<ControlSupply<'a>, failure::Error> {
-        style::add(cc);
-        let add_dim = Dim::of_symbol(cc, ADD_TAG)?;
-        style::sup(cc);
-        let sup_dim = Dim::of_symbol(cc, SUP_TAG)?;
-        style::value(cc);
-        let val_dim = Dim::of_symbol(cc, VAL_TAG)?;
-        style::add(cc);
-        let add_in_dim = Dim::of_symbol(cc, ADD_IN_TAG)?;
-        style::switch(cc);
-        let maximize_dim = Dim::of_symbol(cc, MAXIMIZE_TAG)?;
-        let minimize_dim = Dim::of_symbol(cc, MINIMIZE_TAG)?;
-        let destroy_dim = Dim::of_symbol(cc, DESTROY_TAG)?;
-        Ok(Self {
-            cc,
-            add_dim,
-            sup_dim,
-            val_dim,
-            add_in_dim,
-            maximize_dim,
-            minimize_dim,
-            destroy_dim,
-        })
-    }
-    fn area_of(&self, txt: &str, b_x: f64, b_y: f64) -> Result<Area, failure::Error> {
-        let te = self.cc.text_extents(txt).map_err(|e| {
-            failure::err_msg(format!(
-                "ControlSupply::area_of text_extents {} -> {}",
-                txt, e
-            ))
-        })?;
-        Ok(Area::of_content(b_x, b_y, te.x_advance(), te.height()))
-    }
-}
 
 pub struct TalkerControlBase {
     id: Id,
@@ -271,23 +129,27 @@ pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
     |_______________________________|
 */
 impl TalkerControlBase {
-    pub fn new(
+    pub fn new<F>(
         talker: &RTalker,
         control_supply: &ControlSupply,
         draw_model: bool,
         draw_name: bool,
         draw_data: bool,
         minimized: bool,
-    ) -> Result<TalkerControlBase, failure::Error> {
+        mut customize_ear_set: F,
+    ) -> Result<TalkerControlBase, failure::Error>
+    where
+        F: FnMut(usize, usize, f64, f64) -> (f64, f64),
+    {
         let tkr = talker;
 
         let mut box_e_x = 0.;
         let mut box_b_y = 0.;
 
-        let mut header_e_y = SPACE;
+        let mut header_e_y = ui::control::SPACE;
 
         let model_area = if draw_model && !minimized {
-            style::model(control_supply.cc);
+            ui::style::model(control_supply.cc);
             let m_a = control_supply.area_of(&tkr.model(), 0., 0.)?;
             box_b_y = m_a.e_y;
             header_e_y += box_b_y;
@@ -301,10 +163,10 @@ impl TalkerControlBase {
         } else {
             &control_supply.minimize_dim
         };
-        let imize_area = dim_to_area(0., header_e_y, imize_dim);
+        let imize_area = ui::control::dim_to_area(0., header_e_y, imize_dim);
 
         let name_area = if draw_name {
-            style::name(control_supply.cc);
+            ui::style::name(control_supply.cc);
             let n_a =
                 control_supply.area_of(&format_name(&tkr.name()), imize_area.e_x, header_e_y)?;
             box_e_x = n_a.e_x;
@@ -315,7 +177,7 @@ impl TalkerControlBase {
         };
 
         let data_area = if draw_data && !minimized {
-            style::data(control_supply.cc);
+            ui::style::data(control_supply.cc);
             let d_a = control_supply.area_of(&format_data(tkr.data()), 0., header_e_y)?;
             box_e_x = box_e_x.max(d_a.e_x);
             header_e_y = d_a.e_y;
@@ -324,7 +186,7 @@ impl TalkerControlBase {
             None
         };
 
-        let mut destroy_area = dim_to_area(box_e_x, imize_area.b_y, &control_supply.destroy_dim);
+        let mut destroy_area = ui::control::dim_to_area(box_e_x, imize_area.b_y, &control_supply.destroy_dim);
         box_e_x = destroy_area.e_x;
 
         let mut ears_e_y = header_e_y;
@@ -339,13 +201,14 @@ impl TalkerControlBase {
             for ear in tkr.ears() {
                 let mut sets = Vec::with_capacity(ear.sets_len());
                 let ear_is_multi_set = ear.is_multi_set();
+                let set_padding = if ear_is_multi_set { ui::control::V_PADDING } else { 0. };
                 let sup_set = ear.sets().len() > 1;
                 let ear_tag = format_tag(ear.tag());
                 let mut ear_e_x: f64 = 0.;
                 let mut b_y = ears_e_y;
 
                 let (ear_tag_area, hum_tag) = if ear.is_multi_hum() {
-                    style::name(control_supply.cc);
+                    ui::style::name(control_supply.cc);
                     let tag_area = control_supply.area_of(&ear_tag, b_x, ears_e_y)?;
                     b_y = tag_area.e_y;
                     (Some((ear_tag, tag_area)), None)
@@ -359,7 +222,7 @@ impl TalkerControlBase {
                     let mut hums_e_x: f64 = 0.;
 
                     for hum in set.hums() {
-                        let add_in_area = dim_to_area(b_x, b_y, &control_supply.add_in_dim);
+                        let add_in_area = ui::control::dim_to_area(b_x, b_y, &control_supply.add_in_dim);
 
                         let tag = if let Some(h_tag) = hum_tag {
                             h_tag.to_string()
@@ -372,7 +235,7 @@ impl TalkerControlBase {
                         let (value, value_area, hum_area) = if hum.can_have_a_value() {
                             let (value, value_area) = if let Some(v) = hum.value() {
                                 let value = format_value(&v);
-                                style::value(control_supply.cc);
+                                ui::style::value(control_supply.cc);
                                 let value_area =
                                     control_supply.area_of(&value, tag_area.e_x, b_y)?;
 
@@ -380,7 +243,7 @@ impl TalkerControlBase {
                             } else {
                                 (
                                     None,
-                                    dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
+                                    ui::control::dim_to_area(tag_area.e_x, b_y, &control_supply.val_dim),
                                 )
                             };
                             let hum_area = Area::new(b_x, value_area.e_x, b_y, tag_area.e_y);
@@ -405,7 +268,7 @@ impl TalkerControlBase {
                     }
 
                     let sup_area = if sup_set {
-                        let sup_a = dim_to_area(hums_e_x, set_b_y, &control_supply.sup_dim);
+                        let sup_a = ui::control::dim_to_area(hums_e_x, set_b_y, &control_supply.sup_dim);
                         ear_e_x = ear_e_x.max(sup_a.e_x);
                         Some(sup_a)
                     } else {
@@ -415,11 +278,12 @@ impl TalkerControlBase {
 
                     let set_ctrl = SetControl { sup_area, hums };
                     sets.push(set_ctrl);
+                    b_y += set_padding;
                     set_b_y = b_y;
                 }
                 let mut ear_e_y = b_y;
                 let add_set_area = if ear_is_multi_set {
-                    let add_area = dim_to_area(b_x, b_y, &control_supply.add_dim);
+                    let add_area = ui::control::dim_to_area(b_x, b_y, &control_supply.add_dim);
                     ear_e_x = ear_e_x.max(add_area.e_x);
                     ear_e_y = add_area.e_y;
                     Some(add_area)
@@ -437,12 +301,37 @@ impl TalkerControlBase {
                 ears_e_y = ear_e_y;
                 ears_e_x = ears_e_x.max(ear_e_x);
             }
-            let voices_b_x = ears_e_x;
+
+            // Custome control
+            let mut custs_e_x = ears_e_x;
+
+            for (ear_idx, ear) in ears.iter().enumerate() {
+                for (set_idx, set) in ear.sets.iter().enumerate() {
+                    let cust_b_y = match set.sup_area {
+                        Some(sa) => sa.e_y,
+                        None => set.hums[0].area.b_y,
+                    };
+                    let (cust_e_x, _) = customize_ear_set(ear_idx, set_idx, ears_e_x, cust_b_y);
+
+                    custs_e_x = custs_e_x.max(cust_e_x);
+                }
+            }
+
+            for ear in ears.iter_mut() {
+                for set in ear.sets.iter_mut() {
+                    if let Some(sa) = set.sup_area.as_mut() {
+                        sa.right_align(custs_e_x);
+                    }
+                }
+            }
+
+            // Voices
+            let voices_b_x = custs_e_x;
             let mut voices_e_x = voices_b_x.max(box_e_x);
 
             let tkr_id = tkr.id();
 
-            style::io(control_supply.cc);
+            ui::style::io(control_supply.cc);
 
             for (port, voice) in tkr.voices().iter().enumerate() {
                 let tag = format_tag(voice.tag());
@@ -464,7 +353,7 @@ impl TalkerControlBase {
                     tag,
                     area,
                     port_type: voice.port_type(),
-                    color: style::make_color(tkr_id as u64, port as u64),
+                    color: ui::style::make_color(tkr_id as u64, port as u64),
                 };
                 voices.push(vc);
             }
@@ -472,10 +361,10 @@ impl TalkerControlBase {
             for voice in &mut voices {
                 voice.area.right_align(voices_e_x);
             }
-            destroy_area.right_align(voices_e_x + CHIP_W);
+            destroy_area.right_align(voices_e_x + ui::control::CHIP_W);
         }
         let width = destroy_area.e_x;
-        let height = ears_e_y.max(voices_e_y) + SPACE;
+        let height = ears_e_y.max(voices_e_y) + ui::control::SPACE;
 
         Ok(Self {
             id: tkr.id(),
@@ -499,14 +388,18 @@ impl TalkerControlBase {
             destroy_area,
         })
     }
-    pub fn new_ref(
+    pub fn new_ref<F>(
         talker: &RTalker,
         control_supply: &ControlSupply,
         draw_model: bool,
         draw_name: bool,
         draw_data: bool,
         minimized: bool,
-    ) -> Result<RTalkerControlBase, failure::Error> {
+        customize_ear_set: F,
+    ) -> Result<RTalkerControlBase, failure::Error>
+    where
+        F: FnMut(usize, usize, f64, f64) -> (f64, f64),
+    {
         Ok(Rc::new(RefCell::new(TalkerControlBase::new(
             talker,
             control_supply,
@@ -514,9 +407,13 @@ impl TalkerControlBase {
             draw_name,
             draw_data,
             minimized,
+            customize_ear_set,
         )?)))
     }
 
+    pub fn id(&self) -> Id {
+        self.id
+    }
     pub fn row(&self) -> i32 {
         self.row
     }
@@ -546,6 +443,37 @@ impl TalkerControlBase {
         self.y = y;
     }
 
+    pub fn draw_control<SS,SSS>(
+        &self,
+        cc: &Context,
+        area: &Area,
+        txt: &str,
+        style: SS,
+        style_selected: SSS,
+        selected: bool,
+    ) -> Result<(), cairo::Error>
+    where SS: Fn(&Context),  SSS: Fn(&Context)
+    {
+        if selected {
+            ui::style::selected(cc);
+
+            cc.rectangle(
+                self.x + area.b_x,
+                self.y + area.b_y,
+                area.e_x - area.b_x,
+                area.e_y - area.b_y,
+            );
+            cc.fill()?;
+
+            style_selected(cc);
+        } else {
+            style(cc);
+        }
+        cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
+        cc.show_text(txt)?;
+        Ok(())
+    }
+
     pub fn draw_box(
         &self,
         cc: &Context,
@@ -554,14 +482,14 @@ impl TalkerControlBase {
         let w = self.box_area.e_x - self.box_area.b_x; //self.width;
         let h = self.box_area.e_y - self.box_area.b_y;
 
-        style::box_background(cc);
+        ui::style::box_background(cc);
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.fill()?;
 
         if graph_presenter.talker_selected(self.id) {
-            style::selected(cc);
+            ui::style::selected(cc);
         } else {
-            style::box_border(cc);
+            ui::style::box_border(cc);
         }
         cc.rectangle(self.x + self.box_area.b_x, self.y + self.box_area.b_y, w, h);
         cc.stroke()
@@ -571,15 +499,15 @@ impl TalkerControlBase {
         if minimized {
             cc.rectangle(
                 self.x + area.content_b_x + 3.,
-                self.y + area.content_e_y - SYM_H,
+                self.y + area.content_e_y - ui::control::SYM_H,
                 3.,
-                SYM_H,
+                ui::control::SYM_H,
             );
         } else {
             cc.rectangle(
                 self.x + area.content_b_x,
-                self.y + area.content_e_y - SYM_H + 3.,
-                SYM_W,
+                self.y + area.content_e_y - ui::control::SYM_H + 3.,
+                ui::control::SYM_W,
                 3.,
             );
         }
@@ -589,8 +517,8 @@ impl TalkerControlBase {
     fn draw_cross(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
         let x1 = self.x + area.content_b_x;
         let y1 = self.y + area.content_e_y;
-        let x2 = x1 + SYM_W;
-        let y2 = y1 - SYM_H;
+        let x2 = x1 + ui::control::SYM_W;
+        let y2 = y1 - ui::control::SYM_H;
         cc.move_to(x1, y1);
         cc.line_to(x2, y2);
         cc.move_to(x1, y2);
@@ -600,12 +528,12 @@ impl TalkerControlBase {
 
     pub fn draw_header(&self, cc: &Context, draw_switch: bool) -> Result<(), cairo::Error> {
         if draw_switch {
-            style::switch(cc);
+            ui::style::switch(cc);
             self.draw_imize(cc, &self.imize_area, self.minimized)?;
             self.draw_cross(cc, &self.destroy_area)?;
         }
         if let Some(model_area) = &self.model_area {
-            style::model(cc);
+            ui::style::model(cc);
             cc.move_to(
                 self.x + model_area.content_b_x,
                 self.y + model_area.content_e_y,
@@ -613,7 +541,7 @@ impl TalkerControlBase {
             cc.show_text(&self.talker.model())?;
         }
         if let Some(name_area) = &self.name_area {
-            style::name(cc);
+            ui::style::name(cc);
             cc.move_to(
                 self.x + name_area.content_b_x,
                 self.y + name_area.content_e_y,
@@ -621,7 +549,7 @@ impl TalkerControlBase {
             cc.show_text(&format_name(&self.talker.name()))?;
         }
         if let Some(data_area) = &self.data_area {
-            style::data(cc);
+            ui::style::data(cc);
             cc.move_to(
                 self.x + data_area.content_b_x,
                 self.y + data_area.content_e_y,
@@ -632,23 +560,23 @@ impl TalkerControlBase {
     }
 
     fn draw_add(&self, cc: &Context, area: &Area) -> Result<(), cairo::Error> {
-        style::add(cc);
+        ui::style::add(cc);
         let x1 = self.x + area.content_b_x;
-        let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
-        let x2 = x1 + SYM_W;
+        let y1 = self.y + area.content_e_y - (ui::control::SYM_H * 0.5);
+        let x2 = x1 + ui::control::SYM_W;
         cc.move_to(x1, y1);
         cc.line_to(x2, y1);
 
-        let x3 = x1 + (SYM_W * 0.5);
+        let x3 = x1 + (ui::control::SYM_W * 0.5);
         let y2 = self.y + area.content_e_y;
-        let y3 = y2 - SYM_H;
+        let y3 = y2 - ui::control::SYM_H;
         cc.move_to(x3, y2);
         cc.line_to(x3, y3);
         cc.stroke()
     }
     fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) -> Result<(), cairo::Error> {
         if selected {
-            style::selected_io_background(cc);
+            ui::style::selected_io_background(cc);
 
             cc.rectangle(
                 self.x + area.b_x,
@@ -659,7 +587,7 @@ impl TalkerControlBase {
             cc.fill()?;
         }
         self.draw_add(cc, area)?;
-        let r = SYM_W * 0.5;
+        let r = ui::control::SYM_W * 0.5;
         let a = PI * 0.5;
         cc.arc(
             self.x + area.content_b_x + r,
@@ -677,20 +605,20 @@ impl TalkerControlBase {
         area: &Area,
         value: &Option<String>,
     ) -> Result<(), cairo::Error> {
-        style::value(cc);
+        ui::style::value(cc);
         if let Some(v) = value {
             cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
             cc.show_text(&v)
         } else {
             let x1 = self.x + area.content_b_x;
-            let y1 = self.y + area.content_e_y - (SYM_H * 0.5);
-            let x2 = x1 + SYM_W;
+            let y1 = self.y + area.content_e_y - (ui::control::SYM_H * 0.5);
+            let x2 = x1 + ui::control::SYM_W;
             cc.move_to(x1, y1);
             cc.line_to(x2, y1);
 
-            let x3 = x1 + (SYM_W * 0.5);
+            let x3 = x1 + (ui::control::SYM_W * 0.5);
             let y2 = self.y + area.content_e_y;
-            let y3 = y2 - SYM_H;
+            let y3 = y2 - ui::control::SYM_H;
             cc.move_to(x3, y2);
             cc.line_to(x1, y1);
             cc.line_to(x3, y3);
@@ -706,7 +634,7 @@ impl TalkerControlBase {
         selected: bool,
     ) -> Result<(), cairo::Error> {
         if selected {
-            style::selected_io_background(cc);
+            ui::style::selected_io_background(cc);
 
             cc.rectangle(
                 self.x + area.b_x,
@@ -717,17 +645,17 @@ impl TalkerControlBase {
             cc.fill()?;
 
             match port_type {
-                PortType::Audio => style::selected_audio(cc),
-                PortType::Control => style::selected_control(cc),
-                PortType::Cv => style::selected_cv(cc),
-                PortType::Atom => style::selected_atom(cc),
+                PortType::Audio => ui::style::selected_audio(cc),
+                PortType::Control => ui::style::selected_control(cc),
+                PortType::Cv => ui::style::selected_cv(cc),
+                PortType::Atom => ui::style::selected_atom(cc),
             }
         } else {
             match port_type {
-                PortType::Audio => style::audio(cc),
-                PortType::Control => style::control(cc),
-                PortType::Cv => style::cv(cc),
-                PortType::Atom => style::atom(cc),
+                PortType::Audio => ui::style::audio(cc),
+                PortType::Control => ui::style::control(cc),
+                PortType::Cv => ui::style::cv(cc),
+                PortType::Atom => ui::style::atom(cc),
             }
         }
         cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
@@ -764,12 +692,12 @@ impl TalkerControlBase {
                         }
                     }
                     if let Some(sa) = &set.sup_area {
-                        style::sup(cc);
+                        ui::style::sup(cc);
                         self.draw_cross(cc, sa)?;
                     }
                 }
                 if let Some((tag, area)) = &ear.tag_area {
-                    style::name(cc);
+                    ui::style::name(cc);
                     cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
                     cc.show_text(&tag)?;
                 }
@@ -791,11 +719,11 @@ impl TalkerControlBase {
                 // Draw connection chip
                 cc.rectangle(
                     self.x + voice.area.e_x,
-                    self.y + (voice.area.b_y + voice.area.e_y - CHIP_H) / 2.,
-                    CHIP_W,
-                    CHIP_H,
+                    self.y + (voice.area.b_y + voice.area.e_y - ui::control::CHIP_H) / 2.,
+                    ui::control::CHIP_W,
+                    ui::control::CHIP_H,
                 );
-                style::set_color(cc, voice.color);
+                ui::style::set_color(cc, voice.color);
                 cc.fill()?;
             }
         }
@@ -810,7 +738,7 @@ impl TalkerControlBase {
         voice_area: &Area,
         voice_color: &Color,
     ) -> Result<(), cairo::Error> {
-        style::connection(cc, voice_color);
+        ui::style::connection(cc, voice_color);
 
         let x1 = voice_tkrcb.x + voice_area.e_x;
         let y1 = voice_tkrcb.y + (voice_area.b_y + voice_area.e_y) * 0.5;
@@ -873,7 +801,7 @@ impl TalkerControlBase {
                                             hum_area,
                                             &voice_tkrcb,
                                             &voice_tkrcb.destroy_area,
-                                            &style::WHITE_COLOR,
+                                            &ui::style::WHITE_COLOR,
                                         )?;
                                     } else {
                                         if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
@@ -930,6 +858,23 @@ impl TalkerControlBase {
         return Ok(None);
     }
 
+    pub fn relative_coordinates(
+        &self,
+        x: f64,
+        y: f64,
+    ) -> (f64, f64) {
+        (x - self.x, y - self.y)
+    }
+
+    pub fn is_under(
+        &self,
+        x: f64,
+        y: f64,
+    ) -> bool {
+        let (rx, ry) = self.relative_coordinates(x, y);
+        self.area.is_under(rx, ry)
+    }
+    
     pub fn on_button_release(
         &self,
         x: f64,
@@ -1091,7 +1036,14 @@ impl TalkerControlImpl {
         minimized: bool,
     ) -> Result<TalkerControlImpl, failure::Error> {
         Ok(Self {
-            base: TalkerControlBase::new_ref(talker, control_supply, false, true, true, minimized)?,
+            base: TalkerControlBase::new_ref(
+                talker,
+                control_supply,
+                false,
+                true,
+                true,
+                minimized,
+            |_, _, b_x, b_y| (b_x, b_y))?,
         })
     }
 }

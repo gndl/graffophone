@@ -25,7 +25,7 @@ use luil::ui_connector::UiConnector;
 
 use talker::audio_format::AudioFormat;
 use talker::lv2_handler;
-use talker::identifier::Id;
+use talker::identifier::{Id, Index};
 
 use crate::band::{Band, Operation};
 use crate::feedback::Feedback;
@@ -44,6 +44,7 @@ enum Order {
     Pause,
     Stop,
     SetTimeRange(i64, i64),
+    SetAudibleTracks(Id, Vec<Index>),
     LoadBand(String),
     ModifyBand(Operation),
     AddPluginHandle(Id, UiConnector),
@@ -202,6 +203,16 @@ impl Runner {
                     order = self.wait_order()?;
                     continue;
                 }
+                Order::SetAudibleTracks(mxr_id, trks_idx) => {
+                    if mxr_id == feedback_mixer_id {
+                        if let Some(mxr) = band.find_mixer(mxr_id) {
+                            mxr.borrow_mut().set_audible_tracks(trks_idx)?;
+                        }
+                    }
+
+                    order = state_order(state);
+                    continue;
+                }
                 Order::SetTimeRange(start, end) => {
                     start_tick = start;
                     end_tick = end;
@@ -272,9 +283,9 @@ impl Runner {
             };
 
             len = band.play(tick, len)?;
-            
+
             if let Some(mxr) = band.find_mixer(feedback_mixer_id) {
-                feedback.write(mxr.borrow().channels_buffers(), len)?;
+                feedback.write(mxr.borrow().feedback(), len)?;
             }
 
             if self.plugin_handle_manager.has_handle() {
@@ -444,6 +455,16 @@ impl Player {
                 .send(Order::Record)
                 .map_err(|e| failure::err_msg(format!("Player::record error : {}", e)))?;
         }
+        Ok(self.receive_state())
+    }
+
+    pub fn set_audible_tracks(&mut self, mixer_id: Id, audible_tracks: Vec<Index>) -> Result<State, failure::Error> {
+        self.check_not_exited()?;
+
+        self.order_sender
+            .send(Order::SetAudibleTracks(mixer_id, audible_tracks))
+            .map_err(|e| failure::err_msg(format!("Player::set_audible_tracks error : {}", e)))?;
+
         Ok(self.receive_state())
     }
 

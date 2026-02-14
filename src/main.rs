@@ -24,7 +24,6 @@ mod output_presenter;
 mod session_actions;
 mod session_presenter;
 mod settings;
-mod style;
 mod talker_control;
 mod talker_data_view;
 mod talkers_list_view;
