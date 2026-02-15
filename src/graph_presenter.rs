@@ -9,6 +9,7 @@ use talker::talker::RTalker;
 
 use session::band::{EarHum, Operation};
 use session::event_bus::{Notification, REventBus};
+use session::mixer;
 
 use crate::session_presenter::RSessionPresenter;
 
@@ -625,7 +626,7 @@ impl GraphPresenter {
 
         if let Some((mxr_id, trk_idx)) = self.solo_track {
             if mxr_id == mixer_id && trk_idx == track_idx {
-                self.solo_track = None
+                self.solo_track = None;
             }
             else {
                 self.solo_track = Some((mixer_id, track_idx));
@@ -634,6 +635,11 @@ impl GraphPresenter {
         else {
             self.solo_track = Some((mixer_id, track_idx));
         }
+
+        if !self.mute_tracks.contains_key(&mixer_id) {
+            self.mute_tracks.insert(mixer_id, HashSet::new());
+        }
+
         self.set_audible_tracks();
 
         Ok(vec![Notification::TalkerChanged])
@@ -691,6 +697,46 @@ impl GraphPresenter {
                 }
             }
         }
+    }
+
+    pub fn sup_mixer_track(&mut self, mixer_id: Id, track_idx: Index) -> Result<Vec<Notification>, failure::Error> {
+
+        if let Some((mxr_id, trk_idx)) = self.solo_track {
+            if mxr_id == mixer_id{
+                if trk_idx == track_idx {
+                    self.solo_track = None
+                }
+                else if trk_idx > track_idx {
+                    self.solo_track = Some((mxr_id, trk_idx - 1));
+                }
+            } 
+        }
+
+        if let Some(muteds) = self.mute_tracks.get_mut(&mixer_id) {
+            if !muteds.is_empty() {
+                muteds.remove(&track_idx);
+
+                let otracks_count = self.session_presenter.borrow().get_mixer_tracks_count(mixer_id);
+
+                if let Some(tracks_count) = otracks_count {
+
+                    for trk_idx in (track_idx + 1)..tracks_count {
+                        if muteds.contains(&trk_idx) {
+                            
+                            muteds.remove(&trk_idx);
+                            muteds.insert(trk_idx - 1);
+                        }
+                    }
+                }
+            }
+        }
+        self.session_presenter
+            .borrow_mut()
+            .modify_band(&Operation::SupEarSet(mixer_id, mixer::TRACKS_EAR_INDEX, track_idx));
+
+        self.set_audible_tracks();
+        
+        Ok(vec![Notification::TalkerChanged])
     }
 
 

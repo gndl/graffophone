@@ -323,6 +323,7 @@ impl TalkerControlBase {
                         sa.right_align(custs_e_x);
                     }
                 }
+                ear.area.e_x = custs_e_x;
             }
 
             // Voices
@@ -873,6 +874,17 @@ impl TalkerControlBase {
     ) -> bool {
         let (rx, ry) = self.relative_coordinates(x, y);
         self.area.is_under(rx, ry)
+    }
+    
+    pub fn sup_set_is_under(
+        &self,
+        ear_idx: usize,
+        set_idx: usize,
+        x: f64,
+        y: f64,
+    ) -> bool {
+        let (rx, ry) = self.relative_coordinates(x, y);
+        self.ears[ear_idx].sets[set_idx].sup_area.is_some_and(|sa| sa.is_under(rx, ry))
     }
     
     pub fn on_button_release(

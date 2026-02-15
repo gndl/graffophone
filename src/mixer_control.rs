@@ -157,15 +157,22 @@ impl TalkerControl for MixerControl {
         if base.is_under(x, y) {
             let (rx, ry) = base.relative_coordinates(x, y);
 
-            for (set_idx, ctrls) in self.solo_mutes.iter().enumerate() {
+            for (trk_idx, ctrls) in self.solo_mutes.iter().enumerate() {
 
                 if ctrls.solo_area.is_under(rx, ry) {
-                    let notifications = graph_presenter.borrow_mut().set_solo_track(base.id(), set_idx)?;
+                    let notifications = graph_presenter.borrow_mut().set_solo_track(base.id(), trk_idx)?;
                     return Ok(Some(notifications));
                 }
 
                 if ctrls.mute_area.is_under(rx, ry) {
-                    let notifications = graph_presenter.borrow_mut().set_mute_track(base.id(), set_idx)?;
+                    let notifications = graph_presenter.borrow_mut().set_mute_track(base.id(), trk_idx)?;
+                    return Ok(Some(notifications));
+                }
+
+                if self.base.borrow().sup_set_is_under(mixer::TRACKS_EAR_INDEX, trk_idx, x, y) {
+                    let notifications = graph_presenter
+                        .borrow_mut()
+                        .sup_mixer_track(base.id(), trk_idx)?;
                     return Ok(Some(notifications));
                 }
             }

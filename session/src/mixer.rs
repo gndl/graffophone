@@ -72,6 +72,7 @@ impl Mixer {
         let stem_track = Set::from_attributs(&hums_attributs)?;
 
         let mut tracks = Vec::new();
+        let mut audible_tracks = Vec::new();
 
         let mut base = TalkerBase::new("", KIND, true);
 
@@ -92,24 +93,25 @@ impl Mixer {
                 }
                 tracks.push(track);
             }
+            audible_tracks.extend_from_slice(&parent.audible_tracks);
         }
         else {
             base.add_ear(ear::cv(Some("volume"), 0., 1., 0.1, &Init::DefValue)?);
             tracks.push(stem_track.clone());
+            audible_tracks.push(0);
         }
-        
+        let tracks_count = tracks.len();
+
         base.add_ear(Ear::new(Some("Tracks"), true, Some(stem_track), Some(tracks)));
 
         let chunk_size = AudioFormat::chunk_size();
 
         let mut channels_buffers = Vec::with_capacity(channels);
         let mut feedback_buffers = Vec::with_capacity(channels);
-        let mut audible_tracks = Vec::with_capacity(channels);
 
-        for track_idx in 0..channels {
+        for _ in 0..channels {
             channels_buffers.push(vec![0.; chunk_size]);
             feedback_buffers.push(vec![0.; chunk_size]);
-            audible_tracks.push(track_idx);
         }
 
         Ok(Rc::new(RefCell::new(Self {
@@ -118,7 +120,7 @@ impl Mixer {
             is_open: false,
             record: false,
             buf: vec![0.; AudioFormat::chunk_size()],
-            tracks_count: 0,
+            tracks_count,
             channels_buffers,
             feedback_buffers,
             audible_tracks,
@@ -128,6 +130,17 @@ impl Mixer {
     pub fn kind() -> &'static str {
         KIND
     }
+
+    pub fn initialize(&mut self) {
+        let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
+
+        self.tracks_count = tracks_ear.sets_len();
+
+        for trk_idx in self.audible_tracks.len()..self.tracks_count {
+            self.audible_tracks.push(trk_idx);
+        }
+    }
+
     pub fn identifier(&self) -> &RIdentifier {
         self.talker.identifier()
     }

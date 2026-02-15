@@ -240,6 +240,7 @@ impl Band {
                 rmixer.borrow_mut().talker().clone(),
                 &pmixer.talker,
             )?;
+            rmixer.borrow_mut().initialize();
             band.mixers.insert(pmixer.talker.id, rmixer);
         }
 
