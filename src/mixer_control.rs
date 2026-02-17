@@ -153,9 +153,15 @@ impl TalkerControl for MixerControl {
         graph_presenter: &RGraphPresenter,
     ) -> Result<Option<Vec<Notification>>, failure::Error> {
         let base  = self.base.borrow();
+        let (rx, ry) = base.relative_coordinates(x, y);
 
-        if base.is_under(x, y) {
-            let (rx, ry) = base.relative_coordinates(x, y);
+        if base.is_under(rx, ry) {
+            if self.base.borrow().add_set_is_under(mixer::TRACKS_EAR_INDEX, rx, ry) {
+                let notifications = graph_presenter
+                    .borrow_mut()
+                    .add_mixer_track(base.id())?;
+                return Ok(Some(notifications));
+            }
 
             for (trk_idx, ctrls) in self.solo_mutes.iter().enumerate() {
 
@@ -169,7 +175,7 @@ impl TalkerControl for MixerControl {
                     return Ok(Some(notifications));
                 }
 
-                if self.base.borrow().sup_set_is_under(mixer::TRACKS_EAR_INDEX, trk_idx, x, y) {
+                if self.base.borrow().sup_set_is_under(mixer::TRACKS_EAR_INDEX, trk_idx, rx, ry) {
                     let notifications = graph_presenter
                         .borrow_mut()
                         .sup_mixer_track(base.id(), trk_idx)?;

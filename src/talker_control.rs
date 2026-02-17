@@ -869,22 +869,29 @@ impl TalkerControlBase {
 
     pub fn is_under(
         &self,
-        x: f64,
-        y: f64,
+        rx: f64,
+        ry: f64,
     ) -> bool {
-        let (rx, ry) = self.relative_coordinates(x, y);
         self.area.is_under(rx, ry)
+    }
+    
+    pub fn add_set_is_under(
+        &self,
+        ear_idx: usize,
+        rx: f64,
+        ry: f64,
+    ) -> bool {
+        self.ears[ear_idx].add_set_area.is_some_and(|a| a.is_under(rx, ry))
     }
     
     pub fn sup_set_is_under(
         &self,
         ear_idx: usize,
         set_idx: usize,
-        x: f64,
-        y: f64,
+        rx: f64,
+        ry: f64,
     ) -> bool {
-        let (rx, ry) = self.relative_coordinates(x, y);
-        self.ears[ear_idx].sets[set_idx].sup_area.is_some_and(|sa| sa.is_under(rx, ry))
+        self.ears[ear_idx].sets[set_idx].sup_area.is_some_and(|a| a.is_under(rx, ry))
     }
     
     pub fn on_button_release(

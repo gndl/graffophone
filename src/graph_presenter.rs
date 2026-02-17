@@ -699,6 +699,15 @@ impl GraphPresenter {
         }
     }
 
+    pub fn add_mixer_track(&mut self, mixer_id: Id) -> Result<Vec<Notification>, failure::Error> {
+
+        let notifications = self.add_ear_set(mixer_id, mixer::TRACKS_EAR_INDEX)?;
+
+        self.set_audible_tracks();
+        
+        Ok(notifications)
+    }
+
     pub fn sup_mixer_track(&mut self, mixer_id: Id, track_idx: Index) -> Result<Vec<Notification>, failure::Error> {
 
         if let Some((mxr_id, trk_idx)) = self.solo_track {
@@ -730,13 +739,12 @@ impl GraphPresenter {
                 }
             }
         }
-        self.session_presenter
-            .borrow_mut()
-            .modify_band(&Operation::SupEarSet(mixer_id, mixer::TRACKS_EAR_INDEX, track_idx));
+
+        let notifications = self.sup_ear_set(mixer_id, mixer::TRACKS_EAR_INDEX, track_idx)?;
 
         self.set_audible_tracks();
-        
-        Ok(vec![Notification::TalkerChanged])
+
+        Ok(notifications)
     }
 
 
