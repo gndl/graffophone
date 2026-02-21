@@ -444,19 +444,20 @@ impl TalkerControlBase {
         self.y = y;
     }
 
-    pub fn draw_control<SS,SSS>(
+    pub fn draw_control<S, SS, SSB>(
         &self,
         cc: &Context,
         area: &Area,
         txt: &str,
-        style: SS,
-        style_selected: SSS,
+        style: S,
+        style_selected: SS,
+        style_selected_background: SSB,
         selected: bool,
     ) -> Result<(), cairo::Error>
-    where SS: Fn(&Context),  SSS: Fn(&Context)
+    where S: Fn(&Context), SS: Fn(&Context), SSB: Fn(&Context)
     {
         if selected {
-            ui::style::selected(cc);
+            style_selected_background(cc);
 
             cc.rectangle(
                 self.x + area.b_x,
@@ -488,7 +489,7 @@ impl TalkerControlBase {
         cc.fill()?;
 
         if graph_presenter.talker_selected(self.id) {
-            ui::style::selected(cc);
+            ui::style::selected_background(cc);
         } else {
             ui::style::box_border(cc);
         }
@@ -577,7 +578,7 @@ impl TalkerControlBase {
     }
     fn draw_add_in(&self, cc: &Context, area: &Area, selected: bool) -> Result<(), cairo::Error> {
         if selected {
-            ui::style::selected_io_background(cc);
+            ui::style::selected_background(cc);
 
             cc.rectangle(
                 self.x + area.b_x,
@@ -635,7 +636,7 @@ impl TalkerControlBase {
         selected: bool,
     ) -> Result<(), cairo::Error> {
         if selected {
-            ui::style::selected_io_background(cc);
+            ui::style::selected_background(cc);
 
             cc.rectangle(
                 self.x + area.b_x,

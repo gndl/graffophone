@@ -90,7 +90,13 @@ impl MixerControl {
     fn draw_solo_mutes(&self, cc: &Context, graph_presenter: &GraphPresenter) -> Result<(), cairo::Error> {
         let base = self.base.borrow();
         let tkr_id = base.id();
-        
+
+        let style_selected_background = if graph_presenter.has_solo_track() {
+            ui::style::disabled_background
+        }
+        else {
+            ui::style::selected_background
+        };
 
         for (trk_idx, ctrls) in self.solo_mutes.iter().enumerate() {
             base.draw_control(
@@ -99,6 +105,7 @@ impl MixerControl {
                 ui::control::SOLO_TAG,
                 ui::style::add,
                 ui::style::background,
+                ui::style::selected_background,
                 graph_presenter.is_solo_track(tkr_id, trk_idx),
             )?;
 
@@ -108,6 +115,7 @@ impl MixerControl {
                 ui::control::MUTE_TAG,
                 ui::style::sup,
                 ui::style::background,
+                style_selected_background,
                 graph_presenter.is_mute_track(tkr_id, trk_idx),
             )?;
         }

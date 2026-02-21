@@ -615,6 +615,10 @@ impl GraphPresenter {
         }
     }
 
+    pub fn has_solo_track(&self) -> bool {
+        self.solo_track.is_some()
+    }
+
     pub fn is_solo_track(&self, mixer_id: Id, track_idx: Index) -> bool {
         match self.solo_track {
             Some((mxr_id, trk_idx)) => mxr_id == mixer_id && trk_idx == track_idx,

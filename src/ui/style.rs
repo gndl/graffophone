@@ -33,7 +33,8 @@ const HEE: f64 = 238. / 255.;
 
 pub const WHITE_COLOR: Color = (1., 1., 1.); // cyan
 const BACKGROUND_COLOR: Color = (H00, H00, H00);
-const SELECTED_IO_BACKGROUND_COLOR: Color = (1., 0.8, 0.4);
+const SELECTED_BACKGROUND_COLOR: Color = (1., 0.8, 0.4);
+const DISABLED_BACKGROUND_COLOR: Color = (H50, H50, H50);
 const BOX_BACKGROUND_COLOR: Color = (H20, H20, H20);
 const BOX_BORDER_COLOR: Color = (H50, H50, H50);
 const MODEL_COLOR: Color = (HD3, HD3, HD3); // lightgray
@@ -56,9 +57,11 @@ const SWITCH_COLOR: Color = (0.9, 0.87, 0.77); //(0.7, 0.4, 0.3);
 pub fn background(cc: &Context) {
     set_color(cc, BACKGROUND_COLOR);
 }
-pub fn selected_io_background(cc: &Context) {
-    set_color(cc, SELECTED_IO_BACKGROUND_COLOR);
-    cc.set_font_size(FONT_SIZE);
+pub fn selected_background(cc: &Context) {
+    set_color(cc, SELECTED_BACKGROUND_COLOR);
+}
+pub fn disabled_background(cc: &Context) {
+    set_color(cc, DISABLED_BACKGROUND_COLOR);
 }
 pub fn box_background(cc: &Context) {
     set_color(cc, BOX_BACKGROUND_COLOR);
@@ -66,9 +69,6 @@ pub fn box_background(cc: &Context) {
 pub fn box_border(cc: &Context) {
     set_color(cc, BOX_BORDER_COLOR);
     cc.set_line_width(0.5);
-}
-pub fn selected(cc: &Context) {
-    selected_io_background(cc);
 }
 
 pub fn model(cc: &Context) {
