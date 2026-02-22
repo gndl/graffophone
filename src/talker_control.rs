@@ -158,12 +158,11 @@ impl TalkerControlBase {
             None
         };
 
-        let imize_dim = if minimized {
-            &control_supply.maximize_dim
+        let imize_area = if minimized {
+            ui::control::Area::new(0., 0., header_e_y, header_e_y + ui::control::LINE_H)
         } else {
-            &control_supply.minimize_dim
+            ui::control::dim_to_area(0., header_e_y, &control_supply.minimize_dim)
         };
-        let imize_area = ui::control::dim_to_area(0., header_e_y, imize_dim);
 
         let name_area = if draw_name {
             ui::style::name(control_supply.cc);
@@ -186,7 +185,11 @@ impl TalkerControlBase {
             None
         };
 
-        let mut destroy_area = ui::control::dim_to_area(box_e_x, imize_area.b_y, &control_supply.destroy_dim);
+        let mut destroy_area = if minimized {
+            ui::control::Area::new(box_e_x, box_e_x, imize_area.b_y, imize_area.b_y + ui::control::LINE_H)
+        } else {
+            ui::control::dim_to_area(box_e_x, imize_area.b_y, &control_supply.destroy_dim)
+        };
         box_e_x = destroy_area.e_x;
 
         let mut ears_e_y = header_e_y;
@@ -529,7 +532,7 @@ impl TalkerControlBase {
     }
 
     pub fn draw_header(&self, cc: &Context, draw_switch: bool) -> Result<(), cairo::Error> {
-        if draw_switch {
+        if draw_switch && !self.minimized {
             ui::style::switch(cc);
             self.draw_imize(cc, &self.imize_area, self.minimized)?;
             self.draw_cross(cc, &self.destroy_area)?;
@@ -905,6 +908,10 @@ impl TalkerControlBase {
         let ry = y - self.y;
 
         if self.area.is_under(rx, ry) {
+            if self.minimized {
+                let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;
+                return Ok(Some(notifications));
+            }
             for (ear_idx, ear) in self.ears.iter().enumerate() {
                 if ear.area.is_under(rx, ry) {
                     for (set_idx, set) in ear.sets.iter().enumerate() {

@@ -21,7 +21,7 @@ pub fn set_color(cc: &Context, (r, g, b): Color) {
     cc.set_source_rgb(r, g, b);
 }
 
-const FONT_SIZE: f64 = 12.;
+pub const FONT_SIZE: f64 = 12.;
 
 const H00: f64 = 0.;
 const HFF: f64 = 1.;

@@ -7,7 +7,6 @@ pub const SUP_TAG: &str = "-";
 pub const VAL_TAG: &str = "←"; // ⟵
 pub const ADD_IN_TAG: &str = "⊕"; // ● ⟴ ⊕
 pub const DESTROY_TAG: &str = "✖";
-pub const MAXIMIZE_TAG: &str = "▮";
 pub const MINIMIZE_TAG: &str = "▬";
 pub const SOLO_TAG: &str = "SOLO";
 pub const MUTE_TAG: &str = "MUTE";
@@ -17,11 +16,13 @@ pub const SPACE: f64 = 4.;
 pub const H_PADDING: f64 = 3.;
 pub const V_PADDING: f64 = 3.;
 
-pub const SYM_W: f64 = 10.;
-pub const SYM_H: f64 = 10.;
+pub const SYM_W: f64 = ui::style::FONT_SIZE;
+pub const SYM_H: f64 = ui::style::FONT_SIZE;
 
 pub const CHIP_W: f64 = 6.;
 pub const CHIP_H: f64 = 6.;
+
+pub const LINE_H: f64 = V_PADDING + ui::style::FONT_SIZE + V_PADDING + 1.;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Area {
@@ -120,7 +121,6 @@ pub    add_dim: Dim,
 pub sup_dim: Dim,
 pub val_dim: Dim,
 pub add_in_dim: Dim,
-pub    maximize_dim: Dim,
 pub    minimize_dim: Dim,
 pub    destroy_dim: Dim,
 pub    solo_dim: Dim,
@@ -142,7 +142,6 @@ impl<'a> ControlSupply<'a> {
         ui::style::add(cc);
         let add_in_dim = Dim::of_symbol(cc, ADD_IN_TAG)?;
         ui::style::switch(cc);
-        let maximize_dim = Dim::of_symbol(cc, MAXIMIZE_TAG)?;
         let minimize_dim = Dim::of_symbol(cc, MINIMIZE_TAG)?;
         let destroy_dim = Dim::of_symbol(cc, DESTROY_TAG)?;
         let solo_dim = Dim::of_text(cc, SOLO_TAG)?;
@@ -153,7 +152,6 @@ impl<'a> ControlSupply<'a> {
             sup_dim,
             val_dim,
             add_in_dim,
-            maximize_dim,
             minimize_dim,
             destroy_dim,
             solo_dim,
