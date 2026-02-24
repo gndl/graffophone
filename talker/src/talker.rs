@@ -7,7 +7,7 @@ use crate::audio_format::{self, AudioFormat};
 use crate::data::{Data, RData};
 use crate::ear;
 use crate::ear::{Ear, Entree};
-use crate::horn::{AudioBuf, CvBuf, PortType};
+use crate::horn::{AtomBuf, AudioBuf, CvBuf, PortType};
 use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
 use crate::lv2_handler::Lv2Handler;
 use crate::voice::{self, Voice};
@@ -177,12 +177,7 @@ impl TalkerBase {
         self.effective = effective;
     }
 
-    pub fn ear_set_hum_audio_buffer(
-        &self,
-        ear_idx: Index,
-        set_idx: Index,
-        hum_idx: Index,
-    ) -> AudioBuf<'_> {
+    pub fn ear_set_hum_audio_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> AudioBuf<'_> {
         self.ears[ear_idx].get_set_hum_audio_buffer(set_idx, hum_idx)
     }
     pub fn ear_set_audio_buffer(&self, ear_idx: Index, set_idx: Index) -> AudioBuf<'_> {
@@ -201,6 +196,14 @@ impl TalkerBase {
     pub fn ear_cv_buffer(&self, ear_idx: Index) -> CvBuf<'_> {
         self.ear_set_cv_buffer(ear_idx, 0)
     }
+
+    pub fn ear_set_hum_atom_buffer(&self, ear_idx: Index, set_idx: Index, hum_idx: Index) -> AtomBuf<'_> {
+        self.ears[ear_idx].get_set_hum_atom_buffer(set_idx, hum_idx)
+    }
+    pub fn ear_atom_buffer(&self, ear_idx: Index) -> AtomBuf<'_> {
+        self.ears[ear_idx].get_set_hum_atom_buffer(0, 0)
+    }
+
 
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let mut ln = len;

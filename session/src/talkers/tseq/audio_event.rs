@@ -68,6 +68,8 @@ impl AudioEventBase {
 }
 
 pub trait AudioEventCore {
+    fn frequency(&self) -> f32;
+
     fn assign_buffer(
         &self,
         base: &AudioEventBase,
@@ -95,6 +97,9 @@ impl AudioEvent {
     }
     pub fn end_tick(&self) -> i64 {
         self.base.end_tick
+    }
+    pub fn frequency(&self) -> f32 {
+        self.core.frequency()
     }
 
     pub fn assign_buffer(
@@ -167,6 +172,9 @@ impl ConstantEvent {
     }
 }
 impl AudioEventCore for ConstantEvent {
+    fn frequency(&self) -> f32 {
+        self.value
+    }
     fn assign_buffer(
         &self,
         _: &AudioEventBase,
@@ -184,6 +192,7 @@ impl AudioEventCore for ConstantEvent {
 
 // LinearEvent
 pub struct LinearEvent {
+    start_value: f32,
     a: f64,
     b: f64,
 }
@@ -192,10 +201,13 @@ impl LinearEvent {
         let a = (end_value - start_value) as f64 / ((end_tick - start_tick) as f64);
         let b = (start_value as f64) - a * (start_tick as f64);
 
-        Self { a, b }
+        Self { start_value, a, b }
     }
 }
 impl AudioEventCore for LinearEvent {
+    fn frequency(&self) -> f32 {
+        self.start_value
+    }
     fn assign_buffer(
         &self,
         _: &AudioEventBase,
@@ -230,6 +242,9 @@ impl SinRampEvent {
     }
 }
 impl AudioEventCore for SinRampEvent {
+    fn frequency(&self) -> f32 {
+        self.start_value
+    }
     fn assign_buffer(
         &self,
         base: &AudioEventBase,
@@ -252,19 +267,27 @@ impl AudioEventCore for SinRampEvent {
 
 // AliasedCurveEvent
 pub struct AliasedCurveEvent {
-    table:&'static[f32],start_tick:usize,duration:usize,
     start_value: f32,
+    table: &'static[f32],
+    start_tick: usize,
+    duration: usize,
     dv: f32,
 }
 impl AliasedCurveEvent {
-    pub fn new(table:&'static[f32],start_tick: i64, end_tick: i64, start_value: f32, end_value: f32) -> Self {
-        Self {table,start_tick:start_tick as usize,duration:(end_tick - start_tick)as usize,
+    pub fn new(table:&'static[f32], start_tick: i64, end_tick: i64, start_value: f32, end_value: f32) -> Self {
+        Self {
             start_value,
+            table,
+            start_tick: start_tick as usize,
+            duration: (end_tick - start_tick) as usize,
             dv: end_value - start_value,
         }
     }
 }
 impl AudioEventCore for AliasedCurveEvent {
+    fn frequency(&self) -> f32 {
+        self.start_value
+    }
     fn assign_buffer(
         &self,
         _base: &AudioEventBase,
@@ -304,6 +327,9 @@ impl InterpolatedCurveEvent {
     }
 }
 impl AudioEventCore for InterpolatedCurveEvent {
+    fn frequency(&self) -> f32 {
+        self.start_value
+    }
     fn assign_buffer(
         &self,
         base: &AudioEventBase,

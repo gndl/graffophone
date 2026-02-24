@@ -21,7 +21,6 @@ pub const MODEL: &str = "Tseq";
 
 
 enum Seq {
-    Trig(Vec<i64>),
     Freq(AudioEvents),
     Vel(AudioEvents),
     Midi(MidiSeq),
@@ -38,7 +37,7 @@ pub struct Tseq {
 impl Tseq {
     pub fn new(base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.set_data(Data::Text(SYNTAX_DESCRIPTION.to_string()));
-        
+
         let midi_urid = lv2_handler::visit(|lv2_handler| {
             Ok(lv2_handler.features.midi_urid())
         })?;
@@ -65,7 +64,6 @@ impl Tseq {
         base: &mut TalkerBase,
     ) -> Result<(Shapes, Vec<Seq>), failure::Error> {
         let mut envelopes = Vec::new();
-        let mut sequences: Vec<Seq> = Vec::new();
 
         let sample_rate = AudioFormat::sample_rate();
         let mut shapes = Shapes::new(sample_rate);
@@ -119,71 +117,71 @@ impl Tseq {
         binder.check_sequences()?;
         binder.deserialize(&self.scales)?;
 
-        for out in outs {
-            match out {
-                Expression::SeqOut(seq) => {
-                    let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
+        let mut sequences: Vec<Seq> = Vec::new();
 
-                    let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
-                        audio_event::create_from_sequences(&shapes, &harmonics_sequence_events);
+        lv2_handler::visit(|lv2_handler| {
+            for out in &outs {
+                match out {
+                    Expression::SeqOut(seq) => {
+                        let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
 
-                    let harmonics_count = harmonics_frequency_events.len();
-                    let display_harmonic_num = harmonics_count > 1;
+                        let (mut harmonics_frequency_events, mut harmonics_velocity_events) =
+                            audio_event::create_from_sequences(&shapes, &harmonics_sequence_events);
 
-                    for idx in 0..harmonics_count {
-                        let tag_base = if display_harmonic_num {
-                            format!("{}.{}", seq.id, idx + 1)
-                        } else {
-                            seq.id.to_string()
-                        };
+                        let harmonics_count = harmonics_frequency_events.len();
+                        let display_harmonic_num = harmonics_count > 1;
 
-                        if let Some(harmonic_frequency_events) =
-                            harmonics_frequency_events.pop_front()
-                        {
-                            // Creation of triggers corresponding to events
-                            let mut events_start_ticks =
-                                Vec::with_capacity(harmonic_frequency_events.len());
+                        for idx in 0..harmonics_count {
+                            let tag_base = if display_harmonic_num {
+                                format!("{}.{}", seq.id, idx + 1)
+                            } else {
+                                seq.id.to_string()
+                            };
 
-                            for ev in &harmonic_frequency_events {
-                                events_start_ticks.push(ev.start_tick());
+                            if let Some(harmonic_frequency_events) =
+                                harmonics_frequency_events.pop_front()
+                            {
+                                // Add event sequence and output
+                                sequences.push(Seq::Midi(MidiSeq::from_audio_events(
+                                    &harmonic_frequency_events,
+                                    self.midi_urid,
+                                )?));
+                                let ev_tag = format!("{}.ev", tag_base);
+                                base.add_atom_voice(Some(&ev_tag), Some(&lv2_handler));
+
+                                // Add frequency sequence and output
+                                sequences.push(Seq::Freq(harmonic_frequency_events));
+
+                                let freq_tag = format!("{}.freq", tag_base);
+                                base.add_cv_voice(Some(&freq_tag), 0.);
                             }
+                            if let Some(harmonic_velocity_events) =
+                                harmonics_velocity_events.pop_front()
+                            {
+                                if !harmonic_velocity_events.is_empty() {
+                                    // Add velocity sequence and output
+                                    sequences.push(Seq::Vel(harmonic_velocity_events));
 
-                            // Add trigger sequence and output
-                            sequences.push(Seq::Trig(events_start_ticks));
-
-                            let trig_tag = format!("{}.trig", tag_base);
-                            base.add_cv_voice(Some(&trig_tag), 0.);
-
-                            // Add frequency sequence and output
-                            sequences.push(Seq::Freq(harmonic_frequency_events));
-
-                            let freq_tag = format!("{}.freq", tag_base);
-                            base.add_cv_voice(Some(&freq_tag), 0.);
-                        }
-                        if let Some(harmonic_velocity_events) =
-                            harmonics_velocity_events.pop_front()
-                        {
-                            if !harmonic_velocity_events.is_empty() {
-                                // Add velocity sequence and output
-                                sequences.push(Seq::Vel(harmonic_velocity_events));
-
-                                let tag = format!("{}.gain", tag_base);
-                                base.add_audio_voice(Some(&tag), 0.);
+                                    let tag = format!("{}.gain", tag_base);
+                                    base.add_audio_voice(Some(&tag), 0.);
+                                }
                             }
                         }
                     }
+                    Expression::MidiOut(seq) => {
+                        sequences.push(Seq::Midi(MidiSeq::new(
+                            &binder,
+                            &seq,
+                            self.midi_urid,
+                        )?));
+                        base.add_atom_voice(Some(seq.id), Some(&lv2_handler));
+                    }
+                    _ => (),
                 }
-                Expression::MidiOut(seq) => {
-                    sequences.push(Seq::Midi(MidiSeq::new(
-                        &binder,
-                        &seq,
-                        self.midi_urid,
-                    )?));
-                    base.add_atom_voice(Some(seq.id), None);
-                }
-                _ => (),
             }
-        }
+            Ok(())
+        })?;
+
         Ok((shapes, sequences))
     }
 }
@@ -240,10 +238,6 @@ impl Talker for Tseq {
         let ev_rmd = &mut self.events_reminder[port];
 
         match &self.sequences[port] {
-            Seq::Trig(events_start_ticks) => {
-                let voice_buf = base.voice(port).cv_buffer();
-                trigger_sequence_talk(tick, ln, events_start_ticks, ev_rmd, voice_buf);
-            }
             Seq::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
                 audio_sequence_talk(
@@ -334,38 +328,4 @@ fn audio_sequence_talk(
     }
     event_reminder.index = ev_idx;
     event_reminder.last_value = last_value;
-}
-
-fn trigger_sequence_talk(
-    tick: i64,
-    len: usize,
-    events_start_ticks: &Vec<i64>,
-    event_reminder: &mut EventReminder,
-    voice_buf: &mut [f32],
-) {
-    let end_t = tick + len as i64;
-    let mut ev_idx = event_reminder.index;
-    let ev_count = events_start_ticks.len();
-
-    voice_buf.fill(0.);
-
-    while ev_idx > 0 && events_start_ticks[ev_idx - 1] >= tick {
-        ev_idx -= 1;
-    }
-    while ev_idx < ev_count && events_start_ticks[ev_idx] < tick {
-        ev_idx += 1;
-    }
-
-    while ev_idx < ev_count {
-        let start_tick = events_start_ticks[ev_idx];
-
-        if start_tick < end_t {
-            let i = (events_start_ticks[ev_idx] - tick) as usize;
-            voice_buf[i] = 1.;
-            ev_idx += 1;
-        } else {
-            break;
-        }
-    }
-    event_reminder.index = ev_idx;
 }

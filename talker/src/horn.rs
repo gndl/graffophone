@@ -149,7 +149,7 @@ impl Horn {
         unsafe { self.buf.as_ptr().as_mut().unwrap().as_mut_slice() }
     }
     pub fn atom_buffer(&self) -> MAtomBuf<'_> {
-        unsafe { &mut *self.atom.as_ref().unwrap().as_ptr().as_mut().unwrap() }
+        unsafe { &mut *self.atom.as_ref().unwrap().as_ptr() }
     }
 
     pub fn audio_value(&self, index: usize) -> AudioVal {

@@ -11,6 +11,8 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
+use midi;
+
 pub const MODEL: &str = "ADSRp";
 
 #[derive(PartialEq, Clone, Copy)]
@@ -54,7 +56,7 @@ const DURATION_HUM_INDEX: Index = 0;
 const LEVEL_HUM_INDEX: Index = 1;
 
 const PLAYERS_EAR_INDEX: Index = 1;
-const TRIGGER_HUM_INDEX: Index = 0;
+const EVENT_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
 impl ADSRp {
@@ -94,7 +96,7 @@ impl ADSRp {
         ));
 
         let player_stem_set = Set::from_attributs(&vec![
-            ("trig", PortType::Cv, 0., 1., 0., Init::DefValue),
+            ("ev", PortType::Atom, 0., 1., 0., Init::DefValue),
             ("gain", PortType::Audio, -1., 1., 1., Init::DefValue),
         ])?;
 
@@ -153,7 +155,7 @@ impl Talker for ADSRp {
         let envelope_ear = base.ear(ENVELOPE_EAR_INDEX);
         let player_ear = base.ear(PLAYERS_EAR_INDEX);
         let ln = player_ear.listen_set(tick, len, port);
-        let trigger_buf = player_ear.get_set_hum_cv_buffer(port, TRIGGER_HUM_INDEX);
+        let event_buf = player_ear.get_set_hum_atom_buffer(port, EVENT_HUM_INDEX);
         let gain_buf = player_ear.get_set_hum_audio_buffer(port, GAIN_HUM_INDEX);
 
         let player_state = &mut self.players_states[port];
@@ -194,32 +196,95 @@ impl Talker for ADSRp {
         */
         let mut idx: usize = 0;
 
+        for ev in event_buf.iter() {
+            if midi::event_is_note_on(&ev.data) {
+                let next_note_t = ev.event.time_in_frames as usize;
+
+                if step == PlayStep::OutsideNote {
+                    while idx < next_note_t {
+                        voice_buf[idx] = 0.;
+                        idx += 1;
+                    }
+                    step = PlayStep::AtNoteStart;
+                } else {
+                    while idx < next_note_t {
+                        if step == PlayStep::AtNoteStart {
+                            step = PlayStep::InNote;
+                            segment_num = usize::MAX;
+                            new_segment_num = 0;
+                            next_env_point_tick = 0;
+                            next_env_point_level = prev_level;
+                            envelope_tick = 0;
+                        } else {
+                            if envelope_tick >= next_env_point_tick && new_segment_num < env_segment_count {
+                                new_segment_num += 1;
+                            }
+                        }
+
+                        if new_segment_num == env_segment_count {
+                            step = PlayStep::OutsideNote;
+                            break;
+                        } else {
+                            if new_segment_num != segment_num {
+                                envelope_ear.listen_set(tick + idx as i64, 1, new_segment_num);
+                                let duration_buf =
+                                    envelope_ear.get_set_hum_cv_buffer(new_segment_num, DURATION_HUM_INDEX);
+                                let level_buf =
+                                    envelope_ear.get_set_hum_audio_buffer(new_segment_num, LEVEL_HUM_INDEX);
+
+                                let prev_env_point_tick = next_env_point_tick;
+                                let prev_env_point_level = next_env_point_level;
+
+                                let dur = (self.sample_rate * duration_buf[0]) as i64;
+
+                                next_env_point_tick += if dur > 0 { dur } else { 1 };
+                                next_env_point_level = level_buf[0];
+
+                                a = (next_env_point_level - prev_env_point_level)
+                                    / (next_env_point_tick - prev_env_point_tick) as f32;
+                                b = next_env_point_level - a * next_env_point_tick as f32;
+
+                                segment_num = new_segment_num;
+                            }
+
+                            let mut stop_idx = idx + (next_env_point_tick - envelope_tick) as usize;
+
+                            if next_note_t <= stop_idx {
+                                step = PlayStep::AtNoteStart;
+                                stop_idx = next_note_t;
+                            }
+
+                            while idx < stop_idx {
+                                prev_level = (a * (envelope_tick as f32) + b) * gain_buf[idx];
+                                voice_buf[idx] = prev_level;
+                                envelope_tick += 1;
+                                idx += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         while idx < ln {
             if step == PlayStep::OutsideNote {
                 while idx < ln {
-                    if trigger_buf[idx] == 0. {
-                        voice_buf[idx] = 0.;
-                    } else {
-                        step = PlayStep::AtNoteStart;
-                        break;
-                    }
+                    voice_buf[idx] = 0.;
                     idx += 1;
                 }
             } else {
-                let next_note_search_start_idx = if step == PlayStep::AtNoteStart {
+                if step == PlayStep::AtNoteStart {
                     step = PlayStep::InNote;
                     segment_num = usize::MAX;
                     new_segment_num = 0;
                     next_env_point_tick = 0;
                     next_env_point_level = prev_level;
                     envelope_tick = 0;
-                    idx + 1
                 } else {
                     if envelope_tick >= next_env_point_tick && new_segment_num < env_segment_count {
                         new_segment_num += 1;
                     }
-                    idx
-                };
+                }
 
                 if new_segment_num == env_segment_count {
                     step = PlayStep::OutsideNote;
@@ -246,15 +311,7 @@ impl Talker for ADSRp {
                         segment_num = new_segment_num;
                     }
 
-                    let mut stop_idx = ln.min(idx + (next_env_point_tick - envelope_tick) as usize);
-
-                    for i in next_note_search_start_idx..stop_idx {
-                        if trigger_buf[i] != 0. {
-                            step = PlayStep::AtNoteStart;
-                            stop_idx = i;
-                            break;
-                        }
-                    }
+                    let stop_idx = ln.min(idx + (next_env_point_tick - envelope_tick) as usize);
 
                     while idx < stop_idx {
                         prev_level = (a * (envelope_tick as f32) + b) * gain_buf[idx];

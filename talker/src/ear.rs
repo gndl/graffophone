@@ -1,6 +1,9 @@
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::f32;
+use std::i64;
+
+use livi::event::LV2AtomEventBuilder;
 
 use atom_talker::AtomTalker;
 use audio_talker::AudioTalker;
@@ -411,7 +414,26 @@ impl Hum {
                         out_buf[i] = out_buf[i] * c;
                     }
                 }
-                PortType::Atom => {}
+                PortType::Atom => {
+                    let out_buf = horn.atom_buffer();
+                    out_buf.clear();
+
+                    let mut events = Vec::with_capacity(self.talks.len() * 8);
+
+                    for ti in 0..self.talks.len() {
+                        for ev in self.talks[ti].atom_buffer().iter() {
+                            events.push((ev.event.time_in_frames, ev));
+                        }
+                    }
+                    events.sort_unstable_by_key(|(t, _)| *t);
+
+                    for (time_in_frames, ev) in &events {
+                        match LV2AtomEventBuilder::<1024>::new(*time_in_frames, ev.event.body.mytype, ev.data) {
+                            Ok(ev_bldr) => out_buf.push_event(&ev_bldr).unwrap_or_else(|e| println!("{}", e)),
+                            Err(e) => println!("{}", e),
+                        }
+                    }
+                }
             }
         }
         ln
@@ -679,6 +701,9 @@ impl Ear {
         self.get_set_cv_buffer(0)
     }
 
+    pub fn get_set_hum_atom_buffer(&self, set_idx: Index, hum_idx: Index) -> AtomBuf<'_> {
+        self.sets()[set_idx].hums[hum_idx].atom_buffer()
+    }
     pub fn get_atom_buffer(&self) -> AtomBuf<'_> {
         self.sets()[0].hums[0].atom_buffer()
     }

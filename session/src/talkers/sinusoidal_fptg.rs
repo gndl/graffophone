@@ -8,6 +8,8 @@ use talker::ear::Init;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
+use midi;
+
 pub const MODEL: &str = "SinFPTG";
 
 pub struct SinusoidalFPTG {
@@ -20,7 +22,7 @@ impl SinusoidalFPTG {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("trig"), 0., 1., 0., &Init::DefValue)?);
+        base.add_ear(ear::atom(Some("ev"), None)?);
         base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
@@ -45,7 +47,7 @@ impl Talker for SinusoidalFPTG {
         let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(0);
         let phase_buf = base.ear_audio_buffer(1);
-        let trigger_buf = base.ear_cv_buffer(2);
+        let event_buf = base.ear_atom_buffer(2);
         let gain_buf = base.ear_audio_buffer(3);
         let voice_buf = base.voice(port).audio_buffer();
         let c = self.frequence_coef;
@@ -61,14 +63,28 @@ impl Talker for SinusoidalFPTG {
                     }
                 };
         */
-        for i in 0..ln {
-            let f = freq_buf[i] as f64;
+        let mut t = 0;
 
-            let a = if trigger_buf[i] == 0. {
-                last_angle + c * f
-            } else {
-                0.
-            };
+        for ev in event_buf.iter() {
+            if midi::event_is_note_on(&ev.data) {
+                let next_note_t = ev.event.time_in_frames as usize;
+
+                for i in t..next_note_t {
+                    let f = freq_buf[i] as f64;
+                    let a = last_angle + c * f;
+                    let p = phase_buf[i] as f64 * PI;
+
+                    voice_buf[i] = ((a + p).sin() as f32) * gain_buf[i];
+                    last_angle = a;
+                }
+                last_angle = 0.;
+                t = next_note_t;
+            }
+        }
+
+        for i in t..ln {
+            let f = freq_buf[i] as f64;
+            let a = last_angle + c * f;
             let p = phase_buf[i] as f64 * PI;
 
             voice_buf[i] = ((a + p).sin() as f32) * gain_buf[i];

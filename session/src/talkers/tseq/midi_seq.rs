@@ -1,51 +1,13 @@
 use std::str::FromStr;
 
+use talker::horn::MAtomBuf;
+
+use talkers::tseq::audio_event::AudioEvents;
 use talkers::tseq::binder::Binder;
 use talkers::tseq::sequence;
 use talkers::tseq::sequence::EventReminder;
 use talkers::tseq::parser::PMidiSequence;
-use talker::horn::MAtomBuf;
-
-const FREQ_0: f64 = 8.175799;
-const NOTE_OFF: u8 = 0x80;
-const NOTE_ON: u8 = 0x90;
-const CONTROLLER: u8 = 0xB0;
-const CTRL_BANK_SELECT_MSB: u8 = 0x00;
-const CTRL_BANK_SELECT_LSB: u8 = 0x20;
-const CTRL_VOLUME: u8 = 0x07;
-const CTRL_BALANCE: u8 = 0x08;
-const CTRL_PAN: u8 = 0x0A;
-const PROGRAM_CHANGE: u8 = 0xC0;
-
-fn midi_to_freq(code: u8) -> f32 {
-    (FREQ_0 * (code as f64 / 12.).exp2()) as f32
-}
-#[test]
-fn test_midi_to_freq() {
-    assert_eq!(midi_to_freq(0), 8.175799);
-    assert_eq!(midi_to_freq(69), 440.);
-}
-
-fn freq_to_midi(freq: f32) -> u8 {
-    let code = 12. * (freq as f64 / FREQ_0).log2();
-    (code.round() as u8) & 0x7F
-}
-#[test]
-fn test_freq_to_midi() {
-    assert_eq!(freq_to_midi(440.), 69);
-}
-
-fn freq_to_midi_pitch_bend(freq: f32) -> (u8, Option<u16>) {
-    let code = 12. * (freq as f64 / FREQ_0).log2();
-    let icode = code.round();
-    let pitch_bend = (((code - icode) * 4096.) as i64 + 8192) as u16;
-    let opb = if pitch_bend == 8192 { None} else {Some(pitch_bend)};
-    (icode as u8, opb)
-}
-#[test]
-fn test_freq_to_midi_pitch_bend() {
-    assert_eq!(freq_to_midi_pitch_bend(440.), (69, None));
-}
+use midi;
 
 #[derive(Debug)]
 struct MidiEvent {
@@ -82,7 +44,7 @@ impl MidiSeq {
 
                 controller_events.push(MidiEvent {
                     tick: 0,
-                    data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_MSB, msb],
+                    data: vec![midi::CONTROLLER | channel_number, midi::CTRL_BANK_SELECT_MSB, msb],
                 });
             }
 
@@ -92,7 +54,7 @@ impl MidiSeq {
                     
                     controller_events.push(MidiEvent {
                         tick: 0,
-                        data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_LSB, lsb],
+                        data: vec![midi::CONTROLLER | channel_number, midi::CTRL_BANK_SELECT_LSB, lsb],
                     });
                 }
             }
@@ -102,17 +64,17 @@ impl MidiSeq {
 
                 controller_events.push(MidiEvent {
                     tick: 0,
-                    data: vec![PROGRAM_CHANGE | channel_number, prog],
+                    data: vec![midi::PROGRAM_CHANGE | channel_number, prog],
                 });
             }
 
             for attribute in &channel.attributes {
                 let ctrl_type = if attribute.label.starts_with("vol") {
-                    CTRL_VOLUME
+                    midi::CTRL_VOLUME
                 } else if attribute.label == "bal" {
-                    CTRL_BALANCE
+                    midi::CTRL_BALANCE
                 } else if attribute.label.starts_with("pan") {
-                    CTRL_PAN
+                    midi::CTRL_PAN
                 } else {
                     match u8::from_str(attribute.label) {
                         Ok(ct) => ct,
@@ -129,7 +91,7 @@ impl MidiSeq {
 
                 controller_events.push(MidiEvent {
                     tick: 0,
-                    data: vec![CONTROLLER | channel_number, ctrl_type, ctrl_value],
+                    data: vec![midi::CONTROLLER | channel_number, ctrl_type, ctrl_value],
                 });
             }
 
@@ -138,12 +100,12 @@ impl MidiSeq {
 
             for harmonic_sequence_events in harmonics_sequence_events {
                 for seq_ev in harmonic_sequence_events {
-                    let note_number = freq_to_midi(seq_ev.start_frequency);
+                    let note_number = midi::from_freq(seq_ev.start_frequency);
                     let start_velocity = (seq_ev.start_velocity * 127.) as u8;
 
                     let note_on_ev = MidiEvent {
                         tick: seq_ev.start_tick,
-                        data: vec![NOTE_ON | channel_number, note_number, start_velocity],
+                        data: vec![midi::NOTE_ON | channel_number, note_number, start_velocity],
                     };
                     events.push(note_on_ev);
 
@@ -151,7 +113,7 @@ impl MidiSeq {
 
                     let note_off_ev = MidiEvent {
                         tick: seq_ev.end_tick,
-                        data: vec![NOTE_OFF | channel_number, note_number, end_velocity],
+                        data: vec![midi::NOTE_OFF | channel_number, note_number, end_velocity],
                     };
                     events.push(note_off_ev);
                 }
@@ -163,6 +125,38 @@ impl MidiSeq {
 
         Ok(MidiSeq {
             controller_events,
+            events,
+            midi_urid,
+        })
+    }
+
+    pub fn from_audio_events(
+        audio_events: &AudioEvents,
+        midi_urid: lv2_raw::LV2Urid,
+    ) -> Result<MidiSeq, failure::Error> {
+        let mut events = Vec::with_capacity(1024);
+
+        // Notes events
+        for seq_ev in audio_events {
+            let note_number = midi::from_freq(seq_ev.frequency());
+
+            let note_on_ev = MidiEvent {
+                tick: seq_ev.start_tick(),
+                data: vec![midi::NOTE_ON, note_number, 127],
+            };
+            events.push(note_on_ev);
+
+            let note_off_ev = MidiEvent {
+                tick: seq_ev.end_tick(),
+                data: vec![midi::NOTE_OFF, note_number, 127],
+            };
+            events.push(note_off_ev);
+        }
+
+        events.sort_unstable_by(|a, b| a.tick.cmp(&b.tick));
+
+        Ok(MidiSeq {
+            controller_events: Vec::new(),
             events,
             midi_urid,
         })

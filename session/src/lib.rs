@@ -16,6 +16,7 @@ pub mod channel;
 pub mod event_bus;
 pub mod factory;
 pub mod feedback;
+pub mod midi;
 pub mod mixer;
 pub mod output;
 pub mod parser;

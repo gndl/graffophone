@@ -12,17 +12,17 @@ use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::voice;
 
+use midi;
+
 pub const MODEL: &str = "EnvelopeShaper";
 
 struct PlayerState {
-    last_trigger: f32,
     env_idx: usize,
     last_out_gain: f32,
 }
 impl PlayerState {
     pub fn new() -> Self {
         Self {
-            last_trigger: 0.,
             env_idx: 0,
             last_out_gain: 0.,
         }
@@ -47,7 +47,7 @@ const A_EAR_INDEX: Index = 3;
 const B_EAR_INDEX: Index = 4;
 const PLAYERS_EAR_INDEX: Index = 5;
 
-const TRIGGER_HUM_INDEX: Index = 0;
+const EVENT_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
 impl EnvelopeShaper {
@@ -59,7 +59,7 @@ impl EnvelopeShaper {
         base.add_ear(ear::audio(Some("b"), -1., 1., 0.5, &Init::DefValue)?);
 
         let stem_set = Set::from_attributs(&vec![
-            ("trig", PortType::Cv, 0., 1., 0., Init::Empty),
+            ("ev", PortType::Atom, 0., 1., 0., Init::Empty),
             ("gain", PortType::Audio, -1., 1., 1., Init::Empty),
         ])?;
 
@@ -125,36 +125,54 @@ impl Talker for EnvelopeShaper {
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.ear(PLAYERS_EAR_INDEX).listen_set(tick, len, port);
-        let trigger_buf = base.ear_set_hum_cv_buffer(PLAYERS_EAR_INDEX, port, TRIGGER_HUM_INDEX);
+        let event_buf = base.ear_set_hum_atom_buffer(PLAYERS_EAR_INDEX, port, EVENT_HUM_INDEX);
         let gain_buf = base.ear_set_hum_audio_buffer(PLAYERS_EAR_INDEX, port, GAIN_HUM_INDEX);
 
         let player_state = &mut self.players_states[port];
-        let mut last_trigger = player_state.last_trigger;
         let mut env_idx = player_state.env_idx;
         let mut last_out_gain = player_state.last_out_gain;
 
         let voice_buf = base.voice(port).audio_buffer();
 
-        for i in 0..ln {
-            let trigger = trigger_buf[i];
+        let mut t = 0;
 
-            if trigger != 0. && last_trigger == 0. {
-                let t = tick + i as i64;
+        for ev in event_buf.iter() {
+            if midi::event_is_note_on(&ev.data) {
+                let next_note_t = ev.event.time_in_frames as usize;
 
-                let l = base.ear(TIME_EAR_INDEX).listen(t, 1);
+                if env_idx < self.duration {
+                    let env_end = t + self.duration - env_idx;
+                    let end = next_note_t.min(env_end);
+
+                    for i in t..end {
+                        last_out_gain = self.env[env_idx] * gain_buf[i];
+                        voice_buf[i] = last_out_gain;
+                        env_idx += 1;
+                    }
+                    t = end;
+                }
+                for i in t..next_note_t {
+                    last_out_gain = last_out_gain * 0.9999;
+                    voice_buf[i] = last_out_gain;
+                }
+                t = next_note_t;
+
+                let note_on_tick = tick + ev.event.time_in_frames;
+
+                let l = base.ear(TIME_EAR_INDEX).listen(note_on_tick, 1);
                 if l > 0 {
                     let start_tick = (base.ear_cv_buffer(TIME_EAR_INDEX)[0] as f64 * self.sample_rate) as i64;
 
-                    let l = base.ear(DURATION_EAR_INDEX).listen(t, 1);
+                    let l = base.ear(DURATION_EAR_INDEX).listen(note_on_tick, 1);
                     if l > 0 {
                         let duration =
                             (base.ear_cv_buffer(DURATION_EAR_INDEX)[0] as f64 * self.sample_rate) as usize;
 
-                        let l = base.ear(A_EAR_INDEX).listen(t, 1);
+                        let l = base.ear(A_EAR_INDEX).listen(note_on_tick, 1);
                         if l > 0 {
                             let a = base.ear_cv_buffer(A_EAR_INDEX)[0];
 
-                            let l = base.ear(B_EAR_INDEX).listen(t, 1);
+                            let l = base.ear(B_EAR_INDEX).listen(note_on_tick, 1);
                             if l > 0 {
                                 let b = base.ear_cv_buffer(B_EAR_INDEX)[0];
 
@@ -205,18 +223,24 @@ impl Talker for EnvelopeShaper {
                 }
                 env_idx = 0;
             }
-
-            if env_idx < self.duration {
-                last_out_gain = self.env[env_idx] * gain_buf[i];
-                env_idx += 1;
-            } else {
-                last_out_gain = last_out_gain * 0.9999;
-            }
-            voice_buf[i] = last_out_gain;
-            last_trigger = trigger;
         }
 
-        player_state.last_trigger = last_trigger;
+        if env_idx < self.duration {
+            let env_end = t + self.duration - env_idx;
+            let end = ln.min(env_end);
+
+            for i in t..end {
+                last_out_gain = self.env[env_idx] * gain_buf[i];
+                voice_buf[i] = last_out_gain;
+                env_idx += 1;
+            }
+            t = end;
+        }
+        for i in t..ln {
+            last_out_gain = last_out_gain * 0.9999;
+            voice_buf[i] = last_out_gain;
+        }
+
         player_state.env_idx = env_idx;
         player_state.last_out_gain = last_out_gain;
         ln
