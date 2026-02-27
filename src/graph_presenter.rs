@@ -685,20 +685,18 @@ impl GraphPresenter {
         }
         else {
             for (mxr_id, muteds) in  &self.mute_tracks {
-                let otracks_count = self.session_presenter.borrow().get_mixer_tracks_count(*mxr_id);
+                let tracks_count = self.session_presenter.borrow().get_mixer_tracks_count(*mxr_id).unwrap();
 
-                if let Some(tracks_count) = otracks_count {
-                    let mut audible_tracks = Vec::new();
+                let mut audible_tracks = Vec::new();
 
-                    for trk_idx in 0..tracks_count {
-                        if !muteds.contains(&trk_idx) {
-                            audible_tracks.push(trk_idx);
-                        }
+                for trk_idx in 0..tracks_count {
+                    if !muteds.contains(&trk_idx) {
+                        audible_tracks.push(trk_idx);
                     }
-                    self.session_presenter
-                    .borrow_mut()
-                    .set_audible_tracks(*mxr_id, audible_tracks);
                 }
+                self.session_presenter
+                .borrow_mut()
+                .set_audible_tracks(*mxr_id, audible_tracks);
             }
         }
     }
@@ -706,6 +704,10 @@ impl GraphPresenter {
     pub fn add_mixer_track(&mut self, mixer_id: Id) -> Result<Vec<Notification>, failure::Error> {
 
         let notifications = self.add_ear_set(mixer_id, mixer::TRACKS_EAR_INDEX)?;
+
+        if !self.mute_tracks.contains_key(&mixer_id) {
+            self.mute_tracks.insert(mixer_id, HashSet::new());
+        }
 
         self.set_audible_tracks();
         
