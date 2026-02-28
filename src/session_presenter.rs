@@ -15,7 +15,7 @@ use talker::Identifier;
 use crate::session::band::Operation;
 use crate::session::event_bus::{Notification, REventBus};
 use crate::session::factory::{Factory, OutputParam};
-use crate::session::mixer;
+use crate::session::mixer::{self, RMixer};
 use crate::session::session::{self, Session};
 use crate::session::state::State;
 
@@ -66,14 +66,16 @@ impl SessionPresenter {
         }))
     }
 
-    pub fn new_session(&mut self) {
-        self.exit();
-        self.receive_new_session(Session::new(GSR.to_string()));
+    pub fn new_session(session_presenter: &RSessionPresenter) {
+        session_presenter.borrow_mut().exit();
+        session_presenter.borrow_mut().receive_new_session(Session::new(GSR.to_string()));
+        session_presenter.borrow().notify_new_session();
     }
 
-    pub fn open_session(&mut self, filename: &str) {
-        self.exit();
-        self.receive_new_session(Session::from_file(filename));
+    pub fn open_session(session_presenter: &RSessionPresenter, filename: &str) {
+        session_presenter.borrow_mut().exit();
+        session_presenter.borrow_mut().receive_new_session(Session::from_file(filename));
+        session_presenter.borrow().notify_new_session();
     }
 
     pub fn save_session(&mut self) {
@@ -103,7 +105,6 @@ impl SessionPresenter {
                 }
 
                 self.session = session;
-                self.notify_new_session();
                 self.check_state();
             },
             Err(e) => self.event_bus.borrow().notify_error(e),
@@ -182,6 +183,10 @@ impl SessionPresenter {
     pub fn set_sample_rate(&mut self, sample_rate: usize) {
         let res = self.session.set_sample_rate(sample_rate);
         self.manage_state_result(res);
+    }
+
+    pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
+        self.session.mixers()
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {

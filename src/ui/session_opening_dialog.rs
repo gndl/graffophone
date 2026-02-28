@@ -3,7 +3,7 @@ use gtk::FileDialog;
 use gtk::gio::Cancellable;
 
 
-use crate::session_presenter::RSessionPresenter;
+use crate::session_presenter::{SessionPresenter, RSessionPresenter};
 
 pub fn create(window: &gtk::ApplicationWindow, session_presenter: &RSessionPresenter) -> gtk::FileDialog {
     let filters = gio::ListStore::new::<gtk::FileFilter>();
@@ -27,7 +27,7 @@ pub fn create(window: &gtk::ApplicationWindow, session_presenter: &RSessionPrese
     dialog.open(Some(window), Cancellable::NONE, move |file| {
         if let Ok(file) = file {
             let path_buf = file.path().expect("Couldn't get file path");
-            session.borrow_mut().open_session(&path_buf.to_string_lossy());
+            SessionPresenter::open_session(&session, &path_buf.to_string_lossy());
         }
     });
     dialog

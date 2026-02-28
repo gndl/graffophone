@@ -3,7 +3,7 @@ use gtk::FileDialog;
 use gtk::glib::{self, clone};
 use gtk::gio::{ActionEntry, Cancellable, SimpleActionGroup};
 
-use crate::session_presenter::RSessionPresenter;
+use crate::session_presenter::{SessionPresenter, RSessionPresenter};
 use crate::application_view::RApplicationView;
 use crate::ui::session_opening_dialog;
 use crate::ui::session_saving_dialog;
@@ -38,10 +38,10 @@ pub fn create_actions_entries(
     let new = ActionEntry::builder("new")
     .activate(clone!(#[weak] window, #[weak] session_presenter, move |_, _, _| {
         if session_presenter.borrow().is_modified() {
-            let _ = session_saving_dialog::create(&window, &session_presenter, move |_, ctrl| ctrl.borrow_mut().new_session() );
+            let _ = session_saving_dialog::create(&window, &session_presenter, move |_, ctrl| SessionPresenter::new_session(ctrl) );
         }
         else {
-            session_presenter.borrow_mut().new_session()
+            SessionPresenter::new_session(&session_presenter)
         }
     }))
     .build();

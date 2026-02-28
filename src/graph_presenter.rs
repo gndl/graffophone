@@ -33,6 +33,12 @@ pub type RGraphPresenter = Rc<RefCell<GraphPresenter>>;
 
 impl GraphPresenter {
     pub fn new_ref(session_presenter: &RSessionPresenter, event_bus: &REventBus) -> RGraphPresenter {
+        let mut mute_tracks = HashMap::new();
+
+        for mxr_id in session_presenter.borrow().mixers().keys() {
+            mute_tracks.insert(*mxr_id, HashSet::new());
+        }
+
         Rc::new(RefCell::new(Self {
             selected_hum: None,
             selected_hum_add_in: None,
@@ -44,7 +50,7 @@ impl GraphPresenter {
             all_talkers_minimized: false,
             multi_selection: false,
             solo_track: None,
-            mute_tracks: HashMap::new(),
+            mute_tracks,
             session_presenter: session_presenter.clone(),
             event_bus: event_bus.clone(),
         }))
@@ -61,6 +67,10 @@ impl GraphPresenter {
         self.multi_selection = false;
         self.solo_track = None;
         self.mute_tracks.clear();
+
+        for mxr_id in self.session_presenter.borrow().mixers().keys() {
+            self.mute_tracks.insert(*mxr_id, HashSet::new());
+        }
     }
 
     pub fn get_talker(&self, talker_id: Id) -> RTalker {
@@ -640,37 +650,25 @@ impl GraphPresenter {
             self.solo_track = Some((mixer_id, track_idx));
         }
 
-        if !self.mute_tracks.contains_key(&mixer_id) {
-            self.mute_tracks.insert(mixer_id, HashSet::new());
-        }
-
         self.set_audible_tracks();
 
         Ok(vec![Notification::TalkerChanged])
     }
 
     pub fn is_mute_track(&self, mixer_id: Id, track_idx: Index) -> bool {
-        match self.mute_tracks.get(&mixer_id) {
-            Some(muteds) => muteds.contains(&track_idx),
-            None => false,
-        }
+        self.mute_tracks.get(&mixer_id).expect("Mixer expected.").contains(&track_idx)
     }
 
     pub fn set_mute_track(&mut self, mixer_id: Id, track_idx: Index) -> Result<Vec<Notification>, failure::Error> {
+        let muteds = self.mute_tracks.get_mut(&mixer_id).expect("Mixer expected.");
 
-        if let Some(muteds) = self.mute_tracks.get_mut(&mixer_id) {
-            if muteds.contains(&track_idx) {
-                muteds.remove(&track_idx);
-            }
-            else {
-                muteds.insert(track_idx);
-            }
+        if muteds.contains(&track_idx) {
+            muteds.remove(&track_idx);
         }
         else {
-            let mut muteds = HashSet::new();
             muteds.insert(track_idx);
-            self.mute_tracks.insert(mixer_id, muteds);
         }
+
         self.set_audible_tracks();
 
         Ok(vec![Notification::TalkerChanged])
@@ -705,10 +703,6 @@ impl GraphPresenter {
 
         let notifications = self.add_ear_set(mixer_id, mixer::TRACKS_EAR_INDEX)?;
 
-        if !self.mute_tracks.contains_key(&mixer_id) {
-            self.mute_tracks.insert(mixer_id, HashSet::new());
-        }
-
         self.set_audible_tracks();
         
         Ok(notifications)
@@ -727,21 +721,18 @@ impl GraphPresenter {
             } 
         }
 
-        if let Some(muteds) = self.mute_tracks.get_mut(&mixer_id) {
-            if !muteds.is_empty() {
-                muteds.remove(&track_idx);
+        let muteds = self.mute_tracks.get_mut(&mixer_id).expect("Mixer expected.");
 
-                let otracks_count = self.session_presenter.borrow().get_mixer_tracks_count(mixer_id);
+        if !muteds.is_empty() {
+            muteds.remove(&track_idx);
 
-                if let Some(tracks_count) = otracks_count {
+            let tracks_count = self.session_presenter.borrow().get_mixer_tracks_count(mixer_id).expect("Mixer expected.");
 
-                    for trk_idx in (track_idx + 1)..tracks_count {
-                        if muteds.contains(&trk_idx) {
-                            
-                            muteds.remove(&trk_idx);
-                            muteds.insert(trk_idx - 1);
-                        }
-                    }
+            for trk_idx in (track_idx + 1)..tracks_count {
+                if muteds.contains(&trk_idx) {
+                    
+                    muteds.remove(&trk_idx);
+                    muteds.insert(trk_idx - 1);
                 }
             }
         }
