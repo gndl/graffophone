@@ -737,9 +737,9 @@ impl GraphPresenter {
             }
         }
 
-        self.set_audible_tracks();
-
         let notifications = self.sup_ear_set(mixer_id, mixer::TRACKS_EAR_INDEX, track_idx)?;
+
+        self.set_audible_tracks();
 
         Ok(notifications)
     }

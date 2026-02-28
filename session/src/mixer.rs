@@ -281,21 +281,28 @@ impl Mixer {
         // Compute feedback
         if self.audible_tracks.len() < tracks_count && !self.audible_tracks.is_empty() {
             let channels = &mut self.feedback_buffers;
+            let trk_idx = self.audible_tracks[0];
 
-            let _ = tracks_ear.visit_set(
-                self.audible_tracks[0],
-                |set, ln| Ok(track::set(set, tick, buf, ln, channels)),
-                ln,
-            )?;
-
-            for i in 1..self.audible_tracks.len() {
+            if trk_idx < tracks_count {
                 let _ = tracks_ear.visit_set(
-                    self.audible_tracks[i],
-                    |set, ln| Ok(track::add(set, tick, buf, ln, channels)),
+                    trk_idx,
+                    |set, ln| Ok(track::set(set, tick, buf, ln, channels)),
                     ln,
                 )?;
             }
-    
+
+            for i in 1..self.audible_tracks.len() {
+                let trk_idx = self.audible_tracks[i];
+
+                if trk_idx < tracks_count {
+                    let _ = tracks_ear.visit_set(
+                        trk_idx,
+                        |set, ln| Ok(track::add(set, tick, buf, ln, channels)),
+                        ln,
+                    )?;
+                }
+            }
+
             for ch in &mut *channels {
                 for i in 0..ln {
                     ch[i] = ch[i] * master_volume_buf[i] * average_coef;
