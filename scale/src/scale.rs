@@ -7,13 +7,17 @@ pub struct Scale {
     pub name: &'static str,
     freq_0: f64,
     pitchs_name_ratio: Vec<(&'static str, f64)>,
+    microtonal: bool,
 }
 impl Scale {
     pub fn new(name: &'static str, freq_0: f64, pitchs_id_ratio: Vec<(&'static str, f64)>,) -> Self {
+        let microtonal = pitchs_id_ratio.len() > 12;
+
         Self {
             name,
             freq_0,
             pitchs_name_ratio: pitchs_id_ratio,
+            microtonal,
         }
     }
 
@@ -79,7 +83,7 @@ impl Scale {
         let f = self.freq_0 * octave.exp2() * *ratio;
         f as f32
     }
-    
+
     pub fn pitch_name_to_frequency(&self, pitch: &str) -> Result<f32, failure::Error> {
         match pitch.rfind(|c: char| !c.is_ascii_digit()) {
             Some(p) => {
@@ -114,8 +118,13 @@ impl Scale {
             }
         }
     }
+
     pub fn frequency_ratio(&self, interval: i32) -> f32 {
         (interval as f32 / 12.).exp2()
+    }
+
+    pub fn is_microtonal(&self) -> bool {
+        self.microtonal
     }
 }
 
