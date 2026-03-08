@@ -34,11 +34,11 @@ impl MixerPresenter {
         self.identifier.borrow().name().to_string()
     }
 
-    pub fn outputs<'a>(&'a self) -> &'a Vec<OutputPresenter> {
+    pub fn outputs(&self) -> &Vec<OutputPresenter> {
         &self.outputs
     }
 
-    pub fn mutable_outputs<'a>(&'a mut self) -> &'a mut Vec<OutputPresenter> {
+    pub fn mutable_outputs(&mut self) -> &mut Vec<OutputPresenter> {
         &mut self.outputs
     }
 

@@ -613,7 +613,7 @@ impl TalkerControlBase {
         ui::style::value(cc);
         if let Some(v) = value {
             cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-            cc.show_text(&v)
+            cc.show_text(v)
         } else {
             let x1 = self.x + area.content_b_x;
             let y1 = self.y + area.content_e_y - (ui::control::SYM_H * 0.5);
@@ -634,7 +634,7 @@ impl TalkerControlBase {
         &self,
         cc: &Context,
         area: &Area,
-        txt: &String,
+        txt: &str,
         port_type: PortType,
         selected: bool,
     ) -> Result<(), cairo::Error> {
@@ -704,7 +704,7 @@ impl TalkerControlBase {
                 if let Some((tag, area)) = &ear.tag_area {
                     ui::style::name(cc);
                     cc.move_to(self.x + area.content_b_x, self.y + area.content_e_y);
-                    cc.show_text(&tag)?;
+                    cc.show_text(tag)?;
                 }
                 if let Some(add_area) = ear.add_set_area {
                     self.draw_add(cc, &add_area)?;
@@ -779,17 +779,16 @@ impl TalkerControlBase {
             for (set_idx, set) in ear.sets().iter().enumerate() {
                 for (hum_idx, hum) in set.hums().iter().enumerate() {
                     for talk in hum.talks() {
-                        if let None = talk.value() {
+                        if talk.value().is_none() {
                             let mut ohum_area: Option<&Area> = None;
 
                             if self.minimized {
                                 ohum_area = Some(&self.imize_area);
-                            } else {
-                                if let Some(ear_ctrl) = self.ears.get(ear_idx) {
-                                    if let Some(set_ctrl) = ear_ctrl.sets.get(set_idx) {
-                                        if let Some(hum_ctrl) = set_ctrl.hums.get(hum_idx) {
-                                            ohum_area = Some(&hum_ctrl.area);
-                                        }
+                            }
+                            else if let Some(ear_ctrl) = self.ears.get(ear_idx) {
+                                if let Some(set_ctrl) = ear_ctrl.sets.get(set_idx) {
+                                    if let Some(hum_ctrl) = set_ctrl.hums.get(hum_idx) {
+                                        ohum_area = Some(&hum_ctrl.area);
                                     }
                                 }
                             }
@@ -808,16 +807,15 @@ impl TalkerControlBase {
                                             &voice_tkrcb.destroy_area,
                                             &ui::style::WHITE_COLOR,
                                         )?;
-                                    } else {
-                                        if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
-                                            self.draw_connection(
-                                                cc,
-                                                hum_area,
-                                                &voice_tkrcb,
-                                                &voice.area,
-                                                &voice.color,
-                                            )?;
-                                        }
+                                    }
+                                    else if let Some(voice) = voice_tkrcb.voices.get(talk.port()) {
+                                        self.draw_connection(
+                                            cc,
+                                            hum_area,
+                                            &voice_tkrcb,
+                                            &voice.area,
+                                            &voice.color,
+                                        )?;
                                     }
                                 }
                             }
@@ -860,7 +858,7 @@ impl TalkerControlBase {
                 )]));
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 
     pub fn relative_coordinates(
@@ -985,7 +983,7 @@ impl TalkerControlBase {
 }
 
 pub trait TalkerControl {
-    fn base<'a>(&'a self) -> &'a RTalkerControlBase;
+    fn base(&self) -> &RTalkerControlBase;
 
     fn row(&self) -> i32 {
         self.base().borrow().row()
@@ -1076,7 +1074,7 @@ impl TalkerControlImpl {
 }
 
 impl TalkerControl for TalkerControlImpl {
-    fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+    fn base(&self) -> &RTalkerControlBase {
         &self.base
     }
 }

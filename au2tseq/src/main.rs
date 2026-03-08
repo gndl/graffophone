@@ -25,20 +25,20 @@ const CHUNK_SIZE: usize = (SAMPLE_RATE / FREQUENCY_STEP) as usize;
 const CHUNK_DURATION: f64 = 1.0 / FREQUENCY_STEP;
 const PEAK_THRESHOLD: f64 = 24000.;// * 1200.;
 
-fn chunk_freq(chunk: &Vec<Complex<f64>>) -> f32 {
+fn chunk_freq(chunk: &[Complex<f64>]) -> f32 {
     let mut a_max = 0.0f64;
     let half_chunk_size = CHUNK_SIZE / 2;
 
     let mut freqs = Vec::with_capacity(half_chunk_size);
 
-    for i in 0..(half_chunk_size) {
-        freqs.push(chunk[i].re * chunk[i].re + chunk[i].im * chunk[i].im);
+    for e in chunk.iter().take(half_chunk_size) {
+        freqs.push(e.re * e.re + e.im * e.im);
     }
 
     let mut freqs_sum = 0.;
 
-    for i in 0..(half_chunk_size) {
-        freqs_sum += freqs[i];
+    for freq in freqs.iter().take(half_chunk_size) {
+        freqs_sum += freq;
     }
 
     let peak_threshold = 250. * freqs_sum / half_chunk_size as f64;
@@ -274,7 +274,7 @@ fn print_tseq(seqname: &str, bpm: f64, notes: &Vec<Note>, hits: &Vec<Hit>, times
     for note in notes {
         print!(" {}", note.pitch);
     }
-    println!("");
+    println!();
     println!("beat {} : {}", seqname, bpm);
 
     print!("hits {} :", seqname);
@@ -287,11 +287,11 @@ fn print_tseq(seqname: &str, bpm: f64, notes: &Vec<Note>, hits: &Vec<Hit>, times
     for hit in hits {
         print!(" {}", hit.on_rate);
     }
-    println!("");
+    println!();
 
     println!("seq {} : ?beat={} {}&{}-{}", seqname, bpm, seqname, seqname, seqname);
     println!("seqout {} : @{}", seqname, seqname);
-    println!("");
+    println!();
 }
 
 fn main() {
@@ -333,7 +333,7 @@ fn test_file_freqs(_: &str) -> Vec<f32> {
         let pitch = pitch_fetcher.fetch_pitch(f as f32).expect("No pitch for freq");
         print!(" {}", pitch);
     }
-    println!("");
+    println!();
 
     let c = (PI * 2. * basic_freq) / SAMPLE_RATE;
 

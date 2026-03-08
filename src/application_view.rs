@@ -6,7 +6,6 @@ use gtk::glib::clone;
 
 use talker::identifier::Id;
 
-use session;
 use session::event_bus::{Notification, REventBus};
 use session::state::State;
 
@@ -176,7 +175,7 @@ impl ApplicationView {
         talker_data_view.hide();
 
         // Graph view
-        let graph_view = GraphView::new_ref(&window, &session_presenter, event_bus);
+        let graph_view = GraphView::new_ref(&window, session_presenter, event_bus);
         graph_view.borrow().add_content(|w| split_pane.append(w));
 
 
@@ -223,7 +222,7 @@ impl ApplicationView {
 
         let rav = Rc::new(RefCell::new(av));
 
-        session_actions::create_actions_entries(application, &action_window, &rav, &session_presenter);
+        session_actions::create_actions_entries(application, &action_window, &rav, session_presenter);
         ApplicationView::receive_events(&event_window, &rav);
         ApplicationView::observe(&rav, event_bus);
 
@@ -350,22 +349,22 @@ impl ApplicationView {
     }
 
     // Messages view
-    fn display_message(&self, message: &String, tags: &str) {
+    fn display_message(&self, message: &str, tags: &str) {
         let msg = gtk::glib::markup_escape_text(&message.replace("\\n", "\n"));
         let markup_msg = format!("<span {}>{}</span>", tags, msg);
         self.message_view_label.set_markup(&markup_msg);
         self.message_view_revealer.set_reveal_child(true);
     }
 
-    fn display_info_message(&self, message: &String) {
+    fn display_info_message(&self, message: &str) {
         self.display_message(message, "color=\"#8080FF\"");
     }
 
-    fn display_warning_message(&self, message: &String) {
+    fn display_warning_message(&self, message: &str) {
         self.display_message(message, "color=\"#80FFFF\"");
     }
 
-    fn display_error_message(&self, message: &String) {
+    fn display_error_message(&self, message: &str) {
         println!("{}", message);
         self.display_message(message, "color=\"#FF8080\" weight=\"bold\"");
     }
@@ -386,10 +385,8 @@ impl ApplicationView {
                 else if key == gtk::gdk::Key::Escape || key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter || key == gtk::gdk::Key::Delete {
                     view.borrow_mut().finish_overall_entry();
                 }
-                else {
-                    if let Some(ch) = key.to_unicode() {
-                        view.borrow_mut().supply_overall_entry(ch);
-                    }
+                else if let Some(ch) = key.to_unicode() {
+                    view.borrow_mut().supply_overall_entry(ch);
                 }
         
                 gtk::glib::signal::Propagation::Stop
@@ -448,18 +445,18 @@ impl ApplicationView {
                 Notification::NewSession(name) => {
                     obs.borrow().hide_message();
                     obs.borrow().talker_data_view.hide();
-                    obs.borrow().window.set_title(Some(&name));
+                    obs.borrow().window.set_title(Some(name));
                 }
-                Notification::SessionSaved => obs.borrow().display_info_message(&"Session saved.".to_string()),
+                Notification::SessionSaved => obs.borrow().display_info_message("Session saved."),
                 Notification::SessionSavedAs(name) => {
                     obs.borrow().hide_message();
-                    obs.borrow().window.set_title(Some(&name));
+                    obs.borrow().window.set_title(Some(name));
                 }
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
                 Notification::TimeRange(st, et) => {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)
                 }
-                Notification::TalkersRange(talkers) => obs.borrow().talkers_list_view.fill(&talkers),
+                Notification::TalkersRange(talkers) => obs.borrow().talkers_list_view.fill(talkers),
                 Notification::EditTalkerData(talker_id) => {
                     obs.borrow().edit_talker_data(*talker_id)
                 }

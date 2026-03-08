@@ -123,7 +123,7 @@ fn update_outputs_view(window: &gtk::Window,
     
     session_presenter.borrow().visite_mixer(mixer_id, |mixer| {
         for output in mixer.outputs() {
-            row = add_output_selectors(&window, session_presenter, mixer_id, output, &outputs_box, row);
+            row = add_output_selectors(window, session_presenter, mixer_id, output, outputs_box, row);
         }
     });
         

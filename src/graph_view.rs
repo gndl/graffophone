@@ -225,7 +225,6 @@ impl GraphView {
                     if column_property.thickness < width {
                         column_property.thickness = width;
                     }
-                    ()
                 },
                 tkrc.borrow().width(),
             );
@@ -351,7 +350,7 @@ impl GraphView {
                     let deps_count = dependences_ids.len() as i32;
 
                     collector.row = i32::max(0, tkrc_row - deps_count / 2);
-                    collector.column = collector.column + 1;
+                    collector.column += 1;
                 }
 
                 for ear in talker.ears() {
@@ -391,7 +390,7 @@ impl GraphView {
             if rtkrc.borrow().column() < column {
                 {
                     rtkrc.borrow_mut().set_column(column);
-                    collector.column = collector.column + 1;
+                    collector.column += 1;
                 }
 
                 for ear in talker.ears() {
@@ -612,11 +611,11 @@ impl GraphView {
 
         //        let graph_presenter = &self.event_receiver.borrow().graph_presenter;
 
-        for (_, tkrc) in &self.talker_controls {
+        for tkrc in self.talker_controls.values() {
             tkrc.borrow().draw_connections(cc, &self.talker_controls);
         }
 
-        for (_, tkrc) in &self.talker_controls {
+        for tkrc in self.talker_controls.values() {
             tkrc.borrow().draw(cc, &self.graph_presenter.borrow());
         }
     }

@@ -158,7 +158,7 @@ pub fn create<
             key_pressed_adjustment.set_value(key_pressed_adjustment.lower());
         }
         else if key == gtk::gdk::Key::BackSpace {
-            if entry_value.len() > 0 {
+            if !entry_value.is_empty() {
                 key_pressed_entry.set_text(entry_value.get(..entry_value.len() - 1).unwrap());
             }
         }
@@ -178,7 +178,7 @@ pub fn create<
             key_pressed_cancel_button.emit_clicked();
         }
 
-        return gtk::glib::signal::Propagation::Stop;
+        gtk::glib::signal::Propagation::Stop
     });
     key_event_receiver.add_controller(key_pressed_event_controller);
 
@@ -188,5 +188,5 @@ pub fn create<
 
     ok_button.connect_clicked(move |_| on_ok(adjustment.value() as f32));
 
-    return widget;
+    widget
 }

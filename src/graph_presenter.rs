@@ -135,14 +135,13 @@ impl GraphPresenter {
             } else {
                 self.selected_talkers.insert(talker_id);
             }
-        } else {
-            if self.selected_talkers.len() == 1 && self.selected_talkers.contains(&talker_id) {
-                self.selected_talkers.clear();
-            }
-            else {
-                self.selected_talkers.clear();
-                self.selected_talkers.insert(talker_id);
-            }
+        }
+        else if self.selected_talkers.len() == 1 && self.selected_talkers.contains(&talker_id) {
+            self.selected_talkers.clear();
+        }
+        else {
+            self.selected_talkers.clear();
+            self.selected_talkers.insert(talker_id);
         }
         notifications.push(Notification::SelectionChanged);
         Ok(notifications)

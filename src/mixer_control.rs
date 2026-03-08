@@ -124,7 +124,7 @@ impl MixerControl {
 }
 
 impl TalkerControl for MixerControl {
-    fn base<'a>(&'a self) -> &'a RTalkerControlBase {
+    fn base(&self) -> &RTalkerControlBase {
         &self.base
     }
     /*

@@ -105,21 +105,15 @@ impl TalkerDataView {
         // Language management
         let mut language_definition_directory = settings::get_directory();
 
-        match dirs::home_dir() {
-            Some(home_dir) => {
-                match home_dir.to_str() {
-                    Some(home) => {
-                        for p in sourceview5::LanguageManager::default().search_path() {
-                            if p.contains(home) {
-                                language_definition_directory = std::path::PathBuf::from(p);
-                                break;
-                            }
-                        }
+        if let Some(home_dir) = dirs::home_dir() {
+            if let Some(home) = home_dir.to_str() {
+                for p in sourceview5::LanguageManager::default().search_path() {
+                    if p.contains(home) {
+                        language_definition_directory = std::path::PathBuf::from(p);
+                        break;
                     }
-                    None => (),
                 }
             }
-            None => (),
         }
 
         match std::fs::create_dir_all(language_definition_directory.as_path()) {
@@ -164,7 +158,7 @@ impl TalkerDataView {
         add(&self.source_view_scrolledwindow)
     }
 
-    fn edit_text(&self, talker: &RTalker, text: &String) {
+    fn edit_text(&self, talker: &RTalker, text: &str) {
 
         self.buffer.set_text(text);
             
@@ -172,26 +166,17 @@ impl TalkerDataView {
             match sourceview5::LanguageManager::new().language(&language.id) {
                 Some(lang) => self.buffer.set_language(Some(&lang)),
                 None => {
-                    match language.definition {
-                        Some(definition) => {
-                            let language_definition_file = format!("{}.lang", language.id);
-                            let language_definition_path = self.language_definition_directory.join(language_definition_file);
+                    if let Some(definition) = language.definition {
+                        let language_definition_file = format!("{}.lang", language.id);
+                        let language_definition_path = self.language_definition_directory.join(language_definition_file);
 
-                            match File::create(&language_definition_path) {
-                                Ok(mut file) => {
-                                    match file.write_all(definition.as_bytes()) {
-                                        Ok(()) => {
-                                            if let Some(ref language) = sourceview5::LanguageManager::new().language(&language.id) {
-                                                self.buffer.set_language(Some(language));
-                                            }
-                                        }
-                                        Err(_) => (),
-                                    }
+                        if let Ok(mut file) = File::create(&language_definition_path) {
+                            if let Ok(()) = file.write_all(definition.as_bytes()) {
+                                if let Some(ref language) = sourceview5::LanguageManager::new().language(&language.id) {
+                                    self.buffer.set_language(Some(language));
                                 }
-                                Err(_) => (),
                             }
                         }
-                        None => (),
                     }
                 }
             }

@@ -169,9 +169,10 @@ impl SessionPresenter {
         self.manage_result(res, None);
 
         let res = Factory::visit(|factory| {
-            Ok(self.event_bus.borrow().notify(Notification::TalkersRange(
+            self.event_bus.borrow().notify(Notification::TalkersRange(
                 factory.get_categorized_talkers_label_model(),
-            )))
+            ));
+            Ok(())
         });
         self.manage_result(res, None);
         self.notify_new_session();
@@ -185,11 +186,11 @@ impl SessionPresenter {
         self.manage_state_result(res);
     }
 
-    pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {
+    pub fn mixers(&self) -> &HashMap<u32, RMixer> {
         self.session.mixers()
     }
 
-    pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
+    pub fn talkers(&self) -> &HashMap<u32, RTalker> {
         self.session.talkers()
     }
     pub fn find_talker(&self, talker_id: Id) -> Option<&RTalker> {
@@ -203,9 +204,8 @@ impl SessionPresenter {
     }
 
     pub fn duplicate_talker(&mut self, talker_id: Id) {
-        match self.find_talker(talker_id) {
-            Some(tkr) => self.add_talker(&tkr.model()),
-            None => ()
+        if let Some(tkr) = self.find_talker(talker_id) {
+            self.add_talker(&tkr.model())
         }
     }
 
@@ -383,7 +383,7 @@ impl SessionPresenter {
 
     // Mixers presenters
 
-    pub fn init_mixers_presenters<'a>(&'a mut self) {
+    pub fn init_mixers_presenters(&mut self) {
         self.mixers_presenters.clear();
 
         for mixer in self.session.mixers().values() {
@@ -391,7 +391,7 @@ impl SessionPresenter {
         }
     }
 
-    pub fn mixers_presenters<'a>(&'a self) -> &'a Vec<MixerPresenter> {
+    pub fn mixers_presenters(&self) -> &Vec<MixerPresenter> {
         &self.mixers_presenters
     }
 
@@ -429,7 +429,7 @@ impl SessionPresenter {
         let extention = output_presenter::CODEC_CONTAINERS_EXTENTIONS[value_index];
 
         self.visite_mutable_mixer_output(mixer_id, output_id, |o| {
-            let new_file_path = util::filename_with_extention(&o.file_path(), extention);
+            let new_file_path = util::filename_with_extention(o.file_path(), extention);
             o.set_file_path(new_file_path.as_str());
             o.set_codec_name(codec_name);
         });

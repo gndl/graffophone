@@ -47,14 +47,14 @@ impl OutputPresenter {
         OutputPresenter::new(identifier, codec_name, sample_rate, channel_layout, file_path)
     }
 
-    pub fn identifier<'a>(&'a self) -> &'a Identifier {
+    pub fn identifier(&self) -> &Identifier {
         &self.identifier
     }
     pub fn id(&self) -> Id {
         self.identifier.id()
     }
 
-    pub fn codec_name<'a>(&'a self) -> &'a str {
+    pub fn codec_name(&self) -> &str {
         self.codec_name.as_str()
     }
 
@@ -65,8 +65,8 @@ impl OutputPresenter {
     pub fn codec_index(&self) -> usize {
         let codec = self.codec_name();
 
-        for idx in 0..CODECS_NAMES.len() {
-            if CODECS_NAMES[idx] == codec {
+        for (idx, codec_name) in CODECS_NAMES.iter().enumerate() {
+            if *codec_name == codec {
                 return idx;
             }
         }
@@ -85,8 +85,8 @@ impl OutputPresenter {
     pub fn sample_rate_index(&self) -> usize {
         let sample_rate = self.sample_rate().to_string();
 
-        for idx in 0..SAMPLE_RATES.len() {
-            if SAMPLE_RATES[idx] == sample_rate {
+        for (idx, sr) in SAMPLE_RATES.iter().enumerate() {
+            if *sr == sample_rate {
                 return idx;
             }
         }
@@ -94,7 +94,7 @@ impl OutputPresenter {
         0
     }
 
-    pub fn channel_layout<'a>(&'a self) -> &'a str {
+    pub fn channel_layout(&self) -> &str {
         self.channel_layout.as_str()
     }
 
@@ -106,7 +106,7 @@ impl OutputPresenter {
         channel::Layout::index(self.channel_layout())
     }
 
-    pub fn file_path<'a>(&'a self) -> &'a str {
+    pub fn file_path(&self) -> &str {
         self.file_path.as_str()
     }
 
