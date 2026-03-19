@@ -10,9 +10,7 @@ pub struct Scale {
     microtonal: bool,
 }
 impl Scale {
-    pub fn new(name: &'static str, freq_0: f64, pitchs_id_ratio: Vec<(&'static str, f64)>,) -> Self {
-        let microtonal = pitchs_id_ratio.len() > 12;
-
+    pub fn new(name: &'static str, freq_0: f64, pitchs_id_ratio: Vec<(&'static str, f64)>, microtonal: bool) -> Self {
         Self {
             name,
             freq_0,
@@ -151,7 +149,9 @@ pub fn create_pythagorean_scale() -> Scale {
             ("Bb", 16. / 9.0_f64),
             ("A#", 3.0_f64.powi(10) / 2.0_f64.powi(15)),
             ("B", 3.0_f64.powi(5) / 2.0_f64.powi(7)),
-        ])
+        ],
+    true,
+    )
 }
 
 pub fn create_natural_scale() -> Scale {
@@ -171,7 +171,9 @@ pub fn create_natural_scale() -> Scale {
             ("A", 5. / 3.0_f64),
             ("A#", 16. / 9.0_f64),
             ("B", 15. / 8.0_f64),
-        ])
+        ],
+        true,
+    )
 }
 
 pub fn create_12et_scale() -> Scale {
@@ -191,7 +193,9 @@ pub fn create_12et_scale() -> Scale {
             ("A", (9. / 12.0_f64).exp2()),
             ("A#", (10. / 12.0_f64).exp2()),
             ("B", (11. / 12.0_f64).exp2()),
-        ])
+        ],
+        false,
+    )
 }
 
 pub fn create_17et_scale() -> Scale {
@@ -216,7 +220,9 @@ pub fn create_17et_scale() -> Scale {
             ("Bb", (14. / 17.0_f64).exp2()),
             ("A#", (15. / 17.0_f64).exp2()),
             ("B", (16. / 17.0_f64).exp2()),
-        ])
+        ],
+        true,
+    )
 }
 
 pub fn create_19et_scale() -> Scale {
@@ -243,7 +249,9 @@ pub fn create_19et_scale() -> Scale {
             ("Bb", (16. / 19.0_f64).exp2()),
             ("B", (17. / 19.0_f64).exp2()),
             ("Cb", (18. / 19.0_f64).exp2()),
-        ])
+        ],
+        true,
+    )
 }
 
 pub fn create_24et_scale() -> Scale {
@@ -275,7 +283,9 @@ pub fn create_24et_scale() -> Scale {
             ("Bb", (21. / 24.0_f64).exp2()),
             ("B", (22. / 24.0_f64).exp2()),
             ("Cb", (23. / 24.0_f64).exp2()),
-        ])
+        ],
+        true,
+    )
 }
 
 pub fn create_53et_scale() -> Scale {
@@ -336,7 +346,9 @@ pub fn create_53et_scale() -> Scale {
             ("^B", (50. / 53.0_f64).exp2()),
             ("^^B", (51. / 53.0_f64).exp2()),
             ("vC", (52. / 53.0_f64).exp2()),
-        ])
+        ],
+        true,
+    )
 }
 
 pub struct Collection {
