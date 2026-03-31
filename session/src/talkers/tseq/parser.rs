@@ -1149,7 +1149,7 @@ fn test_envelop() {
             ENVELOP_KW!(),
             " e",
             DEF_KW!(),
-            " .02<1 .2~2/3 2>1/3 20°0\n"
+            " .02s<1 .2s~2/3 2s>1/3 20s°0\n"
         )),
         Ok((
             "",
@@ -1157,22 +1157,22 @@ fn test_envelop() {
                 id: "e",
                 points: vec![
                     PEnvelopePoint {
-                        duration: 0.02,
+                        duration: PTime::Second(PRatio{num: 0.02, den: 1.}),
                         shape: PShape::Early,
                         level: 1.
                     },
                     PEnvelopePoint {
-                        duration: 0.2,
+                        duration: PTime::Second(PRatio{num: 0.2, den: 1.}),
                         shape: PShape::Sin,
                         level: 0.6666667
                     },
                     PEnvelopePoint {
-                        duration: 2.,
+                        duration: PTime::Second(PRatio{num: 2., den: 1.}),
                         shape: PShape::Late,
                         level: 0.33333334
                     },
                     PEnvelopePoint {
-                        duration: 20.,
+                        duration: PTime::Second(PRatio{num: 20., den: 1.}),
                         shape: PShape::Round,
                         level: 0.
                     },
