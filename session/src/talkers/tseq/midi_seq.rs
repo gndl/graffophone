@@ -4,20 +4,13 @@ use talker::horn::MAtomBuf;
 
 use talkers::tseq::audio_event::AudioEvents;
 use talkers::tseq::binder::Binder;
-use talkers::tseq::sequence;
-use talkers::tseq::sequence::EventReminder;
+use talkers::tseq::sequence::{self, EventReminder};
 use talkers::tseq::parser::PMidiSequence;
 use midi;
 
-#[derive(Debug)]
-struct MidiEvent {
-    tick: i64,
-    data: Vec<u8>,
-}
-
 pub struct MidiSeq {
-    controller_events: Vec<MidiEvent>,
-    events: Vec<MidiEvent>,
+    controller_events: Vec<midi::Event>,
+    events: Vec<midi::Event>,
     midi_urid: lv2_raw::LV2Urid,
 }
 
@@ -31,7 +24,7 @@ impl MidiSeq {
             return Err(failure::err_msg(format!("Midi output {} have {} channels instead of 16 maximum!", sequence.id, sequence.channels.len())))
         }
 
-        let mut controller_events = Vec::with_capacity(16);
+        let mut controller_events = Vec::with_capacity(64);
         let mut events = Vec::with_capacity(1024);
         let mut channel_number: u8 = 0;
 
@@ -42,30 +35,21 @@ impl MidiSeq {
             if let Some(bank_msb) = channel.bank_msb {
                 let msb = u8::from_str(bank_msb)?;
 
-                controller_events.push(MidiEvent {
-                    tick: 0,
-                    data: vec![midi::CONTROLLER | channel_number, midi::CTRL_BANK_SELECT_MSB, msb],
-                });
+                controller_events.push(midi::Event::select_msb(channel_number, 0, msb));
             }
 
             if let Some(bank_lsb) = channel.bank_lsb {
                 if !bank_lsb.is_empty() {
                     let lsb = u8::from_str(bank_lsb)?;
-                    
-                    controller_events.push(MidiEvent {
-                        tick: 0,
-                        data: vec![midi::CONTROLLER | channel_number, midi::CTRL_BANK_SELECT_LSB, lsb],
-                    });
+
+                    controller_events.push(midi::Event::select_lsb(channel_number, 0, lsb));
                 }
             }
 
             if let Some(program) = channel.program {
                 let prog = u8::from_str(program)?;
 
-                controller_events.push(MidiEvent {
-                    tick: 0,
-                    data: vec![midi::PROGRAM_CHANGE | channel_number, prog],
-                });
+                controller_events.push(midi::Event::program_change(channel_number, 0, prog));
             }
 
             for attribute in &channel.attributes {
@@ -89,35 +73,38 @@ impl MidiSeq {
                     Err(_) => return Err(failure::err_msg(format!("Midi controller value {} invalid!", attribute.value))),
                 };
 
-                controller_events.push(MidiEvent {
-                    tick: 0,
-                    data: vec![midi::CONTROLLER | channel_number, ctrl_type, ctrl_value],
-                });
+                controller_events.push(midi::Event::controller(channel_number, 0, ctrl_type, ctrl_value));
             }
 
             // Notes events
             let harmonics_sequence_events = sequence::create_events(&binder, &seq)?;
+            
+            let mut microtonal_channel = false;
 
             for harmonic_sequence_events in harmonics_sequence_events {
                 for seq_ev in harmonic_sequence_events {
-                    let note_number = midi::from_freq(seq_ev.start_frequency);
-                    let start_velocity = (seq_ev.start_velocity * 127.) as u8;
-
-                    let note_on_ev = MidiEvent {
-                        tick: seq_ev.start_tick,
-                        data: vec![midi::NOTE_ON | channel_number, note_number, start_velocity],
-                    };
+                    let (note_on_ev, note_off_ev) = midi::Event::note(
+                        channel_number,
+                        seq_ev.start_frequency,
+                        seq_ev.start_tick,
+                        seq_ev.start_velocity,
+                        seq_ev.end_tick,
+                        seq_ev.end_velocity,
+                        seq_ev.microtonal,
+                    );
                     events.push(note_on_ev);
-
-                    let end_velocity = (seq_ev.end_velocity * 127.) as u8;
-
-                    let note_off_ev = MidiEvent {
-                        tick: seq_ev.end_tick,
-                        data: vec![midi::NOTE_OFF | channel_number, note_number, end_velocity],
-                    };
                     events.push(note_off_ev);
+
+                    microtonal_channel |= seq_ev.microtonal;
                 }
             }
+
+            if microtonal_channel {
+                // controller_events.push(midi::Event::tuning_program(channel_number, 0));
+                // controller_events.push(midi::Event::tuning_bank(channel_number, 0));
+                controller_events.append(&mut midi::Event::tuning(channel_number, 0));
+            }
+
             channel_number += 1;
         }
 
@@ -137,19 +124,17 @@ impl MidiSeq {
         let mut events = Vec::with_capacity(1024);
 
         // Notes events
-        for seq_ev in audio_events {
-            let note_number = midi::from_freq(seq_ev.frequency());
-
-            let note_on_ev = MidiEvent {
-                tick: seq_ev.start_tick(),
-                data: vec![midi::NOTE_ON, note_number, 127],
-            };
+        for audio_ev in audio_events {
+            let (note_on_ev, note_off_ev) = midi::Event::note(
+                0,
+                audio_ev.frequency(),
+                audio_ev.start_tick(),
+                1.,
+                audio_ev.end_tick(),
+                1.,
+                false
+            );
             events.push(note_on_ev);
-
-            let note_off_ev = MidiEvent {
-                tick: seq_ev.end_tick(),
-                data: vec![midi::NOTE_OFF, note_number, 127],
-            };
             events.push(note_off_ev);
         }
 
@@ -179,7 +164,7 @@ impl MidiSeq {
         if ev_idx < ev_count {
             if !event_reminder.initialized {
                 for ev in &self.controller_events {
-                    voice_buf.push_midi_event::<3>(0, self.midi_urid, &ev.data)?;
+                    voice_buf.push_midi_event::<{ midi::CONTROLLER_DATA_SIZE }>(0, self.midi_urid, &ev.data)?;
                 }
                 event_reminder.initialized = true;
             }
@@ -188,7 +173,13 @@ impl MidiSeq {
 
                 if ev.tick < end_t {
                     let time_in_frames = ev.tick - tick;
-                    voice_buf.push_midi_event::<3>(time_in_frames, self.midi_urid, &ev.data)?;
+
+                    voice_buf.push_midi_event::<{ midi::NOTE_DATA_SIZE }>(time_in_frames, self.midi_urid, &ev.data)?;
+                    
+                    if let Some(sysex_data) = &ev.sysex {
+                        voice_buf.push_midi_event::<{ midi::SYSEX_DATA_SIZE }>(time_in_frames, self.midi_urid, sysex_data)?;
+                    }
+
                     ev_idx += 1;
                 } else {
                     break;

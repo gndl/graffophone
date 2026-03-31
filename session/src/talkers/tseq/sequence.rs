@@ -21,6 +21,7 @@ pub struct SequenceEvent {
     pub fadein: bool,
     pub fadeout: bool,
     pub envelop_index: usize,
+    pub microtonal: bool,
 }
 
 pub type SequenceEvents = Vec<SequenceEvent>;
@@ -73,10 +74,11 @@ impl EventsBuilder {
         let hitline_hits_count = hitline.hits.len();
         let hitline_ticks_count = binder::to_ticks(&hitline.duration, ticks_per_beat);
         let mut mul = part.mul;
-        
+
         if hitline_hits_count > 0 && mul > 0. {
             if let Some(pitchline_id) = part.pitchline_id {
                 let (scale, pitchline) = binder.fetch_pitchline(pitchline_id)?;
+                let microtonal = scale.is_microtonal();
                 let pitchs_count = pitchline.len();
                 
                 if pitchs_count > 0 {
@@ -175,6 +177,7 @@ impl EventsBuilder {
                                              fadein: harmonic_event.velocity.fadein,
                                              fadeout: harmonic_event.velocity.fadeout || fadeout_pre_envelop,
                                              envelop_index: harmonic_event.velocity.envelope_index,
+                                             microtonal,
                                          }
                                     );
                                 }
@@ -372,6 +375,7 @@ impl EventsBuilder {
                         fadein: harmonic_event.velocity.fadein,
                         fadeout: true,
                         envelop_index: harmonic_event.velocity.envelope_index,
+                        microtonal: false,
                     }
                 );
             }
