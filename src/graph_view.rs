@@ -271,6 +271,7 @@ impl GraphView {
                 }
                 tkrc.move_to(x, y);
 
+                // TODO : index out of bounds: the len is 1 but the index is 18446744073709551615
                 prev_rows_y[tkrc.row() as usize] = y;
                 prev_row = tkrc.row();
                 prev_bottom = y + tkrc.height() + ROW_SPACING;
@@ -349,7 +350,7 @@ impl GraphView {
                     }
                     let deps_count = dependences_ids.len() as i32;
 
-                    collector.row = i32::max(0, tkrc_row - deps_count / 2);
+                    collector.row = 0.max(tkrc_row - deps_count / 2);
                     collector.column += 1;
                 }
 

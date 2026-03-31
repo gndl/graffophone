@@ -422,6 +422,7 @@ impl TalkerControlBase {
         self.row
     }
     pub fn set_row(&mut self, row: i32) {
+        assert!(row >= 0);
         self.row = row;
     }
     pub fn column(&self) -> i32 {
