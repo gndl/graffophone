@@ -59,7 +59,7 @@ impl Talker for AudioFileInput {
                 }
 
                 if base.is_effective() {
-                    self.channels =file_reader.read_all_samples()?;
+                    self.channels = file_reader.read_all_samples()?;
                 }
                     
                 new_base.set_data(data);
