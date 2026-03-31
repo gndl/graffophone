@@ -271,9 +271,6 @@ impl Lv2 {
 }
 
 impl Talker for Lv2 {
-    fn activate(&mut self) {}
-    fn deactivate(&mut self) {}
-
     fn set_indexed_data(&mut self, base: &TalkerBase, port_index: Index, protocol: u32, data: &Vec<u8>) -> Result<(), failure::Error> {
 
         if protocol == self.urid_event_transfer || protocol == self.urid_atom_transfer {

@@ -435,12 +435,7 @@ impl Band {
         {
             let tkr = self.fetch_talker(talker_id)?;
 
-            tkr.deactivate();
             onew_tkr = f(tkr)?;
-
-            if onew_tkr.is_none() {
-                tkr.activate();
-            }
         }
 
         if let Some(new_tkr) = onew_tkr {
@@ -547,8 +542,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                 let ear_tkr_id = ear_hum.talker_id;
                 let ear_tkr = self.fetch_talker(&ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 match ear_hum.talks[0] {
                     EarHumTalk::Voice(voice_tkr_id, voice_port) => {
                         let voice_tkr = self.fetch_talker(&voice_tkr_id)?;
@@ -570,8 +563,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                         EarHumTalk::Value(v) => ear_tkr.add_value_to_ear_hum(ear_hum.ear_idx, ear_hum.set_idx, ear_hum.hum_idx, v)?,
                     }
                 }
-
-                ear_tkr.activate();
             }
             Operation::SetEarHumVoice(
                 ear_tkr_id,
@@ -585,20 +576,12 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                 self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.set_ear_hum_voice(*ear_idx, *set_idx, *hum_idx, &voice_tkr, *voice_port)?;
-
-                ear_tkr.activate();
             }
             Operation::SetEarHumValue(ear_tkr_id, ear_idx, set_idx, hum_idx, value) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.set_ear_hum_value(*ear_idx, *set_idx, *hum_idx, *value)?;
-
-                ear_tkr.activate();
             }
             Operation::SetEarTalkVoice(
                 ear_tkr_id,
@@ -613,8 +596,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                 self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.set_ear_talk_voice(
                     *ear_idx,
                     *set_idx,
@@ -623,26 +604,16 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                     &voice_tkr,
                     *voice_port,
                 )?;
-
-                ear_tkr.activate();
             }
             Operation::SetEarTalkValue(ear_tkr_id, ear_idx, set_idx, hum_idx, talk_idx, value) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.set_ear_talk_value(*ear_idx, *set_idx, *hum_idx, *talk_idx, *value)?;
-
-                ear_tkr.activate();
             }
             Operation::AddValueToEarHum(ear_tkr_id, ear_idx, set_idx, hum_idx, value) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.add_value_to_ear_hum(*ear_idx, *set_idx, *hum_idx, *value)?;
-
-                ear_tkr.activate();
             }
             Operation::AddVoiceToEarHum(
                 ear_tkr_id,
@@ -656,8 +627,6 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                 self.check_cyclic_dependency(voice_tkr, ear_tkr_id)?;
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.add_voice_to_ear_hum(
                     *ear_idx,
                     *set_idx,
@@ -665,17 +634,11 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
                     &voice_tkr,
                     *voice_port,
                 )?;
-
-                ear_tkr.activate();
             }
             Operation::SupEarTalk(ear_tkr_id, ear_idx, set_idx, hum_idx, talk_idx) => {
                 let ear_tkr = self.fetch_talker(ear_tkr_id)?;
 
-                ear_tkr.deactivate();
-
                 ear_tkr.sup_ear_talk(*ear_idx, *set_idx, *hum_idx, *talk_idx)?;
-
-                ear_tkr.activate();
             }
             Operation::AddSetValueToEar(ear_tkr_id, ear_idx, hum_idx, value) => {
                 self.update_talker(ear_tkr_id, |tkr| {
@@ -700,11 +663,7 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             Operation::SetIndexedData(tkr_id, idx, protocol, data) => {
                 let tkr = self.fetch_talker(tkr_id)?;
 
-                tkr.deactivate();
-
                 tkr.set_indexed_data(*idx, *protocol, data)?;
-
-                tkr.activate();
             }
         }
         result
