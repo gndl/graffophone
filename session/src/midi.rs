@@ -12,7 +12,7 @@ pub const PROGRAM_CHANGE: u8 = 0xC0;
 pub const NOTE_DATA_SIZE: usize = 3;
 pub const NOTE_OFF_DATA_SIZE: usize = 3;
 pub const CONTROLLER_DATA_SIZE: usize = 7;
-pub const SYSEX_DATA_SIZE: usize = 12;
+pub const SYSEX_DATA_SIZE: usize = 13;
 
 pub fn to_freq(code: u8) -> f32 {
     (FREQ_0 * (code as f64 / 12.).exp2()) as f32
@@ -170,7 +170,7 @@ impl Event {
                 lsb = 0;
             }
 
-            Some(vec![0xF0, 0x7F, 0x10, 0x08, 0x02, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
+            Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
         }
         else {
             None

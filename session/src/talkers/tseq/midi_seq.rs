@@ -174,11 +174,11 @@ impl MidiSeq {
                 if ev.tick < end_t {
                     let time_in_frames = ev.tick - tick;
 
-                    voice_buf.push_midi_event::<{ midi::NOTE_DATA_SIZE }>(time_in_frames, self.midi_urid, &ev.data)?;
-                    
                     if let Some(sysex_data) = &ev.sysex {
                         voice_buf.push_midi_event::<{ midi::SYSEX_DATA_SIZE }>(time_in_frames, self.midi_urid, sysex_data)?;
                     }
+
+                    voice_buf.push_midi_event::<{ midi::NOTE_DATA_SIZE }>(time_in_frames, self.midi_urid, &ev.data)?;
 
                     ev_idx += 1;
                 } else {
