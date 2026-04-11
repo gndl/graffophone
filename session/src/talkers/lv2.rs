@@ -194,10 +194,6 @@ impl Lv2 {
             }
 
             for idx in &self.atom_sequence_inputs_indexes {
-                for ev in base.ear(idx.tkr_port).get_atom_buffer().iter() {
-                    println!("{:x?}", ev.data); //String::from_utf8_lossy(ev.data)
-                }
-
                 livi_instance.connect_port(idx.plugin_port, base.ear(idx.tkr_port).get_atom_buffer().as_ptr());
             }
             for idx in &self.atom_sequence_outputs_indexes {
@@ -329,7 +325,6 @@ impl Talker for Lv2 {
                 };
                 buffer.extend_from_slice(header);
                 buffer.extend_from_slice(ev.data);
-                // println!("{}:{} read_sequence_events type {}: {:?}", file!(), line!(), ev.event.body.mytype, ev.data); //String::from_utf8_lossy(ev.data)
     
                 ports_events.push((port, self.urid_event_transfer, buffer));
             }
