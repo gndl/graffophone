@@ -1,8 +1,15 @@
 # Graffophone
 
-Modular audio processing application including sequencer, synthesis and mixing functions.
+Modular audio processing application.
 
-Supported formats :
+Features:
+- Sequencer, synthesizer and mixer
+- Audio and MIDI microtonal polyphony
+- Automatic layout
+- Live coding
+- Sequencing as code
+
+Formats :
 - Audio, MIDI
 - Scales : 12 ET, 17 ET, 19 ET, 53 ET, natural, pythagorean
 - Plugins : Lv2
