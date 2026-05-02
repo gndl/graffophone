@@ -170,7 +170,7 @@ impl Event {
                 lsb = 0;
             }
 
-            Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
+            Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, 0x00, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
         }
         else {
             None
@@ -202,7 +202,7 @@ fn test_event_note() {
         (Event {
             tick: 1,
             data: vec![NOTE_ON, 0, 63],
-            sysex: Some(vec![0xF0, 0x7F, 0x7F, 0x08, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0xF7]),
+            sysex: Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0xF7]),
         },
         Event {
             tick: 2,
