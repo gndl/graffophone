@@ -442,11 +442,7 @@ pub fn show_plugin(plugin: &Plugin) {
         }
     }
 }
-/*
-*/
 
-use crate::feedback::Feedback;
-use output::Output;
 
 fn var_len_of(mut value: usize) -> Vec<u8> {
     let mut var_len_data: Vec<u8> = Vec::with_capacity(4);
@@ -484,6 +480,9 @@ fn test_var_len_of() {
     assert_eq!(var_len_of(0x100000), vec![0xC0, 0x80, 0]);
 }
 /*
+use crate::feedback::Feedback;
+use output::Output;
+
 #[test]
 fn test_fuildsynth_plugin() {
     let world = livi::World::new();
