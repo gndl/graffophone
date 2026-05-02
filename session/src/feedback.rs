@@ -34,7 +34,7 @@ impl Feedback {
             .default_output_device()
             .expect("failed to get default output device");
 
-        println!("Using default output device: \"{}\"", output_device.name()?);
+        println!("Using default output device: \"{}\"", output_device.description()?);
 
         let config: cpal::StreamConfig = output_device.default_output_config()?.into();
 
@@ -60,7 +60,7 @@ impl Feedback {
             .expect("failed to get default output device");
 
         let mut config: cpal::StreamConfig = output_device.default_output_config()?.into();
-        config.sample_rate = cpal::SampleRate(AudioFormat::sample_rate() as u32);
+        config.sample_rate = AudioFormat::sample_rate() as u32;
 
         let latency_samples = nb_samples * nb_channels as usize;
 
