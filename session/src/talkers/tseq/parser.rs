@@ -5,7 +5,8 @@ use nom::{
     combinator::{map_res, opt, recognize},
     multi::{many0, many1_count},
     number::complete::float,
-    sequence::{delimited, preceded, terminated, tuple},
+    Parser,
+    sequence::{delimited, preceded, terminated},
     IResult,
 };
 
@@ -286,14 +287,14 @@ pub enum Expression<'a> {
 }
 
 fn uint(input: &str) -> IResult<&str, usize> {
-    map_res(terminated(digit1, space0), str::parse)(input)
+    map_res(terminated(digit1, space0), str::parse).parse(input)
 }
 
 pub fn id(input: &str) -> IResult<&str, &str> {
-    terminated( recognize(many1_count(alt((alphanumeric1, tag("_"))))), space0)(input)
+    terminated( recognize(many1_count(alt((alphanumeric1, tag("_"))))), space0).parse(input)
 }
 
-fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> {
+fn head<'a>(inst: &str) -> impl Parser<&str, Output = &str, Error = nom::error::Error<&str>> {
     delimited(
         preceded(tag(inst), space1),
         id,
@@ -302,20 +303,20 @@ fn head<'a>(inst: &'a str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str> {
 }
 
 fn on(input: &str) -> IResult<&str, char> {
-    delimited(space0, char(ON_KW!()), space0)(input)
+    delimited(space0, char(ON_KW!()), space0).parse(input)
 }
 
 fn per(input: &str) -> IResult<&str, char> {
-    terminated(char(PER_KW!()), space0)(input)
+    terminated(char(PER_KW!()), space0).parse(input)
 }
 
 fn end(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, _) = many1_count(preceded(space0, newline))(input)?;
+    let (input, _) = many1_count(preceded(space0, newline)).parse(input)?;
     Ok((input, Expression::None))
 }
 
 fn line_comment(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, _) = delimited(tag(LINE_COMMENT_KW!()), take_until("\n"), end)(input)?;
+    let (input, _) = delimited(tag(LINE_COMMENT_KW!()), take_until("\n"), end).parse(input)?;
     Ok((input, Expression::None))
 }
 fn multiline_comment(input: &str) -> IResult<&str, Expression<'_>> {
@@ -323,12 +324,12 @@ fn multiline_comment(input: &str) -> IResult<&str, Expression<'_>> {
         tag(MULTILINE_COMMENT_KW!()),
         take_until(MULTILINE_COMMENT_KW!()),
         tag(MULTILINE_COMMENT_KW!()),
-    )(input)?;
+    ).parse(input)?;
     Ok((input, Expression::None))
 }
 
 fn beat(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, bpm, _)) = tuple((head(BEAT_KW!()), digit1, end))(input)?;
+    let (input, (id, bpm, _)) = ((head(BEAT_KW!()), digit1, end)).parse(input)?;
     Ok((
         input,
         Expression::Beat(PBeat {
@@ -339,7 +340,7 @@ fn beat(input: &str) -> IResult<&str, Expression<'_>> {
 }
 
 fn scale(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, name, _)) = tuple((head(SCALE_KW!()), id, end))(input)?;
+    let (input, (id, name, _)) = ((head(SCALE_KW!()), id, end)).parse(input)?;
     Ok((
         input,
         Expression::Scale(PScale {
@@ -351,12 +352,12 @@ fn scale(input: &str) -> IResult<&str, Expression<'_>> {
 
 fn attribute(input: &str) -> IResult<&str, PAttribute<'_>> {
     let (input, (_, _, label, _, _, value)) =
-        tuple((char(ATTRIBUTE_KW!()), space0, id, char(ASSIGNMENT_KW!()), space0, id))(input)?;
+        ((char(ATTRIBUTE_KW!()), space0, id, char(ASSIGNMENT_KW!()), space0, id)).parse(input)?;
     Ok((input, PAttribute { label, value }))
 }
 
 fn ratio(input: &str) -> IResult<&str, PRatio> {
-    let (input, (num, den, _)) = tuple((float, opt(preceded(on, float)), space0))(input)?;
+    let (input, (num, den, _)) = ((float, opt(preceded(on, float)), space0)).parse(input)?;
     Ok((input, PRatio {num, den: den.unwrap_or(1.)}))
 }
 
@@ -366,12 +367,12 @@ fn freq_ratio(input: &str) -> IResult<&str, PPitchGap> {
 }
 
 fn interval(input: &str) -> IResult<&str, PPitchGap> {
-    let (input, interval) = delimited(char(INTERVAL_KW!()), digit1, space0)(input)?;
+    let (input, interval) = delimited(char(INTERVAL_KW!()), digit1, space0).parse(input)?;
     Ok((input, PPitchGap::Interval(i32::from_str(interval).unwrap())))
 }
 
 fn time(input: &str) -> IResult<&str, PTime> {
-    let (input, (value, ounit, _)) = tuple((ratio, opt(alt((tag(MILLISECOND_KW!()), tag(SECOND_KW!()), tag(MINUTE_KW!())))), space0))(input)?;
+    let (input, (value, ounit, _)) = ((ratio, opt(alt((tag(MILLISECOND_KW!()), tag(SECOND_KW!()), tag(MINUTE_KW!())))), space0)).parse(input)?;
     let duration = match ounit {
         Some(unit) => {
             if unit == MILLISECOND_KW!() {
@@ -390,12 +391,12 @@ fn time(input: &str) -> IResult<&str, PTime> {
 }
 
 fn harmonic(input: &str) -> IResult<&str, PHarmonic<'_>> {
-    let (input, (pitch_gap, delay, velocity, _)) = tuple((
+    let (input, (pitch_gap, delay, velocity, _)) = ((
         alt((freq_ratio, interval)),
         opt(preceded(terminated(char(JOIN_KW!()), space0), time)),
         opt(preceded(terminated(char(JOIN_KW!()), space0), velocity)),
         space0,
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PHarmonic {
@@ -408,36 +409,36 @@ fn harmonic(input: &str) -> IResult<&str, PHarmonic<'_>> {
 
 fn chord(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, harmonics, _)) =
-        tuple((head(CHORD_KW!()), many0(terminated(harmonic, space0)), end))(input)?;
+        ((head(CHORD_KW!()), many0(terminated(harmonic, space0)), end)).parse(input)?;
 
     Ok((input, Expression::Chord(PChord { id, harmonics })))
 }
 
 fn accent(input: &str) -> IResult<&str, PAccent<'_>> {
-    let (input, (delay, velocity)) = tuple((
+    let (input, (delay, velocity)) = ((
         time,
         opt(delimited(
             terminated(char(JOIN_KW!()), space0),
             velocity,
             space0,
         )),
-    ))(input)?;
+    )).parse(input)?;
     Ok((input, PAccent { delay, velocity }))
 }
 
 fn attack(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, accents, _)) =
-        tuple((head(ATTACK_KW!()), many0(terminated(accent, space0)), end))(input)?;
+        ((head(ATTACK_KW!()), many0(terminated(accent, space0)), end)).parse(input)?;
 
     Ok((input, Expression::Attack(PAttack { id, accents })))
 }
 
 fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
-    let (input, (chord_id, attack_id, omul)) = tuple((
+    let (input, (chord_id, attack_id, omul)) = ((
         id,
         opt(preceded(char(JOIN_KW!()), id)),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-     ))(input)?;
+     )).parse(input)?;
     Ok((
         input,
         PChordLineFragment::Part((PChordLinePart {
@@ -449,23 +450,23 @@ fn chordline_part(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
 }
 
 fn chordline_ref(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
-    let (input, (id, omul)) = tuple((
+    let (input, (id, omul)) = ((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
 
     Ok((input, PChordLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
 fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
-    let (input, (fragments, mul)) = tuple((
+    let (input, (fragments, mul)) = ((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
             many0(alt((chordline_part, chordline_ref, chordline_fragments))),
             terminated(char(CLOSE_PARENT_KW!()), space0),
         ),
         preceded(terminated(char(MUL_KW!()), space0), uint),
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PChordLineFragment::Fragments((fragments, mul)),
@@ -473,36 +474,36 @@ fn chordline_fragments(input: &str) -> IResult<&str, PChordLineFragment<'_>> {
 }
 
 fn chordline(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, fragments, _)) = tuple((
+    let (input, (id, fragments, _)) = ((
         head(CHORDLINE_KW!()),
         many0(alt((chordline_part, chordline_ref, chordline_fragments))),
         end,
-    ))(input)?;
+    )).parse(input)?;
 
     Ok((input, Expression::ChordLine(PChordLine {id, fragments})))
 }
 
 fn hit(input: &str) -> IResult<&str, PHit> {
-    let (input, (position, duration)) = tuple((
+    let (input, (position, duration)) = ((
         terminated(time, space0),
         opt(delimited(
             terminated(char(JOIN_KW!()), space0),
             time,
             space0,
         )),
-    ))(input)?;
+    )).parse(input)?;
     Ok((input, PHit { position, duration }))
 }
 
 fn hits(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, hits, duration)) =
-        tuple((head(HITLINE_KW!()), many0(hit), delimited(per, time, end)))(input)?;
+        ((head(HITLINE_KW!()), many0(hit), delimited(per, time, end))).parse(input)?;
     Ok((input, Expression::HitLine(PHitLine { id, hits, duration })))
 }
 
 fn durations(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, durations)) =
-        tuple((head(DURATIONLINE_KW!()), many0(terminated(time, space0))))(input)?;
+        ((head(DURATIONLINE_KW!()), many0(terminated(time, space0)))).parse(input)?;
     Ok((
         input,
         Expression::DurationLine(PDurationLine { id, durations }),
@@ -510,7 +511,7 @@ fn durations(input: &str) -> IResult<&str, Expression<'_>> {
 }
 
 fn shape(input: &str) -> IResult<&str, PShape> {
-    let (input, oprog) = delimited(space0, opt(one_of("=~<>°")), space0)(input)?;
+    let (input, oprog) = delimited(space0, opt(one_of("=~<>°")), space0).parse(input)?;
 
     let shape = match oprog {
         Some(c) => match c {
@@ -528,13 +529,13 @@ fn shape(input: &str) -> IResult<&str, PShape> {
 }
 
 fn velocity(input: &str) -> IResult<&str, PVelocity<'_>> {
-    let (input, (ofadein, level, envelope_id, ofadeout, transition)) = tuple((
+    let (input, (ofadein, level, envelope_id, ofadeout, transition)) = ((
         opt(tag(FADEIN_KW!())),
         ratio,
         opt(preceded(char(COUPLING_KW!()), id)),
         opt(tag(FADEOUT_KW!())),
         shape,
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PVelocity {
@@ -548,31 +549,31 @@ fn velocity(input: &str) -> IResult<&str, PVelocity<'_>> {
 }
 
 fn velocityline_part(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
-    let (input, (velocity, omul)) = tuple((
+    let (input, (velocity, omul)) = ((
         velocity,
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
     Ok((input, PVelocityLineFragment::Part((velocity, omul.unwrap_or(1)))))
 }
 
 fn velocityline_ref(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
-    let (input, (id, omul)) = tuple((
+    let (input, (id, omul)) = ((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
 
     Ok((input, PVelocityLineFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
 fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment<'_>> {
-    let (input, (fragments, mul)) = tuple((
+    let (input, (fragments, mul)) = ((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
             many0(alt((velocityline_part, velocityline_ref, velocityline_fragments))),
             terminated(char(CLOSE_PARENT_KW!()), space0),
         ),
         preceded(terminated(char(MUL_KW!()), space0), uint),
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PVelocityLineFragment::Fragments((fragments, mul)),
@@ -580,11 +581,11 @@ fn velocityline_fragments(input: &str) -> IResult<&str, PVelocityLineFragment<'_
 }
 
 fn velocityline(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, fragments, _)) = tuple((
+    let (input, (id, fragments, _)) = ((
         head(VELOCITYLINE_KW!()),
         many0(alt((velocityline_part, velocityline_ref, velocityline_fragments))),
         end,
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         Expression::VelocityLine(PVelocityLine { id, fragments }),
@@ -592,7 +593,7 @@ fn velocityline(input: &str) -> IResult<&str, Expression<'_>> {
 }
 
 fn envelop_point(input: &str) -> IResult<&str, PEnvelopePoint> {
-    let (input, (duration, shape, level, _)) = tuple((time, shape, ratio, space0))(input)?;
+    let (input, (duration, shape, level, _)) = ((time, shape, ratio, space0)).parse(input)?;
     Ok((
         input,
         PEnvelopePoint {
@@ -604,38 +605,38 @@ fn envelop_point(input: &str) -> IResult<&str, PEnvelopePoint> {
 }
 
 fn envelope(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, points, _)) = tuple((head(ENVELOP_KW!()), many0(envelop_point), end))(input)?;
+    let (input, (id, points, _)) = ((head(ENVELOP_KW!()), many0(envelop_point), end)).parse(input)?;
     Ok((input, Expression::Envelope(PEnvelope { id, points })))
 }
 
 
 pub fn pitch_id(input: &str) -> IResult<&str, &str> {
-    recognize(many1_count(alt((alphanumeric1, tag("#"), tag("."), tag("^") ) ) ) ) (input)
+    recognize(many1_count(alt((alphanumeric1, tag("#"), tag("."), tag("^") ) ) ) ).parse(input)
 }
 
 fn pitch(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
-    let (input, (id, transition, omul)) = tuple((
+    let (input, (id, transition, omul)) = ((
         recognize(pitch_id),
         shape,
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
     Ok((input, PPitchLineFragment::Part((PPitch {id, transition}, omul.unwrap_or(1)))))
 }
 
 fn note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
-    let (input, (_, _, oshift_count)) = tuple((tag(NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
+    let (input, (_, _, oshift_count)) = ((tag(NOTE_SHIFT_KW!()), space0, opt(digit1))).parse(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::NoteShift(shift_count ) ) )
 }
 
 fn backward_note_shift_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
-    let (input, (_, _, oshift_count)) = tuple((tag(BACK_NOTE_SHIFT_KW!()), space0, opt(digit1)))(input)?;
+    let (input, (_, _, oshift_count)) = ((tag(BACK_NOTE_SHIFT_KW!()), space0, opt(digit1))).parse(input)?;
     let shift_count = oshift_count.map_or(0, |s| usize::from_str(s).unwrap());
     Ok((input, PPitchLineTransformation::BackwardNoteShift(shift_count) ) )
 }
 
 fn pitch_transpo_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
-    let (input, (pa, _, _, _, pb)) = tuple((pitch_id, space1, tag(PITCH_TRANSPO_KW!()), space1, pitch_id))(input)?;
+    let (input, (pa, _, _, _, pb)) = ((pitch_id, space1, tag(PITCH_TRANSPO_KW!()), space1, pitch_id)).parse(input)?;
     Ok((input, PPitchLineTransformation::PitchTranspo(pa, pb) ) )
 }
 
@@ -645,22 +646,22 @@ fn pitch_inv_transformation(input: &str) -> IResult<&str, PPitchLineTransformati
 }
 
 fn pitchline_transformation(input: &str) -> IResult<&str, PPitchLineTransformation<'_>> {
-    let (input, (_, transfo, _, _, _)) = tuple((space0,
+    let (input, (_, transfo, _, _, _)) = ((space0,
         alt((note_shift_transformation, backward_note_shift_transformation, pitch_transpo_transformation, pitch_inv_transformation)),
         space0,
         opt(char(PARAM_SEP_KW!())),
         space0,
-    )) (input)?;
+    )).parse(input)?;
     Ok((input, transfo))
 }
 
 fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
-    let (input, (id, transformations, _, omul)) = tuple((
+    let (input, (id, transformations, _, omul)) = ((
         preceded(char(REF_KW!()), id),
         opt(delimited(char(OPEN_BRACKET_KW!()), many0(pitchline_transformation), char(CLOSE_BRACKET_KW!()))),
         space0,
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
     let mul = omul.unwrap_or(1);
     Ok((
         input,
@@ -669,14 +670,14 @@ fn pitchline_ref(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
 }
 
 fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
-    let (input, (fragments, mul)) = tuple((
+    let (input, (fragments, mul)) = ((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
             many0(alt((pitch, pitchline_ref, pitchline_fragments))),
             terminated(char(CLOSE_PARENT_KW!()), space0),
         ),
         preceded(terminated(char(MUL_KW!()), space0), uint),
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PPitchLineFragment::Fragments((fragments, mul)),
@@ -685,12 +686,12 @@ fn pitchline_fragments(input: &str) -> IResult<&str, PPitchLineFragment<'_>> {
 
 fn pitchline(input: &str) -> IResult<&str, Expression<'_>> {
     let (input, (id, attributes, fragments, _, _)) =
-        tuple((head(PITCHLINE_KW!()),
+        ((head(PITCHLINE_KW!()),
         many0(attribute),
         many0(alt((pitch, pitchline_ref, pitchline_fragments))),
         space0,
         end,
-    ))(input)?;
+    )).parse(input)?;
 
     let mut scale = None;
 
@@ -705,7 +706,7 @@ fn pitchline(input: &str) -> IResult<&str, Expression<'_>> {
 
 fn seq_part(input: &str) -> IResult<&str, PSeqFragment<'_>> {
     let (input, (hitline_id, durationline_id, pitchline_id, chordline_id, velocityline_id, omul, _)) =
-        tuple((
+        ((
             id,
             opt(preceded(char(COUPLING_KW!()), id)),
             opt(preceded(char(JOIN_KW!()), id)),
@@ -713,7 +714,7 @@ fn seq_part(input: &str) -> IResult<&str, PSeqFragment<'_>> {
             opt(preceded(char(JOIN_KW!()), id)),
             opt(preceded(terminated(char(MUL_KW!()), space0), float)),
             space0,
-        ))(input)?;
+        )).parse(input)?;
     Ok((
         input,
         PSeqFragment::Part(PSeqPart {
@@ -728,23 +729,23 @@ fn seq_part(input: &str) -> IResult<&str, PSeqFragment<'_>> {
 }
 
 fn seq_ref(input: &str) -> IResult<&str, PSeqFragment<'_>> {
-    let (input, (id, omul)) = tuple((
+    let (input, (id, omul)) = ((
         preceded(char(REF_KW!()), id),
         opt(preceded(terminated(char(MUL_KW!()), space0), uint)),
-    ))(input)?;
+    )).parse(input)?;
     
     Ok((input, PSeqFragment::Ref(PRef{id, mul: omul.unwrap_or(1)})))
 }
 
 fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment<'_>> {
-    let (input, (fragments, mul)) = tuple((
+    let (input, (fragments, mul)) = ((
         delimited(
             terminated(char(OPEN_PARENT_KW!()), space0),
             many0(alt((seq_part, seq_ref, seq_fragments))),
             terminated(char(CLOSE_PARENT_KW!()), space0),
         ),
         preceded(terminated(char(MUL_KW!()), space0), uint),
-    ))(input)?;
+    )).parse(input)?;
     Ok((
         input,
         PSeqFragment::Fragments((fragments, mul)),
@@ -752,14 +753,14 @@ fn seq_fragments(input: &str) -> IResult<&str, PSeqFragment<'_>> {
 }
 
 fn sequence(input: &str) -> IResult<&str, PSequence<'_>> {
-    let (input, (_, id, _, attributes, fragments, _)) = tuple((
+    let (input, (_, id, _, attributes, fragments, _)) = ((
         space1,
         id,
         terminated(char(DEF_KW!()), space0),
         many0(attribute),
         many0(alt((seq_part, seq_ref, seq_fragments))),
         end,
-    ))(input)?;
+    )).parse(input)?;
     let mut beat = None;
     let mut envelope_id = None;
 
@@ -782,24 +783,24 @@ fn sequence(input: &str) -> IResult<&str, PSequence<'_>> {
 }
 
 fn seq(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, sequence) = preceded(tag(SEQUENCE_KW!()), sequence)(input)?;
+    let (input, sequence) = preceded(tag(SEQUENCE_KW!()), sequence).parse(input)?;
     Ok((input, Expression::Seq(sequence)))
 }
 
 fn seqout(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, sequence) = preceded(tag(SEQUENCE_OUTPUT_KW!()), sequence)(input)?;
+    let (input, sequence) = preceded(tag(SEQUENCE_OUTPUT_KW!()), sequence).parse(input)?;
     Ok((input, Expression::SeqOut(sequence)))
 }
 
 fn midi_channel(input: &str) -> IResult<&str, PMidiChannel<'_>> {
-    let (input, (seq_id, bank_prog_a, bank_prog_b, bank_prog_c, attributes, _)) = tuple((
+    let (input, (seq_id, bank_prog_a, bank_prog_b, bank_prog_c, attributes, _)) = ((
         preceded(char(REF_KW!()), id),
         opt(preceded(char(JOIN_KW!()), digit1)),
         opt(preceded(char(COUPLING_KW!()), digit0)),
         opt(preceded(char(COUPLING_KW!()), digit1)),
         many0(attribute),
         space0,
-    ))(input)?;
+    )).parse(input)?;
 
     let (bank_msb, bank_lsb, program) = if bank_prog_c.is_some() {
         (bank_prog_a, bank_prog_b, bank_prog_c)
@@ -817,12 +818,12 @@ fn midi_channel(input: &str) -> IResult<&str, PMidiChannel<'_>> {
 }
 
 fn midiout(input: &str) -> IResult<&str, Expression<'_>> {
-    let (input, (id, _attributes, channels, _)) = tuple((
+    let (input, (id, _attributes, channels, _)) = ((
         head(MIDI_OUTPUT_KW!()),
         many0(attribute),
         many0(midi_channel),
         end,
-    ))(input)?;
+    )).parse(input)?;
     Ok((input, Expression::MidiOut(PMidiSequence {id, channels})))
 }
 
@@ -844,7 +845,7 @@ pub fn parse(input: &str) -> Result<Vec<Expression<'_>>, failure::Error> {
         multiline_comment, // multiline_comment must be evaluated before line_comment
         line_comment,
         end,
-    )))(input)
+    ))).parse(input)
     .map_err(|e| failure::err_msg(format!("tseq parser error : {:?}", e)))?;
 
     if input.is_empty() {
