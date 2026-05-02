@@ -3,8 +3,7 @@ use std::rc::Rc;
 
 use cpal;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use ringbuf;
-use ringbuf::RingBuffer;
+use ringbuf::{traits::*, HeapRb, SharedRb, storage::Heap};
 use talker::audio_format::AudioFormat;
 
 use talker::identifier::RIdentifier;
@@ -16,11 +15,9 @@ use crate::output::{Output, ROutput};
 
 pub const MODEL: &str = "feedback";
 
-pub type AudioProducer = ringbuf::Producer<f32>;
-
 pub struct AudioStream {
     stream: cpal::Stream,
-    producer: AudioProducer,
+    producer: <SharedRb<Heap<f32>> as ringbuf::traits::Split>::Prod,
 }
 pub struct Feedback {
     identifier: RIdentifier,
@@ -68,16 +65,16 @@ impl Feedback {
         let latency_samples = nb_samples * nb_channels as usize;
 
         // The buffer to share samples
-        let ring = RingBuffer::new(latency_samples * 5);
+        let ring = HeapRb::<f32>::new(latency_samples * 5);
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
             for sample in data {
-                let mut ov = consumer.pop();
+                let mut ov = consumer.try_pop();
 
                 while ov == None {
                     std::thread::sleep(std::time::Duration::from_millis(20));
-                    ov = consumer.pop();
+                    ov = consumer.try_pop();
                 }
                 *sample = ov.unwrap_or(0.0);
             }
@@ -266,7 +263,7 @@ impl Output for Feedback {
                     for _ in 0..self.nb_channels {
                         let sample = channels[in_chan_idx][i];
 
-                        while audio_stream.producer.push(sample).is_err() && output_fell_behind < 30
+                        while audio_stream.producer.try_push(sample).is_err() && output_fell_behind < 30
                         {
                             std::thread::sleep(std::time::Duration::from_millis(20));
                             output_fell_behind = output_fell_behind + 1;

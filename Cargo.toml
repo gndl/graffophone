@@ -14,7 +14,7 @@ path = "au2tseq/src/main.rs"
 
 [dependencies]
 failure = "0.1.8"
-ringbuf = "0.2.8"
+ringbuf = "0.4.8"
 dirs = "6.0.0"
 glib = "0.20.9"
 cairo-rs = "0.20.7"
