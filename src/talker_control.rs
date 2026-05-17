@@ -70,7 +70,7 @@ fn format_data(data: &RData) -> String {
         format_label(&s, 15)
     }
     else if data.is_ui() {
-        "[-O-]".to_string()
+        "[ UI ]".to_string()
     }
     else {
         String::default()
