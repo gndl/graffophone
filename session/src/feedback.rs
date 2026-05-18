@@ -44,7 +44,7 @@ impl Feedback {
             sample_rate: AudioFormat::sample_rate(),
             nb_samples,
             nb_channels: config.channels as usize,
-            interleaved_samples: Vec::with_capacity(nb_samples * config.channels as usize),
+            interleaved_samples:vec![0.0; nb_samples * config.channels as usize],
             audio_stream: None,
         })
     }
@@ -67,7 +67,7 @@ impl Feedback {
         let latency_samples = nb_samples * nb_channels as usize;
 
         // The buffer to share samples
-        let ring = HeapRb::<f32>::new(latency_samples * 5);
+        let ring = HeapRb::<f32>::new(latency_samples * 8);
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
@@ -257,17 +257,17 @@ impl Output for Feedback {
         match self.audio_stream.iter_mut().next() {
             Some(audio_stream) => {
                 let in_chan_end = channels.len() - 1;
+                let mut in_chan_idx = 0;
+                
+                for n_chan in 0..self.nb_channels {
+                    let mut idx = n_chan;
 
-                for i in 0..nb_samples_per_channel {
-                    let mut in_chan_idx = 0;
-
-                    for _ in 0..self.nb_channels {
-                        let sample = channels[in_chan_idx][i];
-                        self.interleaved_samples.push(sample);
-
-                        if in_chan_idx < in_chan_end {
-                            in_chan_idx += 1;
-                        }
+                    for i in 0..nb_samples_per_channel {
+                        self.interleaved_samples[idx] = channels[in_chan_idx][i];
+                        idx += self.nb_channels;
+                    }
+                    if in_chan_idx < in_chan_end {
+                        in_chan_idx += 1;
                     }
                 }
 
@@ -289,7 +289,6 @@ impl Output for Feedback {
                 if output_fell_behind > 30 {
                     eprintln!("output stream fell behind: try increasing latency");
                 }
-                self.interleaved_samples.clear();
 
                 Ok(())
             }
