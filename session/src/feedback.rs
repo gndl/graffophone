@@ -24,6 +24,7 @@ pub struct Feedback {
     sample_rate: usize,
     nb_samples: usize,
     nb_channels: usize,
+    interleaved_samples: Vec<f32>,
     audio_stream: Option<AudioStream>,
 }
 
@@ -43,6 +44,7 @@ impl Feedback {
             sample_rate: AudioFormat::sample_rate(),
             nb_samples,
             nb_channels: config.channels as usize,
+            interleaved_samples: Vec::with_capacity(nb_samples * config.channels as usize),
             audio_stream: None,
         })
     }
@@ -69,14 +71,15 @@ impl Feedback {
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
-            for sample in data {
-                let mut ov = consumer.try_pop();
+            let mut poped_count = 0;
 
-                while ov == None {
-                    std::thread::sleep(std::time::Duration::from_millis(20));
-                    ov = consumer.try_pop();
+            loop {
+                poped_count += consumer.pop_slice(&mut data[poped_count..]);
+
+                if poped_count >= data.len() {
+                    break;
                 }
-                *sample = ov.unwrap_or(0.0);
+                std::thread::sleep(std::time::Duration::from_millis(5));
             }
         };
 
@@ -240,7 +243,6 @@ impl Output for Feedback {
     }
 
     fn open(&mut self) -> Result<(), failure::Error> {
-        println!("Feedback::open");
         let audio_stream = Feedback::make_audio_stream(self.nb_channels, self.nb_samples)?;
 
         self.audio_stream = Some(audio_stream);
@@ -254,7 +256,6 @@ impl Output for Feedback {
     ) -> Result<(), failure::Error> {
         match self.audio_stream.iter_mut().next() {
             Some(audio_stream) => {
-                let mut output_fell_behind = 0;
                 let in_chan_end = channels.len() - 1;
 
                 for i in 0..nb_samples_per_channel {
@@ -262,21 +263,34 @@ impl Output for Feedback {
 
                     for _ in 0..self.nb_channels {
                         let sample = channels[in_chan_idx][i];
-
-                        while audio_stream.producer.try_push(sample).is_err() && output_fell_behind < 30
-                        {
-                            std::thread::sleep(std::time::Duration::from_millis(20));
-                            output_fell_behind = output_fell_behind + 1;
-                        }
+                        self.interleaved_samples.push(sample);
 
                         if in_chan_idx < in_chan_end {
                             in_chan_idx += 1;
                         }
                     }
                 }
-                if output_fell_behind == 30 {
+
+                let samples_count = nb_samples_per_channel * self.nb_channels;
+                let mut pushed_count = 0;
+                let mut output_fell_behind = 0;
+                
+                loop {
+                    let slice = &self.interleaved_samples[pushed_count..samples_count];
+                    pushed_count += audio_stream.producer.push_slice(slice);
+
+                    if pushed_count >= samples_count || output_fell_behind > 30 {
+                        break;
+                    }
+
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    output_fell_behind += 1;
+                }
+                if output_fell_behind > 30 {
                     eprintln!("output stream fell behind: try increasing latency");
                 }
+                self.interleaved_samples.clear();
+
                 Ok(())
             }
             None => Err(failure::err_msg(
