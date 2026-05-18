@@ -137,6 +137,7 @@ impl ApplicationView {
             .titlebar(&headerbar)
             .default_width(1024)
             .default_height(768)
+            .maximized(true)
             .visible(true)
             .build();
 
