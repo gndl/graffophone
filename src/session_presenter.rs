@@ -26,16 +26,19 @@ use crate::util;
 
 const GSR: &str = "
 Sinusoidal 2#G Sinusoidal
->0<440
+><440
 >1<0
 >2<1
 
+Pan 17#G Pan
+><0.5
+
 Mixer 1#Mixer
->0<0.1
->1.0.0.0<2:0
->1.0.1.0<1
->1.0.2.0<1
->1.0.3.0<1
+><0.1
+>1<2:0
+>1.0.1<1
+>1.0.2<17:0
+>1.0.3<17:1
 ";
 
 pub struct SessionPresenter {

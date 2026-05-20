@@ -12,6 +12,7 @@ pub mod fuzz;
 pub mod hub;
 pub mod lv2;
 pub mod math;
+pub mod pan;
 pub mod parabolic;
 pub mod regulator;
 pub mod round;
