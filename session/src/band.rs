@@ -262,7 +262,27 @@ impl Band {
         talk: &Talk,
         buf: &'a mut String,
     ) -> Result<&'a mut String, failure::Error> {
-        let talk_tag = format!(">{}.{}.{}.{}", ear_idx, set_idx, hum_idx, talk_idx);
+        let talk_tag = if talk_idx == 0 {
+            if hum_idx == 0 {
+                if set_idx == 0 {
+                    if ear_idx == 0 {
+                        ">".to_string()
+                    }
+                    else {
+                        format!(">{}", ear_idx)
+                    }
+                }
+                else {
+                    format!(">{}.{}", ear_idx, set_idx)
+                }
+            }
+            else {
+                format!(">{}.{}.{}", ear_idx, set_idx, hum_idx)
+            }
+        }
+        else {
+            format!(">{}.{}.{}.{}", ear_idx, set_idx, hum_idx, talk_idx)
+        };
         let tkr = &talk.talker();
 
         if tkr.is_hidden() {
