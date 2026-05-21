@@ -13,8 +13,8 @@ impl Pan {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::audio(Some("pan"), -1., 1., 0., &Init::DefValue)?);
 
-        base.add_cv_voice(Some("L"), 0.);
-        base.add_cv_voice(Some("R"), 0.);
+        base.add_cv_voice(Some("LEFT"), 0.);
+        base.add_cv_voice(Some("RIGHT"), 0.);
 
         Ok(ctalker!(base, Self {}))
     }
