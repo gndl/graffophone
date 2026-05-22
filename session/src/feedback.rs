@@ -55,19 +55,19 @@ impl Feedback {
 
     fn make_audio_stream(
         nb_channels: usize,
-        nb_samples: usize,
+        _nb_samples: usize,
     ) -> Result<AudioStream, failure::Error> {
         let output_device = cpal::default_host()
             .default_output_device()
             .expect("failed to get default output device");
 
-        let mut config: cpal::StreamConfig = output_device.default_output_config()?.into();
-        config.sample_rate = AudioFormat::sample_rate() as u32;
+        let sample_rate = AudioFormat::sample_rate();
 
-        let latency_samples = nb_samples * nb_channels as usize;
+        let mut config: cpal::StreamConfig = output_device.default_output_config()?.into();
+        config.sample_rate = sample_rate as u32;
 
         // The buffer to share samples
-        let ring = HeapRb::<f32>::new(latency_samples * 8);
+        let ring = HeapRb::<f32>::new(sample_rate * nb_channels);
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
