@@ -5,7 +5,6 @@ use std::rc::Rc;
 
 use cairo::Context;
 
-use talker::data::RData;
 use talker::horn::PortType;
 use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
@@ -43,47 +42,6 @@ struct VoiceControl {
     port_type: PortType,
     color: Color,
 }
-
-fn format_label(s: &str, max_len: usize) -> String {
-    let mut label = s.trim_start();
-
-    if let Some(eol_pos) = label.find("\n") {
-        label = &label[0..eol_pos];
-    }
-
-    if label.is_empty() {
-        "...".to_string()
-    } else if label.len() > max_len {
-        label[0..max_len].to_string() + "..."
-    } else {
-        label.to_string()
-    }
-}
-
-fn format_name(s: &str) -> String {
-    format_label(s, 24)
-}
-fn format_data(data: &RData) -> String {
-    let data = data.borrow();
-
-    if let Some(s) = data.to_string() {
-        format_label(&s, 15)
-    }
-    else if data.is_ui() {
-        "[ UI ]".to_string()
-    }
-    else {
-        String::default()
-    }
-}
-fn format_tag(s: &str) -> String {
-    //    s[0..1].to_uppercase() + &s[1..s.len()]
-    s.to_uppercase()
-}
-fn format_value(v: &f32) -> String {
-    format_label(&f32::to_string(v), 6)
-}
-
 
 pub struct TalkerControlBase {
     id: Id,
@@ -167,7 +125,7 @@ impl TalkerControlBase {
         let name_area = if draw_name {
             ui::style::name(control_supply.cc);
             let n_a =
-                control_supply.area_of(&format_name(&tkr.name()), imize_area.e_x, header_e_y)?;
+                control_supply.area_of(&ui::control::format_name(&tkr.name()), imize_area.e_x, header_e_y)?;
             box_e_x = n_a.e_x;
             header_e_y = n_a.e_y;
             Some(n_a)
@@ -177,7 +135,7 @@ impl TalkerControlBase {
 
         let data_area = if draw_data && !minimized {
             ui::style::data(control_supply.cc);
-            let d_a = control_supply.area_of(&format_data(tkr.data()), 0., header_e_y)?;
+            let d_a = control_supply.area_of(&ui::control::format_data(tkr.data()), 0., header_e_y)?;
             box_e_x = box_e_x.max(d_a.e_x);
             header_e_y = d_a.e_y;
             Some(d_a)
@@ -206,7 +164,7 @@ impl TalkerControlBase {
                 let ear_is_multi_set = ear.is_multi_set();
                 let set_padding = if ear_is_multi_set { ui::control::V_PADDING } else { 0. };
                 let sup_set = ear.sets().len() > 1;
-                let ear_tag = format_tag(ear.tag());
+                let ear_tag = ui::control::format_tag(ear.tag());
                 let mut ear_e_x: f64 = 0.;
                 let mut b_y = ears_e_y;
 
@@ -230,14 +188,14 @@ impl TalkerControlBase {
                         let tag = if let Some(h_tag) = hum_tag {
                             h_tag.to_string()
                         } else {
-                            format_tag(hum.tag())
+                            ui::control::format_tag(hum.tag())
                         };
 
                         let tag_area = control_supply.area_of(&tag, add_in_area.e_x, b_y)?;
 
                         let (value, value_area, hum_area) = if hum.can_have_a_value() {
                             let (value, value_area) = if let Some(v) = hum.value() {
-                                let value = format_value(&v);
+                                let value = ui::control::format_value(&v);
                                 ui::style::value(control_supply.cc);
                                 let value_area =
                                     control_supply.area_of(&value, tag_area.e_x, b_y)?;
@@ -338,7 +296,7 @@ impl TalkerControlBase {
             ui::style::io(control_supply.cc);
 
             for (port, voice) in tkr.voices().iter().enumerate() {
-                let tag = format_tag(voice.tag());
+                let tag = ui::control::format_tag(voice.tag());
                 let (associated_ear, associated_set) = voice.get_associated_ear_set();
 
                 let b_y = if ears.len() > associated_ear && ears[associated_ear].sets.len() > associated_set {
@@ -552,7 +510,7 @@ impl TalkerControlBase {
                 self.x + name_area.content_b_x,
                 self.y + name_area.content_e_y,
             );
-            cc.show_text(&format_name(&self.talker.name()))?;
+            cc.show_text(&ui::control::format_name(&self.talker.name()))?;
         }
         if let Some(data_area) = &self.data_area {
             ui::style::data(cc);
@@ -560,7 +518,7 @@ impl TalkerControlBase {
                 self.x + data_area.content_b_x,
                 self.y + data_area.content_e_y,
             );
-            cc.show_text(&format_data(self.talker.data()))?;
+            cc.show_text(&ui::control::format_data(self.talker.data()))?;
         }
         Ok(())
     }

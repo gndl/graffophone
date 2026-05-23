@@ -1,5 +1,6 @@
 use cairo::Context;
 
+use talker::data::RData;
 use crate::ui;
 
 pub const ADD_TAG: &str = "+";
@@ -23,6 +24,48 @@ pub const CHIP_W: f64 = 6.;
 pub const CHIP_H: f64 = 6.;
 
 pub const LINE_H: f64 = V_PADDING + ui::style::FONT_SIZE + V_PADDING + 1.;
+
+
+pub fn format_label(s: &str, max_len: usize) -> String {
+    let mut label = s.trim_start();
+
+    if let Some(eol_pos) = label.find("\n") {
+        label = &label[0..eol_pos];
+    }
+
+    if label.is_empty() {
+        "...".to_string()
+    } else if label.len() > max_len {
+        label[0..max_len].to_string() + "..."
+    } else {
+        label.to_string()
+    }
+}
+
+pub fn format_name(s: &str) -> String {
+    format_label(s, 24)
+}
+pub fn format_data(data: &RData) -> String {
+    let data = data.borrow();
+
+    if let Some(s) = data.to_string() {
+        format_label(&s, 15)
+    }
+    else if data.is_ui() {
+        "[ UI ]".to_string()
+    }
+    else {
+        String::default()
+    }
+}
+pub fn format_tag(s: &str) -> String {
+    //    s[0..1].to_uppercase() + &s[1..s.len()]
+    s.to_uppercase()
+}
+pub fn format_value(v: &f32) -> String {
+    format_label(&f32::to_string(v), 6)
+}
+
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Area {
