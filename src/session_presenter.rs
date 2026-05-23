@@ -25,12 +25,12 @@ use crate::undo_redo_list::UndoRedoList;
 use crate::util;
 
 const GSR: &str = "
-Sinusoidal 2#G Sinusoidal
+Sinusoidal 2#Sin
 ><440
 >1<0
 >2<1
 
-Pan 17#G Pan
+Pan 17#Pan
 ><0.5
 
 Mixer 1#Mixer
