@@ -15,6 +15,9 @@ use crate::output::{Output, ROutput};
 
 pub const MODEL: &str = "feedback";
 
+const ATTEMPT_DELAY: u64 = 5;
+const ATTEMPTS_NUMBER: u64 = 1000 / ATTEMPT_DELAY;
+
 pub struct AudioStream {
     stream: cpal::Stream,
     producer: <SharedRb<Heap<f32>> as ringbuf::traits::Split>::Prod,
@@ -279,14 +282,14 @@ impl Output for Feedback {
                     let slice = &self.interleaved_samples[pushed_count..samples_count];
                     pushed_count += audio_stream.producer.push_slice(slice);
 
-                    if pushed_count >= samples_count || output_fell_behind > 30 {
+                    if pushed_count >= samples_count || output_fell_behind > ATTEMPTS_NUMBER {
                         break;
                     }
 
-                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    std::thread::sleep(std::time::Duration::from_millis(ATTEMPT_DELAY));
                     output_fell_behind += 1;
                 }
-                if output_fell_behind > 30 {
+                if output_fell_behind > ATTEMPTS_NUMBER {
                     eprintln!("output stream fell behind: try increasing latency");
                 }
 
