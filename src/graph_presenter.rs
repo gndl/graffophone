@@ -157,6 +157,17 @@ impl GraphPresenter {
         Ok(notifications)
     }
 
+    pub fn show_talker_ui(
+        &mut self,
+        talker_id: Id,
+    ) -> Result<Vec<Notification>, failure::Error> {
+        let mut notifications = Vec::new();
+
+        notifications.push(Notification::ShowTalkerUi(talker_id));
+
+        Ok(notifications)
+    }
+
     pub fn select_data_talker(
         &mut self,
         talker_id: Id,

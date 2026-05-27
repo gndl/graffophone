@@ -10,18 +10,10 @@ pub enum Data {
     String(String),
     Text(String),
     File(String),
-    UI,
 }
 pub type RData = RefCell<Data>;
 
 impl Data {
-    pub fn is_ui(&self) -> bool {
-        match self {
-            Data::UI => true,
-            _ =>false,
-        }
-    }
-
     pub fn type_str(&self) -> &'static str {
         match self {
             Data::Int(_) => "Int",
@@ -29,7 +21,6 @@ impl Data {
             Data::String(_) => "String",
             Data::Text(_) => "Text",
             Data::File(_) => "File",
-            Data::UI => "UI",
             Data::Nil => "Nil",
         }
     }
@@ -91,7 +82,7 @@ impl Data {
 
     pub fn to_string(&self) -> Option<String> {
         match self {
-            Data::Nil | Data::UI => None,
+            Data::Nil => None,
             Data::Int(i) => Some(i.to_string()),
             Data::Float(f) => Some(f.to_string()),
             Data::String(s) => Some(s.to_string()),
@@ -124,7 +115,6 @@ impl Data {
             Data::String(_) => Ok(Data::String(s.to_string())),
             Data::Text(_) => Ok(Data::Text(s.to_string())),
             Data::File(_) => Ok(Data::File(s.to_string())),
-            Data::UI => Ok(Data::UI),
             Data::Nil => Ok(Data::Nil),
         }
     }

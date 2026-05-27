@@ -28,6 +28,7 @@ pub enum Notification {
     VoiceUnselected(Id, Index),
     TalkSelected(Id, Index),
     SelectionChanged,
+    ShowTalkerUi(Id),
     EditTalkerData(Id),
     CurveAdded,
     CurveRemoved,

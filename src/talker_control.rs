@@ -56,6 +56,7 @@ pub struct TalkerControlBase {
     height: f64,
     model_area: Option<Area>,
     name_area: Option<Area>,
+    ui_area: Option<Area>,
     data_area: Option<Area>,
     box_area: Area,
     ears: Vec<EarControl>,
@@ -68,7 +69,7 @@ pub type RTalkerControlBase = Rc<RefCell<TalkerControlBase>>;
 
 /*                MODEL
      _______________________________
-    |              NAME             |
+    |- [-O-] NAME                  X|
     |             [DATA]            |
  ---|⊞ EAR_TAG_1 ⟵       VOICE_TAG_1|
 ----|⊞ EAR_TAG_2 ⟵                  |
@@ -122,10 +123,22 @@ impl TalkerControlBase {
             ui::control::dim_to_area(0., header_e_y, &control_supply.minimize_dim)
         };
 
+        let ui_area = if tkr.has_ui() {
+            ui::style::data(control_supply.cc);
+            let ui_a =
+                control_supply.area_of(&ui::control::format_ui(), imize_area.e_x, header_e_y)?;
+            box_e_x = ui_a.e_x;
+            header_e_y = ui_a.e_y;
+            Some(ui_a)
+        } else {
+            None
+        };
+
         let name_area = if draw_name {
             ui::style::name(control_supply.cc);
-            let n_a =
-                control_supply.area_of(&ui::control::format_name(&tkr.name()), imize_area.e_x, header_e_y)?;
+            let (b_x, b_y)  = ui_area.as_ref().map_or((imize_area.e_x, header_e_y), |a| (a.e_x, a.b_y));
+            let n_a = control_supply.area_of(&ui::control::format_name(&tkr.name()), b_x, b_y)?;
+
             box_e_x = n_a.e_x;
             header_e_y = n_a.e_y;
             Some(n_a)
@@ -340,7 +353,8 @@ impl TalkerControlBase {
             width,
             height,
             model_area: model_area.map(|a| a.centered(0., width)),
-            name_area: name_area.map(|a| a.centered(0., width)),
+            name_area,
+            ui_area,
             data_area: data_area.map(|a| a.centered(0., width)),
             box_area: Area::new(0., width, box_b_y, height),
             ears,
@@ -511,6 +525,14 @@ impl TalkerControlBase {
                 self.y + name_area.content_e_y,
             );
             cc.show_text(&ui::control::format_name(&self.talker.name()))?;
+        }
+        if let Some(ui_area) = &self.ui_area {
+            ui::style::data(cc);
+            cc.move_to(
+                self.x + ui_area.content_b_x,
+                self.y + ui_area.content_e_y,
+            );
+            cc.show_text(&ui::control::format_ui())?;
         }
         if let Some(data_area) = &self.data_area {
             ui::style::data(cc);
@@ -865,6 +887,13 @@ impl TalkerControlBase {
         let ry = y - self.y;
 
         if self.area.is_under(rx, ry) {
+            if let Some(ui_area) = &self.ui_area {
+                if ui_area.is_under(rx, ry) {
+                    let notifications = graph_presenter.borrow_mut().show_talker_ui(self.id)?;
+                    return Ok(Some(notifications));
+                }
+            }
+
             if self.minimized {
                 let notifications = graph_presenter.borrow_mut().minimize_talker(self.id)?;
                 return Ok(Some(notifications));

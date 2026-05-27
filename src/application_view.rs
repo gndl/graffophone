@@ -14,7 +14,7 @@ use crate::graph_view::{GraphView, RGraphView};
 use crate::session_actions;
 use crate::session_presenter::RSessionPresenter;
 use crate::settings;
-use crate::talker_data_view::TalkerDataView;
+use crate::talker_view::TalkerView;
 use crate::talkers_list_view::TalkersListView;
 
 pub struct ApplicationView {
@@ -25,7 +25,7 @@ pub struct ApplicationView {
     record_button: gtk::Button,
     message_view_revealer: gtk::Revealer,
     message_view_label: gtk::Label,
-    talker_data_view: TalkerDataView,
+    talker_view: TalkerView,
     talkers_list_view: TalkersListView,
     graph_view: RGraphView,
     session_presenter: RSessionPresenter,
@@ -170,10 +170,10 @@ impl ApplicationView {
         headerbar.pack_start(&separator);
 
 
-        // Talker data view
-        let talker_data_view = TalkerDataView::new(session_presenter);
-        talker_data_view.add_tools(|w| headerbar.pack_start(w));
-        talker_data_view.hide();
+        // Talker view
+        let talker_view = TalkerView::new(session_presenter);
+        talker_view.add_tools(|w| headerbar.pack_start(w));
+        talker_view.hide();
 
         // Graph view
         let graph_view = GraphView::new_ref(&window, session_presenter, event_bus);
@@ -183,7 +183,7 @@ impl ApplicationView {
         // Vertical box
         let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
         v_box.append(&message_view_revealer);
-        talker_data_view.add_content(|w| v_box.append(w));
+        talker_view.add_content(|w| v_box.append(w));
         v_box.append(&split_pane);
 
         window.set_child(Some(&v_box));
@@ -211,7 +211,7 @@ impl ApplicationView {
             record_button,
             message_view_revealer,
             message_view_label,
-            talker_data_view,
+            talker_view,
             talkers_list_view,
             graph_view,
             session_presenter: session_presenter.clone(),
@@ -234,9 +234,17 @@ impl ApplicationView {
         self.graph_view.borrow().graph_presenter()
     }
 
+    // Talker UI
+    fn show_talker_ui(&self, talker_id: Id) {
+        match self.talker_view.show_talker_ui(talker_id) {
+            Ok(()) => (),
+            Err(e) => self.display_error_message(&format!("{}", e)),
+        }
+    }
+
     // Talker data editor
     fn edit_talker_data(&self, talker_id: Id) {
-        match self.talker_data_view.edit_talker_data(&self.window, talker_id) {
+        match self.talker_view.edit_talker_data(&self.window, talker_id) {
             Ok(()) => (),
             Err(e) => self.display_error_message(&format!("{}", e)),
         }
@@ -246,7 +254,10 @@ impl ApplicationView {
         let selected_data_talker = self.graph_presenter().borrow().selected_data_talker();
 
         if let Some(talker_id) = selected_data_talker {
-            self.session_presenter.borrow_mut().set_talker_data(talker_id, &self.talker_data_view.get_data());
+            self.session_presenter.borrow_mut().set_talker_data(talker_id, &self.talker_view.get_data());
+        }
+        else {
+            println!("push_talker_data: no selected_data_talker");
         }
     }
 
@@ -260,7 +271,7 @@ impl ApplicationView {
     }
 
     fn close_talker_data_editor(&self) {
-        self.talker_data_view.hide();
+        self.talker_view.hide();
 
         let res = self.graph_presenter().borrow_mut().unselect_data_talker();
         self.event_bus.borrow().notify_notifications_result(res);
@@ -272,8 +283,8 @@ impl ApplicationView {
 
     // Undo action
     pub fn undo(&self) {
-        if self.talker_data_view.is_active() {
-            self.talker_data_view.undo();
+        if self.talker_view.is_active() {
+            self.talker_view.undo();
         }
         else {
             self.session_presenter.borrow_mut().undo()
@@ -282,8 +293,8 @@ impl ApplicationView {
 
     // Redo action
     pub fn redo(&self) {
-        if self.talker_data_view.is_active() {
-            self.talker_data_view.redo();
+        if self.talker_view.is_active() {
+            self.talker_view.redo();
         }
         else {
             self.session_presenter.borrow_mut().redo()
@@ -295,8 +306,8 @@ impl ApplicationView {
         let msg = format!("find: {}", self.overall_entry);
         self.display_info_message(&msg);
 
-        if self.talker_data_view.is_active() {
-            self.talker_data_view.find(&self.overall_entry);
+        if self.talker_view.is_active() {
+            self.talker_view.find(&self.overall_entry);
         }
     }
 
@@ -307,12 +318,12 @@ impl ApplicationView {
         let msg = format!("find: {}", self.overall_entry);
         self.display_info_message(&msg);
 
-        if self.talker_data_view.is_active() {
+        if self.talker_view.is_active() {
             if self.overall_entry.is_empty() {
-                self.talker_data_view.start_research();
+                self.talker_view.start_research();
             }
             else {
-                self.talker_data_view.find_next(backward);
+                self.talker_view.find_next(backward);
             }
         }
     }
@@ -343,7 +354,7 @@ impl ApplicationView {
         self.hide_message();
 
         self.search_in_progress = false;
-        self.talker_data_view.finish_research();
+        self.talker_view.finish_research();
 
         self.overall_entry.clear();
         self.overall_entry_in_progress = false;
@@ -445,7 +456,7 @@ impl ApplicationView {
                 },
                 Notification::NewSession(name) => {
                     obs.borrow().hide_message();
-                    obs.borrow().talker_data_view.hide();
+                    obs.borrow().talker_view.hide();
                     obs.borrow().window.set_title(Some(name));
                 }
                 Notification::SessionSaved => obs.borrow().display_info_message("Session saved."),
@@ -458,9 +469,8 @@ impl ApplicationView {
                     println!("Todo : Applicationview.set_time_range {} <-> {}", st, et)
                 }
                 Notification::TalkersRange(talkers) => obs.borrow().talkers_list_view.fill(talkers),
-                Notification::EditTalkerData(talker_id) => {
-                    obs.borrow().edit_talker_data(*talker_id)
-                }
+                Notification::ShowTalkerUi(talker_id) => obs.borrow().show_talker_ui(*talker_id),
+                Notification::EditTalkerData(talker_id) => obs.borrow().edit_talker_data(*talker_id),
                 Notification::CurveAdded => println!("Todo : Applicationview.CurveAdded"),
                 Notification::CurveRemoved => println!("Todo : Applicationview.CurveRemoved"),
                 Notification::Info(msg) => obs.borrow().display_info_message(msg),

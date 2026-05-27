@@ -31,7 +31,7 @@ use crate::session_presenter::RSessionPresenter;
 use crate::settings;
 use crate::ui::plugin_ui;
 
-pub struct TalkerDataView {
+pub struct TalkerView {
     buffer: sourceview5::Buffer,
     source_view: sourceview5::View,
     source_view_scrolledwindow: gtk::ScrolledWindow,
@@ -45,10 +45,10 @@ pub struct TalkerDataView {
     search_start: gtk::TextIter,
 }
 
-impl TalkerDataView {
+impl TalkerView {
     pub fn new(
         session_presenter: &RSessionPresenter,
-     ) -> TalkerDataView {
+     ) -> TalkerView {
 
         let buffer = sourceview5::Buffer::builder()
             .enable_undo(true)
@@ -207,6 +207,17 @@ impl TalkerDataView {
         });
     }
 
+    // Talker UI
+    pub fn show_talker_ui(&self, talker_id: Id) -> Result<(), failure::Error> {
+        
+        if let Some(talker) = self.session_presenter.borrow().find_talker(talker_id) {
+            self.plugin_ui_manager.borrow_mut().prepare_new_ui(talker);
+        }
+        self.plugin_ui_manager.borrow_mut().show_pending_ui(&self.session_presenter)?;
+
+        Ok(())
+    }
+
     // Talker data editor
     pub fn edit_talker_data(&self, window: &gtk::ApplicationWindow, talker_id: Id) -> Result<(), failure::Error> {
 
@@ -217,13 +228,10 @@ impl TalkerDataView {
                 Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
                 Data::Text(text) => self.edit_text(talker, text),
                 Data::File(_) => self.edit_file_path(window, talker_id),
-                Data::UI => self.plugin_ui_manager.borrow_mut().prepare_new_ui(talker),
                 Data::Nil => (),
             }
         }
         
-        self.plugin_ui_manager.borrow_mut().show_pending_ui(&self.session_presenter)?;
-
         Ok(())
     }
 

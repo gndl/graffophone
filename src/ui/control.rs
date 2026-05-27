@@ -45,14 +45,14 @@ pub fn format_label(s: &str, max_len: usize) -> String {
 pub fn format_name(s: &str) -> String {
     format_label(s, 24)
 }
+pub fn format_ui() -> String {
+    "[-O-]".to_string()
+}
 pub fn format_data(data: &RData) -> String {
     let data = data.borrow();
 
     if let Some(s) = data.to_string() {
         format_label(&s, 15)
-    }
-    else if data.is_ui() {
-        "[ UI ]".to_string()
     }
     else {
         String::default()

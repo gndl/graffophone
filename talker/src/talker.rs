@@ -22,6 +22,7 @@ pub struct TalkerBase {
     data: RData,
     ears: Vec<Ear>,
     voices: Vec<Voice>,
+    has_ui: bool,
     hidden: bool,
     effective: bool,
 }
@@ -33,6 +34,7 @@ impl TalkerBase {
             data: RefCell::new(data),
             ears: Vec::new(),
             voices: Vec::new(),
+            has_ui: false,
             hidden: false,
             effective,
         }
@@ -46,6 +48,7 @@ impl TalkerBase {
             data: self.data.clone(),
             ears: self.ears.iter().map(|elt| elt.clone()).collect(),
             voices: self.voices.iter().map(|elt| elt.clone()).collect(),
+            has_ui: self.has_ui,
             hidden: self.hidden,
             effective: self.effective,
         }
@@ -62,6 +65,7 @@ impl TalkerBase {
             data: RefCell::new(odata.unwrap_or(Data::Nil)),
             ears: oears.unwrap_or(Vec::new()),
             voices: ovoices.unwrap_or(Vec::new()),
+            has_ui: self.has_ui,
             hidden: self.hidden,
             effective: self.effective,
         }
@@ -160,6 +164,13 @@ impl TalkerBase {
 
     pub fn sup_voice(&mut self, voice_idx: Index) {
         self.voices.remove(voice_idx);
+    }
+
+    pub fn has_ui(&self) -> bool {
+        self.has_ui
+    }
+    pub fn set_ui(&mut self, has_ui: bool) {
+        self.has_ui = has_ui;
     }
 
     pub fn is_hidden(&self) -> bool {
@@ -362,6 +373,10 @@ impl TalkerCab {
             }
         }
         false
+    }
+
+    pub fn has_ui(&self) -> bool {
+        self.base.has_ui()
     }
 
     pub fn is_hidden(&self) -> bool {

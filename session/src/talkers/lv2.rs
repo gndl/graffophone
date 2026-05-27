@@ -52,9 +52,7 @@ impl Lv2 {
 
                 show_plugin(&plugin);
 
-                if lv2_handler.plugin_ui_supported(&plugin) {
-                    base.set_data(Data::UI);
-                }
+                base.set_ui(lv2_handler.plugin_ui_supported(&plugin));
 
                 match unsafe {
                     plugin.instantiate(
