@@ -34,7 +34,7 @@ impl DynamicModulators {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
-            ("gain", PortType::Audio, -1., 1., 1., Init::DefValue),
+            ("gain", PortType::Cv, -1., 4., 1., Init::DefValue),
         ])?;
 
         base.add_ear(Ear::new(Some("inputs"), true, Some(stem_set), None));
@@ -89,7 +89,7 @@ impl Talker for DynamicModulators {
         let ln = ear.listen_set(tick, len, port);
 
         let input_buf = ear.get_set_hum_audio_buffer(port, IN_HUM_INDEX);
-        let gain_buf = ear.get_set_hum_audio_buffer(port, GAIN_HUM_INDEX);
+        let gain_buf = ear.get_set_hum_cv_buffer(port, GAIN_HUM_INDEX);
 
         let state = &mut self.states[port];
 

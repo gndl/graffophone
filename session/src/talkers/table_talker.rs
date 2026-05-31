@@ -17,7 +17,7 @@ impl TableTalker {
     pub fn new(base: &mut TalkerBase, tab_len: usize) -> Result<TableTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
-        base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
 
@@ -43,7 +43,7 @@ impl TableTalker {
         let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(0);
         let phase_buf = base.ear_audio_buffer(1);
-        let gain_buf = base.ear_audio_buffer(2);
+        let gain_buf = base.ear_cv_buffer(2);
         let voice_buf = base.voice(port).audio_buffer();
 
         let phase_coef = self.tab_len * 0.5;

@@ -23,7 +23,7 @@ impl SinusoidalFPTG {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
         base.add_ear(ear::atom(Some("ev"), None)?);
-        base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
 
@@ -48,7 +48,7 @@ impl Talker for SinusoidalFPTG {
         let freq_buf = base.ear_cv_buffer(0);
         let phase_buf = base.ear_audio_buffer(1);
         let event_buf = base.ear_atom_buffer(2);
-        let gain_buf = base.ear_audio_buffer(3);
+        let gain_buf = base.ear_cv_buffer(3);
         let voice_buf = base.voice(port).audio_buffer();
         let c = self.frequence_coef;
         let mut last_angle = self.last_angle;

@@ -24,7 +24,7 @@ impl Square {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("ratio"), -1., 1., 0., &Init::DefValue)?);
-        base.add_ear(ear::audio(Some("gain"), -1., 1., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
 
@@ -50,7 +50,7 @@ impl Talker for Square {
         let ratio_ear = base.ear(RATIO_EAR_INDEX);
         let ratio_buf = base.ear_audio_buffer(RATIO_EAR_INDEX);
         let gain_ear = base.ear(GAIN_EAR_INDEX);
-        let gain_buf = base.ear_audio_buffer(GAIN_EAR_INDEX);
+        let gain_buf = base.ear_cv_buffer(GAIN_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
         let sample_rate = AudioFormat::sample_rate() as f32;
 

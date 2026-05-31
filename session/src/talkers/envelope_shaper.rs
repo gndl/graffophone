@@ -60,7 +60,7 @@ impl EnvelopeShaper {
 
         let stem_set = Set::from_attributs(&vec![
             ("ev", PortType::Atom, 0., 1., 0., Init::Empty),
-            ("gain", PortType::Audio, -1., 1., 1., Init::Empty),
+            ("gain", PortType::Cv, -1., 4., 1., Init::Empty),
         ])?;
 
         // let sets = vec![stem_set.clone()];
@@ -126,7 +126,7 @@ impl Talker for EnvelopeShaper {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.ear(PLAYERS_EAR_INDEX).listen_set(tick, len, port);
         let event_buf = base.ear_set_hum_atom_buffer(PLAYERS_EAR_INDEX, port, EVENT_HUM_INDEX);
-        let gain_buf = base.ear_set_hum_audio_buffer(PLAYERS_EAR_INDEX, port, GAIN_HUM_INDEX);
+        let gain_buf = base.ear_set_hum_cv_buffer(PLAYERS_EAR_INDEX, port, GAIN_HUM_INDEX);
 
         let player_state = &mut self.players_states[port];
         let mut env_idx = player_state.env_idx;

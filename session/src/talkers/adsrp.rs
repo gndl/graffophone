@@ -97,7 +97,7 @@ impl ADSRp {
 
         let player_stem_set = Set::from_attributs(&vec![
             ("ev", PortType::Atom, 0., 1., 0., Init::DefValue),
-            ("gain", PortType::Audio, -1., 1., 1., Init::DefValue),
+            ("gain", PortType::Cv, -1., 4., 1., Init::DefValue),
         ])?;
 
         base.add_ear(Ear::new(Some("Players"), true, Some(player_stem_set), None));
@@ -156,7 +156,7 @@ impl Talker for ADSRp {
         let player_ear = base.ear(PLAYERS_EAR_INDEX);
         let ln = player_ear.listen_set(tick, len, port);
         let event_buf = player_ear.get_set_hum_atom_buffer(port, EVENT_HUM_INDEX);
-        let gain_buf = player_ear.get_set_hum_audio_buffer(port, GAIN_HUM_INDEX);
+        let gain_buf = player_ear.get_set_hum_cv_buffer(port, GAIN_HUM_INDEX);
 
         let player_state = &mut self.players_states[port];
 

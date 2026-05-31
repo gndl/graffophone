@@ -36,7 +36,7 @@ impl Dampers {
         let stem_set = Set::from_attributs(&vec![
             ("in", PortType::Audio, -1., 1., 0., Init::DefValue),
             ("ceiling", PortType::Cv, 0., 1000., 1., Init::DefValue),
-            ("gain", PortType::Audio, -1., 1., 1., Init::DefValue),
+            ("gain", PortType::Cv, -1., 4., 1., Init::DefValue),
         ])?;
 
         base.add_ear(Ear::new(Some("inputs"), true, Some(stem_set), None));
@@ -92,7 +92,7 @@ impl Talker for Dampers {
 
         let input_buf = ear.get_set_hum_audio_buffer(port, IN_HUM_INDEX);
         let ceiling_buf = ear.get_set_hum_cv_buffer(port, CEILING_HUM_INDEX);
-        let gain_buf = ear.get_set_hum_audio_buffer(port, GAIN_HUM_INDEX);
+        let gain_buf = ear.get_set_hum_cv_buffer(port, GAIN_HUM_INDEX);
 
         let state = &mut self.states[port];
 

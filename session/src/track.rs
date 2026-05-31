@@ -11,7 +11,7 @@ const CHANNEL_GAIN_INDEX: Index = 2;
 fn compute_input_gain(set: &Set, _tick: i64, buf: &mut Vector, len: usize) -> usize {
 
     let in_buf = set.get_hum_audio_buffer(INPUT_INDEX);
-    let gain_buf = set.get_hum_audio_buffer(GAIN_INDEX);
+    let gain_buf = set.get_hum_cv_buffer(GAIN_INDEX);
 
     for i in 0..len {
         buf[i] = in_buf[i] * gain_buf[i];

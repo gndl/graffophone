@@ -56,7 +56,7 @@ impl Mixer {
 
         let mut hums_attributs = vec![
             ("", PortType::Audio, AudioFormat::MIN_AUDIO, AudioFormat::MAX_AUDIO, AudioFormat::DEF_AUDIO, Init::Empty),
-            ("gain", PortType::Audio, 0., 1., 1., Init::DefValue),
+            ("gain", PortType::Cv, 0., 4., 1., Init::DefValue),
         ];
 
         if output_idx < outputs.len() {
