@@ -170,7 +170,7 @@ impl Event {
                 lsb = 0;
             }
 
-            Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, 0x00, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
+            Some(vec![0xF0, 0x7E, 0x7F, 0x08, 0x07, 0x00, channel_number, 0x01, note_number, note_number_below, msb, lsb, 0xF7])
         }
         else {
             None
