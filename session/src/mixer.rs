@@ -96,7 +96,7 @@ impl Mixer {
             audible_tracks.extend_from_slice(&parent.audible_tracks);
         }
         else {
-            base.add_ear(ear::cv(Some("volume"), 0., 1., 0.1, &Init::DefValue)?);
+            base.add_ear(ear::cv(Some("volume"), 0., 4., 0.1, &Init::DefValue)?);
             tracks.push(stem_track.clone());
             audible_tracks.push(0);
         }
