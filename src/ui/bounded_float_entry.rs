@@ -165,14 +165,14 @@ pub fn create<
         else if key == gtk::gdk::Key::Delete {
             key_pressed_entry.set_text("");
         }
-        else if key == gtk::gdk::Key::space || key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter {
+        else if key == gtk::gdk::Key::space {
             match f32::from_str(&entry_value) {
                 Ok(v) => key_pressed_adjustment.set_value(v as f64),
                 Err(_) => key_pressed_entry.set_text(&(key_pressed_adjustment.value() as f32).to_string()),
             }
-            if key != gtk::gdk::Key::space {
-                key_pressed_ok_button.emit_clicked();
-            }
+        }
+        else if key == gtk::gdk::Key::Return || key == gtk::gdk::Key::KP_Enter {
+            key_pressed_ok_button.emit_clicked();
         }
         else if key == gtk::gdk::Key::Escape {
             key_pressed_cancel_button.emit_clicked();
@@ -186,7 +186,13 @@ pub fn create<
 
     default_button.connect_clicked(move |_| on_default(def));
 
-    ok_button.connect_clicked(move |_| on_ok(adjustment.value() as f32));
+    ok_button.connect_clicked(move |_| {
+        let v = match f32::from_str(&entry.text()) {
+            Ok(v) => v.min(max).max(min),
+            Err(_) => adjustment.value() as f32,
+        };
+        on_ok(v);
+    });
 
     widget
 }
