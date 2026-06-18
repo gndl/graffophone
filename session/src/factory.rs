@@ -40,10 +40,22 @@ impl Factory {
         &self,
         model: &str,
         oid: Option<u32>,
-        oname: Option<&str>, effective: bool,
+        oname: Option<&str>,
+        effective: bool,
     ) -> Result<RTalker, failure::Error> {
-        let tkr = self.plugins_manager.make_talker(model, effective)?;
+        let tkr = self.plugins_manager.make_talker(model, effective, false)?;
         Factory::set_identity(tkr.identifier(), oid, oname);
+        Ok(tkr)
+    }
+
+    pub fn add_talker(
+        &self,
+        model: &str,
+        oid: Option<u32>,
+        effective: bool,
+    ) -> Result<RTalker, failure::Error> {
+        let tkr = self.plugins_manager.make_talker(model, effective, true)?;
+        Factory::set_identity(tkr.identifier(), oid, None);
         Ok(tkr)
     }
 

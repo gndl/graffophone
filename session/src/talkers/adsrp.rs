@@ -60,39 +60,44 @@ const EVENT_HUM_INDEX: Index = 0;
 const GAIN_HUM_INDEX: Index = 1;
 
 impl ADSRp {
-    pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
+    pub fn new(mut base: TalkerBase, garnish: bool) -> Result<CTalker, failure::Error> {
 
         let env_stem_set = Set::from_attributs(&vec![
             ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
             ("level", PortType::Audio, -1., 1., 0.5, Init::DefValue),
         ])?;
 
-        let attack = Set::from_attributs(&vec![
-            ("dur", PortType::Cv, 0., 400., 0.01, Init::DefValue),
-            ("level", PortType::Audio, -1., 1., 1., Init::DefValue),
-        ])?;
-
-        let decay = Set::from_attributs(&vec![
-            ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
-            ("level", PortType::Audio, -1., 1., 0.6, Init::DefValue),
-        ])?;
-
-        let sustain = Set::from_attributs(&vec![
-            ("dur", PortType::Cv, 0., 400., 0.6, Init::DefValue),
-            ("level", PortType::Audio, -1., 1., 0.4, Init::DefValue),
-        ])?;
-
-        let release = Set::from_attributs(&vec![
-            ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
-            ("level", PortType::Audio, -1., 1., 0.0, Init::DefValue),
-        ])?;
-
-        let sets = vec![attack, decay, sustain, release];
+        let env_sets = if garnish {
+            let attack = Set::from_attributs(&vec![
+                ("dur", PortType::Cv, 0., 400., 0.01, Init::DefValue),
+                ("level", PortType::Audio, -1., 1., 1., Init::DefValue),
+            ])?;
+    
+            let decay = Set::from_attributs(&vec![
+                ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
+                ("level", PortType::Audio, -1., 1., 0.6, Init::DefValue),
+            ])?;
+    
+            let sustain = Set::from_attributs(&vec![
+                ("dur", PortType::Cv, 0., 400., 0.6, Init::DefValue),
+                ("level", PortType::Audio, -1., 1., 0.4, Init::DefValue),
+            ])?;
+    
+            let release = Set::from_attributs(&vec![
+                ("dur", PortType::Cv, 0., 400., 0.2, Init::DefValue),
+                ("level", PortType::Audio, -1., 1., 0.0, Init::DefValue),
+            ])?;
+    
+            Some(vec![attack, decay, sustain, release])
+        }
+        else {
+            None
+        };
         base.add_ear(Ear::new(
             Some("Envelope"),
             true,
             Some(env_stem_set),
-            Some(sets),
+            env_sets,
         ));
 
         let player_stem_set = Set::from_attributs(&vec![

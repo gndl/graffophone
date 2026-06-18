@@ -21,7 +21,7 @@ use std::io::Write;
 
 use luil::ui_connector::UiConnector;
 
-use talker::identifier::{self, Id, Index};
+use talker::identifier::{Id, Index};
 use talker::talker::RTalker;
 use talker::audio_format::AudioFormat;
 
@@ -77,13 +77,6 @@ impl Session {
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
         self.band.talkers()
-    }
-
-    pub fn add_talker(&mut self, talker_model: &str) -> Result<State, failure::Error> {
-        self.modify_band(&Operation::AddTalker(
-            identifier::get_next_id(),
-            talker_model.to_string(),
-        ))
     }
 
     pub fn mixers<'a>(&'a self) -> &'a HashMap<u32, RMixer> {

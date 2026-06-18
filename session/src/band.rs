@@ -381,26 +381,14 @@ impl Band {
         nb_channels
     }
 
-    fn build_talker(
-        &mut self,
-        factory: &Factory,
-        model: &str,
-        oid: Option<Id>,
-        oname: Option<&str>,
-    ) -> Result<RTalker, failure::Error> {
-        let tkr = factory.make_talker(model, oid, oname, self.effective)?;
-        self.talkers.insert(tkr.id(), tkr.clone());
-        Ok(tkr)
-    }
-
     pub fn add_talker(
         &mut self,
         model: &str,
         oid: Option<Id>,
-        oname: Option<&str>,
     ) -> Result<RTalker, failure::Error> {
         Factory::visit(|factory| {
-            let tkr = self.build_talker(factory, model, oid, oname)?;
+            let tkr = factory.add_talker(model, oid, self.effective)?;
+            self.talkers.insert(tkr.id(), tkr.clone());
             Ok(tkr)
         })
     }
@@ -550,7 +538,7 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         let mut result = Ok(());
         match operation {
             Operation::AddTalker(tkr_id, model) => {
-                self.add_talker(&model, Some(*tkr_id), None)?;
+                self.add_talker(&model, Some(*tkr_id))?;
             }
             Operation::SupTalker(tkr_id) => {
                 self.sup_talker(tkr_id)?;

@@ -124,11 +124,11 @@ impl PluginsManager {
         }
     }
 
-    pub fn make_internal_talker(&self, model: &String, base: TalkerBase) -> Result<RTalker, failure::Error> {
+    pub fn make_internal_talker(&self, model: &String, base: TalkerBase, garnish: bool) -> Result<RTalker, failure::Error> {
         if model == accumulator::MODEL {
             Ok(rtalker!(Accumulators::new(base)?))
         } else if model == adsrp::MODEL {
-            Ok(rtalker!(ADSRp::new(base)?))
+            Ok(rtalker!(ADSRp::new(base, garnish)?))
         } else if model == math::ATAN_SUM_MODEL {
             Ok(rtalker!(AtanSum::new(base)?))
         } else if model == audio_switch::MODEL {
@@ -182,7 +182,7 @@ impl PluginsManager {
         }
     }
 
-    pub fn mk_tkr(&self, ph: &PluginHandler, effective: bool) -> Result<RTalker, failure::Error> {
+    pub fn mk_tkr(&self, ph: &PluginHandler, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
         
         match &ph.plugin_type {
             PluginType::Lv2 => lv2_handler::visit(|lv2_handler| {
@@ -191,14 +191,14 @@ impl PluginsManager {
             }),
             PluginType::Internal => {
                 let base = TalkerBase::new(ph.base.label(), ph.base.model(), effective);
-                self.make_internal_talker(ph.base.model(), base)
+                self.make_internal_talker(ph.base.model(), base, garnish)
             },
         }
     }
 
-    pub fn make_talker(&self, model: &str, effective: bool) -> Result<RTalker, failure::Error> {
+    pub fn make_talker(&self, model: &str, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
         match self.handlers.get(model) {
-            Some(ph) => self.mk_tkr(ph, effective),
+            Some(ph) => self.mk_tkr(ph, effective, garnish),
             None => Err(failure::err_msg(format!("Unknown talker URI {}.", model))),
         }
     }
