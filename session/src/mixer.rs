@@ -39,6 +39,8 @@ pub type RMixer = Rc<RefCell<Mixer>>;
 
 impl Mixer {
     pub fn new_ref(
+        id: Id,
+        name: &str,
         oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
     ) -> Result<RMixer, failure::Error> {
@@ -74,7 +76,7 @@ impl Mixer {
         let mut tracks = Vec::new();
         let mut audible_tracks = Vec::new();
 
-        let mut base = TalkerBase::new("", KIND, true);
+        let mut base = TalkerBase::new(id, name, KIND, true);
 
         if let Some(rparent) = oparent {
             let parent = rparent.borrow();

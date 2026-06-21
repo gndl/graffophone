@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 extern crate failure;
 
@@ -11,6 +12,13 @@ use crate::horn::{AtomBuf, AudioBuf, CvBuf, PortType};
 use crate::identifier::{Id, Identifiable, Identifier, Index, RIdentifier};
 use crate::lv2_handler::Lv2Handler;
 use crate::voice::{self, Voice};
+
+static UNREACHABLE_ID_COUNT: AtomicU32 = AtomicU32::new(u32::MAX / 2);
+
+pub fn get_next_unreachable_id() -> Id {
+    UNREACHABLE_ID_COUNT.fetch_add(1, Ordering::SeqCst)
+}
+
 
 pub struct Language {
     pub id: String,
@@ -28,9 +36,9 @@ pub struct TalkerBase {
 }
 
 impl TalkerBase {
-    pub fn new_data(name: &str, model: &str, data: Data, effective: bool) -> Self {
+    pub fn new_data(id: Id, name: &str, model: &str, data: Data, effective: bool) -> Self {
         Self {
-            identifier: RefCell::new(Identifier::new(name, model)),
+            identifier: RefCell::new(Identifier::new(id, name, model)),
             data: RefCell::new(data),
             ears: Vec::new(),
             voices: Vec::new(),
@@ -39,8 +47,8 @@ impl TalkerBase {
             effective,
         }
     }
-    pub fn new(name: &str, model: &str, effective: bool) -> Self {
-        TalkerBase::new_data(name, model, Data::Nil, effective)
+    pub fn new(id: Id, name: &str, model: &str, effective: bool) -> Self {
+        TalkerBase::new_data(id, name, model, Data::Nil, effective)
     }
     pub fn clone(&self) -> Self {
         Self {

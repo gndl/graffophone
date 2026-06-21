@@ -43,7 +43,7 @@ impl Feedback {
         let config: cpal::StreamConfig = output_device.default_output_config()?.into();
 
         Ok(Self {
-            identifier: output::new_identifier("", MODEL),
+            identifier: output::new_identifier(0, "", MODEL),
             sample_rate: AudioFormat::sample_rate(),
             nb_samples,
             nb_channels: config.channels as usize,

@@ -1,5 +1,5 @@
 use crate::data::Data;
-use crate::talker::{CTalker, Talker, TalkerBase};
+use crate::talker::{self, CTalker, Talker, TalkerBase};
 use ctalker;
 
 pub const MODEL: &str = "AudioTalker";
@@ -7,12 +7,18 @@ pub const MODEL: &str = "AudioTalker";
 pub struct AudioTalker {}
 
 impl AudioTalker {
-    pub fn new(def_value: f32, hidden: Option<bool>) -> CTalker {
+    pub fn new(def_value: f32) -> CTalker {
         let value = if def_value.is_nan() { 0. } else { def_value };
-        let mut base = TalkerBase::new_data("", MODEL, Data::f(value), true);
+        let mut base = TalkerBase::new_data(
+            talker::get_next_unreachable_id(),
+            "",
+            MODEL,
+            Data::f(value),
+            true,
+        );
 
         base.add_audio_voice(None, value);
-        base.set_hidden(hidden.unwrap_or(false));
+        base.set_hidden(true);
 
         ctalker!(base, Self {})
     }

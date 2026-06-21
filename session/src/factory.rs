@@ -1,14 +1,14 @@
 use std::sync::{LazyLock, Mutex};
 
 use talker::audio_format::AudioFormat;
-use talker::identifier::RIdentifier;
+use talker::identifier::{Id, Identifiable};
 use talker::talker::RTalker;
 
 use crate::audiofile_output::AudioFileOutput;
 use crate::{audiofile_output, feedback};
 use crate::feedback::Feedback;
 use crate::mixer::{Mixer, RMixer};
-use crate::output::ROutput;
+use crate::output::{self, ROutput};
 use crate::plugins_manager::PluginsManager;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -39,70 +39,68 @@ impl Factory {
     pub fn make_talker(
         &self,
         model: &str,
-        oid: Option<u32>,
-        oname: Option<&str>,
+        id: Id,
+        name: &str,
         effective: bool,
     ) -> Result<RTalker, failure::Error> {
-        let tkr = self.plugins_manager.make_talker(model, effective, false)?;
-        Factory::set_identity(tkr.identifier(), oid, oname);
+        let tkr = self.plugins_manager.make_talker(model, id, effective, false)?;
+        tkr.set_name(name);
         Ok(tkr)
     }
 
     pub fn add_talker(
         &self,
         model: &str,
-        oid: Option<u32>,
+        id: Id,
         effective: bool,
     ) -> Result<RTalker, failure::Error> {
-        let tkr = self.plugins_manager.make_talker(model, effective, true)?;
-        Factory::set_identity(tkr.identifier(), oid, None);
-        Ok(tkr)
+        self.plugins_manager.make_talker(model, id, effective, true)
     }
 
     pub fn make_mixer(
-        id: u32,
+        id: Id,
         name: &str,
         oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
     ) -> Result<RMixer, failure::Error> {
-        let rmixer = Mixer::new_ref(oparent, outputs)?;
-        Factory::set_identity(rmixer.borrow().identifier(), Some(id), Some(name));
-        Ok(rmixer)
+        Mixer::new_ref(id, name, oparent, outputs)
     }
 
     pub fn make_output(
         model: &str,
-        oid: Option<u32>,
-        oname: Option<&str>,
+        id: Id,
+        name: &str,
         configuration: Option<&str>,
     ) -> Result<ROutput, failure::Error> {
-
         if model == audiofile_output::MODEL {
             match configuration {
                 Some(conf) => {
-                    let output = AudioFileOutput::from_backup(AudioFormat::chunk_size(), conf)?;
-                    Factory::set_identity(output.borrow().identifier(), oid, oname);
+                    let output = AudioFileOutput::from_backup(id, AudioFormat::chunk_size(), conf)?;
+
+                    output.borrow().set_name(name);
+
                     Ok(output)
                 },
                 None => Err(failure::err_msg(format!("{} output need configuration date!", model))),
             }
         } else if model == feedback::MODEL {
             let output = Feedback::new_ref(AudioFormat::chunk_size())?;
-            Factory::set_identity(output.borrow().identifier(), oid, oname);
+
             Ok(output)
         } else {
             Err(failure::err_msg(format!("Unknown output model {}!", model)))
         }
     }
 
-    pub fn make_outputs(outputs_params: &Vec<OutputParam>) -> Result<Vec<ROutput>, failure::Error> {
+    pub fn make_outputs(mixer_id: Id, outputs_params: &Vec<OutputParam>) -> Result<Vec<ROutput>, failure::Error> {
         let in_sample_rate = AudioFormat::sample_rate();
         let mut outputs = Vec::with_capacity(outputs_params.len());
 
-        for op in outputs_params {
+        for (idx, op) in outputs_params.iter().enumerate() {
             match op {
                 OutputParam::File(codec, out_sample_rate, channel_layout, file_path) => {
                     let output = AudioFileOutput::new_ref(
+                        output::produce_output_id(mixer_id, idx),
                         codec.as_str(),
                         in_sample_rate,
                         *out_sample_rate,
@@ -115,17 +113,6 @@ impl Factory {
             }
         }
         Ok(outputs)
-    }
-
-    fn set_identity(identifier: &RIdentifier, oid: Option<u32>, oname: Option<&str>) {
-        match oid {
-            Some(id) => identifier.borrow_mut().set_id(id),
-            None => (),
-        };
-        match oname {
-            Some(name) => identifier.borrow_mut().set_name(name),
-            None => (),
-        };
     }
 
     pub fn visit<F, R>(mut f: F) -> Result<R, failure::Error>

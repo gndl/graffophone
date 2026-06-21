@@ -1,5 +1,5 @@
 use crate::lv2_handler::Lv2Handler;
-use crate::talker::{CTalker, Talker, TalkerBase};
+use crate::talker::{self, CTalker, Talker, TalkerBase};
 use ctalker;
 
 pub const MODEL: &str = "AtomTalker";
@@ -7,11 +7,16 @@ pub const MODEL: &str = "AtomTalker";
 pub struct AtomTalker {}
 
 impl AtomTalker {
-    pub fn new(olv2_handler: Option<&Lv2Handler>, hidden: Option<bool>) -> CTalker {
-        let mut base = TalkerBase::new("", MODEL, true);
+    pub fn new(olv2_handler: Option<&Lv2Handler>) -> CTalker {
+        let mut base = TalkerBase::new(
+            talker::get_next_unreachable_id(),
+            "",
+            MODEL,
+            true,
+        );
 
         base.add_atom_voice(None, olv2_handler);
-        base.set_hidden(hidden.unwrap_or(false));
+        base.set_hidden(true);
 
         ctalker!(base, Self {})
     }

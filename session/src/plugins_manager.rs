@@ -16,6 +16,7 @@ use talkers::dynamic_modulator::{self, DynamicModulators};
 use talkers::envelope_shaper::{self, EnvelopeShaper};
 use talkers::fuzz::{self, Fuzz};
 use talkers::hub::{self, Hub};
+use talker::identifier::Id;
 use talkers::lv2::Lv2;
 use talkers::math::{self, Average, Product, Sum, AtanSum, TanhSum};
 use talkers::pan::{self, Pan};
@@ -182,23 +183,23 @@ impl PluginsManager {
         }
     }
 
-    pub fn mk_tkr(&self, ph: &PluginHandler, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
+    pub fn mk_tkr(&self, ph: &PluginHandler, id: Id, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
         
         match &ph.plugin_type {
             PluginType::Lv2 => lv2_handler::visit(|lv2_handler| {
-                let base = TalkerBase::new(ph.base.label(), ph.base.model(), effective);
+                let base = TalkerBase::new(id, ph.base.label(), ph.base.model(), effective);
                 Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model(), base)?))
             }),
             PluginType::Internal => {
-                let base = TalkerBase::new(ph.base.label(), ph.base.model(), effective);
+                let base = TalkerBase::new(id, ph.base.label(), ph.base.model(), effective);
                 self.make_internal_talker(ph.base.model(), base, garnish)
             },
         }
     }
 
-    pub fn make_talker(&self, model: &str, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
+    pub fn make_talker(&self, model: &str, id: Id, effective: bool, garnish: bool) -> Result<RTalker, failure::Error> {
         match self.handlers.get(model) {
-            Some(ph) => self.mk_tkr(ph, effective, garnish),
+            Some(ph) => self.mk_tkr(ph, id, effective, garnish),
             None => Err(failure::err_msg(format!("Unknown talker URI {}.", model))),
         }
     }

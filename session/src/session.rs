@@ -71,6 +71,10 @@ impl Session {
         })
     }
 
+    pub fn produce_next_talker_id(&mut self) -> Id {
+        self.band.produce_next_talker_id()
+    }
+
     pub fn filename<'a>(&'a self) -> &'a str {
         &self.filename
     }
@@ -120,14 +124,16 @@ impl Session {
         &self.player
     }
     pub fn new_band(&mut self) -> Result<(), failure::Error> {
-        self.band = Band::empty(false);
+        self.band = Band::new(false);
         self.player = Player::new("".to_string())?;
+
         Ok(())
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
         self.band = Band::make(&band_description, false)?;
         self.player = Player::new(band_description)?;
+
         Ok(())
     }
 

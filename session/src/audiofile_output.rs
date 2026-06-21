@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::str::FromStr;
 
 use audiofile::writer::Writer;
-use talker::identifier::RIdentifier;
+use talker::identifier::{Id, RIdentifier};
 
 use crate::audio_data::Vector;
 use crate::channel;
@@ -25,9 +25,9 @@ pub struct AudioFileOutput {
 }
 
 impl AudioFileOutput {
-    pub fn new(codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channel_layout: &str, file_path: &str,) -> Result<AudioFileOutput, failure::Error> {
+    pub fn new(id: Id, codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channel_layout: &str, file_path: &str,) -> Result<AudioFileOutput, failure::Error> {
         Ok(Self {
-            identifier: output::new_identifier("", MODEL),
+            identifier: output::new_identifier(id, "", MODEL),
             codec_name: codec_name.to_string(),
             in_sample_rate,
             out_sample_rate,
@@ -37,11 +37,11 @@ impl AudioFileOutput {
         })
     }
 
-    pub fn new_ref(codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channel_layout: &str, file_path: &str,) -> Result<ROutput, failure::Error> {
-        Ok(Rc::new(RefCell::new(AudioFileOutput::new(codec_name, in_sample_rate, out_sample_rate, channel_layout, file_path)?)))
+    pub fn new_ref(id: Id, codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channel_layout: &str, file_path: &str,) -> Result<ROutput, failure::Error> {
+        Ok(Rc::new(RefCell::new(AudioFileOutput::new(id, codec_name, in_sample_rate, out_sample_rate, channel_layout, file_path)?)))
     }
 
-    pub fn from_backup(in_sample_rate: usize, configuration: &str,) -> Result<ROutput, failure::Error> {
+    pub fn from_backup(id: Id, in_sample_rate: usize, configuration: &str,) -> Result<ROutput, failure::Error> {
         let params: Vec<&str> = configuration.split('|').collect();
 
         if params.len() == 4 {
@@ -49,7 +49,7 @@ impl AudioFileOutput {
             let out_sample_rate = usize::from_str(params[1]).map_err(|e| failure::err_msg(format!("{}", e)))?;
             let channel_layout = params[2];
             let file_path = params[3];
-            AudioFileOutput::new_ref(codec_name, in_sample_rate, out_sample_rate, channel_layout, file_path)
+            AudioFileOutput::new_ref(id, codec_name, in_sample_rate, out_sample_rate, channel_layout, file_path)
         }
         else {
             Err(failure::err_msg(format!("AudioFileOutput configuration {} need 4 parameters!", configuration)))

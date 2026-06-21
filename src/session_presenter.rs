@@ -7,11 +7,10 @@ use gtk::glib;
 
 use luil::ui_connector::UiConnector;
 
-use ::session::channel;
-use talker::identifier::{self, Id, Index};
-use talker::talker::RTalker;
-use talker::Identifier;
+use crate::talker::identifier::{Id, Index, Identifier};
+use crate::talker::talker::RTalker;
 
+use crate::session::channel;
 use crate::session::band::Operation;
 use crate::session::event_bus::{Notification, REventBus};
 use crate::session::factory::{Factory, OutputParam};
@@ -201,7 +200,12 @@ impl SessionPresenter {
     }
 
     pub fn add_talker(&mut self, talker_model: &str) {
-        if self.modify_band(&Operation::AddTalker(identifier::get_next_id(), talker_model.to_string())) {
+        let talker_id = self.session.produce_next_talker_id();
+
+        if self.modify_band(
+            &Operation::AddTalker(
+                talker_id,
+                talker_model.to_string())) {
             self.event_bus.borrow().notify(Notification::NewTalker);
         }
     }
@@ -462,11 +466,15 @@ impl SessionPresenter {
         let file_path = self.default_audiofile_name();
 
         self.visite_mutable_mixer(mixer_id, |mixer| {
-            let output = OutputPresenter::new(Identifier::new("", "file"), 
+            let id = mixer.outputs().len() as u32;
+
+            let output = OutputPresenter::new(
+                Identifier::new(id, "", "file"), 
                 output_presenter::DEFAULT_CODEC,
                 output_presenter::DEFAULT_SAMPLE_RATE,
                 channel::DEFAULT_LAYOUT,
                 file_path.as_str());
+
             mixer.add_output(output);
         });
     }

@@ -1,15 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicU32, Ordering};
-
-static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
 pub type Id = u32;
 pub type Index = usize;
-
-pub fn get_next_id() -> Id {
-    ID_COUNT.load(Ordering::SeqCst)
-}
 
 #[derive(Clone)]
 pub struct Identifier {
@@ -19,12 +12,7 @@ pub struct Identifier {
 }
 
 impl Identifier {
-    pub fn initialize_id_count() {
-        ID_COUNT.store(1, Ordering::SeqCst);
-    }
-    pub fn new(name: &str, model: &str) -> Self {
-        let id = ID_COUNT.fetch_add(1, Ordering::SeqCst);
-
+    pub fn new(id: Id, name: &str, model: &str) -> Self {
         let name_model_fm = |close_char| {
             if model.is_empty() {
                 format!("{}{}{}", name, id, close_char)
@@ -61,9 +49,6 @@ impl Identifier {
     }
     pub fn set_id(&mut self, id: Id) {
         self.id = id;
-        if id >= ID_COUNT.load(Ordering::SeqCst) {
-            ID_COUNT.store(id + 1, Ordering::SeqCst);
-        }
     }
     pub fn name<'a>(&'a self) -> &'a str {
         &self.name

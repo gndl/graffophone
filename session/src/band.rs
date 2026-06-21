@@ -21,7 +21,7 @@ use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
 
 use talker::ear::{Ear, Talk};
-use talker::identifier::{Id, Identifiable, Identifier, Index};
+use talker::identifier::{Id, Identifiable, Index};
 use talker::talker::RTalker;
 
 use crate::factory::{Factory, OutputParam};
@@ -69,32 +69,19 @@ pub struct Band {
     talkers: HashMap<Id, RTalker>,
     mixers: HashMap<Id, RMixer>,
     effective: bool,
+    talker_id_count: u32,
 }
 
 pub type RBand = Rc<RefCell<Band>>;
 
 impl Band {
-    pub fn new(talkers: Option<HashMap<Id, RTalker>>, mixers: Option<HashMap<Id, RMixer>>, effective: bool) -> Band {
-        Self {
-            talkers: talkers.unwrap_or(HashMap::new()),
-            mixers: mixers.unwrap_or(HashMap::new()),
-            effective,
-        }
-    }
-
-    pub fn empty(effective: bool) -> Band {
+    pub fn new(effective: bool) -> Band {
         Self {
             talkers: HashMap::new(),
             mixers: HashMap::new(),
             effective,
+            talker_id_count: 0,
         }
-    }
-
-    pub fn new_ref(
-        talkers: Option<HashMap<Id, RTalker>>,
-        mixers: Option<HashMap<Id, RMixer>>, effective: bool,
-    ) -> RBand {
-        Rc::new(RefCell::new(Band::new(talkers, mixers, effective)))
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<Id, RTalker> {
@@ -182,8 +169,8 @@ impl Band {
                 Some(poutput) => {
                     let output = Factory::make_output(
                         poutput.model,
-                        Some(poutput.id),
-                        Some(poutput.name),
+                        poutput.id,
+                        poutput.name,
                         poutput.data,
                     )?;
                     outputs.push(output);
@@ -196,16 +183,20 @@ impl Band {
     }
 
     pub fn build(factory: &Factory, source: &String, effective: bool) -> Result<Band, failure::Error> {
-        Identifier::initialize_id_count();
-        let mut band = Band::empty(effective);
+        let mut band = Band::new(effective);
+        let mut top_id = 0;
 
         let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
 
         let mut talkers_ptalkers = HashMap::new();
 
         for ptalker in ptalkers.values() {
+            if ptalker.id > top_id {
+                top_id = ptalker.id;
+            }
+
             let mut talker =
-                factory.make_talker(ptalker.model, Some(ptalker.id), Some(ptalker.name), effective)?;
+                factory.make_talker(ptalker.model, ptalker.id, ptalker.name, effective)?;
 
             if let Some(data) = ptalker.data {
                 if let Some(updated_talker) = talker.set_data_from_string_update(data)? {
@@ -233,6 +224,10 @@ impl Band {
         }
 
         for pmixer in pmixers.values() {
+            if pmixer.talker.id > top_id {
+                top_id = pmixer.talker.id;
+            }
+
             let rmixer = band.make_mixer(&poutputs, &pmixer)?;
 
             band.set_talker_ears(
@@ -243,6 +238,8 @@ impl Band {
             rmixer.borrow_mut().initialize();
             band.mixers.insert(pmixer.talker.id, rmixer);
         }
+
+        band.talker_id_count = top_id;
 
         Ok(band)
     }
@@ -381,14 +378,19 @@ impl Band {
         nb_channels
     }
 
+    pub fn produce_next_talker_id(&mut self) -> Id {
+        self.talker_id_count += 1;
+        self.talker_id_count
+    }
+
     pub fn add_talker(
         &mut self,
         model: &str,
-        oid: Option<Id>,
+        id: Id,
     ) -> Result<RTalker, failure::Error> {
         Factory::visit(|factory| {
-            let tkr = factory.add_talker(model, oid, self.effective)?;
-            self.talkers.insert(tkr.id(), tkr.clone());
+            let tkr = factory.add_talker(model, id, self.effective)?;
+            self.talkers.insert(id, tkr.clone());
             Ok(tkr)
         })
     }
@@ -478,14 +480,7 @@ impl Band {
             None => Err(failure::err_msg(format!("Talker {} not found!", talker_id))),
         }
     }
-/*
-pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::Error> {
-    match self.mixers.get(mixer_id) {
-        Some(mxr) => Ok(mxr),
-        None => Err(failure::err_msg(format!("Mixer {} not found!", mixer_id))),
-    }
-}
-*/
+
     pub fn extract_mixer(&mut self, mixer_id: &Id) -> Result<RMixer, failure::Error> {
         match self.mixers.remove(mixer_id) {
             Some(mxr) => Ok(mxr),
@@ -498,7 +493,7 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         let id = mixer.borrow().id();
         let name = mixer.borrow().name();
 
-        let outputs = Factory::make_outputs(outputs_params)?;
+        let outputs = Factory::make_outputs(id, outputs_params)?;
 
         let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs)?;
 
@@ -538,7 +533,7 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
         let mut result = Ok(());
         match operation {
             Operation::AddTalker(tkr_id, model) => {
-                self.add_talker(&model, Some(*tkr_id))?;
+                self.add_talker(&model, *tkr_id)?;
             }
             Operation::SupTalker(tkr_id) => {
                 self.sup_talker(tkr_id)?;
@@ -665,8 +660,8 @@ pub fn fetch_mixer<'a>(&'a self, mixer_id: &Id) -> Result<&'a RMixer, failure::E
             Operation::SupEarSet(ear_tkr_id, ear_idx, set_idx) => {
                 self.update_talker(ear_tkr_id, |tkr| tkr.sup_ear_set_update(*ear_idx, *set_idx))?;
             }
-            Operation::SetMixerOutputs(mixer_idx, outputs_params) => {
-                self.set_mixer_outputs(mixer_idx, outputs_params)?;
+            Operation::SetMixerOutputs(mixer_id, outputs_params) => {
+                self.set_mixer_outputs(mixer_id, outputs_params)?;
             }
             Operation::SetIndexedData(tkr_id, idx, protocol, data) => {
                 let tkr = self.fetch_talker(tkr_id)?;

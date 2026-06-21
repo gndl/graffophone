@@ -20,20 +20,20 @@ use talker::{RTalker, TalkerCab};
 const DEF_EAR_TAG: &'static str = "In";
 const DEF_HUM_TAG: &'static str = "";
 
-pub fn def_audio_talker(value: f32) -> RTalker {
-    rtalker!(AudioTalker::new(value, Some(true)))
+fn def_audio_talker(value: f32) -> RTalker {
+    rtalker!(AudioTalker::new(value))
 }
-pub fn def_control_talker(value: f32) -> RTalker {
-    rtalker!(ControlTalker::new(value, Some(true)))
+fn def_control_talker(value: f32) -> RTalker {
+    rtalker!(ControlTalker::new(value))
 }
-pub fn def_cv_talker(value: f32) -> RTalker {
-    rtalker!(CvTalker::new(value, Some(true)))
+fn def_cv_talker(value: f32) -> RTalker {
+    rtalker!(CvTalker::new(value))
 }
-pub fn def_atom_talker() -> RTalker {
-    rtalker!(AtomTalker::new(None, Some(true)))
+fn def_atom_talker() -> RTalker {
+    rtalker!(AtomTalker::new(None))
 }
 
-pub fn def_talker(port_type: PortType, value: f32) -> RTalker {
+fn def_talker(port_type: PortType, value: f32) -> RTalker {
     match port_type {
         PortType::Audio => def_audio_talker(value),
         PortType::Control => def_control_talker(value),
@@ -1128,7 +1128,7 @@ pub fn cv(
 }
 
 pub fn atom(tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) -> Result<Ear, failure::Error> {
-    let talker = rtalker!(AtomTalker::new(olv2_handler, Some(true)));
+    let talker = rtalker!(AtomTalker::new(olv2_handler));
     let init = Init::Voice(&talker, 0);
     mono_hum(tag, PortType::Atom, false, 0., 0., 0., &init)
 }

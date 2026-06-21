@@ -1,10 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-//use std::boxed::Box;
 
 extern crate failure;
 
-use talker::identifier::{Identifier, RIdentifier};
+use talker::identifier::{Id, Identifier, RIdentifier};
 
 use crate::audio_data::Vector;
 
@@ -12,8 +11,18 @@ pub const KIND: &str = "output";
 
 const EMPTY_STR: &str = "";
 
-pub fn new_identifier(name: &str, model: &str) -> RIdentifier {
-    RefCell::new(Identifier::new(name, model))
+pub fn produce_output_id(mixer_id: Id, output_index: usize) -> Id {
+    output_index as Id | (mixer_id << 5)
+}
+
+pub fn new_identifier(id: Id, name: &str, model: &str) -> RIdentifier {
+    RefCell::new(
+        Identifier::new(
+            id,
+            name,
+            model,
+        )
+    )
 }
 
 pub trait Output {
@@ -69,4 +78,3 @@ pub trait Output {
 }
 
 pub type ROutput = Rc<RefCell<dyn Output>>;
-//pub type ROutput = Box<dyn Output>;
