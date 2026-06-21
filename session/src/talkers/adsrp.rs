@@ -158,8 +158,10 @@ impl Talker for ADSRp {
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let envelope_ear = base.ear(ENVELOPE_EAR_INDEX);
+        let mut ln = envelope_ear.listen(tick, len);
+
         let player_ear = base.ear(PLAYERS_EAR_INDEX);
-        let ln = player_ear.listen_set(tick, len, port);
+        ln = player_ear.listen_set(tick, ln, port);
         let event_buf = player_ear.get_set_hum_atom_buffer(port, EVENT_HUM_INDEX);
         let gain_buf = player_ear.get_set_hum_cv_buffer(port, GAIN_HUM_INDEX);
 
@@ -231,7 +233,6 @@ impl Talker for ADSRp {
                             break;
                         } else {
                             if new_segment_num != segment_num {
-                                envelope_ear.listen_set(tick + idx as i64, 1, new_segment_num);
                                 let duration_buf =
                                     envelope_ear.get_set_hum_cv_buffer(new_segment_num, DURATION_HUM_INDEX);
                                 let level_buf =
@@ -240,10 +241,10 @@ impl Talker for ADSRp {
                                 let prev_env_point_tick = next_env_point_tick;
                                 let prev_env_point_level = next_env_point_level;
 
-                                let dur = (self.sample_rate * duration_buf[0]) as i64;
+                                let dur = (self.sample_rate * duration_buf[idx]) as i64;
 
                                 next_env_point_tick += if dur > 0 { dur } else { 1 };
-                                next_env_point_level = level_buf[0];
+                                next_env_point_level = level_buf[idx];
 
                                 a = (next_env_point_level - prev_env_point_level)
                                     / (next_env_point_tick - prev_env_point_tick) as f32;
@@ -295,7 +296,6 @@ impl Talker for ADSRp {
                     step = PlayStep::OutsideNote;
                 } else {
                     if new_segment_num != segment_num {
-                        envelope_ear.listen_set(tick + idx as i64, 1, new_segment_num);
                         let duration_buf =
                             envelope_ear.get_set_hum_cv_buffer(new_segment_num, DURATION_HUM_INDEX);
                         let level_buf =
@@ -304,10 +304,10 @@ impl Talker for ADSRp {
                         let prev_env_point_tick = next_env_point_tick;
                         let prev_env_point_level = next_env_point_level;
 
-                        let dur = (self.sample_rate * duration_buf[0]) as i64;
+                        let dur = (self.sample_rate * duration_buf[idx]) as i64;
 
                         next_env_point_tick += if dur > 0 { dur } else { 1 };
-                        next_env_point_level = level_buf[0];
+                        next_env_point_level = level_buf[idx];
 
                         a = (next_env_point_level - prev_env_point_level)
                             / (next_env_point_tick - prev_env_point_tick) as f32;
