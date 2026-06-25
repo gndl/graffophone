@@ -100,8 +100,8 @@ impl SessionPresenter {
 
     fn receive_new_session(&mut self, result: Result<Session, failure::Error>) {
         match result {
-            Ok(session) => {
-                match session.serialize_band() {
+            Ok(mut session) => {
+                match session.backup_band() {
                     Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
                     Err(e) => self.event_bus.borrow().notify_error(e),
                 }
@@ -243,7 +243,7 @@ impl SessionPresenter {
         let state_ok = self.modify_band_volatly(operation);
 
         if state_ok {
-            match self.session.serialize_band() {
+            match self.session.backup_band() {
                 Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
                 Err(e) => self.event_bus.borrow().notify_error(e),
             }
@@ -335,7 +335,7 @@ impl SessionPresenter {
         match self.session.update_band_and_ui_count() {
             Ok((modification_count, ui_count)) => {
                 if modification_count > 0 {
-                    match self.session.serialize_band() {
+                    match self.session.backup_band() {
                         Ok(band_rep) => self.undo_redo_list.new_state(band_rep),
                         Err(e) => self.event_bus.borrow().notify_error(e),
                     }

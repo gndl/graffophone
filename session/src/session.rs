@@ -185,14 +185,15 @@ impl Session {
         self.band.backup_ear_hum(talker_id, ear_idx, set_idx, hum_idx)
     }
 
-    pub fn serialize_band(&self) -> Result<String, failure::Error> {
-        self.band.serialize()
+    pub fn backup_band(&mut self) -> Result<String, failure::Error> {
+        self.player.backup_band()
     }
 
-    pub fn save(&self) -> Result<(), failure::Error> {
+    pub fn save(&mut self) -> Result<(), failure::Error> {
         let mut file = File::create(&self.filename)?;
+        let backup = self.player.backup_band()?;
 
-        writeln!(file, "{}", self.band.serialize()?)?;
+        writeln!(file, "{}", backup)?;
         Ok(())
     }
     pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {

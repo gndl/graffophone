@@ -33,7 +33,7 @@ use crate::output::Output;
 use crate::state::State;
 use crate::plugin_handle_manager::PluginHandleManager;
 
-const RECEIVE_TIMEOUT: u64 = 10;
+const RECEIVE_TIMEOUT: u64 = 15;
 const IDLE_PERIOD: u64 = 33;
 
 //#[derive(PartialEq, Debug, Clone)]
@@ -47,6 +47,7 @@ enum Order {
     SetAudibleTracks(Id, Vec<Index>),
     LoadBand(String),
     ModifyBand(Operation),
+    BackupBand,
     AddPluginHandle(Id, UiConnector),
     BandModificationsAndUiCount,
     State,
@@ -56,6 +57,7 @@ enum Order {
 enum Response {
     State(State),
     BandModificationsAndUiCount(Vec<Operation>, usize),
+    BandBackup(String),
 }
 
 fn state_order(state: State) -> Order {
@@ -115,6 +117,9 @@ impl Runner {
 
         let mut band = Band::make(&band_description, true)?;
         let feedback_mixer_id = band.mixers().iter().next().map_or(0, |(k, _)| *k);
+
+        // Run LV2 workers
+        lv2_handler::run_workers()?;
 
         let mut state = State::Stopped;
         let mut order = self.wait_order()?;
@@ -252,6 +257,14 @@ impl Runner {
                 }
                 Order::ModifyBand(operation) => {
                     band.modify(&operation)?;
+
+                    order = state_order(state);
+                    continue;
+                }
+                Order::BackupBand => {
+                    let band_backup = band.serialize()?;
+
+                    let _ = self.response_sender.send(Response::BandBackup(band_backup));
 
                     order = state_order(state);
                     continue;
@@ -522,7 +535,25 @@ impl Player {
 
         match response {
             Response::BandModificationsAndUiCount(operations, ui_count) => Ok((operations, ui_count)),
-            _ => Err(failure::err_msg("Player::band_modifications_and_ui_count response error : Unexpected player state response")),
+            _ => Err(failure::err_msg("Player::band_modifications_and_ui_count response error : Unexpected player response")),
+        }
+    }
+
+    pub fn backup_band(&mut self) -> Result<String, failure::Error> {
+        self.check_not_exited()?;
+
+        self.order_sender
+            .send(Order::BackupBand)
+            .map_err(|e| failure::err_msg(format!("Player::backup_band order error : {}", e)))?;
+        
+        let res = self.response_receiver.recv_timeout(Duration::from_secs(RECEIVE_TIMEOUT));
+        let _ = self.receive_state();
+                
+        let response = res.map_err(|e| failure::err_msg(format!("Player::backup_band response error : {}", e)))?;
+
+        match response {
+            Response::BandBackup(backup) => Ok(backup),
+            _ => Err(failure::err_msg("Player::backup_band response error : Unexpected player response")),
         }
     }
 
