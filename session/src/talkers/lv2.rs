@@ -12,7 +12,6 @@ use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
 use talker::identifier::{Identifiable, Index};
 use talker::lv2_handler::{self, Lv2Handler};
 use talker::talker::{CTalker, Talker, TalkerBase};
-use talker::data::Data;
 
 const ATOM_SEQUENCE_CAPACITY: usize = 65536;
 
@@ -38,138 +37,144 @@ pub struct Lv2 {
     atom_sequence_outputs_indexes: Vec<Idxs>,
     cv_inputs_indexes: Vec<Idxs>,
     cv_outputs_indexes: Vec<Idxs>,
-    instance: livi::Instance,
     save_dir: String,
+    instance: Option<livi::Instance>,
 }
 
 impl Lv2 {
-    pub fn new(lv2_handler: &Lv2Handler, uri: &str, mut base: TalkerBase) -> Result<CTalker, failure::Error> {
+    pub fn new(lv2_handler: &Lv2Handler, uri: &str, mut base: TalkerBase, effective: bool) -> Result<CTalker, failure::Error> {
         let urid_event_transfer = lv2_handler.features.urid(CStr::from_bytes_with_nul(lv2_sys::LV2_ATOM__eventTransfer).unwrap());
         let urid_atom_transfer = lv2_handler.features.urid(CStr::from_bytes_with_nul(lv2_sys::LV2_ATOM__atomTransfer).unwrap());
 
         match lv2_handler.world.plugin_by_uri(uri) {
             Some(plugin) => {
+                let mut inputs_count = 0;
+                let mut outputs_count = 0;
+                let mut control_inputs_indexes = Vec::new();
+                let mut control_outputs_indexes = Vec::new();
+                let mut audio_inputs_indexes = Vec::new();
+                let mut audio_outputs_indexes = Vec::new();
+                let mut atom_sequence_inputs_indexes = Vec::new();
+                let mut atom_sequence_outputs_indexes = Vec::new();
+                let mut cv_inputs_indexes = Vec::new();
+                let mut cv_outputs_indexes = Vec::new();
 
-                show_plugin(&plugin);
+                // show_plugin(&plugin);
 
                 base.set_ui(lv2_handler.plugin_ui_supported(&plugin));
 
-                match unsafe {
-                    plugin.instantiate(
-                        lv2_handler.features.clone(),
-                        AudioFormat::sample_rate() as f64,
-                    )
-                } {
-                    Ok(instance) => {
-                        base.set_name(&plugin.name());
-                        let mut inputs_count = 0;
-                        let mut outputs_count = 0;
-                        let mut control_inputs_indexes = Vec::new();
-                        let mut control_outputs_indexes = Vec::new();
-                        let mut audio_inputs_indexes = Vec::new();
-                        let mut audio_outputs_indexes = Vec::new();
-                        let mut atom_sequence_inputs_indexes = Vec::new();
-                        let mut atom_sequence_outputs_indexes = Vec::new();
-                        let mut cv_inputs_indexes = Vec::new();
-                        let mut cv_outputs_indexes = Vec::new();
+                base.set_name(&plugin.name());
 
-                        for port in plugin.ports() {
-                            match port.port_type {
-                                livi::PortType::ControlInput => {
-                                    let ear = ear::control(
-                                        Some(&port.name),
-                                        port.min_value.unwrap_or(audio_format::MIN_CONTROL),
-                                        port.max_value.unwrap_or(audio_format::MAX_CONTROL),
-                                        an_or(port.default_value, audio_format::DEF_CONTROL),
-                                    )?;
-                                    base.add_ear(ear);
-                                    control_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
-                                    inputs_count = inputs_count + 1;
-                                }
-                                livi::PortType::ControlOutput => {
-                                    base.add_control_voice(Some(&port.name), an_or(port.default_value, audio_format::DEF_CONTROL));
-                                    control_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
-                                    outputs_count = outputs_count + 1;
-                                }
-                                livi::PortType::AudioInput => {
-                                    let ear = ear::audio(
-                                        Some(&port.name),
-                                        port.min_value.unwrap_or(audio_format::MIN_AUDIO),
-                                        port.max_value.unwrap_or(audio_format::MAX_AUDIO),
-                                        an_or(port.default_value, audio_format::DEF_AUDIO),
-                                        &Init::DefValue,
-                                    )?;
-                                    base.add_ear(ear);
-                                    audio_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
-                                    inputs_count = inputs_count + 1;
-                                }
-                                livi::PortType::AudioOutput => {
-                                    base.add_audio_voice(Some(&port.name), 0.);
-                                    audio_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
-                                    outputs_count = outputs_count + 1;
-                                }
-                                livi::PortType::AtomSequenceInput => {
-                                    let ear = ear::atom(Some(&port.name), Some(lv2_handler))?;
-                                    base.add_ear(ear);
-                                    atom_sequence_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
-                                    inputs_count = inputs_count + 1;
-                                }
-                                livi::PortType::AtomSequenceOutput => {
-                                    base.add_atom_voice(Some(&port.name), Some(lv2_handler));
-                                    atom_sequence_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
-                                    outputs_count = outputs_count + 1;
-                                }
-                                livi::PortType::CVInput => {
-                                    let ear = ear::cv(
-                                        Some(&port.name),
-                                        port.min_value.unwrap_or(audio_format::MIN_CV),
-                                        port.max_value.unwrap_or(audio_format::MAX_CV),
-                                        an_or(port.default_value, audio_format::DEF_CV),
-                                        &Init::DefValue,
-                                    )?;
-                                    base.add_ear(ear);
-                                    cv_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
-                                    inputs_count = inputs_count + 1;
-                                }
-                                livi::PortType::CVOutput => {
-                                    base.add_cv_voice(Some(&port.name), 0.);
-                                    cv_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
-                                    outputs_count = outputs_count + 1;
-                                }
-                            }
+                for port in plugin.ports() {
+                    match port.port_type {
+                        livi::PortType::ControlInput => {
+                            let ear = ear::control(
+                                Some(&port.name),
+                                port.min_value.unwrap_or(audio_format::MIN_CONTROL),
+                                port.max_value.unwrap_or(audio_format::MAX_CONTROL),
+                                an_or(port.default_value, audio_format::DEF_CONTROL),
+                            )?;
+                            base.add_ear(ear);
+                            control_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
+                            inputs_count = inputs_count + 1;
                         }
-
-                        let save_path = crate::util::backup_path().join(base.identifier().borrow().id().to_string());
-                        let save_dir = save_path.to_str().unwrap_or(".").to_string();
-
-                        Ok(ctalker!(
-                            base,
-                            Self {
-                                uri: uri.to_string(),
-                                urid_event_transfer,
-                                urid_atom_transfer,
-                                control_inputs_indexes,
-                                control_outputs_indexes,
-                                audio_inputs_indexes,
-                                audio_outputs_indexes,
-                                atom_sequence_inputs_indexes,
-                                atom_sequence_outputs_indexes,
-                                cv_inputs_indexes,
-                                cv_outputs_indexes,
-                                instance,
-                                save_dir,
-                            }
-                        ))
+                        livi::PortType::ControlOutput => {
+                            base.add_control_voice(Some(&port.name), an_or(port.default_value, audio_format::DEF_CONTROL));
+                            control_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
+                            outputs_count = outputs_count + 1;
+                        }
+                        livi::PortType::AudioInput => {
+                            let ear = ear::audio(
+                                Some(&port.name),
+                                port.min_value.unwrap_or(audio_format::MIN_AUDIO),
+                                port.max_value.unwrap_or(audio_format::MAX_AUDIO),
+                                an_or(port.default_value, audio_format::DEF_AUDIO),
+                                &Init::DefValue,
+                            )?;
+                            base.add_ear(ear);
+                            audio_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
+                            inputs_count = inputs_count + 1;
+                        }
+                        livi::PortType::AudioOutput => {
+                            base.add_audio_voice(Some(&port.name), 0.);
+                            audio_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
+                            outputs_count = outputs_count + 1;
+                        }
+                        livi::PortType::AtomSequenceInput => {
+                            let ear = ear::atom(Some(&port.name), Some(lv2_handler))?;
+                            base.add_ear(ear);
+                            atom_sequence_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
+                            inputs_count = inputs_count + 1;
+                        }
+                        livi::PortType::AtomSequenceOutput => {
+                            base.add_atom_voice(Some(&port.name), Some(lv2_handler));
+                            atom_sequence_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
+                            outputs_count = outputs_count + 1;
+                        }
+                        livi::PortType::CVInput => {
+                            let ear = ear::cv(
+                                Some(&port.name),
+                                port.min_value.unwrap_or(audio_format::MIN_CV),
+                                port.max_value.unwrap_or(audio_format::MAX_CV),
+                                an_or(port.default_value, audio_format::DEF_CV),
+                                &Init::DefValue,
+                            )?;
+                            base.add_ear(ear);
+                            cv_inputs_indexes.push(Idxs{tkr_port: inputs_count, plugin_port: port.index.0});
+                            inputs_count = inputs_count + 1;
+                        }
+                        livi::PortType::CVOutput => {
+                            base.add_cv_voice(Some(&port.name), 0.);
+                            cv_outputs_indexes.push(Idxs{tkr_port: outputs_count, plugin_port: port.index.0});
+                            outputs_count = outputs_count + 1;
+                        }
                     }
-                    _ => Err(failure::err_msg("PluginInstantiationError")),
                 }
+
+                let save_path = crate::util::backup_path().join(base.identifier().borrow().id().to_string());
+                let save_dir = save_path.to_str().unwrap_or(".").to_string();
+
+                let instance = if effective {
+                    match unsafe {
+                        plugin.instantiate(
+                            lv2_handler.features.clone(),
+                            AudioFormat::sample_rate() as f64,
+                        )
+                    } {
+                        Ok(instance) => Some(instance),
+                        _ => return Err(failure::err_msg("PluginInstantiationError")),
+                    }
+                }
+                else {
+                    None
+                };
+
+                Ok(ctalker!(
+                    base,
+                    Self {
+                        uri: uri.to_string(),
+                        urid_event_transfer,
+                        urid_atom_transfer,
+                        control_inputs_indexes,
+                        control_outputs_indexes,
+                        audio_inputs_indexes,
+                        audio_outputs_indexes,
+                        atom_sequence_inputs_indexes,
+                        atom_sequence_outputs_indexes,
+                        cv_inputs_indexes,
+                        cv_outputs_indexes,
+                        save_dir,
+                        instance,
+                    }
+                ))
             }
             None => Err(failure::err_msg(format!("LV2 plugin {} not found.", uri))),
         }
     }
 
     fn connect_ports(&mut self, base: &TalkerBase) {
-        let livi_active_instance = self.instance.raw_mut();
+        let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
+        let livi_active_instance = instance.raw_mut();
         let livi_instance = livi_active_instance.instance_mut();
 
         unsafe {
@@ -205,9 +210,10 @@ impl Lv2 {
 
     fn talk0(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
+        let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
 
         for idx in &self.control_inputs_indexes {
-            self.instance
+            instance
                 .set_control_input(PortIndex(idx.plugin_port), base.ear(idx.tkr_port).get_control_value());
         }
 
@@ -252,10 +258,10 @@ impl Lv2 {
             .with_cv_inputs(cv_inputs.into_iter())
             .with_cv_outputs(cv_outputs.into_iter());
 
-        unsafe { self.instance.run(ln, ports).unwrap() };
+        unsafe { instance.run(ln, ports).unwrap() };
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = self.instance.control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = instance.control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }
@@ -271,36 +277,40 @@ impl Lv2 {
 impl Talker for Lv2 {
     fn set_indexed_data(&mut self, base: &TalkerBase, port_index: Index, protocol: u32, data: &Vec<u8>) -> Result<(), failure::Error> {
 
-        if protocol == self.urid_event_transfer || protocol == self.urid_atom_transfer {
-            if protocol == self.urid_atom_transfer {
-                println!("set_indexed_data atom_transfer");
+        if self.instance.is_some() {
+            if protocol == self.urid_event_transfer || protocol == self.urid_atom_transfer {
+                if protocol == self.urid_atom_transfer {
+                    println!("set_indexed_data atom_transfer");
+                }
+                self.connect_ports(base);
+                
+                let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
+                
+                let livi_active_instance = instance.raw_mut();
+                let livi_instance = livi_active_instance.instance_mut();
+                
+                let header = unsafe { (data.as_ptr() as *const lv2_raw::LV2Atom).as_ref().unwrap() };
+                
+                let content = &data[std::mem::size_of::<lv2_raw::LV2Atom>()..];
+                
+                let event: LV2AtomEventBuilder<ATOM_SEQUENCE_CAPACITY> = LV2AtomEventBuilder::new(
+                    0,
+                    header.mytype,
+                    content,
+                ).unwrap();
+                
+                let mut atom_sequence = lv2_handler::visit(
+                    |h|
+                    Ok(LV2AtomSequence::new(&h.features, ATOM_SEQUENCE_CAPACITY))
+                )?;
+                
+                atom_sequence.push_event(&event)?;
+                
+                unsafe{ livi_instance.connect_port(port_index, atom_sequence.as_ptr()); }
+                unsafe{ livi_active_instance.run(audio_format::MIN_CHUNK_SIZE); }
+                
+                let _ = instance.run_worker();
             }
-            self.connect_ports(base);
-            
-            let livi_active_instance = self.instance.raw_mut();
-            let livi_instance = livi_active_instance.instance_mut();
-
-            let header = unsafe { (data.as_ptr() as *const lv2_raw::LV2Atom).as_ref().unwrap() };
-
-            let content = &data[std::mem::size_of::<lv2_raw::LV2Atom>()..];
-
-            let event: LV2AtomEventBuilder<ATOM_SEQUENCE_CAPACITY> = LV2AtomEventBuilder::new(
-                0,
-                header.mytype,
-                content,
-            ).unwrap();
-
-            let mut atom_sequence = lv2_handler::visit(
-                |h|
-                Ok(LV2AtomSequence::new(&h.features, ATOM_SEQUENCE_CAPACITY))
-            )?;
-
-            atom_sequence.push_event(&event)?;
-
-            unsafe{ livi_instance.connect_port(port_index, atom_sequence.as_ptr()); }
-            unsafe{ livi_active_instance.run(audio_format::MIN_CHUNK_SIZE); }
-
-            let _ = self.instance.run_worker();
         }
         Ok(())
     }
@@ -335,14 +345,15 @@ impl Talker for Lv2 {
 
         self.connect_ports(base);
 
-        let livi_active_instance = self.instance.raw_mut();
+        let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
+        let livi_active_instance = instance.raw_mut();
 
         unsafe{ livi_active_instance.run(ln); }
 
-        let _ = self.instance.run_worker();
+        let _ = instance.run_worker();
 
         for idx in &self.control_outputs_indexes {
-            if let Some(value) = self.instance.control_output(PortIndex(idx.plugin_port)) {
+            if let Some(value) = instance.control_output(PortIndex(idx.plugin_port)) {
                 base.voice(idx.tkr_port).set_control_value(value);
             }
         }
@@ -358,7 +369,9 @@ impl Talker for Lv2 {
         lv2_handler::visit(|lv2_handler| {
             match lv2_handler.world.plugin_by_uri(&self.uri) {
                 Some(plugin) => {
-                    Ok(self.instance.state_string(
+                    let instance = self.instance.as_ref().expect("Lv2 plugin uninstantiated");
+
+                    Ok(instance.state_string(
                         &plugin,
                         Some(&self.save_dir),
                         Some(&self.save_dir),
@@ -373,14 +386,19 @@ impl Talker for Lv2 {
     }
 
     fn set_state(&self, state_string: &str) -> Result<(), failure::Error> {
-        
+
+        if self.instance.is_none() {
+            return Ok(())
+        }        
         lv2_handler::visit(|lv2_handler| {
             let ostate = lv2_handler.world.new_state_from_string(
                 lv2_handler.features.as_ref(),
                 state_string);
 
             if let Some(state) = ostate {
-                self.instance.restore_state(
+                let instance = self.instance.as_ref().expect("Lv2 plugin uninstantiated");
+
+                instance.restore_state(
                     &state,
                     None,
                     lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD,
@@ -392,7 +410,9 @@ impl Talker for Lv2 {
             }
         })
     }
+
 }
+
 
 pub fn show_plugin(plugin: &Plugin) {
     println!("plugin {} ({})", plugin.name(), plugin.uri());

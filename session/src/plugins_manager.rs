@@ -188,7 +188,7 @@ impl PluginsManager {
         match &ph.plugin_type {
             PluginType::Lv2 => lv2_handler::visit(|lv2_handler| {
                 let base = TalkerBase::new(id, ph.base.label(), ph.base.model(), effective);
-                Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model(), base)?))
+                Ok(rtalker!(Lv2::new(lv2_handler, ph.base.model(), base, effective)?))
             }),
             PluginType::Internal => {
                 let base = TalkerBase::new(id, ph.base.label(), ph.base.model(), effective);
