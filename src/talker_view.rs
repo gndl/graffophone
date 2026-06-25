@@ -226,7 +226,7 @@ impl TalkerView {
                 Data::Int(_) => println!("Todo : Applicationview.edit_talker_data Data::Int"),
                 Data::Float(_) => println!("Todo : Applicationview.edit_talker_data Data::Float"),
                 Data::String(_) => println!("Todo : Applicationview.edit_talker_data Data::String"),
-                Data::Text(text) => self.edit_text(talker, text),
+                Data::Text(text) => self.edit_text(talker, &text),
                 Data::File(_) => self.edit_file_path(window, talker_id),
                 Data::Nil => (),
             }
