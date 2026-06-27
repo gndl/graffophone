@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::HashSet;
 
 extern crate failure;
 
@@ -224,6 +225,13 @@ impl TalkerBase {
     }
 
 
+    pub fn initialize(&self, initialized_talkers: &mut HashSet<Id>) -> Result<(), failure::Error> {
+        for ear in &self.ears {
+            ear.iter_talkers(|tkr, _| tkr.initialize(initialized_talkers), &mut ())?;
+        }
+        Ok(())
+    }
+
     pub fn listen(&self, tick: i64, len: usize) -> usize {
         let mut ln = len;
         for ear in &self.ears {
@@ -296,6 +304,10 @@ pub trait Talker {
 
     fn read_ports_events(&mut self, _base: &TalkerBase) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         Ok(Vec::new())
+    }
+
+    fn initialize(&mut self, base: &TalkerBase, initialized_talkers: &mut HashSet<Id>) -> Result<(), failure::Error> {
+        base.initialize(initialized_talkers)
     }
 
     fn talk(&mut self, _base: &TalkerBase, _port: usize, _tick: i64, _len: usize) -> usize {
@@ -643,6 +655,15 @@ impl TalkerCab {
     }
     pub fn deactivate(&self) {
         self.core.borrow_mut().deactivate()
+    }
+
+    pub fn initialize(&self, initialized_talkers: &mut HashSet<Id>) -> Result<(), failure::Error> {
+        if initialized_talkers.contains(&self.base.id()) {
+            return Ok(());
+        }
+        initialized_talkers.insert(self.base.id());
+
+        self.core.borrow_mut().initialize(&self.base, initialized_talkers)
     }
 
     pub fn talk(&self, port: usize, tick: i64, len: usize) -> usize {

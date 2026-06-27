@@ -118,9 +118,7 @@ impl Runner {
         let mut band = Band::make(&band_description, true)?;
         let feedback_mixer_id = band.mixers().iter().next().map_or(0, |(k, _)| *k);
 
-        // Run LV2 workers
-        lv2_handler::run_workers()?;
-
+        // Wait user order
         let mut state = State::Stopped;
         let mut order = self.wait_order()?;
 

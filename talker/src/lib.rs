@@ -15,5 +15,3 @@ pub mod lv2_handler;
 pub mod talker;
 pub mod talker_handler;
 pub mod voice;
-
-pub use identifier::Identifier;

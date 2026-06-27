@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::collections::HashSet;
 
 use livi::{self, PortIndex, Plugin};
 use livi::event::{LV2AtomEventBuilder, LV2AtomSequence};
@@ -9,7 +10,7 @@ use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
 use talker::horn::{AtomBuf, AudioBuf, CvBuf, MAtomBuf, MAudioBuf, MCvBuf};
-use talker::identifier::{Identifiable, Index};
+use talker::identifier::{Id, Identifiable, Index};
 use talker::lv2_handler::{self, Lv2Handler};
 use talker::talker::{CTalker, Talker, TalkerBase};
 
@@ -283,32 +284,32 @@ impl Talker for Lv2 {
                     println!("set_indexed_data atom_transfer");
                 }
                 self.connect_ports(base);
-                
+
                 let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
-                
+
                 let livi_active_instance = instance.raw_mut();
                 let livi_instance = livi_active_instance.instance_mut();
-                
+
                 let header = unsafe { (data.as_ptr() as *const lv2_raw::LV2Atom).as_ref().unwrap() };
-                
+
                 let content = &data[std::mem::size_of::<lv2_raw::LV2Atom>()..];
-                
+
                 let event: LV2AtomEventBuilder<ATOM_SEQUENCE_CAPACITY> = LV2AtomEventBuilder::new(
                     0,
                     header.mytype,
                     content,
                 ).unwrap();
-                
+
                 let mut atom_sequence = lv2_handler::visit(
                     |h|
                     Ok(LV2AtomSequence::new(&h.features, ATOM_SEQUENCE_CAPACITY))
                 )?;
-                
+
                 atom_sequence.push_event(&event)?;
-                
+
                 unsafe{ livi_instance.connect_port(port_index, atom_sequence.as_ptr()); }
                 unsafe{ livi_active_instance.run(audio_format::MIN_CHUNK_SIZE); }
-                
+
                 let _ = instance.run_worker();
             }
         }
@@ -338,6 +339,23 @@ impl Talker for Lv2 {
             }
         }
         Ok(ports_events)
+    }
+
+    fn initialize(&mut self, base: &TalkerBase, initialized_talkers: &mut HashSet<Id>) -> Result<(), failure::Error> {
+
+        if self.instance.is_some() {
+            base.initialize(initialized_talkers)?;
+
+            self.connect_ports(base);
+
+            let instance = self.instance.as_mut().expect("Lv2 plugin uninstantiated");
+            let livi_active_instance = instance.raw_mut();
+
+            unsafe{ livi_active_instance.run(audio_format::MIN_CHUNK_SIZE); }
+
+            let _ = instance.run_worker();
+        }
+        Ok(())
     }
 
     fn talk(&mut self, base: &TalkerBase, _port: usize, tick: i64, len: usize) -> usize {

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::collections::HashSet;
 
 use talker::audio_format::AudioFormat;
 use talker::ear;
@@ -133,7 +134,13 @@ impl Mixer {
         KIND
     }
 
-    pub fn initialize(&mut self) {
+    pub fn initialize_talkers(&self) -> Result<(), failure::Error> {
+        let mut initialized_talkers = HashSet::new();
+
+        self.talker.initialize(&mut initialized_talkers)
+    }
+
+    pub fn initialize(&mut self) -> Result<(), failure::Error> {
         let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
 
         self.tracks_count = tracks_ear.sets_len();
@@ -141,6 +148,8 @@ impl Mixer {
         for trk_idx in self.audible_tracks.len()..self.tracks_count {
             self.audible_tracks.push(trk_idx);
         }
+
+        self.initialize_talkers()
     }
 
     pub fn identifier(&self) -> &RIdentifier {
@@ -189,6 +198,7 @@ impl Mixer {
         self.is_open
     }
     pub fn open(&mut self) -> Result<(), failure::Error> {
+        self.initialize_talkers()?;
 
         if self.record {
             for o in &self.outputs {

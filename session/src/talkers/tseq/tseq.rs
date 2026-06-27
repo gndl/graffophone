@@ -1,4 +1,5 @@
-use std::f32;
+use std::{f32, usize};
+use std::collections::HashSet;
 
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
@@ -7,6 +8,7 @@ use talker::talker::Language;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 use talker::lv2_handler;
+use talker::identifier::Id;
 
 use talkers::tseq::audio_event::{self, AudioEvents, Shapes};
 use talkers::tseq::binder::Binder;
@@ -187,8 +189,6 @@ impl Tseq {
 }
 
 impl Talker for Tseq {
-    fn activate(&mut self) {}
-
     fn deactivate(&mut self) {
         self.events_reminder.clear();
 
@@ -231,6 +231,20 @@ impl Talker for Tseq {
                 data.type_str()
             ))),
         }
+    }
+
+    fn initialize(&mut self, base: &TalkerBase, _: &mut HashSet<Id>) -> Result<(), failure::Error> {
+
+        for (port, sequence) in self.sequences.iter().enumerate() {
+            match sequence {
+                Seq::Midi(seq) => {
+                    let voice_buf = base.voice(port).atom_buffer();
+                    seq.initialize(voice_buf)?;
+                }
+                _ => (),
+            }
+        }
+        Ok(())
     }
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {

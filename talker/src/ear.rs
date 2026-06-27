@@ -425,7 +425,7 @@ impl Hum {
                             events.push((ev.event.time_in_frames, ev));
                         }
                     }
-                    events.sort_unstable_by_key(|(t, _)| *t);
+                    events.sort_by_key(|(t, _)| *t);
 
                     for (time_in_frames, ev) in &events {
                         match LV2AtomEventBuilder::<1024>::new(*time_in_frames, ev.event.body.mytype, ev.data) {

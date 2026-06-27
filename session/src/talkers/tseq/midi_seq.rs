@@ -147,6 +147,23 @@ impl MidiSeq {
         })
     }
 
+    pub fn initialize(&self, voice_buf: MAtomBuf) -> Result<(), failure::Error> {
+
+        voice_buf.clear();
+
+        for ev in &self.controller_events {
+            voice_buf.push_midi_event::<{ midi::CONTROLLER_DATA_SIZE }>(0, self.midi_urid, &ev.data)?;
+        }
+        Ok(())
+    }
+
+    pub fn talk(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) {
+        match self.make_midi_event(tick, len, event_reminder, voice_buf) {
+            Ok(()) => (),
+            Err(e) => eprintln!("MidiSeq::talk failed : {:?}", e),
+        }
+    }
+
     fn make_midi_event(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) -> Result<(), failure::Error> {
         let end_t = tick + len as i64;
         let ev_count = self.events.len();
@@ -162,12 +179,6 @@ impl MidiSeq {
         }
 
         if ev_idx < ev_count {
-            if !event_reminder.initialized {
-                for ev in &self.controller_events {
-                    voice_buf.push_midi_event::<{ midi::CONTROLLER_DATA_SIZE }>(0, self.midi_urid, &ev.data)?;
-                }
-                event_reminder.initialized = true;
-            }
             while ev_idx < ev_count {
                 let ev = &self.events[ev_idx];
 
@@ -189,13 +200,6 @@ impl MidiSeq {
             event_reminder.index = ev_idx;
         }
         Ok(())
-    }
-
-    pub fn talk(&self, tick: i64, len: usize, event_reminder: &mut EventReminder, voice_buf: MAtomBuf) {
-        match self.make_midi_event(tick, len, event_reminder, voice_buf) {
-            Ok(()) => (),
-            Err(e) => eprintln!("MidiSeq::talk failed : {:?}", e),
-        }
     }
 }
 

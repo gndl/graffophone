@@ -420,7 +420,6 @@ pub fn create_events(
 }
 
 pub struct EventReminder {
-    pub initialized: bool,
     pub index: usize,
     pub last_value: f32,
 }
@@ -428,7 +427,6 @@ pub struct EventReminder {
 impl EventReminder {
     pub fn new() -> EventReminder {
         Self {
-            initialized: false,
             index: 0,
             last_value: 0.,
         }
