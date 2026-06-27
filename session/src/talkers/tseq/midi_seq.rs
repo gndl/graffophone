@@ -8,6 +8,14 @@ use talkers::tseq::sequence::{self, EventReminder};
 use talkers::tseq::parser::PMidiSequence;
 use midi;
 
+fn param_number(param: &Option<&str>) -> Result<u8, failure::Error> {
+    Ok(match param {
+        Some(p) => if p.is_empty() { 0 } else { u8::from_str(p)? },
+        None => 0,
+    })
+}
+
+
 pub struct MidiSeq {
     controller_events: Vec<midi::Event>,
     events: Vec<midi::Event>,
@@ -29,28 +37,22 @@ impl MidiSeq {
         let mut channel_number: u8 = 0;
 
         for channel in &sequence.channels {
+            controller_events.append(&mut midi::Event::reset(channel_number, 0));
+
             let seq = binder.fetch_sequence(&channel.seq_id)?;
 
             // Channel configuration events
-            if let Some(bank_msb) = channel.bank_msb {
-                let msb = u8::from_str(bank_msb)?;
-
-                controller_events.push(midi::Event::select_msb(channel_number, 0, msb));
-            }
-
-            if let Some(bank_lsb) = channel.bank_lsb {
-                if !bank_lsb.is_empty() {
-                    let lsb = u8::from_str(bank_lsb)?;
-
-                    controller_events.push(midi::Event::select_lsb(channel_number, 0, lsb));
-                }
-            }
-
-            if let Some(program) = channel.program {
-                let prog = u8::from_str(program)?;
-
-                controller_events.push(midi::Event::program_change(channel_number, 0, prog));
-            }
+            controller_events.push(midi::Event::select_bank(
+                channel_number,
+                0,
+                param_number(&channel.bank_msb)?,
+                param_number(&channel.bank_lsb)?),
+            );
+            controller_events.push(midi::Event::program_change(
+                channel_number,
+                0,
+                param_number(&channel.program)?),
+            );
 
             for attribute in &channel.attributes {
                 let ctrl_type = if attribute.label.starts_with("vol") {
@@ -100,8 +102,6 @@ impl MidiSeq {
             }
 
             if microtonal_channel {
-                // controller_events.push(midi::Event::tuning_program(channel_number, 0));
-                // controller_events.push(midi::Event::tuning_bank(channel_number, 0));
                 controller_events.append(&mut midi::Event::tuning(channel_number, 0));
             }
 

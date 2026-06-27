@@ -2,6 +2,9 @@ pub const FREQ_0: f64 = 8.175799;
 pub const NOTE_OFF: u8 = 0x80;
 pub const NOTE_ON: u8 = 0x90;
 pub const CONTROLLER: u8 = 0xB0;
+pub const ALL_SOUNDS_OFF: u8 = 0x78;
+pub const RESET_CONTROLLERS: u8 = 0x79;
+pub const ALL_NOTES_OFF: u8 = 0x7B;
 pub const CTRL_BANK_SELECT_MSB: u8 = 0x00;
 pub const CTRL_BANK_SELECT_LSB: u8 = 0x20;
 pub const CTRL_VOLUME: u8 = 0x07;
@@ -12,6 +15,7 @@ pub const PROGRAM_CHANGE: u8 = 0xC0;
 pub const NOTE_DATA_SIZE: usize = 3;
 pub const NOTE_OFF_DATA_SIZE: usize = 3;
 pub const CONTROLLER_DATA_SIZE: usize = 7;
+pub const BANK_SELECT_SIZE: usize = 7;
 pub const SYSEX_DATA_SIZE: usize = 13;
 
 pub fn to_freq(code: u8) -> f32 {
@@ -63,11 +67,26 @@ impl Event {
             sysex: None,
         }
     }
-    pub fn select_msb(channel_number: u8, tick: i64, msb: u8) -> Event {
+    pub fn all_notes_off(channel_number: u8, tick: i64) -> Event {
+        Self::controller(channel_number, tick, ALL_NOTES_OFF, 0)
+    }
+    pub fn reset(channel_number: u8, tick: i64) -> Vec<Event> {
+        let (on, off) = Self::note(channel_number, 44., tick, 0., tick + 1, 0., false);
+        vec![Event::all_notes_off(channel_number, tick), on, off]
+    }
+
+    pub fn select_bank_msb(channel_number: u8, tick: i64, msb: u8) -> Event {
         Self::controller(channel_number, tick, CTRL_BANK_SELECT_MSB, msb)
     }
-    pub fn select_lsb(channel_number: u8, tick: i64, lsb: u8) -> Event {
+    pub fn select_bank_lsb(channel_number: u8, tick: i64, lsb: u8) -> Event {
         Self::controller(channel_number, tick, CTRL_BANK_SELECT_LSB, lsb)
+    }
+    pub fn select_bank(channel_number: u8, tick: i64, msb: u8, lsb: u8) -> Event {
+        Self {
+            tick,
+            data: vec![CONTROLLER | channel_number, CTRL_BANK_SELECT_MSB, msb, CTRL_BANK_SELECT_LSB, lsb],
+            sysex: None,
+        }
     }
     pub fn tuning_program(channel_number: u8, tick: i64) -> Event {
         Self {
@@ -84,57 +103,14 @@ impl Event {
         }
     }
     pub fn tuning(channel_number: u8, tick: i64) -> Vec<Event> {
-        let mut events = Vec::new();
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x64, 0x03],
-                sysex: None,
-            }
-        );
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x65, 0x00],
-                sysex: None,
-            }
-        );
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x06, channel_number],
-                sysex: None,
-            }
-        );
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x64, 0x04],
-                sysex: None,
-            }
-        );
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x65, 0x00],
-                sysex: None,
-            }
-        );
-
-        events.push(
-            Self {
-                tick,
-                data: vec![CONTROLLER | channel_number, 0x06, 0x00],
-                sysex: None,
-            }
-        );
-
-        events
+        vec![
+            Self::controller(channel_number, tick, 0x64, 0x03),
+            Self::controller(channel_number, tick, 0x65, 0x00),
+            Self::controller(channel_number, tick, 0x06, channel_number),
+            Self::controller(channel_number, tick, 0x64, 0x04),
+            Self::controller(channel_number, tick, 0x65, 0x00),
+            Self::controller(channel_number, tick, 0x06, 0x00),
+        ]
     }
 
     pub fn program_change(channel_number: u8, tick: i64, program: u8) -> Event {
