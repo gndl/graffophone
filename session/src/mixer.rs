@@ -126,20 +126,26 @@ impl Mixer {
 
         let chunk_size = AudioFormat::chunk_size();
 
-        let mut channels_buffers = Vec::with_capacity(channels);
-        let mut feedback_buffers = Vec::with_capacity(channels);
-
-        for _ in 0..channels {
-            channels_buffers.push(vec![0.; chunk_size]);
-            feedback_buffers.push(vec![0.; chunk_size]);
+        let (buf, channels_buffers, feedback_buffers) = if effective {
+            let mut channels_buffers = Vec::with_capacity(channels_count);
+            let mut feedback_buffers = Vec::with_capacity(channels_count);
+    
+            for _ in 0..channels_count {
+                channels_buffers.push(vec![0.; chunk_size]);
+                feedback_buffers.push(vec![0.; chunk_size]);
+            }
+            (vec![0.; AudioFormat::chunk_size()], channels_buffers, feedback_buffers)
         }
+        else {
+            (Vec::new(), Vec::new(), Vec::new())
+        };
 
         Ok(Rc::new(RefCell::new(Self {
             talker: MuteTalker::new(base),
             outputs,
             is_open: false,
             record: false,
-            buf: vec![0.; AudioFormat::chunk_size()],
+            buf,
             tracks_count,
             channels_count,
             channels_buffers,
