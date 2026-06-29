@@ -51,7 +51,7 @@ pub trait Output {
 
     fn channel_layout<'a>(&'a self) -> &'a str;
     
-    fn channels(&self) -> usize;
+    fn channels_count(&self) -> usize;
 
     fn channels_names(&self) -> Vec<&'static str>;
 

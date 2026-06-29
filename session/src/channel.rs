@@ -103,27 +103,27 @@ impl Layout {
         vec!["Left", "Right"]
     }
     
-    pub fn channels(layout: &str) -> usize {
+    pub fn channels_count(layout: &str) -> usize {
         Layout::channels_names(layout).len()
     }
     
-    pub fn from_channels(channels: usize) -> &'static str {
+    pub fn from_channels_count(channels_count: usize) -> &'static str {
         for (idx, channels_names) in Layout::definitions().iter().enumerate() {
-            if channels_names.len() == channels {
+            if channels_names.len() == channels_count {
                 return  LAYOUTS[idx];
             }
         }
-        eprintln!("Unknow channel layout with {} channels. Fallback to {}.", channels, DEFAULT_LAYOUT);
+        eprintln!("Unknow channel layout with {} channels. Fallback to {}.", channels_count, DEFAULT_LAYOUT);
         DEFAULT_LAYOUT
     }
 
-    pub fn channels_names_from_channels(channels: usize) -> Vec<&'static str> {
+    pub fn channels_names_from_channels_count(channels_count: usize) -> Vec<&'static str> {
         for channels_names in Layout::definitions() {
-            if channels_names.len() == channels {
+            if channels_names.len() == channels_count {
                 return  channels_names;
             }
         }
-        eprintln!("Unknow channel layout with {} channels. Fallback to {}.", channels, DEFAULT_LAYOUT);
+        eprintln!("Unknow channel layout with {} channels. Fallback to {}.", channels_count, DEFAULT_LAYOUT);
         vec!["Left", "Right"]
     }
     

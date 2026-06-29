@@ -78,10 +78,10 @@ impl Output for AudioFileOutput {
         &self.channel_layout
     }
 
-    fn channels(&self) -> usize {
+    fn channels_count(&self) -> usize {
         match &self.writer {
             Some(ctx) => ctx.channels(),
-            None => channel::Layout::channels(&self.channel_layout),
+            None => channel::Layout::channels_count(&self.channel_layout),
         }
     }
 
@@ -95,12 +95,12 @@ impl Output for AudioFileOutput {
 
     fn open(&mut self) -> Result<(), failure::Error> {
 
-        let channels = channel::Layout::channels(&self.channel_layout);
+        let channels_count = channel::Layout::channels_count(&self.channel_layout);
 
-        let mut writer = Writer::new(self.codec_name.as_str(), self.in_sample_rate, self.out_sample_rate, channels, self.file_path.as_str())?;
+        let mut writer = Writer::new(self.codec_name.as_str(), self.in_sample_rate, self.out_sample_rate, channels_count, self.file_path.as_str())?;
 
-        if writer.channels() != channels {
-            self.channel_layout = channel::Layout::from_channels(writer.channels()).to_string();
+        if writer.channels() != channels_count {
+            self.channel_layout = channel::Layout::from_channels_count(writer.channels()).to_string();
         }
 
         writer.write_header()?;

@@ -25,14 +25,14 @@ pub struct AudioStream {
 pub struct Feedback {
     identifier: RIdentifier,
     sample_rate: usize,
-    nb_samples: usize,
-    nb_channels: usize,
+    samples_count: usize,
+    channels_count: usize,
     interleaved_samples: Vec<f32>,
     audio_stream: Option<AudioStream>,
 }
 
 impl Feedback {
-    pub fn new(nb_samples: usize) -> Result<Feedback, failure::Error> {
+    pub fn new(samples_count: usize) -> Result<Feedback, failure::Error> {
         // Default devices.
         let output_device = cpal::default_host()
             .default_output_device()
@@ -45,20 +45,20 @@ impl Feedback {
         Ok(Self {
             identifier: output::new_identifier(0, "", MODEL),
             sample_rate: AudioFormat::sample_rate(),
-            nb_samples,
-            nb_channels: config.channels as usize,
-            interleaved_samples:vec![0.0; nb_samples * config.channels as usize],
+            samples_count,
+            channels_count: config.channels as usize,
+            interleaved_samples:vec![0.0; samples_count * config.channels as usize],
             audio_stream: None,
         })
     }
 
-    pub fn new_ref(nb_samples: usize) -> Result<ROutput, failure::Error> {
-        Ok(Rc::new(RefCell::new(Feedback::new(nb_samples)?)))
+    pub fn new_ref(samples_count: usize) -> Result<ROutput, failure::Error> {
+        Ok(Rc::new(RefCell::new(Feedback::new(samples_count)?)))
     }
 
     fn make_audio_stream(
-        nb_channels: usize,
-        _nb_samples: usize,
+        channels_count: usize,
+        _samples_count: usize,
     ) -> Result<AudioStream, failure::Error> {
         let output_device = cpal::default_host()
             .default_output_device()
@@ -70,7 +70,7 @@ impl Feedback {
         config.sample_rate = sample_rate as u32;
 
         // The buffer to share samples
-        let ring = HeapRb::<f32>::new(sample_rate * nb_channels);
+        let ring = HeapRb::<f32>::new(sample_rate * channels_count);
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
@@ -105,7 +105,7 @@ impl Feedback {
     pub fn write_fadein(
         &mut self,
         in_channels: &Vec<Vector>,
-        nb_samples_per_channel: usize,
+        samples_count_per_channel: usize,
     ) -> Result<(), failure::Error> {
         let fade_tab = tables::create_fadeout(self.sample_rate);
 
@@ -113,18 +113,18 @@ impl Feedback {
         let mut in_chan_idx = 0;
 
         let last = fade_tab.len() - 1;
-        let fade_len = fade_tab.len().min(nb_samples_per_channel);
+        let fade_len = fade_tab.len().min(samples_count_per_channel);
 
-        let mut out_channels = Vec::with_capacity(self.nb_channels);
+        let mut out_channels = Vec::with_capacity(self.channels_count);
 
-        for _ in 0..self.nb_channels {
+        for _ in 0..self.channels_count {
             let in_chan = &in_channels[in_chan_idx];
-            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+            let mut out_chan = Vec::with_capacity(samples_count_per_channel);
 
             for i in 0..fade_len {
                 out_chan.push(in_chan[i] * fade_tab[last - i]);
             }
-            for i in fade_len..nb_samples_per_channel {
+            for i in fade_len..samples_count_per_channel {
                 out_chan.push(in_chan[i]);
             }
             out_channels.push(out_chan);
@@ -133,36 +133,36 @@ impl Feedback {
                 in_chan_idx += 1;
             }
         }
-        self.write(&out_channels, nb_samples_per_channel)
+        self.write(&out_channels, samples_count_per_channel)
     }
 
     pub fn write_fadeout(
         &mut self,
         in_channels: &Vec<Vector>,
-        nb_samples_per_channel: usize,
+        samples_count_per_channel: usize,
     ) -> Result<(), failure::Error> {
         let fade_tab = tables::create_fadeout(self.sample_rate);
 
         let in_chan_end = in_channels.len() - 1;
         let mut in_chan_idx = 0;
 
-        let fade_start = if fade_tab.len() < nb_samples_per_channel {
-            nb_samples_per_channel - fade_tab.len()
+        let fade_start = if fade_tab.len() < samples_count_per_channel {
+            samples_count_per_channel - fade_tab.len()
         }
         else {
             0
         };
 
-        let mut out_channels = Vec::with_capacity(self.nb_channels);
+        let mut out_channels = Vec::with_capacity(self.channels_count);
 
-        for _ in 0..self.nb_channels {
+        for _ in 0..self.channels_count {
             let in_chan = &in_channels[in_chan_idx];
-            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+            let mut out_chan = Vec::with_capacity(samples_count_per_channel);
 
             for i in 0..fade_start {
                 out_chan.push(in_chan[i]);
             }
-            for i in fade_start..nb_samples_per_channel {
+            for i in fade_start..samples_count_per_channel {
                 out_chan.push(in_chan[i] * fade_tab[i - fade_start]);
             }
             out_channels.push(out_chan);
@@ -171,14 +171,14 @@ impl Feedback {
                 in_chan_idx += 1;
             }
         }
-        self.write(&out_channels, nb_samples_per_channel)
+        self.write(&out_channels, samples_count_per_channel)
     }
 
     pub fn write_fade(
         &mut self,
         a_channels: &Vec<Vector>,
         b_channels: &Vec<Vector>,
-        nb_samples_per_channel: usize,
+        samples_count_per_channel: usize,
     ) -> Result<(), failure::Error> {
         let fade_tab = tables::create_fadeout(self.sample_rate);
 
@@ -188,21 +188,21 @@ impl Feedback {
         let mut b_chan_idx = 0;
 
         let last = fade_tab.len() - 1;
-        let fade_len = fade_tab.len().min(nb_samples_per_channel);
+        let fade_len = fade_tab.len().min(samples_count_per_channel);
 
-        let mut out_channels = Vec::with_capacity(self.nb_channels);
+        let mut out_channels = Vec::with_capacity(self.channels_count);
 
-        for _ in 0..self.nb_channels {
+        for _ in 0..self.channels_count {
             let a_chan = &a_channels[a_chan_idx];
             let b_chan = &b_channels[b_chan_idx];
 
-            let mut out_chan = Vec::with_capacity(nb_samples_per_channel);
+            let mut out_chan = Vec::with_capacity(samples_count_per_channel);
 
             for i in 0..fade_len {
                 let v = a_chan[i] * fade_tab[i] + b_chan[i] * fade_tab[last - i];
                 out_chan.push(v);
             }
-            for i in fade_len..nb_samples_per_channel {
+            for i in fade_len..samples_count_per_channel {
                 out_chan.push(b_chan[i]);
             }
 
@@ -216,7 +216,7 @@ impl Feedback {
                 b_chan_idx += 1;
             }
         }
-        self.write(&out_channels, nb_samples_per_channel)
+        self.write(&out_channels, samples_count_per_channel)
     }
 }
 
@@ -234,19 +234,19 @@ impl Output for Feedback {
     }
 
     fn channel_layout<'a>(&'a self) -> &'a str{
-        channel::Layout::from_channels(self.nb_channels)
+        channel::Layout::from_channels_count(self.channels_count)
     }
 
-    fn channels(&self) -> usize {
-        self.nb_channels
+    fn channels_count(&self) -> usize {
+        self.channels_count
     }
 
     fn channels_names(&self) -> Vec<&'static str> {
-        channel::Layout::channels_names_from_channels(self.nb_channels)
+        channel::Layout::channels_names_from_channels_count(self.channels_count)
     }
 
     fn open(&mut self) -> Result<(), failure::Error> {
-        let audio_stream = Feedback::make_audio_stream(self.nb_channels, self.nb_samples)?;
+        let audio_stream = Feedback::make_audio_stream(self.channels_count, self.samples_count)?;
 
         self.audio_stream = Some(audio_stream);
         Ok(())
@@ -262,19 +262,19 @@ impl Output for Feedback {
                 let in_chan_end = channels.len() - 1;
                 let mut in_chan_idx = 0;
                 
-                for n_chan in 0..self.nb_channels {
+                for n_chan in 0..self.channels_count {
                     let mut idx = n_chan;
 
                     for i in 0..nb_samples_per_channel {
                         self.interleaved_samples[idx] = channels[in_chan_idx][i];
-                        idx += self.nb_channels;
+                        idx += self.channels_count;
                     }
                     if in_chan_idx < in_chan_end {
                         in_chan_idx += 1;
                     }
                 }
 
-                let samples_count = nb_samples_per_channel * self.nb_channels;
+                let samples_count = nb_samples_per_channel * self.channels_count;
                 let mut pushed_count = 0;
                 let mut output_fell_behind = 0;
                 

@@ -46,7 +46,7 @@ impl Talker for AudioFileInput {
                 let mut file_reader = Reader::new(filename, sample_rate)?;
 
                 let channels_count = file_reader.channels();
-                let channels_names = channel::Layout::channels_names_from_channels(channels_count);
+                let channels_names = channel::Layout::channels_names_from_channels_count(channels_count);
 
                 for c in 0..channels_count {
                     let tag = if c < channels_names.len() {

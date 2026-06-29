@@ -363,19 +363,19 @@ impl Band {
         self.mixers.insert(id, rmixer);
     }
 
-    pub fn channels(&self) -> usize {
-        let mut nb_channels = 0;
+    pub fn channels_count(&self) -> usize {
+        let mut channels_count = 0;
 
         for rmixer in self.mixers.values() {
             for routput in rmixer.borrow().outputs() {
-                let nc = routput.borrow().channels();
+                let cc = routput.borrow().channels_count();
 
-                if nc > nb_channels {
-                    nb_channels = nc
+                if cc > channels_count {
+                    channels_count = cc
                 }
             }
         }
-        nb_channels
+        channels_count
     }
 
     pub fn produce_next_talker_id(&mut self) -> Id {
