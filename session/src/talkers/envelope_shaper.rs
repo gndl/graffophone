@@ -123,6 +123,18 @@ impl Talker for EnvelopeShaper {
         Ok(Some(new_base))
     }
 
+    fn fetch_tag(&self, base: &TalkerBase, port: usize) -> Option<String> {
+        base.ear(PLAYERS_EAR_INDEX).fold_hum_talks(
+            port,
+            EVENT_HUM_INDEX,
+            |tlk, ot| match ot {
+                Some(_) => Ok(ot),
+                None => Ok(tlk.talker().fetch_tag(tlk.port())),
+            },
+            None
+        ).unwrap()
+    }
+
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.ear(PLAYERS_EAR_INDEX).listen_set(tick, len, port);
         let event_buf = base.ear_set_hum_atom_buffer(PLAYERS_EAR_INDEX, port, EVENT_HUM_INDEX);

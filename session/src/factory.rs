@@ -62,8 +62,9 @@ impl Factory {
         name: &str,
         oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
+        effective: bool,
     ) -> Result<RMixer, failure::Error> {
-        Mixer::new_ref(id, name, oparent, outputs)
+        Mixer::new_ref(id, name, oparent, outputs, effective)
     }
 
     pub fn make_output(

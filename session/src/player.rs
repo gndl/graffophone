@@ -254,7 +254,7 @@ impl Runner {
                     continue;
                 }
                 Order::ModifyBand(operation) => {
-                    band.modify(&operation)?;
+                    band.modify(&operation, true)?;
 
                     order = state_order(state);
                     continue;

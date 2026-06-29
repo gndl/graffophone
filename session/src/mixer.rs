@@ -31,6 +31,7 @@ pub struct Mixer {
     record: bool,
     buf: Vector,
     tracks_count: usize,
+    channels_count: usize,
     channels_buffers: Vec<Vector>,
     feedback_buffers: Vec<Vector>,
     audible_tracks: Vec<Index>,
@@ -44,21 +45,22 @@ impl Mixer {
         name: &str,
         oparent: Option<&RMixer>,
         outputs: Vec<ROutput>,
+        effective: bool,
     ) -> Result<RMixer, failure::Error> {
-        let mut channels = 0;
+        let mut channels_count = 0;
         let mut output_idx = usize::MAX;
 
         for (idx, out) in outputs.iter().enumerate() {
-            let ocs = out.borrow().channels();
+            let ocs = out.borrow().channels_count();
 
-            if ocs > channels {
-                channels = ocs;
+            if ocs > channels_count {
+                channels_count = ocs;
                 output_idx = idx;
             }
         }
 
         let mut hums_attributs = vec![
-            ("", PortType::Audio, AudioFormat::MIN_AUDIO, AudioFormat::MAX_AUDIO, AudioFormat::DEF_AUDIO, Init::Empty),
+            ("in", PortType::Audio, AudioFormat::MIN_AUDIO, AudioFormat::MAX_AUDIO, AudioFormat::DEF_AUDIO, Init::Empty),
             ("gain", PortType::Cv, 0., 4., 1., Init::DefValue),
         ];
 
@@ -70,7 +72,7 @@ impl Mixer {
         else {
             hums_attributs.push(("left", PortType::Cv, 0., 1., 1., Init::DefValue));
             hums_attributs.push(("right", PortType::Cv, 0., 1., 1., Init::DefValue));
-            channels = 2;
+            channels_count = 2;
         }
         let stem_track = Set::from_attributs(&hums_attributs)?;
 
@@ -84,11 +86,26 @@ impl Mixer {
 
             base.add_ear(parent.talker.ear(VOLUME_EAR_INDEX).clone());
 
-            let channels_hums_end = channels.min(parent.channels()) + CHANNELS_HUM_INDEX;
+            let channels_hums_end = channels_count.min(parent.channels_count()) + CHANNELS_HUM_INDEX;
 
             for src_track in parent.talker.ear(TRACKS_EAR_INDEX).sets() {
                 let track = stem_track.clone();
-                let track = track.with_hum(INPUT_HUM_INDEX, |_| Ok(src_track.hums()[INPUT_HUM_INDEX].clone()))?;
+                let input_hum = &src_track.hums()[INPUT_HUM_INDEX];
+
+                let track = if effective {
+                    track.with_hum(INPUT_HUM_INDEX, |_| Ok(input_hum.clone()))?
+                }
+                else {
+                    let mut input_tag = "in".to_string();
+                    
+                    for talk in input_hum.talks() {
+                        if let Some(tag) = talk.talker().fetch_tag(talk.port()) {
+                            input_tag = tag;
+                            break;
+                        }
+                    }
+                    track.with_hum(INPUT_HUM_INDEX, |_| Ok(input_hum.with_tag(&input_tag)))?
+                };
                 let mut track = track.with_hum(GAIN_HUM_INDEX, |_| Ok(src_track.hums()[GAIN_HUM_INDEX].clone()))?;
 
                 for hum_idx in CHANNELS_HUM_INDEX..channels_hums_end {
@@ -124,6 +141,7 @@ impl Mixer {
             record: false,
             buf: vec![0.; AudioFormat::chunk_size()],
             tracks_count,
+            channels_count,
             channels_buffers,
             feedback_buffers,
             audible_tracks,
@@ -140,16 +158,30 @@ impl Mixer {
         self.talker.initialize(&mut initialized_talkers)
     }
 
-    pub fn initialize(&mut self) -> Result<(), failure::Error> {
-        let tracks_ear = &self.talker.ear(TRACKS_EAR_INDEX);
-
-        self.tracks_count = tracks_ear.sets_len();
-
-        for trk_idx in self.audible_tracks.len()..self.tracks_count {
-            self.audible_tracks.push(trk_idx);
+    pub fn initialize(rmixer: RMixer, effective: bool) -> Result<RMixer, failure::Error> {
+        {
+            let mut mixer = rmixer.borrow_mut();
+            let tracks_ear = mixer.talker.ear(TRACKS_EAR_INDEX);
+            
+            mixer.tracks_count = tracks_ear.sets_len();
+            
+            for trk_idx in mixer.audible_tracks.len()..mixer.tracks_count {
+                mixer.audible_tracks.push(trk_idx);
+            }
         }
 
-        self.initialize_talkers()
+        if effective {
+            rmixer.borrow().initialize_talkers()?;
+            Ok(rmixer)
+        }
+        else {
+            let id = rmixer.borrow().id();
+            let name = rmixer.borrow().name();
+            let outputs = std::mem::take(&mut rmixer.borrow_mut().outputs);
+
+            // Create a new mixer with fetched tracks tags
+            Mixer::new_ref(id, &name, Some(&rmixer), outputs, effective)
+        }
     }
 
     pub fn identifier(&self) -> &RIdentifier {
@@ -170,8 +202,8 @@ impl Mixer {
         Ok(())
     }
 
-    pub fn channels(&self) -> usize {
-        self.channels_buffers.len()
+    pub fn channels_count(&self) -> usize {
+        self.channels_count
     }
 
     pub fn channels_buffers<'a>(&'a self) -> &'a Vec<Vector> {

@@ -22,12 +22,16 @@ use scale::scale;
 pub const MODEL: &str = "Tseq";
 
 
-enum Seq {
+enum SeqEvents {
     Freq(AudioEvents),
     Vel(AudioEvents),
     Midi(MidiSeq),
 }
 
+struct Seq {
+    tag: String,
+    events: SeqEvents,
+}
 pub struct Tseq {
     scales: scale::Collection,
     shapes: Shapes,
@@ -144,15 +148,15 @@ impl Tseq {
                                 harmonics_frequency_events.pop_front()
                             {
                                 // Add event sequence and output
-                                sequences.push(Seq::Midi(MidiSeq::from_audio_events(
+                                sequences.push(Seq{tag: seq.id.to_string(), events: SeqEvents::Midi(MidiSeq::from_audio_events(
                                     &harmonic_frequency_events,
                                     self.midi_urid,
-                                )?));
+                                )?)});
                                 let ev_tag = format!("{}.ev", tag_base);
                                 base.add_atom_voice(Some(&ev_tag), Some(&lv2_handler));
 
                                 // Add frequency sequence and output
-                                sequences.push(Seq::Freq(harmonic_frequency_events));
+                                sequences.push(Seq{tag: seq.id.to_string(), events: SeqEvents::Freq(harmonic_frequency_events)});
 
                                 let freq_tag = format!("{}.freq", tag_base);
                                 base.add_cv_voice(Some(&freq_tag), 0.);
@@ -162,7 +166,7 @@ impl Tseq {
                             {
                                 if !harmonic_velocity_events.is_empty() {
                                     // Add velocity sequence and output
-                                    sequences.push(Seq::Vel(harmonic_velocity_events));
+                                    sequences.push(Seq{tag: seq.id.to_string(), events: SeqEvents::Vel(harmonic_velocity_events)});
 
                                     let tag = format!("{}.gain", tag_base);
                                     base.add_audio_voice(Some(&tag), 0.);
@@ -171,11 +175,11 @@ impl Tseq {
                         }
                     }
                     Expression::MidiOut(seq) => {
-                        sequences.push(Seq::Midi(MidiSeq::new(
+                        sequences.push(Seq{tag: seq.id.to_string(), events: SeqEvents::Midi(MidiSeq::new(
                             &binder,
                             &seq,
                             self.midi_urid,
-                        )?));
+                        )?)});
                         base.add_atom_voice(Some(seq.id), Some(&lv2_handler));
                     }
                     _ => (),
@@ -233,11 +237,15 @@ impl Talker for Tseq {
         }
     }
 
+    fn fetch_tag(&self, _base: &TalkerBase, port: usize) -> Option<String> {
+        Some(self.sequences[port].tag.to_string())
+    }
+
     fn initialize(&mut self, base: &TalkerBase, _: &mut HashSet<Id>) -> Result<(), failure::Error> {
 
         for (port, sequence) in self.sequences.iter().enumerate() {
-            match sequence {
-                Seq::Midi(seq) => {
+            match &sequence.events {
+                SeqEvents::Midi(seq) => {
                     let voice_buf = base.voice(port).atom_buffer();
                     seq.initialize(voice_buf)?;
                 }
@@ -251,8 +259,8 @@ impl Talker for Tseq {
         let ln = base.listen(tick, len);
         let ev_rmd = &mut self.events_reminder[port];
 
-        match &self.sequences[port] {
-            Seq::Freq(audio_events) => {
+        match &self.sequences[port].events {
+            SeqEvents::Freq(audio_events) => {
                 let voice_buf = base.voice(port).cv_buffer();
                 audio_sequence_talk(
                     &self.shapes,
@@ -264,7 +272,7 @@ impl Talker for Tseq {
                     voice_buf,
                 );
             }
-            Seq::Vel(audio_events) => {
+            SeqEvents::Vel(audio_events) => {
                 let voice_buf = base.voice(port).audio_buffer();
                 audio_sequence_talk(
                     &self.shapes,
@@ -276,7 +284,7 @@ impl Talker for Tseq {
                     voice_buf,
                 );
             }
-            Seq::Midi(seq) => {
+            SeqEvents::Midi(seq) => {
                 let voice_buf = base.voice(port).atom_buffer();
                 seq.talk(tick, ln, ev_rmd, voice_buf);
             }

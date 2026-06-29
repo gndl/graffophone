@@ -92,6 +92,18 @@ impl Talker for Regulators {
         Ok(Some(new_base))
     }
 
+    fn fetch_tag(&self, base: &TalkerBase, port: usize) -> Option<String> {
+        base.ear(INPUTS_EAR_INDEX).fold_hum_talks(
+            port,
+            IN_HUM_INDEX,
+            |tlk, ot| match ot {
+                Some(_) => Ok(ot),
+                None => Ok(tlk.talker().fetch_tag(tlk.port())),
+            },
+            None
+        ).unwrap()
+    }
+
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ear = base.ear(INPUTS_EAR_INDEX);
         let ln = ear.listen_set(tick, len, port);

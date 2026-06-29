@@ -156,6 +156,18 @@ impl Talker for ADSRp {
         Ok(Some(new_base))
     }
 
+    fn fetch_tag(&self, base: &TalkerBase, port: usize) -> Option<String> {
+        base.ear(PLAYERS_EAR_INDEX).fold_hum_talks(
+            port,
+            EVENT_HUM_INDEX,
+            |tlk, ot| match ot {
+                Some(_) => Ok(ot),
+                None => Ok(tlk.talker().fetch_tag(tlk.port())),
+            },
+            None
+        ).unwrap()
+    }
+
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let envelope_ear = base.ear(ENVELOPE_EAR_INDEX);
         let mut ln = envelope_ear.listen(tick, len);

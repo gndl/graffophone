@@ -26,7 +26,7 @@ use talker::talker::RTalker;
 
 use crate::factory::{Factory, OutputParam};
 use crate::mixer;
-use crate::mixer::RMixer;
+use crate::mixer::{Mixer, RMixer};
 use crate::parser;
 use crate::parser::{PMixer, POutput, PTalk, PTalker};
 
@@ -161,6 +161,7 @@ impl Band {
         &mut self,
         poutputs: &HashMap<Id, POutput>,
         pmixer: &PMixer,
+        effective: bool,
     ) -> Result<RMixer, failure::Error> {
         let mut outputs = Vec::new();
 
@@ -179,7 +180,7 @@ impl Band {
             }
         }
 
-        Factory::make_mixer(pmixer.talker.id, pmixer.talker.name, None, outputs)
+        Factory::make_mixer(pmixer.talker.id, pmixer.talker.name, None, outputs, effective)
     }
 
     pub fn build(factory: &Factory, source: &String, effective: bool) -> Result<Band, failure::Error> {
@@ -228,15 +229,15 @@ impl Band {
                 top_id = pmixer.talker.id;
             }
 
-            let rmixer = band.make_mixer(&poutputs, &pmixer)?;
+            let rmixer = band.make_mixer(&poutputs, &pmixer, effective)?;
 
             band.set_talker_ears(
                 &mut talkers_ptalkers,
                 rmixer.borrow_mut().talker().clone(),
                 &pmixer.talker,
             )?;
-            rmixer.borrow_mut().initialize()?;
-            band.mixers.insert(pmixer.talker.id, rmixer);
+            let rmixer = Mixer::initialize(rmixer, effective)?;
+            band.add_mixer(rmixer);
         }
 
         band.talker_id_count = top_id;
@@ -488,14 +489,14 @@ impl Band {
         }
     }
 
-    pub fn set_mixer_outputs(&mut self, mixer_id: &Id, outputs_params: &Vec<OutputParam>) -> Result<(), failure::Error> {
+    pub fn set_mixer_outputs(&mut self, mixer_id: &Id, outputs_params: &Vec<OutputParam>, effective: bool) -> Result<(), failure::Error> {
         let mixer = self.extract_mixer(mixer_id)?;
         let id = mixer.borrow().id();
         let name = mixer.borrow().name();
 
         let outputs = Factory::make_outputs(id, outputs_params)?;
 
-        let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs)?;
+        let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs, effective)?;
 
         updated_mixer.borrow_mut().set_record(mixer.borrow().record())?;
 
@@ -529,7 +530,7 @@ impl Band {
         }
     }
 
-    pub fn modify(&mut self, operation: &Operation) -> Result<(), failure::Error> {
+    pub fn modify(&mut self, operation: &Operation, effective: bool) -> Result<(), failure::Error> {
         let mut result = Ok(());
         match operation {
             Operation::AddTalker(tkr_id, model) => {
@@ -661,7 +662,7 @@ impl Band {
                 self.update_talker(ear_tkr_id, |tkr| tkr.sup_ear_set_update(*ear_idx, *set_idx))?;
             }
             Operation::SetMixerOutputs(mixer_id, outputs_params) => {
-                self.set_mixer_outputs(mixer_id, outputs_params)?;
+                self.set_mixer_outputs(mixer_id, outputs_params, effective)?;
             }
             Operation::SetIndexedData(tkr_id, idx, protocol, data) => {
                 let tkr = self.fetch_talker(tkr_id)?;
@@ -687,13 +688,15 @@ impl Band {
 
         let tkr = self.fetch_talker(&talker_id)?;
 
-        tkr.ear(ear_idx).iter_hum_talks(set_idx, hum_idx, |tlk| {
-            match tlk.value() {
-                Some(v) => talks.push(EarHumTalk::Value(v)),
-                None => talks.push(EarHumTalk::Voice(tlk.talker().id(), tlk.port())),
-            }
-            Ok(())
-        })?;
+        tkr.ear(ear_idx).fold_hum_talks(set_idx, hum_idx, |tlk, _| {
+                match tlk.value() {
+                    Some(v) => talks.push(EarHumTalk::Value(v)),
+                    None => talks.push(EarHumTalk::Voice(tlk.talker().id(), tlk.port())),
+                }
+                Ok(())
+            },
+            (),
+        )?;
 
         Ok(EarHum {
             talker_id,

@@ -306,6 +306,23 @@ pub trait Talker {
         Ok(Vec::new())
     }
 
+    fn fetch_tag(&self, base: &TalkerBase, _port: usize) -> Option<String> {
+        for ear in &base.ears {
+            let ot = ear.fold_talks(
+                |_, _, _, tlk, ot| match ot {
+                    Some(_) => Ok(ot),
+                    None => Ok(tlk.talker().fetch_tag(tlk.port())),
+                },
+                None
+            ).unwrap();
+
+            if ot.is_some() {
+                return ot;
+            }
+        }
+        None
+    }
+
     fn initialize(&mut self, base: &TalkerBase, initialized_talkers: &mut HashSet<Id>) -> Result<(), failure::Error> {
         base.initialize(initialized_talkers)
     }
@@ -639,6 +656,10 @@ impl TalkerCab {
 
     pub fn read_ports_events(&self) -> Result<Vec<(u32, u32, Vec<u8>)>, failure::Error> {
         self.core.borrow_mut().read_ports_events(&self.base)
+    }
+
+    pub fn fetch_tag(&self, port: usize) -> Option<String> {
+        self.core.borrow().fetch_tag(&self.base, port)
     }
 
 

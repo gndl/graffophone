@@ -455,7 +455,7 @@ impl Set {
         let mut hums = Vec::with_capacity(hums_attributs.len());
 
         for (tag, port_type, min_value, max_value, def_value, init) in hums_attributs {
-            let hum_tag = if tag.len() > 0 { tag } else { DEF_EAR_TAG };
+            let hum_tag = if tag.is_empty() { DEF_EAR_TAG } else { tag };
 
             hums.push(Hum::initialized(
                 Some(hum_tag),
@@ -746,14 +746,15 @@ impl Ear {
         Ok(())
     }
 
-    pub fn iter_hum_talks<F>(&self, set_idx: Index, hum_idx: Index, mut f: F) -> Result<(), failure::Error>
+    pub fn fold_hum_talks<F, P>(&self, set_idx: Index, hum_idx: Index, mut f: F, p: P) -> Result<P, failure::Error>
     where
-        F: FnMut(&Talk) -> Result<(), failure::Error>,
+        F: FnMut(&Talk, P) -> Result<P, failure::Error>,
     {
+        let mut acc = p;
         for talk in &self.sets()[set_idx].hums[hum_idx].talks {
-            f(&talk)?;
+            acc = f(&talk, acc)?;
         }
-        Ok(())
+        Ok(acc)
     }
 
     pub fn fold_talks<F, P>(&self, mut f: F, p: P) -> Result<P, failure::Error>

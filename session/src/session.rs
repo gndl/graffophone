@@ -159,7 +159,7 @@ impl Session {
     }
 
     pub fn modify_band(&mut self, operation: &Operation) -> Result<State, failure::Error> {
-        self.band.modify(operation)?;
+        self.band.modify(operation, false)?;
         self.player.modify_band(operation)
     }
 
@@ -176,7 +176,7 @@ impl Session {
         let modification_count = modifications.len();
 
         for operation in &modifications {
-            self.band.modify(operation)?;
+            self.band.modify(operation, false)?;
         }
         Ok((modification_count, ui_count))
     }
