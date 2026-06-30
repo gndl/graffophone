@@ -18,9 +18,10 @@ impl PortType {
     pub fn can_hear(&self, port_type: PortType) -> bool {
         match (port_type, self) {
             (PortType::Audio, PortType::Audio) => true,
+            (PortType::Atom, PortType::Atom) => true,
+            (PortType::Atom, _) => false,
             (_, PortType::Cv) => true,
             (_, PortType::Control) => true,
-            (PortType::Atom, PortType::Atom) => true,
             _ => false,
         }
     }
