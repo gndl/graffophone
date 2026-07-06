@@ -18,7 +18,7 @@ Formats :
 - Codecs : FLAC, MP3, Ogg Vorbis, Opus, WAV
 
 
-![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone-0.5.0.png)
+![Graffophone](https://github.com/gndl/graffophone/wiki/graffophone-0.7.0.png)
 
 ## Building and installing Graffophone
 
