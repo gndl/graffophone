@@ -150,7 +150,8 @@ impl Session {
     }
     pub fn set_sample_rate(&mut self, sample_rate: usize) -> Result<State, failure::Error> {
         AudioFormat::set_sample_rate(sample_rate);
-        self.player.load_band(self.band.serialize()?)
+        let band_description = self.player.backup_band()?;
+        self.player.load_band(band_description)
     }
 
     pub fn load_band(&mut self, band_description: String) -> Result<State, failure::Error> {

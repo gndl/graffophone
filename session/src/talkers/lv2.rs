@@ -387,16 +387,17 @@ impl Talker for Lv2 {
         lv2_handler::visit(|lv2_handler| {
             match lv2_handler.world.plugin_by_uri(&self.uri) {
                 Some(plugin) => {
-                    let instance = self.instance.as_ref().expect("Lv2 plugin uninstantiated");
-
-                    Ok(instance.state_string(
-                        &plugin,
-                        Some(&self.save_dir),
-                        Some(&self.save_dir),
-                        Some(&self.save_dir),
-                        Some(&self.save_dir),
-                        None,
-                        lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD))
+                    match &self.instance {
+                        Some(instance) => Ok(instance.state_string(
+                            &plugin,
+                            Some(&self.save_dir),
+                            Some(&self.save_dir),
+                            Some(&self.save_dir),
+                            Some(&self.save_dir),
+                            None,
+                            lv2_sys::LV2_State_Flags::LV2_STATE_IS_POD)),
+                        None => Ok(None),
+                    }
                 }
                 None => Err(failure::err_msg(format!("LV2 plugin {} not found.", &self.uri))),
             }
