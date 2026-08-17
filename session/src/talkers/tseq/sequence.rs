@@ -101,7 +101,7 @@ impl EventsBuilder {
                     let mut next_chord_idx = 0;
                     let mut next_velocity_idx = 0;
 
-                    let max_n = pitchs_count.max(hitline_hits_count);
+                    let max_n = hitline_hits_count.max(pitchs_count).max(velocities_count);
 
                     while mul > 0. {
                         let n = if mul < 1. {
