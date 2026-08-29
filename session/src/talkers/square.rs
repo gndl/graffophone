@@ -45,11 +45,9 @@ impl Square {
 
 impl Talker for Square {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
-        let freq_ear = base.ear(FREQ_EAR_INDEX);
+        let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);
-        let ratio_ear = base.ear(RATIO_EAR_INDEX);
         let ratio_buf = base.ear_audio_buffer(RATIO_EAR_INDEX);
-        let gain_ear = base.ear(GAIN_EAR_INDEX);
         let gain_buf = base.ear_cv_buffer(GAIN_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
         let sample_rate = AudioFormat::sample_rate() as f32;
@@ -68,18 +66,11 @@ impl Talker for Square {
 
         let mut i: usize = 0;
 
-        while i < len {
+        while i < ln {
             if i == next_rising_edge_idx {
-                let tck = tick + i as i64;
-
-                freq_ear.listen(tck, 1);
-                let f = freq_buf[0];
-
-                ratio_ear.listen(tck, 1);
-                let r = ratio_buf[0];
-
-                gain_ear.listen(tck, 1);
-                gain = gain_buf[0];
+                let f = freq_buf[i];
+                let r = ratio_buf[i];
+                gain = gain_buf[i];
 
                 let p = sample_rate / f;
 
@@ -87,16 +78,16 @@ impl Talker for Square {
                 next_falling_edge_idx = i + (p * (r * 0.5 + 0.5)) as usize;
             }
 
-            let roof_end = len.min(next_falling_edge_idx);
+            let roof_end = ln.min(next_falling_edge_idx);
 
-            for _ in i..roof_end {
+            while i < roof_end {
                 voice_buf[i] = gain;
                 i += 1;
             }
 
-            let floor_end = len.min(next_rising_edge_idx);
+            let floor_end = ln.min(next_rising_edge_idx);
 
-            for _ in i..floor_end {
+            while i < floor_end {
                 voice_buf[i] = -gain;
                 i += 1;
             }

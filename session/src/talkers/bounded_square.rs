@@ -49,13 +49,10 @@ impl BoundedSquare {
 
 impl Talker for BoundedSquare {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
-        let freq_ear = base.ear(FREQ_EAR_INDEX);
+        let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);
-        let ratio_ear = base.ear(RATIO_EAR_INDEX);
         let ratio_buf = base.ear_audio_buffer(RATIO_EAR_INDEX);
-        let roof_ear = base.ear(ROOF_EAR_INDEX);
         let roof_buf = base.ear_cv_buffer(ROOF_EAR_INDEX);
-        let floor_ear = base.ear(FLOOR_EAR_INDEX);
         let floor_buf = base.ear_cv_buffer(FLOOR_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
         let sample_rate = AudioFormat::sample_rate() as f32;
@@ -73,49 +70,28 @@ impl Talker for BoundedSquare {
 
         let mut i: usize = 0;
 
-        while i < len {
-            let t = tick + i as i64;
-
+        while i < ln {
             if i == next_rising_edge_idx {
-                freq_ear.listen(t, 1);
-                let f = freq_buf[0];
-                ratio_ear.listen(t, 1);
-                let r = ratio_buf[0];
+                let f = freq_buf[i];
+                let r = ratio_buf[i];
                 let p = sample_rate / f;
 
                 next_rising_edge_idx = i + p as usize;
                 next_falling_edge_idx = i + (p * (r * 0.5 + 0.5)) as usize;
             }
 
-            let roof_end = len.min(next_falling_edge_idx);
+            let roof_end = ln.min(next_falling_edge_idx);
 
-            if i < roof_end {
-                let roof_len = roof_end - i;
-                let obtained_roof_len = roof_ear.listen(t, roof_len);
-
-                for j in 0..obtained_roof_len {
-                    voice_buf[i] = roof_buf[j];
-                    i += 1;
-                }
-                if obtained_roof_len < roof_len {
-                    break;
-                }
+            while i < roof_end {
+                voice_buf[i] = roof_buf[i];
+                i += 1;
             }
 
-            let floor_end = len.min(next_rising_edge_idx);
+            let floor_end = ln.min(next_rising_edge_idx);
 
-            if i < floor_end {
-                let floor_len = floor_end - i;
-                let obtained_floor_len =
-                    floor_ear.listen(tick + next_falling_edge_idx as i64, floor_len);
-
-                for j in 0..obtained_floor_len {
-                    voice_buf[i] = floor_buf[j];
-                    i += 1;
-                }
-                if obtained_floor_len < floor_len {
-                    break;
-                }
+            while i < floor_end {
+                voice_buf[i] = floor_buf[i];
+                i += 1;
             }
         }
 
