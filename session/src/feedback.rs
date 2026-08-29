@@ -70,7 +70,7 @@ impl Feedback {
         config.sample_rate = sample_rate as u32;
 
         // The buffer to share samples
-        let ring = HeapRb::<f32>::new(sample_rate * channels_count);
+        let ring = HeapRb::<f32>::new((sample_rate * channels_count) / 2);
         let (producer, mut consumer) = ring.split();
 
         let output_data_fn = move |data: &mut [f32], _: &_| {
