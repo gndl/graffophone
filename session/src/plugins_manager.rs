@@ -28,6 +28,7 @@ use talkers::sinusoidal::{self, Sinusoidal};
 use talkers::sinusoidal_fptg::{self, SinusoidalFPTG};
 use talkers::speed_modulator::{self, SpeedModulators};
 use talkers::square::{self, Square};
+use talkers::triangle::{self, Triangle};
 use talkers::tseq::tseq::{self, Tseq};
 
 enum PluginType {
@@ -112,6 +113,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Square::descriptor()),
             PluginsManager::tkr_hr_kv(Sum::descriptor()),
             PluginsManager::tkr_hr_kv(TanhSum::descriptor()),
+            PluginsManager::tkr_hr_kv(Triangle::descriptor()),
             PluginsManager::tkr_hr_kv(Tseq::descriptor()),
         ]);
 
@@ -176,6 +178,8 @@ impl PluginsManager {
             Ok(rtalker!(Sum::new(base)?))
         } else if model == math::TANH_SUM_MODEL {
             Ok(rtalker!(TanhSum::new(base)?))
+        } else if model == triangle::MODEL {
+            Ok(rtalker!(Triangle::new(base)?))
         } else if model == tseq::MODEL {
             Ok(rtalker!(Tseq::new(base)?))
         } else {

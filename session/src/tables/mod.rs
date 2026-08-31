@@ -111,6 +111,23 @@ const RAMP_LEN : usize = 24000;
     }
 
     #[test]
+    fn create_ramp() -> Result<(), failure::Error> {
+        let mut f = File::create("src/tables/ramp.rs")?;
+
+        writeln!(f, "pub const LEN:usize = {};", RAMP_LEN)?;
+        writeln!(f, "pub const TAB: [f32; LEN] = [")?;
+
+        let flen = RAMP_LEN as f64;
+
+        for i in 0..RAMP_LEN {
+            writeln!(f, "{:.10},", ((i * 2) as f64 / flen) - 1.0)?;
+        }
+        writeln!(f, "];")?;
+
+        Ok(())
+    }
+
+    #[test]
     fn create_sinramp() -> Result<(), failure::Error> {
         let mut f = File::create("src/tables/sinramp.rs")?;
 
