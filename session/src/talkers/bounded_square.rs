@@ -12,6 +12,7 @@ use talker::talker_handler::TalkerHandlerBase;
 pub const MODEL: &str = "BoundedSquare";
 
 pub struct BoundedSquare {
+    sample_rate: f64,
     next_rising_edge_tick: i64,
     next_falling_edge_tick: i64,
 }
@@ -36,6 +37,7 @@ impl BoundedSquare {
         Ok(ctalker!(
             base,
             Self {
+                sample_rate: AudioFormat::sample_rate() as f64,
                 next_rising_edge_tick: 0,
                 next_falling_edge_tick: 0,
             }
@@ -48,6 +50,11 @@ impl BoundedSquare {
 }
 
 impl Talker for BoundedSquare {
+    fn activate(&mut self) {
+        self.next_rising_edge_tick = 0;
+        self.next_falling_edge_tick = 0;
+    }
+
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);
@@ -55,7 +62,6 @@ impl Talker for BoundedSquare {
         let roof_buf = base.ear_cv_buffer(ROOF_EAR_INDEX);
         let floor_buf = base.ear_cv_buffer(FLOOR_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
-        let sample_rate = AudioFormat::sample_rate() as f32;
 
         let mut next_rising_edge_idx = if self.next_rising_edge_tick < tick {
             0
@@ -72,12 +78,12 @@ impl Talker for BoundedSquare {
 
         while i < ln {
             if i == next_rising_edge_idx {
-                let f = freq_buf[i];
-                let r = ratio_buf[i];
-                let p = sample_rate / f;
+                let freq = f64::EPSILON.max(freq_buf[i] as f64);
+                let ratio = (ratio_buf[i] as f64 + 1.) * 0.5;
+                let period = self.sample_rate / freq;
 
-                next_rising_edge_idx = i + p as usize;
-                next_falling_edge_idx = i + (p * (r * 0.5 + 0.5)) as usize;
+                next_rising_edge_idx = i + period as usize;
+                next_falling_edge_idx = i + (period * ratio) as usize;
             }
 
             let roof_end = ln.min(next_falling_edge_idx);
