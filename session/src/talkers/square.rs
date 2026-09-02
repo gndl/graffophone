@@ -1,5 +1,3 @@
-use std::f32;
-
 use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::ear;
@@ -12,9 +10,9 @@ pub const MODEL: &str = "Square";
 
 pub struct Square {
     sample_rate: f64,
-    next_rising_edge_tick: i64,
-    next_falling_edge_tick: i64,
+    up: bool,
     gain: f32,
+    period_part_end_idx: usize,
 }
 
 const FREQ_EAR_INDEX: Index = 0;
@@ -33,9 +31,9 @@ impl Square {
             base,
             Self {
                 sample_rate: AudioFormat::sample_rate() as f64,
-                next_rising_edge_tick: 0,
-                next_falling_edge_tick: 0,
-                gain: 0.
+                up: false,
+                gain: 0.,
+                period_part_end_idx: 0,
             }
         ))
     }
@@ -47,8 +45,8 @@ impl Square {
 
 impl Talker for Square {
     fn activate(&mut self) {
-        self.next_rising_edge_tick = 0;
-        self.next_falling_edge_tick = 0;
+        self.up = false;
+        self.period_part_end_idx = 0;
     }
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
@@ -58,51 +56,41 @@ impl Talker for Square {
         let gain_buf = base.ear_cv_buffer(GAIN_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
 
-        let mut next_rising_edge_idx = if self.next_rising_edge_tick < tick {
-            0
-        } else {
-            (self.next_rising_edge_tick - tick) as usize
-        };
-        let mut next_falling_edge_idx = if self.next_falling_edge_tick < tick {
-            0
-        } else {
-            (self.next_falling_edge_tick - tick) as usize
-        };
+        let mut up = self.up;
         let mut gain = self.gain;
+        let mut period_part_end_idx = self.period_part_end_idx;
 
         let mut i: usize = 0;
 
         while i < ln {
-            if i == next_rising_edge_idx {
+            if i == period_part_end_idx {
                 let freq = f64::EPSILON.max(freq_buf[i] as f64);
                 let ratio = (ratio_buf[i] as f64 + 1.) * 0.5;
-                gain = gain_buf[i];
-
                 let period = self.sample_rate / freq;
 
-                next_rising_edge_idx = i + period as usize;
-                next_falling_edge_idx = i + (period * ratio) as usize;
+                if up {
+                    gain = -gain_buf[i];
+                    period_part_end_idx = i + (period * (1. - ratio)) as usize;
+                }
+                else {
+                    gain = gain_buf[i];
+                    period_part_end_idx = i + (period * ratio) as usize;
+                }
+                up = !up;
             }
 
-            let roof_end = ln.min(next_falling_edge_idx);
+            let end_idx = ln.min(period_part_end_idx);
 
-            while i < roof_end {
+            while i < end_idx {
                 voice_buf[i] = gain;
-                i += 1;
-            }
-
-            let floor_end = ln.min(next_rising_edge_idx);
-
-            while i < floor_end {
-                voice_buf[i] = -gain;
                 i += 1;
             }
         }
 
-        self.next_rising_edge_tick = next_rising_edge_idx as i64 + tick;
-        self.next_falling_edge_tick = next_falling_edge_idx as i64 + tick;
+        self.up = up;
         self.gain = gain;
+        self.period_part_end_idx = period_part_end_idx - ln;
 
-        i
+        ln
     }
 }

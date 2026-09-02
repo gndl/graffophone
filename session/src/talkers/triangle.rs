@@ -14,10 +14,8 @@ pub const MODEL: &str = "Triangle";
 pub struct Triangle {
     sample_rate: f64,
     current_output: f32,
-    ascent_dy: f32,
-    ascent_end_tick: i64,
-    descent_dy: f32,
-    descent_end_tick: i64,
+    dy: f32,
+    period_part_end_idx: usize,
 }
 
 const FREQ_EAR_INDEX: Index = 0;
@@ -36,11 +34,9 @@ impl Triangle {
             base,
             Self {
                 sample_rate: AudioFormat::sample_rate() as f64,
-                current_output: 0.0,
-                ascent_dy: 0.0,
-                ascent_end_tick: 0,
-                descent_dy: 0.0,
-                descent_end_tick: 0,
+                current_output: 0.,
+                dy: -1.,
+                period_part_end_idx: 0,
             }
         ))
     }
@@ -52,9 +48,9 @@ impl Triangle {
 
 impl Talker for Triangle {
     fn activate(&mut self) {
-        self.current_output = 0.0;
-        self.ascent_end_tick = 0;
-        self.descent_end_tick = 0;
+        self.current_output = 0.;
+        self.dy = -1.;
+        self.period_part_end_idx = 0;
     }
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
@@ -65,66 +61,37 @@ impl Talker for Triangle {
         let voice_buf = base.voice(port).audio_buffer();
 
         let mut current_output = self.current_output;
-        let mut ascent_dy = self.ascent_dy;
-        let mut descent_dy = self.descent_dy;
-
-        let mut ascent_end_idx = if self.ascent_end_tick < tick {
-            usize::MAX
-        } else {
-            (self.ascent_end_tick - tick) as usize
-        };
-
-        let mut descent_end_idx = if self.descent_end_tick < tick {
-            usize::MAX
-        } else {
-            (self.descent_end_tick - tick) as usize
-        };
-
-        let mut dy = ascent_dy;
-        let mut end_idx = ascent_end_idx;
-        
-        if descent_end_idx < ascent_end_idx {
-            dy = descent_dy;
-            end_idx = descent_end_idx;
-        }
+        let mut dy = self.dy;
+        let mut period_part_end_idx = self.period_part_end_idx;
 
         let mut i: usize = 0;
 
         while i < ln {
-            if i == descent_end_idx {
+            if i == period_part_end_idx {
                 let freq = f64::EPSILON.max(freq_buf[i] as f64);
-                let ratio = ((ratio_buf[i] as f64 + 1.) * 0.5).clamp(f64::EPSILON, 1.0);
+                let ratio = ((ratio_buf[i] as f64 + 1.) * 0.5).clamp(f64::EPSILON, 1. - f64::EPSILON);
                 let period = self.sample_rate / freq;
+                let mut period_part = period * ratio;
 
-                current_output = -1.0;
-                let mut ascent_period = period * ratio;
-                ascent_dy = (2. / ascent_period) as f32;
-
-                if tick == 0 && i == 0 {
-                    current_output = 0.0;
-                    ascent_period *= 0.5;
+                if dy < 0. {
+                    current_output = -1.;
+                    dy = (2. / period_part) as f32;
+                    
+                    if tick == 0 && i == 0 {
+                        current_output = 0.;
+                        period_part *= 0.5;
+                    }
+                }
+                else {
+                    current_output = 1.;
+                    period_part = period * (1. - ratio);
+                    dy = (-2. / period_part) as f32;
                 }
 
-                dy = ascent_dy;
-                ascent_end_idx = i + ascent_period as usize;
-                end_idx = ln.min(ascent_end_idx);
+                period_part_end_idx = i + period_part as usize;
             }
-            if i == ascent_end_idx {
-                let freq = f64::EPSILON.max(freq_buf[i] as f64);
-                let ratio = ((ratio_buf[i] as f64 + 1.) * 0.5).clamp(f64::EPSILON, 1.0);
-                let period = self.sample_rate / freq;
 
-                let descent_period = period * (1. + f64::EPSILON - ratio);
-                descent_end_idx = i + descent_period as usize;
-
-                if descent_end_idx == i {
-                    continue;
-                }
-                current_output = 1.0;
-                descent_dy = (-2. / descent_period) as f32;
-                dy = descent_dy;
-                end_idx = ln.min(descent_end_idx);
-            }
+            let end_idx = ln.min(period_part_end_idx);
 
             while i < end_idx {
                 voice_buf[i] = current_output * gain_buf[i];
@@ -134,10 +101,8 @@ impl Talker for Triangle {
         }
 
         self.current_output = current_output;
-        self.ascent_dy = ascent_dy;
-        self.ascent_end_tick = ascent_end_idx as i64 + tick;
-        self.descent_dy = descent_dy;
-        self.descent_end_tick = descent_end_idx as i64 + tick;
+        self.dy = dy;
+        self.period_part_end_idx = period_part_end_idx - ln;
 
         ln
     }
