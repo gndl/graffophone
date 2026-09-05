@@ -20,6 +20,7 @@ use talkers::hub::{self, Hub};
 use talker::identifier::Id;
 use talkers::lv2::Lv2;
 use talkers::math::{self, Average, Product, Sum, AtanSum, TanhSum};
+use talkers::oscillator::{self, Oscillator};
 use talkers::pan::{self, Pan};
 use talkers::parabolic::{self, Parabolic};
 use talkers::regulator::{self, Regulators};
@@ -103,6 +104,7 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(EnvelopeShaper::descriptor()),
             PluginsManager::tkr_hr_kv(Fuzz::descriptor()),
             PluginsManager::tkr_hr_kv(Hub::descriptor()),
+            PluginsManager::tkr_hr_kv(Oscillator::descriptor()),
             PluginsManager::tkr_hr_kv(Pan::descriptor()),
             PluginsManager::tkr_hr_kv(Parabolic::descriptor()),
             PluginsManager::tkr_hr_kv(Product::descriptor()),
@@ -140,8 +142,6 @@ impl PluginsManager {
             Ok(rtalker!(AudioSwitch::new(base)?))
         } else if model == audiofile_input::MODEL {
             Ok(rtalker!(AudioFileInput::new(base)?))
-        } else if model == hub::MODEL {
-            Ok(rtalker!(Hub::new(base)?))
         } else if model == bounded_sinusoidal::MODEL {
             Ok(rtalker!(BoundedSinusoidal::new(base)?))
         } else if model == bounded_square::MODEL {
@@ -158,6 +158,10 @@ impl PluginsManager {
             Ok(rtalker!(EnvelopeShaper::new(base)?))
         } else if model == fuzz::MODEL {
             Ok(rtalker!(Fuzz::new(base)?))
+        } else if model == hub::MODEL {
+            Ok(rtalker!(Hub::new(base)?))
+        } else if model == oscillator::MODEL {
+            Ok(rtalker!(Oscillator::new(base)?))
         } else if model == pan::MODEL {
             Ok(rtalker!(Pan::new(base)?))
         } else if model == parabolic::MODEL {

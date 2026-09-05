@@ -12,27 +12,29 @@ pub const MODEL: &str = "Triangle";
 //ascent and end of descent
 
 pub struct Triangle {
+    freq_ear_index: Index,
+    ratio_ear_index: Index,
+    gain_ear_index: Index,
     sample_rate: f64,
     current_output: f32,
     dy: f32,
     period_part_end_idx: usize,
 }
 
-const FREQ_EAR_INDEX: Index = 0;
-const RATIO_EAR_INDEX: Index = 1;
-const GAIN_EAR_INDEX: Index = 2;
-
 impl Triangle {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
-        base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
-        base.add_ear(ear::audio(Some("ratio"), -1., 1., 0., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
+        let freq_ear_index = base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
+        let ratio_ear_index = base.add_ear(ear::audio(Some("ratio"), -1., 1., 0., &Init::DefValue)?);
+        let gain_ear_index = base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
 
         Ok(ctalker!(
             base,
             Self {
+                freq_ear_index,
+                ratio_ear_index,
+                gain_ear_index,
                 sample_rate: AudioFormat::sample_rate() as f64,
                 current_output: 0.,
                 dy: -1.,
@@ -55,9 +57,9 @@ impl Talker for Triangle {
 
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);
-        let ratio_buf = base.ear_audio_buffer(RATIO_EAR_INDEX);
-        let gain_buf = base.ear_cv_buffer(GAIN_EAR_INDEX);
+        let freq_buf = base.ear_cv_buffer(self.freq_ear_index);
+        let ratio_buf = base.ear_audio_buffer(self.ratio_ear_index);
+        let gain_buf = base.ear_cv_buffer(self.gain_ear_index);
         let voice_buf = base.voice(port).audio_buffer();
 
         let mut current_output = self.current_output;

@@ -111,8 +111,9 @@ impl TalkerBase {
     pub fn ear(&self, ear_idx: Index) -> &Ear {
         &self.ears[ear_idx]
     }
-    pub fn add_ear(&mut self, ear: Ear) {
+    pub fn add_ear(&mut self, ear: Ear) -> usize {
         self.ears.push(ear);
+        self.ears.len() - 1
     }
     pub fn sup_ear_set_with_associated_voice(&mut self, ear_idx: Index, set_idx: Index)-> Result<(), failure::Error> {
         let mut voice_idx = self.voices.len();
@@ -151,24 +152,29 @@ impl TalkerBase {
     pub fn voices<'a>(&'a self) -> &'a Vec<Voice> {
         &self.voices
     }
-    pub fn add_voice(&mut self, voice: Voice) {
+    pub fn add_voice(&mut self, voice: Voice) -> usize {
         self.voices.push(voice);
+        self.voices.len() - 1
     }
 
-    pub fn add_audio_voice(&mut self, tag: Option<&str>, value: f32) {
+    pub fn add_audio_voice(&mut self, tag: Option<&str>, value: f32) -> usize {
         self.voices.push(voice::audio(tag, value, self.buffer_len()));
+        self.voices.len() - 1
     }
 
-    pub fn add_control_voice(&mut self, tag: Option<&str>, value: f32) {
+    pub fn add_control_voice(&mut self, tag: Option<&str>, value: f32) -> usize {
         self.voices.push(voice::control(tag, value));
+        self.voices.len() - 1
     }
 
-    pub fn add_cv_voice(&mut self, tag: Option<&str>, value: f32) {
+    pub fn add_cv_voice(&mut self, tag: Option<&str>, value: f32) -> usize {
         self.voices.push(voice::cv(tag, value, self.buffer_len()));
+        self.voices.len() - 1
     }
 
-    pub fn add_atom_voice(&mut self, tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) {
+    pub fn add_atom_voice(&mut self, tag: Option<&str>, olv2_handler: Option<&Lv2Handler>) -> usize {
         self.voices.push(voice::atom(tag, olv2_handler, self.buffer_len()));
+        self.voices.len() - 1
     }
 
     pub fn sup_voice(&mut self, voice_idx: Index) {

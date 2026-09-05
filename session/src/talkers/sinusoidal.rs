@@ -5,12 +5,16 @@ use talker::audio_format::AudioFormat;
 use talker::ctalker;
 use talker::ear;
 use talker::ear::Init;
+use talker::identifier::Index;
 use talker::talker::{CTalker, Talker, TalkerBase};
 use talker::talker_handler::TalkerHandlerBase;
 
 pub const MODEL: &str = "Sinusoidal";
 
 pub struct Sinusoidal {
+    freq_ear_index: Index,
+    phase_ear_index: Index,
+    gain_ear_index: Index,
     frequence_coef: f64,
     last_tick: i64,
     last_angle: f64,
@@ -18,15 +22,18 @@ pub struct Sinusoidal {
 
 impl Sinusoidal {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
-        base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
-        base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
+        let freq_ear_index = base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
+        let phase_ear_index = base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
+        let gain_ear_index = base.add_ear(ear::cv(Some("gain"), -1., 4., 1., &Init::DefValue)?);
 
         base.add_audio_voice(None, 0.);
 
         Ok(ctalker!(
             base,
             Self {
+                freq_ear_index,
+                phase_ear_index,
+                gain_ear_index,
                 frequence_coef: AudioFormat::frequence_coef(),
                 last_tick: 0,
                 last_angle: 0.,
@@ -42,10 +49,11 @@ impl Sinusoidal {
 impl Talker for Sinusoidal {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
-        let freq_buf = base.ear_cv_buffer(0);
-        let phase_buf = base.ear_audio_buffer(1);
-        let gain_buf = base.ear_cv_buffer(2);
+        let freq_buf = base.ear_cv_buffer(self.freq_ear_index);
+        let phase_buf = base.ear_audio_buffer(self.phase_ear_index);
+        let gain_buf = base.ear_cv_buffer(self.gain_ear_index);
         let voice_buf = base.voice(port).audio_buffer();
+
         let c = self.frequence_coef;
 
         let mut last_angle = if self.last_tick == tick {
