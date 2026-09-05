@@ -30,8 +30,8 @@ impl BoundedTriangle {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
         base.add_ear(ear::audio(Some("ratio"), -1., 1., 0., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("roof"), -1000., 1000., 1., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("floor"), -1000., 1000., 0., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("roof"), -1000., 20000., 1., &Init::DefValue)?);
+        base.add_ear(ear::cv(Some("floor"), -1000., 20000., 0., &Init::DefValue)?);
 
         base.add_cv_voice(Some("cv"), 0.);
         base.add_audio_voice(Some("au"), 0.);
