@@ -4,6 +4,7 @@ pub mod audio_switch;
 pub mod audiofile_input;
 pub mod bounded_sinusoidal;
 pub mod bounded_square;
+pub mod bounded_triangle;
 pub mod damper;
 pub mod dynamic_modulator;
 pub mod envelope_shaper;
