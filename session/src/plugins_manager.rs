@@ -25,7 +25,6 @@ use talkers::pan::{self, Pan};
 use talkers::parabolic::{self, Parabolic};
 use talkers::regulator::{self, Regulators};
 use talkers::round::{self, Round};
-use talkers::second_degree_frequency_progression::{self, SecondDegreeFrequencyProgression};
 use talkers::sinusoidal::{self, Sinusoidal};
 use talkers::sinusoidal_fptg::{self, SinusoidalFPTG};
 use talkers::speed_modulator::{self, SpeedModulators};
@@ -110,7 +109,6 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(Product::descriptor()),
             PluginsManager::tkr_hr_kv(Regulators::descriptor()),
             PluginsManager::tkr_hr_kv(Round::descriptor()),
-            PluginsManager::tkr_hr_kv(SecondDegreeFrequencyProgression::descriptor()),
             PluginsManager::tkr_hr_kv(Sinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(SinusoidalFPTG::descriptor()),
             PluginsManager::tkr_hr_kv(SpeedModulators::descriptor()),
@@ -172,8 +170,6 @@ impl PluginsManager {
             Ok(rtalker!(Regulators::new(base)?))
         } else if model == round::MODEL {
             Ok(rtalker!(Round::new(base)?))
-        } else if model == second_degree_frequency_progression::MODEL {
-            Ok(rtalker!(SecondDegreeFrequencyProgression::new(110., 0., 1., 1., base)?))
         } else if model == sinusoidal::MODEL {
             Ok(rtalker!(Sinusoidal::new(base)?))
         } else if model == sinusoidal_fptg::MODEL {

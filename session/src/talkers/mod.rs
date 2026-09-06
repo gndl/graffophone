@@ -18,7 +18,6 @@ pub mod pan;
 pub mod parabolic;
 pub mod regulator;
 pub mod round;
-pub mod second_degree_frequency_progression;
 pub mod sinusoidal;
 pub mod sinusoidal_fptg;
 pub mod square;
