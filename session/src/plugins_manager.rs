@@ -9,6 +9,8 @@ use talkers::accumulator::{self, Accumulators};
 use talkers::adsrp::{self, ADSRp};
 use talkers::audio_switch::{self, AudioSwitch};
 use talkers::audiofile_input::{self, AudioFileInput};
+use talkers::bounded_parabolic::{self, BoundedParabolic};
+use talkers::bounded_round::{self, BoundedRound};
 use talkers::bounded_sinusoidal::{self, BoundedSinusoidal};
 use talkers::bounded_square::{self, BoundedSquare};
 use talkers::bounded_triangle::{self, BoundedTriangle};
@@ -95,6 +97,8 @@ impl PluginsManager {
             PluginsManager::tkr_hr_kv(AudioSwitch::descriptor()),
             PluginsManager::tkr_hr_kv(AudioFileInput::descriptor()),
             PluginsManager::tkr_hr_kv(Average::descriptor()),
+            PluginsManager::tkr_hr_kv(BoundedParabolic::descriptor()),
+            PluginsManager::tkr_hr_kv(BoundedRound::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSinusoidal::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedSquare::descriptor()),
             PluginsManager::tkr_hr_kv(BoundedTriangle::descriptor()),
@@ -140,6 +144,10 @@ impl PluginsManager {
             Ok(rtalker!(AudioSwitch::new(base)?))
         } else if model == audiofile_input::MODEL {
             Ok(rtalker!(AudioFileInput::new(base)?))
+        } else if model == bounded_parabolic::MODEL {
+            Ok(rtalker!(BoundedParabolic::new(base)?))
+        } else if model == bounded_round::MODEL {
+            Ok(rtalker!(BoundedRound::new(base)?))
         } else if model == bounded_sinusoidal::MODEL {
             Ok(rtalker!(BoundedSinusoidal::new(base)?))
         } else if model == bounded_square::MODEL {

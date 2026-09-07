@@ -28,7 +28,7 @@ const AUDIO_VOICE_PORT: usize = 1;
 impl BoundedSinusoidal {
     pub fn new(mut base: TalkerBase) -> Result<CTalker, failure::Error> {
         base.add_ear(ear::cv(Some("freq"), 0., 20000., 440., &Init::DefValue)?);
-        base.add_ear(ear::cv(Some("phase"), -1., 2., 0., &Init::DefValue)?);
+        base.add_ear(ear::audio(Some("phase"), -1., 2., 0., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("roof"), -1000., 20000., 1., &Init::DefValue)?);
         base.add_ear(ear::cv(Some("floor"), -1000., 20000., 0., &Init::DefValue)?);
 
@@ -54,7 +54,7 @@ impl Talker for BoundedSinusoidal {
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let ln = base.listen(tick, len);
         let freq_buf = base.ear_cv_buffer(FREQ_EAR_INDEX);
-        let phase_buf = base.ear_cv_buffer(PHASE_EAR_INDEX);
+        let phase_buf = base.ear_audio_buffer(PHASE_EAR_INDEX);
         let roof_buf = base.ear_cv_buffer(ROOF_EAR_INDEX);
         let floor_buf = base.ear_cv_buffer(FLOOR_EAR_INDEX);
         let voice_buf = base.voice(port).audio_buffer();
