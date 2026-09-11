@@ -18,6 +18,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
+use std::path::PathBuf;
+use std::path::Path;
+use std::env;
 
 use luil::ui_connector::UiConnector;
 
@@ -38,7 +41,7 @@ pub fn init() -> Result<(), failure::Error> {
 }
 
 pub struct Session {
-    filename: String,
+    file_path: PathBuf,
     band: Band,
     player: Player,
     start_tick: i64,
@@ -56,10 +59,10 @@ impl Session {
         })
     }
 
-    pub fn from_file(filename: &str) -> Result<Session, failure::Error> {
+    pub fn from_file(file_path: &Path) -> Result<Session, failure::Error> {
         let mut band_description = String::new();
 
-        let mut f = File::open(filename)?;
+        let mut f = File::open(file_path)?;
         f.read_to_string(&mut band_description)?;
 
         Ok(Self {
@@ -75,8 +78,8 @@ impl Session {
         self.band.produce_next_talker_id()
     }
 
-    pub fn filename<'a>(&'a self) -> &'a str {
-        &self.filename
+    pub fn file_path<'a>(&'a self) -> &'a PathBuf {
+        &self.file_path
     }
 
     pub fn talkers<'a>(&'a self) -> &'a HashMap<u32, RTalker> {
@@ -191,17 +194,17 @@ impl Session {
     }
 
     pub fn save(&mut self) -> Result<(), failure::Error> {
-        let mut file = File::create(&self.filename)?;
+        let mut file = File::create(&self.file_path)?;
         let backup = self.player.backup_band()?;
 
         writeln!(file, "{}", backup)?;
         Ok(())
     }
-    pub fn save_as(&mut self, filename: &str) -> Result<(), failure::Error> {
-        self.filename = filename.to_string();
-
-        if !filename.ends_with(SESSION_FILE_EXT) {
-            self.filename.push_str(SESSION_FILE_EXT);
+    pub fn save_as(&mut self, file_path: &Path) -> Result<(), failure::Error> {
+        self.file_path = file_path.to_path_buf();
+        
+        if !file_path.ends_with(SESSION_FILE_EXT) {
+            self.file_path.set_extension(SESSION_FILE_EXT);
         }
         self.save()
     }

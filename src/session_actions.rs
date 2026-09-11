@@ -89,7 +89,7 @@ pub fn create_actions_entries(
         dialog.save(Some(&window), Cancellable::NONE, move |file| {
             if let Ok(file) = file {
                 let path_buf = file.path().expect("Couldn't get file path");
-                session_presenter.borrow_mut().save_session_as(&path_buf.to_string_lossy());
+                session_presenter.borrow_mut().save_session_as(&path_buf);
             }
         });
     }))

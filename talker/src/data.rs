@@ -1,6 +1,7 @@
 extern crate failure;
 use std::cell::RefCell;
 use std::str::FromStr;
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub enum Data {
@@ -9,7 +10,7 @@ pub enum Data {
     Float(f32),
     String(String),
     Text(String),
-    File(String),
+    File(PathBuf),
 }
 pub type RData = RefCell<Data>;
 
@@ -59,7 +60,7 @@ impl Data {
     }
     pub fn to_fl(&self) -> Result<String, failure::Error> {
         match self {
-            Data::File(f) => Ok(f.to_string()),
+            Data::File(f) => Ok(f.to_string_lossy().to_string()),
             _ => Err(self.notify_incompatibility("File")),
         }
     }
@@ -77,7 +78,7 @@ impl Data {
         Data::Text(t)
     }
     pub fn fl(f: String) -> Self {
-        Data::File(f)
+        Data::File(PathBuf::from(f))
     }
 
     pub fn to_string(&self) -> Option<String> {
@@ -87,7 +88,7 @@ impl Data {
             Data::Float(f) => Some(f.to_string()),
             Data::String(s) => Some(s.to_string()),
             Data::Text(s) => Some(s.to_string()),
-            Data::File(s) => Some(s.to_string()),
+            Data::File(s) => Some(s.to_string_lossy().to_string()),
         }
     }
 
@@ -114,7 +115,7 @@ impl Data {
             },
             Data::String(_) => Ok(Data::String(s.to_string())),
             Data::Text(_) => Ok(Data::Text(s.to_string())),
-            Data::File(_) => Ok(Data::File(s.to_string())),
+            Data::File(_) => Ok(Data::File(PathBuf::from(s))),
             Data::Nil => Ok(Data::Nil),
         }
     }

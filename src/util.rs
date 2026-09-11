@@ -1,3 +1,6 @@
+
+use std::path::Path;
+use std::path::PathBuf;
 /*
 use std::cmp::Eq;
 use std::collections::HashMap;
@@ -22,9 +25,10 @@ where
 }
 */
 
-pub fn filename_with_extention(filename: &str, extention: &str) -> String {
-    let ext_pos = filename.rfind(".").unwrap_or(filename.len());
-    format!("{}.{}", filename.get(..ext_pos).unwrap(), extention)
+pub fn filename_with_extention(file_path: &Path, extention: &str) -> PathBuf {
+    let mut new_file_path = file_path.to_owned();
+    new_file_path.set_extension(extention);
+    new_file_path
 }
 
 pub fn print_cairo_result(result: Result<(), cairo::Error>) {

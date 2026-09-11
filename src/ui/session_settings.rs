@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use gio::prelude::FileExt;
 use gtk::{
     glib::{self, clone}, prelude::{BoxExt, ButtonExt, EditableExt, EntryBufferExtManual, EntryExt, GridExt, GtkWindowExt, WidgetExt}, DropDown, FileDialog,
@@ -80,7 +82,7 @@ fn add_output_selectors(window: &gtk::Window,
         .primary_icon_name("document-open-symbolic").primary_icon_sensitive(true).primary_icon_activatable(true)
         .hexpand(true).width_request(360)
         .build();
-    filepath_entry.buffer().set_text(output_presenter.file_path());
+    filepath_entry.buffer().set_text(output_presenter.file_path().to_str().unwrap_or(""));
 
     filepath_entry.connect_icon_press(clone!(#[weak] window, #[weak] session_presenter, move |_, _| {
         let dialog = FileDialog::builder()
@@ -92,15 +94,14 @@ fn add_output_selectors(window: &gtk::Window,
             if let Ok(file) = file {
                 let path_buf = file.path().expect("Couldn't get file path");
 
-                if let Some(path) = path_buf.to_str() {
-                    session_presenter.borrow_mut().set_mixer_output_file_path(mixer_id, output_id, path);
-                }
+                session_presenter.borrow_mut().set_mixer_output_file_path(mixer_id, output_id, &path_buf);
             }
         }));
     }));
 
     filepath_entry.connect_changed(clone!(#[weak] session_presenter, move |i| {
-        session_presenter.borrow_mut().set_mixer_output_file_path(mixer_id, output_id, i.buffer().text().as_str());
+        let path = PathBuf::from(i.buffer().text().as_str());
+        session_presenter.borrow_mut().set_mixer_output_file_path(mixer_id, output_id, &path);
     }));
 
     outputs_box.attach(&filepath_entry, FILEPATH_COLUMN, row, 1, 1);

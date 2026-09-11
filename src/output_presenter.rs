@@ -1,6 +1,8 @@
 
 use talker::identifier::{Id, Identifier};
 use session::{channel, output::ROutput};
+use std::path::Path;
+use std::path::PathBuf;
 
 pub const DEFAULT_CODEC: &str = "flac";
 pub const CODECS_LABELS: [&str; 6] = ["FLAC", "MP3", "Ogg Vorbis", "Opus", "WAV 16-bit", "WAV 24-bit"];
@@ -17,7 +19,7 @@ pub struct OutputPresenter {
     codec_name: String,
     sample_rate: usize,
     channel_layout: String,
-    file_path: String,
+    file_path: PathBuf,
 }
 
 impl OutputPresenter {
@@ -26,17 +28,17 @@ impl OutputPresenter {
         codec_name: &str,
         sample_rate: usize,
         channel_layout: &str,
-        file_path: &str,
+        file_path: PathBuf,
     ) -> OutputPresenter {
         Self {
             identifier,
             codec_name: codec_name.to_string(),
             sample_rate,
             channel_layout: channel_layout.to_string(),
-            file_path: file_path.to_string(),
+            file_path,
         }
     }
-            
+
     pub fn from(output: &ROutput) -> OutputPresenter {
         let out = output.borrow();
         let identifier = out.identifier().borrow().clone();
@@ -106,11 +108,11 @@ impl OutputPresenter {
         channel::Layout::index(self.channel_layout())
     }
 
-    pub fn file_path(&self) -> &str {
-        self.file_path.as_str()
+    pub fn file_path(&self) -> &Path {
+        self.file_path.as_path()
     }
 
-    pub fn set_file_path(&mut self, value: &str) {
-        self.file_path = value.to_string();
+    pub fn set_file_path(&mut self, value: &Path) {
+        self.file_path = value.to_owned();
     }
 }

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use ffmpeg::{channel_layout, codec, filter, format, frame, util};
 
 
@@ -53,9 +55,9 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channels: usize, file_path: &str,) -> Result<Writer, failure::Error> {
+    pub fn new(codec_name: &str, in_sample_rate: usize, out_sample_rate: usize, channels: usize, file_path: &Path,) -> Result<Writer, failure::Error> {
 
-        let mut output = format::output(&file_path)?;
+        let mut output = format::output(file_path)?;
 
         let codec = ffmpeg::encoder::find_by_name(codec_name)
             .ok_or(failure::err_msg(format!("Failed to find encoder {}", codec_name)))?

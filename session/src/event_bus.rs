@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::path::PathBuf;
 
 use talker::identifier::{Id, Index};
 
@@ -9,7 +10,7 @@ pub enum Notification {
     State(State),
     NewSession(String),
     SessionSaved,
-    SessionSavedAs(String),
+    SessionSavedAs(PathBuf),
     Tick(i64),
     TimeRange(i64, i64),
     Pause,

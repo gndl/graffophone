@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::path::PathBuf;
 
 extern crate failure;
 
@@ -55,8 +56,8 @@ pub trait Output {
 
     fn channels_names(&self) -> Vec<&'static str>;
 
-    fn file_path<'a>(&'a self) -> &'a str {
-        EMPTY_STR
+    fn file_path(&self) -> PathBuf {
+        PathBuf::new()
     }
 
     fn open(&mut self) -> Result<(), failure::Error>;

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 extern crate audiofile;
 
 use talker::ctalker;
@@ -17,7 +19,7 @@ pub struct AudioFileInput {
 
 impl AudioFileInput {
     pub fn new(base: TalkerBase) -> Result<CTalker, failure::Error> {
-        base.set_data(Data::File("Click here to select a file".to_string()));
+        base.set_data(Data::File(PathBuf::new()));
 
         Ok(ctalker!(
             base,

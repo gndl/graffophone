@@ -462,7 +462,7 @@ impl ApplicationView {
                 Notification::SessionSaved => obs.borrow().display_info_message("Session saved."),
                 Notification::SessionSavedAs(name) => {
                     obs.borrow().hide_message();
-                    obs.borrow().window.set_title(Some(name));
+                    obs.borrow().window.set_title(name.to_str());
                 }
                 Notification::Tick(tick) => println!("Todo : Applicationview.set_tick {}", tick),
                 Notification::TimeRange(st, et) => {

@@ -6,12 +6,8 @@ extern crate audiofile;
 extern crate scale;
 
 use std::env;
-/*
-use std::fs;
-use std::fs::File;
-use std::io::Read;
-use std::f32;
-*/
+use std::path::Path;
+use std::path::PathBuf;
 use std::f64::consts::PI;
 
 use rustfft::{FftPlanner, num_complex::Complex};
@@ -77,7 +73,7 @@ fn chunk_freq(chunk: &[Complex<f64>]) -> f32 {
     0.
 }
 
-fn file_freqs(filename: &str) -> Vec<f32> {
+fn file_freqs(filename: &Path) -> Vec<f32> {
     let mut file_reader = Reader::new(filename, SAMPLE_RATE as usize).expect("Invalid audio file");
     let mut channels = Vec::new();
 
@@ -107,7 +103,7 @@ fn file_freqs(filename: &str) -> Vec<f32> {
     freqs
 }
 
-fn file_freqs_and_durations(filename: &str) -> Vec<(f32, f64)> {
+fn file_freqs_and_durations(filename: &Path) -> Vec<(f32, f64)> {
     let mut freqs = Vec::new();
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(CHUNK_SIZE);
@@ -297,16 +293,15 @@ fn print_tseq(seqname: &str, bpm: f64, notes: &Vec<Note>, hits: &Vec<Hit>, times
 fn main() {
     let _ = audiofile::init();
     let args: Vec<String> = env::args().collect();
-   let filename = &args[1];
-//    println!("filename {} :", filename);
+   let filename = PathBuf::from(&args[1]);
    let seqname = "riff";
 
-   let freqs = file_freqs(filename);
+   let freqs = file_freqs(&filename);
     let notes = freqs_notes(&freqs);
     let (bpm, hits, times) = notes_hits(&notes);
     print_tseq("thick", bpm, &notes, &hits, times);
 
-    let freqs_and_durations = file_freqs_and_durations(filename);
+    let freqs_and_durations = file_freqs_and_durations(&filename);
     let notes = freqs_and_durations_notes(&freqs_and_durations);
     let (bpm, hits, times) = notes_hits(&notes);
     print_tseq("thin", bpm, &notes, &hits, times);

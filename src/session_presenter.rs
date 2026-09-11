@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -74,7 +75,7 @@ impl SessionPresenter {
         session_presenter.borrow().notify_new_session();
     }
 
-    pub fn open_session(session_presenter: &RSessionPresenter, filename: &str) {
+    pub fn open_session(session_presenter: &RSessionPresenter, filename: &Path) {
         session_presenter.borrow_mut().exit();
         session_presenter.borrow_mut().receive_new_session(Session::from_file(filename));
         session_presenter.borrow().notify_new_session();
@@ -87,11 +88,11 @@ impl SessionPresenter {
         self.manage_result(res, Some(Notification::SessionSaved));
     }
 
-    pub fn save_session_as(&mut self, filename: &str) {
+    pub fn save_session_as(&mut self, filename: &Path) {
         let res = self.session.save_as(filename);
         self.modified = self.modified && res.is_err();
 
-        self.manage_result(res, Some(Notification::SessionSavedAs(self.session.filename().to_string())));
+        self.manage_result(res, Some(Notification::SessionSavedAs(self.session.file_path().to_owned())));
     }
 
     pub fn session(&self) -> &Session {
@@ -120,12 +121,8 @@ impl SessionPresenter {
 
     fn notify_new_session(&self) {
         self.event_bus.borrow().notify(Notification::NewSession(
-            self.session.filename().to_string(),
+            self.session.file_path().to_string_lossy().to_string(),
         ));
-    }
-
-    pub fn notify_error(&self, error: failure::Error) {
-        self.event_bus.borrow().notify_error(error);
     }
 
     fn manage_result(&self, result: Result<(), failure::Error>, on_ok: Option<Notification>) {
@@ -436,8 +433,8 @@ impl SessionPresenter {
         let extention = output_presenter::CODEC_CONTAINERS_EXTENTIONS[value_index];
 
         self.visite_mutable_mixer_output(mixer_id, output_id, |o| {
-            let new_file_path = util::filename_with_extention(o.file_path(), extention);
-            o.set_file_path(new_file_path.as_str());
+            let file_path = util::filename_with_extention(o.file_path(), extention);
+            o.set_file_path(&file_path);
             o.set_codec_name(codec_name);
         });
     }
@@ -454,16 +451,12 @@ impl SessionPresenter {
         self.visite_mutable_mixer_output(mixer_id, output_id, |o| o.set_channel_layout(channel_layout));
     }
 
-    pub fn set_mixer_output_file_path(&mut self, mixer_id: Id, output_id: Id, value: &str) {
+    pub fn set_mixer_output_file_path(&mut self, mixer_id: Id, output_id: Id, value: &Path) {
         self.visite_mutable_mixer_output(mixer_id, output_id, |o| o.set_file_path(value));
     }
 
-    pub fn default_audiofile_name(&self) -> String {
-        util::filename_with_extention(self.session.filename(), output_presenter::DEFAULT_AUDIO_FILE_EXTENTION)
-    }
-
     pub fn add_mixer_file_output(&mut self, mixer_id: Id) {
-        let file_path = self.default_audiofile_name();
+        let file_path = util::filename_with_extention(self.session.file_path(), output_presenter::DEFAULT_AUDIO_FILE_EXTENTION);
 
         self.visite_mutable_mixer(mixer_id, |mixer| {
             let id = mixer.outputs().len() as u32;
@@ -473,7 +466,7 @@ impl SessionPresenter {
                 output_presenter::DEFAULT_CODEC,
                 output_presenter::DEFAULT_SAMPLE_RATE,
                 channel::DEFAULT_LAYOUT,
-                file_path.as_str());
+                file_path.to_owned());
 
             mixer.add_output(output);
         });
@@ -495,7 +488,7 @@ impl SessionPresenter {
                     output.codec_name().to_string(),
                     output.sample_rate(),
                     output.channel_layout().to_string(),
-                    output.file_path().to_string());
+                    output.file_path().to_owned());
 
                 outputs_params.push(output_params);
             }

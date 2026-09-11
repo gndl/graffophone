@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use ffmpeg::{codec, filter, format, frame, media, util, ChannelLayout};
 
 fn filter(
@@ -43,8 +45,8 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn new(file_path: &str, sample_rate: usize) -> Result<Reader, failure::Error> {
-        let input_context = format::input(&file_path).unwrap();
+    pub fn new(file_path: &Path, sample_rate: usize) -> Result<Reader, failure::Error> {
+        let input_context = format::input(file_path).unwrap();
         let input_stream = input_context
         .streams()
         .best(media::Type::Audio).ok_or(failure::err_msg("could not find best audio stream"))?;

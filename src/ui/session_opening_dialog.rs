@@ -27,7 +27,7 @@ pub fn create(window: &gtk::ApplicationWindow, session_presenter: &RSessionPrese
     dialog.open(Some(window), Cancellable::NONE, move |file| {
         if let Ok(file) = file {
             let path_buf = file.path().expect("Couldn't get file path");
-            SessionPresenter::open_session(&session, &path_buf.to_string_lossy());
+            SessionPresenter::open_session(&session, &path_buf);
         }
     });
     dialog

@@ -1,4 +1,6 @@
 use std::sync::{LazyLock, Mutex};
+use std::path::PathBuf;
+use std::path::Path;
 
 use talker::audio_format::AudioFormat;
 use talker::identifier::{Id, Identifiable};
@@ -13,7 +15,7 @@ use crate::plugins_manager::PluginsManager;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum OutputParam {
-    File(String, usize, String, String),
+    File(String, usize, String, PathBuf),
     Jack,
 }
 
@@ -72,6 +74,7 @@ impl Factory {
         id: Id,
         name: &str,
         configuration: Option<&str>,
+        session_folder: &Path,
     ) -> Result<ROutput, failure::Error> {
         if model == audiofile_output::MODEL {
             match configuration {
