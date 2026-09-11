@@ -79,7 +79,12 @@ impl Factory {
         if model == audiofile_output::MODEL {
             match configuration {
                 Some(conf) => {
-                    let output = AudioFileOutput::from_backup(id, AudioFormat::chunk_size(), conf)?;
+                    let output = AudioFileOutput::from_backup(
+                        id,
+                        AudioFormat::chunk_size(),
+                        conf,
+                        session_folder
+                    )?;
 
                     output.borrow().set_name(name);
 
@@ -96,20 +101,24 @@ impl Factory {
         }
     }
 
-    pub fn make_outputs(mixer_id: Id, outputs_params: &Vec<OutputParam>) -> Result<Vec<ROutput>, failure::Error> {
+    pub fn make_outputs(mixer_id: Id, outputs_params: &Vec<OutputParam>, session_folder: &Path) -> Result<Vec<ROutput>, failure::Error> {
         let in_sample_rate = AudioFormat::sample_rate();
         let mut outputs = Vec::with_capacity(outputs_params.len());
 
         for (idx, op) in outputs_params.iter().enumerate() {
             match op {
                 OutputParam::File(codec, out_sample_rate, channel_layout, file_path) => {
+                    let folder_path = file_path.parent().unwrap_or(session_folder);
+                    let file_name = PathBuf::from(file_path.file_name().ok_or_else(|| failure::err_msg("Output file name invalde!"))?);
+
                     let output = AudioFileOutput::new_ref(
                         output::produce_output_id(mixer_id, idx),
                         codec.as_str(),
                         in_sample_rate,
                         *out_sample_rate,
                         channel_layout,
-                        file_path.as_str())?;
+                        folder_path,
+                        &file_name)?;
 
                         outputs.push(output);
                 },

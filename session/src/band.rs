@@ -19,6 +19,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
 use std::rc::Rc;
+use std::path::PathBuf;
+use std::path::Path;
 
 use talker::ear::{Ear, Talk};
 use talker::identifier::{Id, Identifiable, Index};
@@ -70,17 +72,19 @@ pub struct Band {
     mixers: HashMap<Id, RMixer>,
     effective: bool,
     talker_id_count: u32,
+    session_folder: PathBuf,
 }
 
 pub type RBand = Rc<RefCell<Band>>;
 
 impl Band {
-    pub fn new(effective: bool) -> Band {
+    pub fn new(effective: bool, session_folder: &Path) -> Band {
         Self {
             talkers: HashMap::new(),
             mixers: HashMap::new(),
             effective,
             talker_id_count: 0,
+            session_folder: session_folder.to_path_buf(),
         }
     }
 
@@ -173,6 +177,7 @@ impl Band {
                         poutput.id,
                         poutput.name,
                         poutput.data,
+                        &self.session_folder,
                     )?;
                     outputs.push(output);
                 }
@@ -183,8 +188,8 @@ impl Band {
         Factory::make_mixer(pmixer.talker.id, pmixer.talker.name, None, outputs, effective)
     }
 
-    pub fn build(factory: &Factory, source: &String, effective: bool) -> Result<Band, failure::Error> {
-        let mut band = Band::new(effective);
+    pub fn build(factory: &Factory, source: &String, effective: bool, session_folder: &Path) -> Result<Band, failure::Error> {
+        let mut band = Band::new(effective, session_folder);
         let mut top_id = 0;
 
         let (ptalkers, pmixers, poutputs) = parser::parse(&source)?;
@@ -244,8 +249,8 @@ impl Band {
 
         Ok(band)
     }
-    pub fn make(source_buffer: &String, effective: bool) -> Result<Band, failure::Error> {
-        Factory::visit(|factory| Band::build(factory, source_buffer, effective))
+    pub fn make(source_buffer: &String, effective: bool, session_folder: &Path) -> Result<Band, failure::Error> {
+        Factory::visit(|factory| Band::build(factory, source_buffer, effective, session_folder))
     }
 
     pub fn to_ref(self) -> RBand {
@@ -489,12 +494,16 @@ impl Band {
         }
     }
 
-    pub fn set_mixer_outputs(&mut self, mixer_id: &Id, outputs_params: &Vec<OutputParam>, effective: bool) -> Result<(), failure::Error> {
+    pub fn set_mixer_outputs(&mut self,
+        mixer_id: &Id,
+        outputs_params: &Vec<OutputParam>,
+        effective: bool,
+    ) -> Result<(), failure::Error> {
         let mixer = self.extract_mixer(mixer_id)?;
         let id = mixer.borrow().id();
         let name = mixer.borrow().name();
 
-        let outputs = Factory::make_outputs(id, outputs_params)?;
+        let outputs = Factory::make_outputs(id, outputs_params, &self.session_folder)?;
 
         let updated_mixer = Factory::make_mixer(id, &name, Some(&mixer), outputs, effective)?;
 

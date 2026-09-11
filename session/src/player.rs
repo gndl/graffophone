@@ -18,6 +18,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+use std::path::PathBuf;
+use std::path::Path;
 
 use std::time::Duration;
 
@@ -74,16 +76,18 @@ struct Runner {
     order_receiver: Receiver<Order>,
     response_sender: Sender<Response>,
     plugin_handle_manager: PluginHandleManager,
+    session_folder: PathBuf,
 }
 
 impl Runner {
     fn new(
         order_receiver: Receiver<Order>,
         response_sender: Sender<Response>,
+        session_folder: PathBuf,
     ) -> Runner {
         let plugin_handle_manager = PluginHandleManager::new();
 
-        Runner { order_receiver, response_sender, plugin_handle_manager }
+        Runner { order_receiver, response_sender, plugin_handle_manager, session_folder}
     }
 
     fn send_state(&self, state: State) -> State {
@@ -115,7 +119,7 @@ impl Runner {
         let chunk_size = AudioFormat::chunk_size();
         let mut feedback = Feedback::new(chunk_size)?;
 
-        let mut band = Band::make(&band_description, true)?;
+        let mut band = Band::make(&band_description, true, &self.session_folder)?;
         let feedback_mixer_id = band.mixers().iter().next().map_or(0, |(k, _)| *k);
 
         // Wait user order
@@ -229,7 +233,7 @@ impl Runner {
                             let len = band.play(tick, feedback.fade_len())?;
                             let _ = band.close();
 
-                            let mut new_band = Band::make(&band_desc, true)?;
+                            let mut new_band = Band::make(&band_desc, true, &self.session_folder)?;
                             new_band.open()?;
                             let len = new_band.play(tick, len)?;
 
@@ -242,11 +246,11 @@ impl Runner {
                             band = new_band;
                         }
                         State::Paused => {
-                            band = Band::make(&band_desc, true)?;
+                            band = Band::make(&band_desc, true, &self.session_folder)?;
                             band.open()?;
                         }
                         State::Stopped => {
-                            band = Band::make(&band_desc, true)?;
+                            band = Band::make(&band_desc, true, &self.session_folder)?;
                         }
                         State::Exited => (),
                     }
@@ -347,7 +351,10 @@ pub struct Player {
 pub type RPlayer = Rc<RefCell<Player>>;
 
 impl Player {
-    pub fn new(band_description: String) -> Result<Player, failure::Error> {
+    pub fn new(band_description:  &str, session_folder:  &Path) -> Result<Player, failure::Error> {
+        let band_description = band_description.to_string();
+        let session_folder = session_folder.to_path_buf();
+
         let (order_sender, order_receiver): (Sender<Order>, Receiver<Order>) =
             std::sync::mpsc::channel();
         let (response_sender, response_receiver): (Sender<Response>, Receiver<Response>) =
@@ -357,7 +364,7 @@ impl Player {
             State::Exited
         } else {
             let _join_handle = thread::spawn(move || {
-                let mut runner = Runner::new(order_receiver, response_sender);
+                let mut runner = Runner::new(order_receiver, response_sender, session_folder);
 
                 runner.start(band_description)
             });

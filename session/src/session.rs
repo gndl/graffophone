@@ -50,10 +50,11 @@ pub struct Session {
 
 impl Session {
     pub fn new(band_description: String) -> Result<Session, failure::Error> {
+        let cd = env::current_dir()?;
         Ok(Self {
-            filename: NEW_SESSION_FILENAME.to_string(),
-            band: Band::make(&band_description, false)?,
-            player: Player::new(band_description)?,
+            file_path: cd.join(NEW_SESSION_FILENAME),
+            band: Band::make(&band_description, false, &cd)?,
+            player: Player::new(&band_description, &cd)?,
             start_tick: 0,
             end_tick: 0,
         })
@@ -65,10 +66,12 @@ impl Session {
         let mut f = File::open(file_path)?;
         f.read_to_string(&mut band_description)?;
 
+        let session_folder = file_path.parent().unwrap();
+
         Ok(Self {
-            filename: filename.to_string(),
-            band: Band::make(&band_description, false)?,
-            player: Player::new(band_description)?,
+            file_path: file_path.to_path_buf(),
+            band: Band::make(&band_description, false, session_folder)?,
+            player: Player::new(&band_description, session_folder)?,
             start_tick: 0,
             end_tick: 0,
         })
@@ -127,15 +130,17 @@ impl Session {
         &self.player
     }
     pub fn new_band(&mut self) -> Result<(), failure::Error> {
-        self.band = Band::new(false);
-        self.player = Player::new("".to_string())?;
+        let session_folder = self.file_path.parent().unwrap();
+        self.band = Band::new(false, session_folder);
+        self.player = Player::new("", session_folder)?;
 
         Ok(())
     }
 
     pub fn init(&mut self, band_description: String) -> Result<(), failure::Error> {
-        self.band = Band::make(&band_description, false)?;
-        self.player = Player::new(band_description)?;
+        let session_folder = self.file_path.parent().unwrap();
+        self.band = Band::make(&band_description, false, session_folder)?;
+        self.player = Player::new(&band_description, session_folder)?;
 
         Ok(())
     }
@@ -143,7 +148,8 @@ impl Session {
     fn check_not_exited(&mut self) -> Result<(), failure::Error> {
 
         if self.player.state() == State::Exited {
-            self.player = Player::new(self.band.serialize()?)?;
+            let session_folder = self.file_path.parent().unwrap();
+            self.player = Player::new(&self.band.serialize()?, session_folder)?;
         }
         Ok(())
     }
@@ -158,7 +164,8 @@ impl Session {
     }
 
     pub fn load_band(&mut self, band_description: String) -> Result<State, failure::Error> {
-        self.band = Band::make(&band_description, false)?;
+        let session_folder = self.file_path.parent().unwrap();
+        self.band = Band::make(&band_description, false, session_folder)?;
         self.player.load_band(band_description)
     }
 
