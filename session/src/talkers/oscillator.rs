@@ -80,6 +80,10 @@ impl Oscillator {
 }
 
 impl Talker for Oscillator {
+    fn activate(&mut self) {
+        self.core.activate();
+    }
+
     fn talk(&mut self, base: &TalkerBase, port: usize, tick: i64, len: usize) -> usize {
         let mut ln = base.ear(self.selector_ear_index).listen(tick, len);
 
