@@ -71,7 +71,8 @@ pub fn create_actions_entries(
 
     // Save session action
     let save = ActionEntry::builder("save")
-    .activate(clone!(#[strong] session_presenter, move |_, _, _| session_presenter.borrow_mut().save_session()))
+    .activate(clone!(#[strong] session_presenter, move |_, _, _|
+        session_presenter.borrow_mut().save_session()))
     .build();
 
     entries.push(save);
@@ -102,7 +103,8 @@ pub fn create_actions_entries(
 
     // Undo action
     let undo = ActionEntry::builder("undo")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().undo()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().undo()))
     .build();
 
     entries.push(undo);
@@ -111,7 +113,8 @@ pub fn create_actions_entries(
 
     // Redo action
     let redo = ActionEntry::builder("redo")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().redo()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().redo()))
     .build();
 
     entries.push(redo);
@@ -121,7 +124,8 @@ pub fn create_actions_entries(
 
     // Toggle Play and pause action
     let play = ActionEntry::builder("play")
-    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _| session_presenter.borrow_mut().play_or_pause(&session_presenter)))
+    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _|
+        session_presenter.borrow_mut().play_or_pause(&session_presenter)))
     .build();
 
     entries.push(play);
@@ -130,7 +134,8 @@ pub fn create_actions_entries(
 
     // Stop action
     let stop = ActionEntry::builder("stop")
-    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _| session_presenter.borrow_mut().stop()))
+    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _|
+        session_presenter.borrow_mut().stop()))
     .build();
 
     entries.push(stop);
@@ -139,10 +144,8 @@ pub fn create_actions_entries(
 
     // Restart action
     let restart = ActionEntry::builder("restart")
-    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _| {
-        session_presenter.borrow_mut().stop();
-        session_presenter.borrow_mut().play_or_pause(&session_presenter);
-    }))
+    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _|
+        session_presenter.borrow_mut().restart(&session_presenter)))
     .build();
 
     entries.push(restart);
@@ -151,7 +154,8 @@ pub fn create_actions_entries(
 
     // Record action
     let record = ActionEntry::builder("record")
-    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _| session_presenter.borrow_mut().record(&session_presenter)))
+    .activate(clone!(#[strong] session_presenter, move |_: &SimpleActionGroup, _, _|
+        session_presenter.borrow_mut().record(&session_presenter)))
     .build();
 
     entries.push(record);
@@ -161,7 +165,8 @@ pub fn create_actions_entries(
 
     // Push talker data action
     let push_talker_data = ActionEntry::builder("push_talker_data")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().push_talker_data()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().push_talker_data()))
     .build();
 
     entries.push(push_talker_data);
@@ -170,7 +175,8 @@ pub fn create_actions_entries(
 
     // Commit talker data action
     let commit_talker_data = ActionEntry::builder("commit_talker_data")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().commit_talker_data()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().commit_talker_data()))
     .build();
 
     entries.push(commit_talker_data);
@@ -179,7 +185,8 @@ pub fn create_actions_entries(
 
     // Cancel talker data action
     let cancel_talker_data = ActionEntry::builder("cancel_talker_data")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().cancel_talker_data()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().cancel_talker_data()))
     .build();
 
     entries.push(cancel_talker_data);
@@ -188,7 +195,8 @@ pub fn create_actions_entries(
 
     // Duplicate selected talkers action
     let duplicate_selected_talkers = ActionEntry::builder("duplicate_selected_talkers")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().duplicate_selected_talkers()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().duplicate_selected_talkers()))
     .build();
 
     entries.push(duplicate_selected_talkers);
@@ -198,7 +206,8 @@ pub fn create_actions_entries(
     // Find actions
     // Find forward action
     let find_forward = ActionEntry::builder("find_forward")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow_mut().find_next(false)))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow_mut().find_next(false)))
     .build();
 
     entries.push(find_forward);
@@ -207,7 +216,8 @@ pub fn create_actions_entries(
 
     // Find backward action
     let find_backward = ActionEntry::builder("find_backward")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow_mut().find_next(true)))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow_mut().find_next(true)))
     .build();
 
     entries.push(find_backward);
@@ -216,7 +226,8 @@ pub fn create_actions_entries(
 
     // Toggle talkers face action
     let toggle_talkers_face = ActionEntry::builder("toggle_talkers_face")
-    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _| view.borrow().graph_presenter().borrow_mut().toggle_talkers_face()))
+    .activate(clone!(#[strong] view, move |_: &SimpleActionGroup, _, _|
+        view.borrow().graph_presenter().borrow_mut().toggle_talkers_face()))
     .build();
 
     entries.push(toggle_talkers_face);

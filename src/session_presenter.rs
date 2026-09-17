@@ -372,6 +372,18 @@ impl SessionPresenter {
         self.manage_state_result(res);
     }
 
+    pub fn restart(&mut self, monitor: &RSessionPresenter) {
+        let res = self.session.stop();
+
+        if self.manage_state_result(res) {
+            let res = self.session.play();
+
+            if self.manage_state_result(res) {
+                SessionPresenter::monitor_state(monitor);
+            }
+        }
+    }
+
     pub fn record(&mut self, monitor: &RSessionPresenter) {
         let res = self.session.record();
         self.manage_state_result(res);
