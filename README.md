@@ -1,6 +1,4 @@
-![Graffophone_logo](./data/icons/the.daf.graffophone.128x128.png)
-
-# Graffophone
+# ![Graffophone_logo](./data/icons/the.daf.graffophone.64x64.png) Graffophone
 
 Modular audio processing application.
 
