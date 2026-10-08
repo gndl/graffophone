@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schemalist>
+  <schema id="@APP_ID@" path="/the/daf/graffophone/">
+    <key name="sample-rate" type="t">
+      <default>48000</default>
+      <summary>Sample rate</summary>
+    </key>
+  </schema>
+</schemalist>

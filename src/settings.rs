@@ -1,6 +1,10 @@
 
+use gio::prelude::SettingsExt;
 use gio::{prelude::ApplicationExt, ActionEntry};
+
 use crate::gio::prelude::ActionMapExtManual;
+
+use talker::audio_format::AudioFormat;
 
 use crate::session_presenter::RSessionPresenter;
 use crate::ui::general_settings;
@@ -45,4 +49,26 @@ pub fn menu() -> gio::Menu {
 
 pub fn get_directory() -> std::path::PathBuf {
     session::util::configuration_path()
+}
+
+pub struct Settings {
+    gsettings: gio::Settings,
+}
+
+impl Settings {
+    pub fn new(app_id: &str) -> Settings {
+        let gsettings = gio::Settings::new(app_id);
+
+        // Get the sample rate from the settings
+        AudioFormat::set_sample_rate(gsettings.uint64("sample-rate") as usize);
+
+        Self {gsettings}
+    }
+}
+
+impl Drop for Settings {
+    fn drop(&mut self) {
+        // Set the sample rate to the settings
+        let _ = self.gsettings.set_uint64("sample-rate", AudioFormat::sample_rate() as u64);
+    }
 }

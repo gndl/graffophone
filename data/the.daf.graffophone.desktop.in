@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Graffophone
+GenericName=Graffophone Digital Audio Workstation
+Comment=Sequences, synthesizes, mixes and records multi-track audio
+Keywords=audio;sound;DAW,multitrack,lv2,midi
+Exec=graffophone
+Icon=@APP_ID@
+Terminal=false
+Type=Application
+DBusActivatable=true
+Categories=GNOME;GTK;X-AudioEditing;Audio;Recorder;

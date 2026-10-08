@@ -16,6 +16,7 @@ use gtk::{CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use session::event_bus::EventBus;
 
 mod application_view;
+mod config;
 mod graph_control;
 mod graph_presenter;
 mod graph_view;
@@ -37,8 +38,18 @@ use session_presenter::SessionPresenter;
 
 fn main() {
 
+    // Load resources from installed location
+    let res = gio::Resource::load(config::resources_file())
+        .expect("Could not load gresource file");
+    gio::resources_register(&res);
+
+    let app_id = config::app_id();
+
+    let _settings = settings::Settings::new(app_id);
+
+    // Create a new application
     let application =
-        gtk::Application::new(Some("com.gitlab.gndl.graffophone"), Default::default());
+        gtk::Application::new(Some(app_id), Default::default());
 
     application.connect_startup(|_: &gtk::Application| {
         // The CSS "magic" happens here.

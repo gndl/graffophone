@@ -1,3 +1,5 @@
+![Graffophone_logo](./data/icons/the.daf.graffophone.128x128.png)
+
 # Graffophone
 
 Modular audio processing application.
@@ -25,16 +27,31 @@ Formats :
 
 ### Configuration
 
-Prerequisites: rust >= 1.73.0, ffmpeg 7, liblilv-dev >= 0.24
+Prerequisites: rust >= 1.73.0, meson >= 1.3, ffmpeg 7, liblilv-dev >= 0.24
+
+#### Configure the project
+
+    $ meson setup builddir
+    
+
+#### Configure the project for development
+
+    $ meson setup builddir -Dprofile=development --prefix=~/.local
+
 
 ### Compilation
 
-    $ cargo build --bin graffophone --release
+    $ meson compile -C builddir cargo-build
 
 
 ### Execution
 
-    $ cargo run --bin graffophone --release
+    $ graffophone
+
+
+### Installation
+
+    $ meson install -C builddir
 
 
 ## Credits
